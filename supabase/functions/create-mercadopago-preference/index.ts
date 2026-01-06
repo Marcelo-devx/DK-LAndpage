@@ -21,9 +21,10 @@ serve(async (req) => {
     // @ts-ignore
     const MERCADOPAGO_ACCESS_TOKEN = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') as string;
 
+    // Log para depuração (NÃO use console.log em produção com dados sensíveis, mas aqui ajuda a achar o erro)
     if (!MERCADOPAGO_ACCESS_TOKEN) {
-        console.error("MERCADOPAGO_ACCESS_TOKEN is missing.");
-        return new Response(JSON.stringify({ error: 'MERCADOPAGO_ACCESS_TOKEN não configurado. Contate o suporte.' }), {
+        console.error("[create-mercadopago-preference] ERRO: MERCADOPAGO_ACCESS_TOKEN está vazio ou não configurado.");
+        return new Response(JSON.stringify({ error: 'Configuração de pagamento incompleta (Secret missing).' }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 500,
         })
@@ -39,7 +40,6 @@ serve(async (req) => {
       }
     )
 
-    // 1. Check user authentication
     const { data: { user } } = await supabaseClient.auth.getUser()
     if (!user) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -48,7 +48,6 @@ serve(async (req) => {
       })
     }
 
-    // 2. Get order details from the client (order is already created)
     const { shipping_address, order_id, total_price } = await req.json()
     
     if (total_price <= 0) {
@@ -58,21 +57,10 @@ serve(async (req) => {
         })
     }
 
-    // --- Phone Number Validation and Splitting ---
-    const phone = shipping_address.phone;
-    const cleanedPhone = phone.replace(/\D/g, '');
-
-    if (typeof cleanedPhone !== 'string' || cleanedPhone.length < 10 || cleanedPhone.length > 11) {
-        return new Response(JSON.stringify({ error: 'Número de telefone inválido. Deve conter DDD + número (10 ou 11 dígitos).' }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 400,
-        })
-    }
-    
+    const cleanedPhone = shipping_address.phone.replace(/\D/g, '');
     const areaCode = cleanedPhone.substring(0, 2);
     const phoneNumber = cleanedPhone.substring(2);
 
-    // 3. Prepare items for Mercado Pago preference
     const preferencePayload = {
         items: [{
             title: `Pedido #${order_id} - DKCWB`,
@@ -90,7 +78,7 @@ serve(async (req) => {
                 number: phoneNumber,
             },
             address: {
-                zip_code: shipping_address.cep.replace(/\D/g, ''), // Ensure CEP is clean
+                zip_code: shipping_address.cep.replace(/\D/g, ''),
                 street_name: shipping_address.street,
                 street_number: shipping_address.number,
             },
@@ -104,7 +92,6 @@ serve(async (req) => {
         notification_url: `${SUPABASE_URL}/functions/v1/mercadopago-webhook`,
     };
 
-    // 4. Call Mercado Pago API to create preference
     const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
         method: 'POST',
         headers: {
@@ -117,29 +104,24 @@ serve(async (req) => {
     const mpData = await mpResponse.json();
 
     if (!mpResponse.ok) {
-        console.error("Mercado Pago Preference Creation Failed. Status:", mpResponse.status, "Response:", mpData);
-        let mpError = 'Falha ao criar preferência de pagamento no Mercado Pago.';
-        if (mpData.message) mpError = mpData.message;
-        return new Response(JSON.stringify({ error: mpError }), {
+        console.error("[create-mercadopago-preference] MP API Error:", mpData);
+        return new Response(JSON.stringify({ error: mpData.message || 'Erro na API do Mercado Pago' }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 400,
         })
     }
 
-    // 5. Return init_point (redirect URL)
-    const preferenceData = {
+    return new Response(JSON.stringify({
         order_id: order_id,
         init_point: mpData.init_point,
-    }
-
-    return new Response(JSON.stringify(preferenceData), {
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     })
 
   } catch (error) {
-    console.error("General Edge Function Error:", error)
-    return new Response(JSON.stringify({ error: error.message || 'Erro interno da função Edge.' }), {
+    console.error("[create-mercadopago-preference] Global Error:", error)
+    return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
     })

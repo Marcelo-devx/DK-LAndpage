@@ -48,18 +48,23 @@ const Index = () => {
 
   return (
     <div className="bg-slate-950 overflow-x-hidden text-white w-full">
-      {/* Hero Section */}
+      {/* Hero Section - Reduzida a altura aqui */}
       <section className="relative w-full overflow-hidden">
         <Carousel plugins={[Autoplay({ delay: 5000 })]} className="w-full">
           <CarouselContent>
             {heroSlides.map((slide, index) => (
               <CarouselItem key={index}>
-                <Link to={slide.button_url || '#'} className="block relative aspect-[4/5] md:aspect-[25/9] w-full overflow-hidden">
+                <Link 
+                  to={slide.button_url || '#'} 
+                  className="block relative aspect-[16/10] md:aspect-[3/1] lg:aspect-[4/1] w-full overflow-hidden"
+                >
                   <img 
                     src={slide.image_url} 
                     className="w-full h-full object-cover" 
                     alt={slide.title || "Banner Principal"} 
                   />
+                  {/* Overlay gradiente opcional para legibilidade se houver texto no slide */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 to-transparent" />
                 </Link>
               </CarouselItem>
             ))}

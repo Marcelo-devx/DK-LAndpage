@@ -48,7 +48,7 @@ const renderContent = (text: string) => {
 const InformationalPopup = ({ isOpen, onClose, title, content }: InformationalPopupProps) => {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md bg-slate-900 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] p-0 overflow-hidden rounded-[2rem]">
+      <DialogContent className="sm:max-w-2xl bg-slate-900 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] p-0 overflow-hidden rounded-[2rem]">
         {/* Header Decorativo */}
         <div className="h-2 bg-gradient-to-r from-sky-500 to-indigo-500 w-full" />
         
@@ -57,12 +57,12 @@ const InformationalPopup = ({ isOpen, onClose, title, content }: InformationalPo
             <div className="p-3 bg-sky-500/20 rounded-2xl mb-4">
               <Info className="h-8 w-8 text-sky-400" />
             </div>
-            <DialogTitle className="font-black text-2xl md:text-3xl text-white tracking-tighter italic uppercase">
+            <DialogTitle className="font-black text-2xl md:text-4xl text-white tracking-tighter italic uppercase">
               {title}.
             </DialogTitle>
           </DialogHeader>
 
-          <div className="max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
+          <div className="overflow-y-auto pr-2 custom-scrollbar">
             {renderContent(content)}
           </div>
 

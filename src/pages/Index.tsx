@@ -12,6 +12,7 @@ import FooterBanner from '@/components/FooterBanner';
 import InfoSection from '@/components/InfoSection';
 import CategoryProductCarousel from '@/components/CategoryProductCarousel';
 import BrandSection from '@/components/BrandSection';
+import InformationalPopup from '@/components/InformationalPopup';
 
 const Index = () => {
   const [displayedProducts, setDisplayedProducts] = useState<any[]>([]);
@@ -21,18 +22,24 @@ const Index = () => {
   const [brands, setBrands] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
+  
+  // Estados para o Popup Informativo
+  const [infoPopup, setInfoPopup] = useState<{ title: string; content: string } | null>(null);
+  const [isPopupOpen, setIsPopupOpen] = useState(false);
+
   const { handleBrandClick } = useOutletContext<OutletContextType>();
   const navigate = useNavigate();
 
   useEffect(() => {
     const fetchData = async () => {
-      const [products, hero, promos, brandsData, categoriesData, featured] = await Promise.all([
+      const [products, hero, promos, brandsData, categoriesData, featured, popups] = await Promise.all([
         supabase.from('products').select('*').eq('is_visible', true).order('created_at', { ascending: false }).limit(12),
         supabase.from('hero_slides').select('*').order('sort_order'),
         supabase.from('promotions').select('*').eq('is_active', true).order('created_at', { ascending: false }),
         supabase.from('brands').select('*').order('name'),
         supabase.from('categories').select('name').order('name'),
-        supabase.from('products').select('*').eq('is_featured', true).eq('is_visible', true).limit(8)
+        supabase.from('products').select('*').eq('is_featured', true).eq('is_visible', true).limit(8),
+        supabase.from('informational_popups').select('title, content').eq('is_active', true).limit(1).single()
       ]);
 
       setDisplayedProducts(products.data || []);
@@ -41,14 +48,36 @@ const Index = () => {
       setBrands(brandsData.data || []);
       setCategories(categoriesData.data || []);
       setFeaturedProducts(featured.data || []);
+      
+      // Lógica para mostrar o popup apenas se houver um ativo e não tiver sido visto nesta sessão
+      if (popups.data && !sessionStorage.getItem('info_popup_seen')) {
+        setInfoPopup(popups.data);
+        setTimeout(() => setIsPopupOpen(true), 2000); // Aparece após 2 segundos
+      }
+      
       setLoadingProducts(false);
     };
     fetchData();
   }, []);
 
+  const handleClosePopup = () => {
+    setIsPopupOpen(false);
+    sessionStorage.setItem('info_popup_seen', 'true');
+  };
+
   return (
     <div className="bg-slate-950 overflow-x-hidden text-white w-full">
-      {/* Hero Section - Reduzida a altura aqui */}
+      {/* Popup Informativo Dinâmico */}
+      {infoPopup && (
+        <InformationalPopup 
+          isOpen={isPopupOpen} 
+          onClose={handleClosePopup}
+          title={infoPopup.title}
+          content={infoPopup.content}
+        />
+      )}
+
+      {/* Hero Section */}
       <section className="relative w-full overflow-hidden">
         <Carousel plugins={[Autoplay({ delay: 5000 })]} className="w-full">
           <CarouselContent>
@@ -63,7 +92,6 @@ const Index = () => {
                     className="w-full h-full object-cover" 
                     alt={slide.title || "Banner Principal"} 
                   />
-                  {/* Overlay gradiente opcional para legibilidade se houver texto no slide */}
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 to-transparent" />
                 </Link>
               </CarouselItem>

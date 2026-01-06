@@ -1,0 +1,13 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <g>
+    <!-- Corpo do Charuto -->
+    <rect x="4" y="26" width="56" height="12" rx="6" fill="#6F4E37"/>
+    <!-- Anilha do Charuto -->
+    <rect x="22" y="24" width="12" height="16" fill="#D4AF37"/>
+    <!-- Detalhe da Anilha -->
+    <rect x="22" y="24" width="12" height="2" fill="#36454F"/>
+    <rect x="22" y="38" width="12" height="2" fill="#36454F"/>
+    <!-- Inicial -->
+    <text x="28" y="35" font-family="Georgia, serif" font-size="10" fill="#36454F" text-anchor="middle">I</text>
+  </g>
+</svg>

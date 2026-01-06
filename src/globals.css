@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 222 47% 2%; /* Fundo quase preto para dar destaque */
+    --foreground: 0 0% 100%;  /* Texto principal Branco Puro */
+
+    --card: 222 47% 4%;
+    --card-foreground: 0 0% 100%;
+
+    --popover: 222 47% 2%;
+    --popover-foreground: 0 0% 100%;
+
+    --primary: 199 89% 48%; 
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 217 32% 17%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 215 25% 40%;
+    --muted-foreground: 215 20% 90%;
+
+    --accent: 199 89% 48%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217 32% 20%;
+    --input: 217 32% 25%;
+    --ring: 199 89% 48%;
+
+    --radius: 1rem;
+
+    /* Variáveis de Alta Visibilidade */
+    --color-off-white: #020617;      
+    --color-charcoal-gray: #ffffff;  /* Texto Principal: Branco Total */
+    --color-gold-accent: #38bdf8;    /* Azul Sky Vibrante */
+    --color-tobacco-brown: #cbd5e1;  /* Texto Secundário: Slate 300 (Cinza muito claro) */
+    --color-light-tan: #0f172a;      
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground selection:bg-primary/30 antialiased;
+  }
+  
+  /* Garantir que labels de formulários sejam visíveis */
+  label {
+    @apply text-white font-bold mb-1 block;
+  }
+
+  /* Deixar os campos de texto mais claros por dentro */
+  input, textarea {
+    @apply bg-slate-900 border-white/20 text-white placeholder:text-slate-500 !important;
+  }
+}
+
+.glass-effect {
+  @apply bg-white/[0.05] backdrop-blur-xl border border-white/20;
+}
+
+.text-gradient {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-sky-400 to-white;
+}

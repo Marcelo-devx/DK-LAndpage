@@ -15,10 +15,28 @@ const SocialProofPopup = () => {
   const [items, setItems] = useState<SalesPopupItem[]>([]);
   const [currentItemIndex, setCurrentItemIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
+  
+  // Estados para os tempos vindo do banco (em milissegundos)
+  const [displayDuration, setDisplayDuration] = useState(6000); // Tempo visível
+  const [displayInterval, setDisplayInterval] = useState(10000); // Tempo entre popups
 
   useEffect(() => {
-    const fetchItems = async () => {
-      // Busca exclusivamente da tabela sales_popups
+    const fetchData = async () => {
+      // 1. Busca as configurações de tempo
+      const { data: settings } = await supabase
+        .from('app_settings')
+        .select('key, value')
+        .or('key.eq.sales_popup_duration,key.eq.sales_popup_interval');
+
+      if (settings) {
+        const duration = settings.find(s => s.key === 'sales_popup_duration');
+        const interval = settings.find(s => s.key === 'sales_popup_interval');
+        
+        if (duration?.value) setDisplayDuration(parseInt(duration.value) * 1000);
+        if (interval?.value) setDisplayInterval(parseInt(interval.value) * 1000);
+      }
+
+      // 2. Busca as vendas recentes
       const { data, error } = await supabase
         .from('sales_popups')
         .select('id, customer_name, product_name, product_image_url, time_ago')
@@ -33,38 +51,38 @@ const SocialProofPopup = () => {
 
       if (data && data.length > 0) {
         setItems(data);
-        // Inicia a exibição após um breve delay
+        // Inicia a exibição após um breve delay inicial fixo
         setTimeout(() => setIsVisible(true), 3000);
       }
     };
 
-    fetchItems();
+    fetchData();
   }, []);
 
   useEffect(() => {
     if (items.length === 0 || !isVisible) return;
 
-    // O popup fica visível por 6 segundos
+    // O popup fica visível pelo tempo definido no banco
     const hideTimeout = setTimeout(() => {
       setIsVisible(false);
-    }, 6000);
+    }, displayDuration);
 
     return () => clearTimeout(hideTimeout);
-  }, [isVisible, items.length]);
+  }, [isVisible, items.length, displayDuration]);
 
   useEffect(() => {
     if (items.length === 0) return;
 
     if (!isVisible) {
-      // Espera 10 segundos antes de mostrar o próximo da lista
+      // Espera o intervalo definido no banco antes de mostrar o próximo
       const nextPopupTimeout = setTimeout(() => {
         setCurrentItemIndex((prevIndex) => (prevIndex + 1) % items.length);
         setIsVisible(true);
-      }, 10000);
+      }, displayInterval);
 
       return () => clearTimeout(nextPopupTimeout);
     }
-  }, [isVisible, items.length]);
+  }, [isVisible, items.length, displayInterval]);
 
   if (items.length === 0) return null;
 

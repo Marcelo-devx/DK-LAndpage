@@ -42,19 +42,19 @@ const BrandSection = ({ brands, loading, onBrandClick }: BrandSectionProps) => {
               <CarouselItem key={brand.name} className="pl-4 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/6">
                 <div 
                   onClick={() => onBrandClick(brand.name)}
-                  className="group relative flex items-center justify-center h-24 bg-white/[0.03] border border-white/10 rounded-2xl cursor-pointer transition-all duration-500 hover:bg-sky-500/10 hover:border-sky-500/50 hover:shadow-[0_0_30px_rgba(14,165,233,0.15)] overflow-hidden"
+                  className="group relative flex items-center justify-center h-24 bg-white border border-white/10 rounded-2xl cursor-pointer transition-all duration-500 hover:border-sky-500/50 hover:shadow-[0_0_30px_rgba(14,165,233,0.2)] overflow-hidden"
                 >
-                  {/* Glow effect on hover */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-sky-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                  {/* Overlay de hover sutil */}
+                  <div className="absolute inset-0 bg-sky-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                   
                   {brand.image_url ? (
                     <img 
                       src={brand.image_url} 
                       alt={brand.name} 
-                      className="max-h-14 w-auto object-contain transition-all duration-500 group-hover:scale-110"
+                      className="max-h-16 w-auto object-contain p-4 transition-all duration-500 group-hover:scale-110"
                     />
                   ) : (
-                    <span className="text-sm font-black uppercase tracking-widest text-slate-200 group-hover:text-sky-400 transition-colors px-4 text-center leading-tight">
+                    <span className="text-sm font-black uppercase tracking-widest text-slate-900 group-hover:text-sky-600 transition-colors px-4 text-center leading-tight">
                       {brand.name}
                     </span>
                   )}

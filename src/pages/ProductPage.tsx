@@ -1,30 +1,21 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Plus, Minus, Check, ChevronLeft } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useAppOutletContext } from '@/components/MainLayout';
-import ProductCard from '@/components/ProductCard';
-import ScrollAnimationWrapper from '@/components/ScrollAnimationWrapper';
+import { Plus, Minus, ChevronLeft } from "lucide-react";
 import { addToCart } from '@/utils/cart';
-import StarRating from '@/components/StarRating';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { showError } from '@/utils/toast';
 
 interface Product {
   id: number;
   category: string | null;
-  sub_category: string | null;
   name: string;
   price: number;
   pix_price: number | null;
   description: string | null;
   image_url: string | null;
-  brand: string | null;
 }
 
 interface Variant {
@@ -37,23 +28,6 @@ interface Variant {
   flavor_name?: string;
 }
 
-interface RelatedProduct {
-  id: number;
-  name: string;
-  price: number;
-  pix_price: number | null;
-  image_url: string;
-  category: string | null;
-  sub_category: string | null;
-}
-
-const PixIcon = ({ size = 20 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg" className="inline-block mr-3">
-    <path d="M371.304 186.064L250 307.368L128.696 186.064L41.3043 273.456L250 482.152L458.696 273.456L371.304 186.064Z" fill="#38bdf8"/>
-    <path d="M128.696 313.936L250 192.632L371.304 313.936L458.696 226.544L250 17.848L41.3043 226.544L128.696 313.936Z" fill="#38bdf8"/>
-  </svg>
-);
-
 const ProductPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -62,9 +36,6 @@ const ProductPage = () => {
   const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
-  const [relatedProducts, setRelatedProducts] = useState<RelatedProduct[]>([]);
-  const [loadingRelated, setLoadingRelated] = useState(true);
-  const { handleCategoryClick, handleBrandClick } = useAppOutletContext();
 
   useEffect(() => {
     const fetchProductData = async () => {
@@ -91,17 +62,13 @@ const ProductPage = () => {
         const flavorIds = variantsData.filter(v => v.flavor_id).map(v => v.flavor_id);
         const { data: flavorsData } = await supabase.from('flavors').select('id, name').in('id', flavorIds);
         setVariants(variantsData.map(v => ({ ...v, flavor_name: flavorsData?.find(f => f.id === v.flavor_id)?.name })));
+        
+        // Seleciona a primeira variante disponível por padrão
+        const firstAvailable = variantsData.find(v => v.stock_quantity > 0);
+        if (firstAvailable) setSelectedVariant(firstAvailable as any);
       }
 
       setLoading(false);
-
-      const { data: relatedData } = await supabase
-        .from('products')
-        .select('id, name, price, pix_price, image_url, category, sub_category')
-        .eq('category', productData.category)
-        .neq('id', productData.id)
-        .limit(4);
-      setRelatedProducts(relatedData || []);
     };
 
     fetchProductData();
@@ -116,11 +83,11 @@ const ProductPage = () => {
     addToCart(product!.id, quantity, 'product', selectedVariant?.id);
   };
 
-  if (loading) return <div className="container mx-auto px-6 py-20"><Skeleton className="w-full h-[600px] rounded-3xl" /></div>;
+  if (loading) return <div className="container mx-auto px-6 py-20"><Skeleton className="w-full h-[600px] rounded-3xl bg-white/5" /></div>;
   if (!product) return null;
 
-  const currentPrice = selectedVariant ? selectedVariant.price : product.price;
-  const currentPixPrice = selectedVariant ? selectedVariant.pix_price : product.pix_price;
+  const currentFullPrice = selectedVariant ? selectedVariant.price : product.price;
+  const currentPixPrice = (selectedVariant ? selectedVariant.pix_price : product.pix_price) || currentFullPrice;
 
   return (
     <div className="bg-slate-950 min-h-screen text-white pb-20">
@@ -147,19 +114,19 @@ const ProductPage = () => {
               <div className="flex flex-col space-y-4">
                 <div className="flex items-baseline space-x-3">
                     <span className="text-5xl font-black tracking-tighter text-white">
-                        {(currentPixPrice || currentPrice).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        {currentPixPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </span>
                     <span className="text-sm font-black text-sky-400 uppercase tracking-widest">no pix</span>
                 </div>
                 <p className="text-slate-400 text-sm font-medium">
-                  Parcelado em até 3x de {(currentPrice / 3).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} sem juros
+                  Ou {currentFullPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} em até 3x sem juros
                 </p>
               </div>
             </div>
 
             {variants.length > 0 && (
               <div className="space-y-6">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Configuração</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Opções Disponíveis</p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {variants.map((v) => (
                     <button
@@ -176,7 +143,6 @@ const ProductPage = () => {
                     >
                       <p className="font-bold text-xs">{v.flavor_name || 'Original'}</p>
                       {v.volume_ml && <p className="text-[10px] text-slate-400 mt-1">{v.volume_ml}ml</p>}
-                      {selectedVariant?.id === v.id && <div className="absolute top-2 right-2 h-1.5 w-1.5 rounded-full bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,1)]" />}
                     </button>
                   ))}
                 </div>
@@ -198,7 +164,7 @@ const ProductPage = () => {
                 className="w-full bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-[0.2em] h-16 rounded-2xl shadow-[0_15px_30px_-10px_rgba(14,165,233,0.5)] transition-all active:scale-95" 
                 onClick={handleAddToCart}
               >
-                Garantir agora
+                Adicionar ao Carrinho
               </Button>
             </div>
 

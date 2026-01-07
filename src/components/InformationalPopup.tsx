@@ -8,7 +8,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Info, X } from "lucide-react";
+import { Info } from "lucide-react";
 
 interface InformationalPopupProps {
   isOpen: boolean;
@@ -46,20 +46,15 @@ const renderContent = (text: string) => {
 
 const InformationalPopup = ({ isOpen, onClose, title, content }: InformationalPopupProps) => {
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="w-[95vw] sm:max-w-2xl bg-slate-900 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] p-0 overflow-hidden rounded-[1.5rem] md:rounded-[2rem] max-h-[85vh] md:max-h-[90vh] flex flex-col outline-none">
+    <Dialog open={isOpen} onOpenChange={() => {}}>
+      <DialogContent 
+        className="w-[95vw] sm:max-w-2xl bg-slate-900 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] p-0 overflow-hidden rounded-[1.5rem] md:rounded-[2rem] max-h-[85vh] md:max-h-[90vh] flex flex-col outline-none"
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
         {/* Barra superior de destaque */}
         <div className="h-1.5 bg-gradient-to-r from-sky-500 to-indigo-500 w-full shrink-0" />
         
-        {/* Botão de fechar (X) mais proeminente no mobile */}
-        <button 
-          onClick={onClose}
-          className="absolute right-3 top-4 text-slate-500 hover:text-white transition-colors z-[60] p-2"
-          aria-label="Fechar"
-        >
-          <X className="h-5 w-5 md:h-6 md:w-6" />
-        </button>
-
         <div className="flex flex-col flex-1 overflow-hidden">
           <div className="p-5 md:p-10 flex flex-col flex-1 min-h-0">
             <DialogHeader className="items-center text-center mb-4 md:mb-8 shrink-0">

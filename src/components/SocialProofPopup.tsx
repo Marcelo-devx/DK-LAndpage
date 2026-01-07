@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { AnimatePresence, motion } from 'framer-motion';
-import { X } from 'lucide-react';
+import { X, ShoppingBag } from 'lucide-react';
 
-interface FishingDisplayItem {
+interface SalesPopupItem {
   id: number;
   customer_name: string;
   product_name: string;
@@ -12,22 +12,28 @@ interface FishingDisplayItem {
 }
 
 const SocialProofPopup = () => {
-  const [items, setItems] = useState<FishingDisplayItem[]>([]);
+  const [items, setItems] = useState<SalesPopupItem[]>([]);
   const [currentItemIndex, setCurrentItemIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
     const fetchItems = async () => {
+      // Busca exclusivamente da tabela sales_popups
       const { data, error } = await supabase
-        .from('display_de_pesca')
+        .from('sales_popups')
         .select('id, customer_name, product_name, product_image_url, time_ago')
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(20);
 
       if (error) {
-        console.error("Error fetching social proof items:", error);
-      } else if (data && data.length > 0) {
-        setItems(data.sort(() => 0.5 - Math.random()));
-        // Show the first popup shortly after the page loads
+        console.error("Error fetching sales popups:", error);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        setItems(data);
+        // Inicia a exibição após um breve delay
         setTimeout(() => setIsVisible(true), 3000);
       }
     };
@@ -38,10 +44,10 @@ const SocialProofPopup = () => {
   useEffect(() => {
     if (items.length === 0 || !isVisible) return;
 
-    // Timer to hide the current popup
+    // O popup fica visível por 6 segundos
     const hideTimeout = setTimeout(() => {
       setIsVisible(false);
-    }, 5000); // Visible for 5 seconds
+    }, 6000);
 
     return () => clearTimeout(hideTimeout);
   }, [isVisible, items.length]);
@@ -49,20 +55,18 @@ const SocialProofPopup = () => {
   useEffect(() => {
     if (items.length === 0) return;
 
-    // When not visible, wait to show the next one
     if (!isVisible) {
+      // Espera 10 segundos antes de mostrar o próximo da lista
       const nextPopupTimeout = setTimeout(() => {
         setCurrentItemIndex((prevIndex) => (prevIndex + 1) % items.length);
         setIsVisible(true);
-      }, 8000); // Wait 8 seconds before showing the next one
+      }, 10000);
 
       return () => clearTimeout(nextPopupTimeout);
     }
   }, [isVisible, items.length]);
 
-  if (items.length === 0) {
-    return null;
-  }
+  if (items.length === 0) return null;
 
   const currentItem = items[currentItemIndex];
 
@@ -70,27 +74,46 @@ const SocialProofPopup = () => {
     <AnimatePresence>
       {isVisible && currentItem && (
         <motion.div
-          initial={{ opacity: 0, x: -100 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -100 }}
-          transition={{ duration: 0.5, ease: 'easeInOut' }}
-          className="fixed bottom-5 left-5 bg-slate-900/90 backdrop-blur-md rounded-xl shadow-2xl p-4 w-80 z-50 flex items-start space-x-4 border border-white/10"
+          initial={{ opacity: 0, y: 50, x: -20 }}
+          animate={{ opacity: 1, y: 0, x: 0 }}
+          exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+          className="fixed bottom-6 left-6 bg-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl p-4 w-[320px] z-[100] flex items-center space-x-4 border border-white/10"
         >
-          {currentItem.product_image_url && (
-            <img
-              src={currentItem.product_image_url}
-              alt={currentItem.product_name}
-              className="w-16 h-16 object-cover rounded-md border border-white/5"
-            />
-          )}
-          <div className="flex-1">
-            <p className="text-xs text-slate-400">
-              <span className="font-bold text-sky-400">{currentItem.customer_name}</span> {currentItem.time_ago}
-            </p>
-            <p className="font-bold text-slate-100 mt-1 text-sm leading-tight">{currentItem.product_name}</p>
+          <div className="shrink-0 w-16 h-16 bg-white/5 rounded-xl overflow-hidden border border-white/5 flex items-center justify-center">
+            {currentItem.product_image_url ? (
+              <img
+                src={currentItem.product_image_url}
+                alt={currentItem.product_name}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = 'https://placehold.co/100x100?text=DKCWB';
+                }}
+              />
+            ) : (
+              <ShoppingBag className="h-6 w-6 text-sky-400" />
+            )}
           </div>
-          <button onClick={() => setIsVisible(false)} className="text-slate-500 hover:text-white absolute top-2 right-2 transition-colors">
-            <X size={16} />
+          
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] text-sky-400 font-black uppercase tracking-widest mb-1">
+              Nova Venda!
+            </p>
+            <p className="text-sm font-black text-white truncate">
+              {currentItem.customer_name}
+            </p>
+            <p className="text-[11px] text-slate-300 line-clamp-2 mt-0.5 leading-tight">
+              {currentItem.product_name}
+            </p>
+            <p className="text-[9px] text-slate-500 font-bold uppercase mt-1">
+              há {currentItem.time_ago}
+            </p>
+          </div>
+
+          <button 
+            onClick={() => setIsVisible(false)} 
+            className="text-slate-500 hover:text-white absolute top-2 right-2 p-1 transition-colors"
+          >
+            <X size={14} />
           </button>
         </motion.div>
       )}

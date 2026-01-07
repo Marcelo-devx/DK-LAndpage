@@ -80,7 +80,7 @@ const Header = ({ onCartClick }: HeaderProps) => {
       <ul className={`flex ${mobile ? 'flex-col space-y-6 items-start' : 'items-center space-x-8'}`}>
         <li>
           <NavLink to="/produtos" className={({ isActive }) => `${linkClass} ${isActive ? activeLinkClass : ''}`}>
-            Coleção
+            Produtos
           </NavLink>
         </li>
       </ul>

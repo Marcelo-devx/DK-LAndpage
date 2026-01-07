@@ -134,7 +134,7 @@ const AllProductsPage = () => {
     <div className="container mx-auto px-4 py-8 md:py-16">
       <header className="mb-8 text-center">
         <h1 className="font-serif text-4xl md:text-5xl text-charcoal-gray">Nossos Produtos</h1>
-        <p className="mt-2 text-lg text-stone-600">Explore nossa coleção completa.</p>
+        <p className="mt-2 text-lg text-stone-600">Explore nossa linha completa de produtos.</p>
       </header>
       <div className="grid grid-cols-1 lg:grid-cols-4 lg:gap-8">
         <div className="lg:col-span-1 mb-8 lg:mb-0">

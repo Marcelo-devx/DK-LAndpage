@@ -54,7 +54,7 @@ const BrandSection = ({ brands, loading, onBrandClick }: BrandSectionProps) => {
                     <img 
                       src={brand.image_url} 
                       alt={brand.name} 
-                      className="max-h-[75%] w-[85%] object-contain transition-all duration-500 group-hover:scale-110 drop-shadow-sm"
+                      className="max-h-[70%] w-[80%] object-contain transition-all duration-500 group-hover:scale-110 drop-shadow-sm"
                     />
                   ) : (
                     <span className="text-sm font-black uppercase tracking-widest text-slate-800 group-hover:text-sky-600 transition-colors px-4 text-center leading-tight">

@@ -39,11 +39,11 @@ const ProductCard = ({ product }: ProductCardProps) => {
   return (
     <Link to={product.url} className="group block h-full">
       <Card className="h-full bg-white border border-stone-200 hover:border-sky-500/50 transition-all duration-500 rounded-2xl overflow-hidden flex flex-col group-hover:shadow-xl">
-        <div className="overflow-hidden aspect-square relative bg-white flex items-center justify-center">
+        <div className="overflow-hidden aspect-[4/5] relative bg-white">
           <img 
             src={product.imageUrl} 
             alt={product.name} 
-            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-700 ease-out" 
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out" 
           />
           <div className="absolute inset-x-0 bottom-0 bg-black/80 py-1.5 px-2 text-[9px] font-black text-white uppercase text-center tracking-tighter z-10">
             PRODUTOS APENAS PARA MAIORES DE 18+
@@ -51,7 +51,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
         </div>
         <CardContent className="p-5 md:p-6 flex-grow flex flex-col">
           <div className="flex-grow">
-            <h3 className="text-slate-900 text-base font-bold tracking-tight line-clamp-2 h-12 mb-4 group-hover:text-sky-600 transition-colors leading-tight">
+            <h3 className="text-slate-900 text-lg font-bold tracking-tight line-clamp-2 h-14 mb-4 group-hover:text-sky-600 transition-colors leading-tight">
               {product.name}
             </h3>
             
@@ -70,7 +70,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
                     </div>
                 </div>
                 
-                <p className="text-xs text-stone-500 font-medium">
+                <p className="text-sm text-stone-500 font-medium">
                     ou 3x de <span className="text-slate-900 font-bold">{installmentPrice}</span>
                 </p>
             </div>

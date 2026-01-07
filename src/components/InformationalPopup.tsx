@@ -8,7 +8,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Info } from "lucide-react";
+import { Info, X } from "lucide-react";
 
 interface InformationalPopupProps {
   isOpen: boolean;
@@ -48,33 +48,44 @@ const renderContent = (text: string) => {
 const InformationalPopup = ({ isOpen, onClose, title, content }: InformationalPopupProps) => {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-2xl bg-slate-900 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] p-0 overflow-hidden rounded-[2rem]">
+      <DialogContent className="sm:max-w-2xl bg-slate-900 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] p-0 overflow-hidden rounded-[1.5rem] md:rounded-[2rem] max-h-[90vh] flex flex-col">
         {/* Header Decorativo */}
-        <div className="h-2 bg-gradient-to-r from-sky-500 to-indigo-500 w-full" />
+        <div className="h-1.5 bg-gradient-to-r from-sky-500 to-indigo-500 w-full shrink-0" />
         
-        <div className="p-8 md:p-10">
-          <DialogHeader className="items-center text-center mb-8">
-            <div className="p-3 bg-sky-500/20 rounded-2xl mb-4">
-              <Info className="h-8 w-8 text-sky-400" />
+        {/* Botão de fechar manual para melhor UX no mobile */}
+        <button 
+          onClick={onClose}
+          className="absolute right-4 top-6 text-slate-500 hover:text-white transition-colors z-50 p-2"
+        >
+          <X className="h-6 w-6" />
+        </button>
+
+        <div className="flex flex-col h-full overflow-hidden">
+          <div className="p-6 md:p-10 flex flex-col h-full">
+            <DialogHeader className="items-center text-center mb-6 md:mb-8 shrink-0">
+              <div className="p-3 bg-sky-500/20 rounded-2xl mb-4">
+                <Info className="h-6 w-6 md:h-8 md:w-8 text-sky-400" />
+              </div>
+              <DialogTitle className="font-black text-xl md:text-4xl text-white tracking-tighter italic uppercase px-4">
+                {title}.
+              </DialogTitle>
+            </DialogHeader>
+
+            {/* Área de conteúdo rolável */}
+            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar min-h-0">
+              {renderContent(content)}
             </div>
-            <DialogTitle className="font-black text-2xl md:text-4xl text-white tracking-tighter italic uppercase">
-              {title}.
-            </DialogTitle>
-          </DialogHeader>
 
-          <div className="overflow-y-auto pr-2 custom-scrollbar">
-            {renderContent(content)}
+            <DialogFooter className="mt-6 md:mt-10 sm:justify-center shrink-0">
+              <Button 
+                type="button" 
+                onClick={onClose} 
+                className="w-full sm:w-auto bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest h-12 md:h-14 px-12 rounded-xl shadow-[0_10px_20px_-5px_rgba(14,165,233,0.4)] transition-all active:scale-95"
+              >
+                Entendi
+              </Button>
+            </DialogFooter>
           </div>
-
-          <DialogFooter className="mt-10 sm:justify-center">
-            <Button 
-              type="button" 
-              onClick={onClose} 
-              className="w-full sm:w-auto bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest h-14 px-12 rounded-xl shadow-[0_10px_20px_-5px_rgba(14,165,233,0.4)] transition-all active:scale-95"
-            >
-              Entendi
-            </Button>
-          </DialogFooter>
         </div>
       </DialogContent>
     </Dialog>

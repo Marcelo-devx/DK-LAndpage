@@ -43,41 +43,41 @@ const ProductCard = ({ product }: ProductCardProps) => {
           <img 
             src={product.imageUrl} 
             alt={product.name} 
-            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-700 ease-out p-2" 
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out" 
           />
           <div className="absolute inset-x-0 bottom-0 bg-black/80 py-1.5 px-2 text-[9px] font-black text-white uppercase text-center tracking-tighter z-10">
             PRODUTOS APENAS PARA MAIORES DE 18+
           </div>
         </div>
-        <CardContent className="p-4 md:p-5 flex-grow flex flex-col">
+        <CardContent className="p-5 md:p-6 flex-grow flex flex-col">
           <div className="flex-grow">
-            <h3 className="text-slate-900 text-sm font-bold tracking-tight line-clamp-2 h-10 mb-3 group-hover:text-sky-600 transition-colors leading-tight">
+            <h3 className="text-slate-900 text-base font-bold tracking-tight line-clamp-2 h-12 mb-4 group-hover:text-sky-600 transition-colors leading-tight">
               {product.name}
             </h3>
             
-            <div className="space-y-1">
+            <div className="space-y-1.5">
                 {product.pixPrice && product.pixPrice > 0 && (
                   <p className="text-[11px] font-medium text-stone-400 line-through">De {formattedFullPrice}</p>
                 )}
                 
                 <div className="flex items-center gap-1.5">
-                    <p className="text-xl font-black text-slate-950 tracking-tighter">
+                    <p className="text-2xl font-black text-slate-950 tracking-tighter">
                         {formattedPixPrice}
                     </p>
-                    <div className="flex items-center bg-sky-50 px-1.5 py-0.5 rounded">
+                    <div className="flex items-center bg-sky-50 px-2 py-1 rounded">
                       <PixIcon />
-                      <span className="text-[9px] font-black uppercase text-sky-600 tracking-wider">no pix</span>
+                      <span className="text-[10px] font-black uppercase text-sky-600 tracking-wider">no pix</span>
                     </div>
                 </div>
                 
-                <p className="text-[11px] text-stone-500 font-medium">
+                <p className="text-xs text-stone-500 font-medium">
                     ou 3x de <span className="text-slate-900 font-bold">{installmentPrice}</span>
                 </p>
             </div>
           </div>
           
           <Button 
-            className="w-full bg-slate-950 hover:bg-sky-600 text-white font-black uppercase text-[10px] tracking-[0.2em] mt-5 h-11 rounded-xl transition-all shadow-sm"
+            className="w-full bg-slate-950 hover:bg-sky-600 text-white font-black uppercase text-xs tracking-[0.2em] mt-6 h-12 rounded-xl transition-all shadow-sm"
             onClick={handleAddToCart}
           >
             <ShoppingCart className="mr-2 h-4 w-4" />

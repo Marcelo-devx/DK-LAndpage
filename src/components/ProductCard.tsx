@@ -39,11 +39,11 @@ const ProductCard = ({ product }: ProductCardProps) => {
   return (
     <Link to={product.url} className="group block h-full">
       <Card className="h-full bg-white border border-stone-200 hover:border-sky-500/50 transition-all duration-500 rounded-2xl overflow-hidden flex flex-col group-hover:shadow-xl">
-        <div className="overflow-hidden aspect-square relative bg-white">
+        <div className="overflow-hidden aspect-square relative bg-white flex items-center justify-center">
           <img 
             src={product.imageUrl} 
             alt={product.name} 
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out" 
+            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-700 ease-out" 
           />
           <div className="absolute inset-x-0 bottom-0 bg-black/80 py-1.5 px-2 text-[9px] font-black text-white uppercase text-center tracking-tighter z-10">
             PRODUTOS APENAS PARA MAIORES DE 18+

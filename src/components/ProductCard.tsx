@@ -2,7 +2,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { addToCart } from "@/utils/cart";
-import { ShoppingCart } from "lucide-react";
+import { ShoppingCart, Loader2 } from "lucide-react";
+import { useState } from "react";
 
 interface ProductCardProps {
   product: {
@@ -23,9 +24,14 @@ const PixIcon = () => (
 );
 
 const ProductCard = ({ product }: ProductCardProps) => {
-  const handleAddToCart = (e: React.MouseEvent) => {
+  const [isAdding, setIsAdding] = useState(false);
+
+  const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
-    addToCart(product.id, 1, 'product');
+    e.stopPropagation();
+    setIsAdding(true);
+    await addToCart(product.id, 1, 'product');
+    setIsAdding(false);
   };
 
   const mainPrice = product.pixPrice && product.pixPrice > 0 ? product.pixPrice : product.price;
@@ -78,9 +84,14 @@ const ProductCard = ({ product }: ProductCardProps) => {
           <Button 
             className="w-full bg-slate-950 hover:bg-sky-600 text-white font-black uppercase text-[9px] md:text-xs tracking-widest mt-4 h-9 md:h-12 rounded-lg md:rounded-xl transition-all shadow-sm"
             onClick={handleAddToCart}
+            disabled={isAdding}
           >
-            <ShoppingCart className="mr-1.5 md:mr-2 h-3 w-3 md:h-4 md:w-4" />
-            Adicionar
+            {isAdding ? <Loader2 className="animate-spin h-4 w-4" /> : (
+              <>
+                <ShoppingCart className="mr-1.5 md:mr-2 h-3 w-3 md:h-4 md:w-4" />
+                Adicionar
+              </>
+            )}
           </Button>
         </CardContent>
       </Card>

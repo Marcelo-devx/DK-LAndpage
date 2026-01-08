@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from './ui/skeleton';
-import { Plus, Minus, Trash2, ShoppingCart } from 'lucide-react';
+import { Plus, Minus, Trash2, ShoppingCart, Loader2 } from 'lucide-react';
 import { showError } from '@/utils/toast';
 import { getLocalCart, updateLocalCartItemQuantity, removeFromLocalCart, ItemType, getCartCreatedAt } from '@/utils/localCart';
 import OrderTimer from './OrderTimer';
@@ -20,6 +20,7 @@ interface DisplayItem {
   price: number;
   image_url: string;
   variant_label?: string;
+  stock?: number;
 }
 
 interface CartSheetProps {
@@ -31,6 +32,7 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
   const navigate = useNavigate();
   const [items, setItems] = useState<DisplayItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
   const [cartStartTime, setCartStartTime] = useState<string | null>(null);
 
@@ -47,9 +49,9 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
       const variantIds = localCart.filter(i => i.variantId).map(i => i.variantId!);
       
       const [productsRes, promotionsRes, variantsRes] = await Promise.all([
-        supabase.from('products').select('id, name, price, image_url').in('id', productIds),
-        supabase.from('promotions').select('id, name, price, image_url').in('id', promotionIds),
-        variantIds.length > 0 ? supabase.from('product_variants').select('id, flavor_id, volume_ml, price').in('id', variantIds) : Promise.resolve({ data: [] })
+        supabase.from('products').select('id, name, price, image_url, stock_quantity').in('id', productIds),
+        supabase.from('promotions').select('id, name, price, image_url, stock_quantity').in('id', promotionIds),
+        variantIds.length > 0 ? supabase.from('product_variants').select('id, flavor_id, volume_ml, price, stock_quantity').in('id', variantIds) : Promise.resolve({ data: [] })
       ]);
 
       const flavorsIds = (variantsRes as any).data?.filter((v: any) => v.flavor_id).map((v: any) => v.flavor_id!) || [];
@@ -64,11 +66,13 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
 
           let price = product.price;
           let label = '';
+          let stock = product.stock_quantity;
 
           if (cartItem.variantId) {
             const variant = (variantsRes as any).data?.find((v: any) => v.id === cartItem.variantId);
             if (variant) {
               price = variant.price;
+              stock = variant.stock_quantity;
               const fName = variant.flavor_id ? flavorsData?.find(f => f.id === variant.flavor_id)?.name : '';
               const vMl = variant.volume_ml ? `${variant.volume_ml}ml` : '';
               
@@ -86,7 +90,8 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
             name: product.name,
             price: price,
             image_url: product.image_url || '',
-            variant_label: label
+            variant_label: label,
+            stock: stock
           };
         } else {
           const promo = (promotionsRes as any).data?.find((p: any) => p.id === cartItem.itemId);
@@ -99,6 +104,7 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
             name: promo.name,
             price: promo.price,
             image_url: promo.image_url || '',
+            stock: promo.stock_quantity
           };
         }
       }).filter((i): i is DisplayItem => i !== null);
@@ -118,9 +124,27 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
 
   useEffect(() => { setTotal(items.reduce((acc, item) => acc + item.price * item.quantity, 0)); }, [items]);
 
-  const updateQuantity = (item: DisplayItem, newQuantity: number) => {
+  const updateQuantity = async (item: DisplayItem, newQuantity: number) => {
+    if (newQuantity <= 0) {
+      removeItem(item);
+      return;
+    }
+
+    const key = `${item.itemType}-${item.itemId}-${item.variantId || 'no-var'}`;
+    setUpdatingId(key);
+
+    // Verifica estoque antes de aumentar
+    if (newQuantity > item.quantity) {
+        if (item.stock !== undefined && newQuantity > item.stock) {
+            showError(`Estoque insuficiente. Temos apenas ${item.stock} unidades.`);
+            setUpdatingId(null);
+            return;
+        }
+    }
+
     updateLocalCartItemQuantity(item.itemId, item.itemType, newQuantity, item.variantId);
-    fetchCartItems();
+    await fetchCartItems();
+    setUpdatingId(null);
   };
 
   const removeItem = (item: DisplayItem) => {
@@ -154,7 +178,7 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
           </div>
         )}
 
-        {loading ? (
+        {loading && items.length === 0 ? (
           <div className="space-y-4 flex-grow"><Skeleton className="h-20 w-full bg-white/5" /><Skeleton className="h-20 w-full bg-white/5" /></div>
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
@@ -163,22 +187,43 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
           </div>
         ) : (
           <div className="flex-grow overflow-y-auto pr-4 -mr-4 space-y-4 custom-scrollbar">
-            {items.map(item => (
-              <div key={`${item.itemType}-${item.itemId}-${item.variantId || 'no-var'}`} className="flex items-start space-x-4 bg-white/5 p-4 rounded-2xl border border-white/5">
-                <img src={item.image_url} alt={item.name} className="h-20 w-20 object-cover rounded-xl border border-white/5" />
-                <div className="flex-grow">
-                  <p className="font-bold text-white text-sm uppercase tracking-tight leading-tight">{item.name}</p>
-                  {item.variant_label && <p className="text-[10px] font-black text-sky-400 uppercase mt-1 tracking-widest">{item.variant_label}</p>}
-                  <p className="text-slate-300 font-bold text-sm mt-1">R$ {item.price.toFixed(2).replace('.', ',')}</p>
-                  <div className="flex items-center space-x-3 mt-3">
-                    <Button variant="outline" size="icon" className="h-7 w-7 border-white/10 hover:bg-white/10" onClick={() => updateQuantity(item, item.quantity - 1)}><Minus className="h-3 w-3" /></Button>
-                    <span className="text-xs font-black w-4 text-center">{item.quantity}</span>
-                    <Button variant="outline" size="icon" className="h-7 w-7 border-white/10 hover:bg-white/10" onClick={() => updateQuantity(item, item.quantity + 1)}><Plus className="h-3 w-3" /></Button>
+            {items.map(item => {
+              const key = `${item.itemType}-${item.itemId}-${item.variantId || 'no-var'}`;
+              return (
+                <div key={key} className="flex items-start space-x-4 bg-white/5 p-4 rounded-2xl border border-white/5">
+                  <img src={item.image_url} alt={item.name} className="h-20 w-20 object-cover rounded-xl border border-white/5" />
+                  <div className="flex-grow">
+                    <p className="font-bold text-white text-sm uppercase tracking-tight leading-tight">{item.name}</p>
+                    {item.variant_label && <p className="text-[10px] font-black text-sky-400 uppercase mt-1 tracking-widest">{item.variant_label}</p>}
+                    <p className="text-slate-300 font-bold text-sm mt-1">R$ {item.price.toFixed(2).replace('.', ',')}</p>
+                    <div className="flex items-center space-x-3 mt-3">
+                      <Button 
+                        variant="outline" 
+                        size="icon" 
+                        className="h-7 w-7 border-white/10 hover:bg-white/10" 
+                        onClick={() => updateQuantity(item, item.quantity - 1)}
+                        disabled={updatingId === key}
+                      >
+                        <Minus className="h-3 w-3" />
+                      </Button>
+                      <span className="text-xs font-black w-4 text-center">
+                        {updatingId === key ? <Loader2 className="animate-spin h-3 w-3 inline" /> : item.quantity}
+                      </span>
+                      <Button 
+                        variant="outline" 
+                        size="icon" 
+                        className="h-7 w-7 border-white/10 hover:bg-white/10" 
+                        onClick={() => updateQuantity(item, item.quantity + 1)}
+                        disabled={updatingId === key}
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
+                  <Button variant="ghost" size="icon" className="text-slate-600 hover:text-red-400" onClick={() => removeItem(item)}><Trash2 className="h-4 w-4" /></Button>
                 </div>
-                <Button variant="ghost" size="icon" className="text-slate-600 hover:text-red-400" onClick={() => removeItem(item)}><Trash2 className="h-4 w-4" /></Button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

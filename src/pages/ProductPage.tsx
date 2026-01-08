@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, Minus, ChevronLeft } from "lucide-react";
+import { Plus, Minus, ChevronLeft, Loader2 } from "lucide-react";
 import { addToCart } from '@/utils/cart';
 import { cn } from '@/lib/utils';
 import { showError } from '@/utils/toast';
@@ -35,6 +35,7 @@ const ProductPage = () => {
   const [variants, setVariants] = useState<Variant[]>([]);
   const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAdding, setIsAdding] = useState(false);
   const [quantity, setQuantity] = useState(1);
 
   useEffect(() => {
@@ -63,7 +64,6 @@ const ProductPage = () => {
         const { data: flavorsData } = await supabase.from('flavors').select('id, name').in('id', flavorIds);
         setVariants(variantsData.map(v => ({ ...v, flavor_name: flavorsData?.find(f => f.id === v.flavor_id)?.name })));
         
-        // Seleciona a primeira variante disponível por padrão
         const firstAvailable = variantsData.find(v => v.stock_quantity > 0);
         if (firstAvailable) setSelectedVariant(firstAvailable as any);
       }
@@ -75,12 +75,14 @@ const ProductPage = () => {
     window.scrollTo(0, 0);
   }, [id]);
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (variants.length > 0 && !selectedVariant) {
       showError("Selecione uma opção (sabor/volume)");
       return;
     }
-    addToCart(product!.id, quantity, 'product', selectedVariant?.id);
+    setIsAdding(true);
+    await addToCart(product!.id, quantity, 'product', selectedVariant?.id);
+    setIsAdding(false);
   };
 
   if (loading) return <div className="container mx-auto px-6 py-10"><Skeleton className="w-full h-[500px] rounded-3xl bg-white/5" /></div>;
@@ -163,8 +165,9 @@ const ProductPage = () => {
                 size="lg" 
                 className="w-full bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-[0.2em] h-16 rounded-2xl shadow-[0_15px_30px_-10px_rgba(14,165,233,0.5)] transition-all active:scale-95" 
                 onClick={handleAddToCart}
+                disabled={isAdding}
               >
-                Adicionar ao Carrinho
+                {isAdding ? <Loader2 className="animate-spin h-5 w-5" /> : 'Adicionar ao Carrinho'}
               </Button>
             </div>
 

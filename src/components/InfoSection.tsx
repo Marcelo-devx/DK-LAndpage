@@ -4,6 +4,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Link } from 'react-router-dom';
 import { Truck, CreditCard, Percent, ShieldCheck, type LucideIcon } from 'lucide-react';
 import { Card } from './ui/card';
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
 
 interface InfoBarItem {
   icon_name: string;
@@ -68,22 +75,40 @@ const InfoSection = () => {
   return (
     <section className="py-8 md:py-12">
       <div className="container mx-auto px-4 md:px-6">
-        {/* Info Bar */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 md:gap-x-12 md:gap-y-10 mb-12 md:mb-20 bg-white/5 p-6 md:p-10 rounded-3xl md:rounded-[2.5rem] border border-white/5 backdrop-blur-sm">
-          {infoBarItems.map((item, index) => {
-            const Icon = icons[item.icon_name];
-            return (
-              <div key={index} className="flex items-center space-x-4 md:space-x-5 group">
-                <div className="p-2.5 bg-sky-500/10 rounded-xl md:rounded-2xl group-hover:bg-sky-500/20 transition-colors shrink-0">
-                  {Icon && <Icon className="h-5 w-5 md:h-7 md:w-7 text-sky-400" />}
-                </div>
-                <div>
-                  <p className="font-black text-[10px] md:text-xs uppercase tracking-widest text-white leading-tight">{item.title}</p>
-                  <p className="text-[11px] md:text-sm text-slate-400 font-medium mt-0.5 leading-tight">{item.subtitle}</p>
-                </div>
-              </div>
-            );
-          })}
+        {/* Info Bar Carousel */}
+        <div className="mb-12 md:mb-20 bg-white/5 p-6 md:p-10 rounded-3xl md:rounded-[2.5rem] border border-white/5 backdrop-blur-sm relative">
+          <Carousel opts={{ align: "start", loop: true }} className="w-full">
+            <CarouselContent className="-ml-4">
+              {infoBarItems.map((item, index) => {
+                const Icon = icons[item.icon_name];
+                return (
+                  <CarouselItem key={index} className="pl-4 basis-full sm:basis-1/2 md:basis-1/4">
+                    <div className="flex items-center space-x-4 md:space-x-5 group h-full">
+                      <div className="p-2.5 bg-sky-500/10 rounded-xl md:rounded-2xl group-hover:bg-sky-500/20 transition-colors shrink-0">
+                        {Icon && <Icon className="h-5 w-5 md:h-7 md:w-7 text-sky-400" />}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-black text-[11px] md:text-xs uppercase tracking-widest text-white leading-tight truncate">{item.title}</p>
+                        <p className="text-[12px] md:text-sm text-slate-400 font-medium mt-0.5 leading-tight truncate">{item.subtitle}</p>
+                      </div>
+                    </div>
+                  </CarouselItem>
+                );
+              })}
+            </CarouselContent>
+            
+            {/* Setas de navegação visíveis no mobile abaixo do conteúdo */}
+            <div className="flex md:hidden justify-center gap-6 mt-6">
+               <CarouselPrevious className="static translate-y-0 bg-slate-900 border-white/10 text-white hover:bg-sky-500 hover:text-white" />
+               <CarouselNext className="static translate-y-0 bg-slate-900 border-white/10 text-white hover:bg-sky-500 hover:text-white" />
+            </div>
+            
+            {/* Setas de navegação no desktop (opcionais, aparecem se houver mais de 4 itens) */}
+            <div className="hidden md:block">
+              <CarouselPrevious className="-left-12 bg-slate-900 border-white/10 text-white hover:bg-sky-500" />
+              <CarouselNext className="-right-12 bg-slate-900 border-white/10 text-white hover:bg-sky-500" />
+            </div>
+          </Carousel>
         </div>
 
         {/* Info Cards */}

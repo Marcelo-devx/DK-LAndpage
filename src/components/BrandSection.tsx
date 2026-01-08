@@ -24,7 +24,7 @@ const BrandSection = ({ brands, loading, onBrandClick }: BrandSectionProps) => {
   const validBrands = brands.filter(b => b.name && b.name.toLowerCase() !== 'null');
 
   return (
-    <section className="container mx-auto px-6 py-12">
+    <section className="container mx-auto px-6 py-12 hidden md:block">
       {loading ? (
         <div className="flex justify-center items-center gap-6">
           {Array.from({ length: 6 }).map((_, index) => (

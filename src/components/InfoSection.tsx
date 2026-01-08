@@ -147,11 +147,7 @@ const InfoSection = () => {
               ))}
             </CarouselContent>
             
-            <div className="md:hidden">
-              <CarouselPrevious className="absolute left-2 top-1/2 -translate-y-1/2 bg-slate-900/80 border-white/10 text-white h-10 w-10 hover:bg-sky-500 z-10" />
-              <CarouselNext className="absolute right-2 top-1/2 -translate-y-1/2 bg-slate-900/80 border-white/10 text-white h-10 w-10 hover:bg-sky-500 z-10" />
-            </div>
-
+            {/* Setas apenas para Desktop */}
             <div className="hidden md:block">
               <CarouselPrevious className="-left-14 bg-slate-900 border-white/10 text-white hover:bg-sky-500" />
               <CarouselNext className="-right-14 bg-slate-900 border-white/10 text-white hover:bg-sky-500" />

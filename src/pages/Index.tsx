@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useOutletContext, useNavigate } from 'react-router-dom';
-import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
 import ProductCard from "@/components/ProductCard";
 import { supabase } from '@/integrations/supabase/client';
@@ -74,25 +74,41 @@ const Index = () => {
         />
       )}
 
-      <section className="relative w-full overflow-hidden">
-        <Carousel plugins={[Autoplay({ delay: 5000 })]} className="w-full">
+      {/* Hero Section - Banner principal */}
+      <section className="relative w-full overflow-hidden bg-slate-900">
+        <Carousel 
+          plugins={[Autoplay({ delay: 5000 })]} 
+          className="w-full"
+          opts={{ loop: true }}
+        >
           <CarouselContent>
-            {heroSlides.map((slide, index) => (
-              <CarouselItem key={index}>
-                <Link 
-                  to={slide.button_url || '#'} 
-                  className="block relative aspect-[4/3] sm:aspect-[16/9] md:aspect-[3/1] lg:aspect-[4/1] w-full overflow-hidden"
-                >
-                  <img 
-                    src={slide.image_url} 
-                    className="w-full h-full object-cover" 
-                    alt={slide.title || "Banner Principal"} 
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 to-transparent" />
-                </Link>
+            {heroSlides.length > 0 ? (
+              heroSlides.map((slide, index) => (
+                <CarouselItem key={index}>
+                  <Link 
+                    to={slide.button_url || '#'} 
+                    className="block relative aspect-[2/1] sm:aspect-[21/9] md:aspect-[3/1] lg:aspect-[4/1] w-full"
+                  >
+                    <img 
+                      src={slide.image_url} 
+                      className="w-full h-full object-cover" 
+                      alt={slide.title || "Banner Principal"} 
+                    />
+                  </Link>
+                </CarouselItem>
+              ))
+            ) : (
+              <CarouselItem>
+                <div className="aspect-[2/1] w-full bg-slate-800 animate-pulse" />
               </CarouselItem>
-            ))}
+            )}
           </CarouselContent>
+          
+          {/* Navegação visível sobre o banner (Arrows) */}
+          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-between px-2 pointer-events-none">
+            <CarouselPrevious className="relative left-0 pointer-events-auto h-8 w-8 rounded-full bg-black/30 border-none text-white hover:bg-black/50" />
+            <CarouselNext className="relative right-0 pointer-events-auto h-8 w-8 rounded-full bg-black/30 border-none text-white hover:bg-black/50" />
+          </div>
         </Carousel>
       </section>
 

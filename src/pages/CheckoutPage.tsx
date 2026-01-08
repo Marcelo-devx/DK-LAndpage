@@ -11,11 +11,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { showError, showSuccess, showLoading, dismissToast } from '@/utils/toast';
-import { Loader2, Search, AlertTriangle, CreditCard, MessageSquare } from 'lucide-react';
+import { Loader2, Search, AlertTriangle, CreditCard, MessageSquare, MapPin, ShoppingBag } from 'lucide-react';
 import { getLocalCart, ItemType, clearLocalCart } from '@/utils/localCart';
 import { maskCep, maskPhone } from '@/utils/masks';
 import CouponsModal from '@/components/CouponsModal';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 
 interface DisplayItem {
@@ -212,10 +212,8 @@ const CheckoutPage = () => {
     };
 
     try {
-      // 1. Atualiza dados do perfil
       await supabase.from('profiles').update(shippingAddress).eq('id', user.id);
 
-      // 2. Cria o pedido via RPC
       const { data: orderData, error: orderError } = await supabase.rpc('create_pending_order_from_local_cart', {
         shipping_cost_input: 0,
         shipping_address_input: shippingAddress,
@@ -226,15 +224,12 @@ const CheckoutPage = () => {
       if (orderError) throw new Error(orderError.message);
       const { new_order_id, final_price } = orderData;
 
-      // 3. Atualiza o método de pagamento e STATUS no pedido
-      // Se for PIX, já colocamos como 'Em Preparação'
       const statusUpdate = data.payment_method === 'pix' ? 'Em Preparação' : 'Aguardando Pagamento';
       await supabase.from('orders').update({ 
         payment_method: data.payment_method === 'pix' ? 'PIX via WhatsApp' : 'Cartão de Crédito',
         status: statusUpdate
       }).eq('id', new_order_id);
 
-      // 4. Se o valor for 0 (por causa de cupons), finaliza na hora
       if (final_price <= 0) {
         await supabase.rpc('finalize_order_payment', { p_order_id: new_order_id });
         dismissToast(toastId);
@@ -245,7 +240,6 @@ const CheckoutPage = () => {
         return;
       }
 
-      // 5. Tratamento de redirecionamento
       if (data.payment_method === 'pix') {
         const itemsSummary = items.map(item => `- ${item.name} (Qtd: ${item.quantity})`).join('\n');
         const whatsappMessage = `Olá! Gostaria de finalizar o pagamento do meu pedido (#${new_order_id}) via PIX.\n\nTotal: R$ ${final_price.toFixed(2).replace('.', ',')}\n\nItens:\n${itemsSummary}`;
@@ -254,7 +248,6 @@ const CheckoutPage = () => {
         dismissToast(toastId);
         showSuccess("Pedido realizado! Redirecionando para o WhatsApp...");
         
-        // Pequeno atraso para o usuário ler o aviso de sucesso
         setTimeout(() => {
           clearLocalCart();
           window.dispatchEvent(new CustomEvent('cartUpdated'));
@@ -297,50 +290,137 @@ const CheckoutPage = () => {
   };
 
   if (loading || !isLoggedIn) {
-    return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+    return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-sky-400" /></div>;
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 md:py-16">
+    <div className="container mx-auto px-4 py-8 md:py-16 text-white">
       <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 lg:grid-cols-2 lg:gap-16">
         <div className="space-y-8">
-          <Card className="bg-white">
-            <CardHeader><CardTitle className="font-serif text-2xl text-charcoal-gray">Dados de Entrega</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Nome</Label><Input {...register('first_name')} />{errors.first_name && <p className="text-xs text-destructive">{errors.first_name.message}</p>}</div>
-                <div className="space-y-2"><Label>Sobrenome</Label><Input {...register('last_name')} />{errors.last_name && <p className="text-xs text-destructive">{errors.last_name.message}</p>}</div>
+          <Card className="bg-white/5 border-white/10 shadow-2xl rounded-[2rem] overflow-hidden backdrop-blur-sm">
+            <CardHeader className="bg-white/[0.02] border-b border-white/5 p-8">
+              <div className="flex items-center space-x-4">
+                <div className="p-3 bg-sky-500/20 rounded-2xl">
+                  <MapPin className="h-6 w-6 text-sky-400" />
+                </div>
+                <CardTitle className="font-black text-2xl tracking-tighter italic uppercase">Dados de Entrega.</CardTitle>
               </div>
-              <div className="space-y-2"><Label>Telefone</Label><Input {...register('phone')} onChange={e => e.target.value = maskPhone(e.target.value)} placeholder="(48) 99999-9999" />{errors.phone && <p className="text-xs text-destructive">{errors.phone.message}</p>}</div>
-              <div className="space-y-2"><Label>CEP (Somente Curitiba)</Label><div className="flex space-x-2"><Input {...register('cep')} onChange={e => e.target.value = maskCep(e.target.value)} /><Button type="button" size="icon" onClick={handleCepLookup} disabled={isFetchingCep}>{isFetchingCep ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}</Button></div>{errors.cep && <p className="text-xs text-destructive">{errors.cep.message}</p>}</div>
-              <div className="space-y-2"><Label>Rua</Label><Input {...register('street')} />{errors.street && <p className="text-xs text-destructive">{errors.street.message}</p>}</div>
-              <div className="grid grid-cols-3 gap-4"><div className="space-y-2"><Label>Número</Label><Input {...register('number')} />{errors.number && <p className="text-xs text-destructive">{errors.number.message}</p>}</div><div className="col-span-2 space-y-2"><Label>Complemento</Label><Input {...register('complement')} /></div></div>
-              <div className="space-y-2"><Label>Bairro</Label><Input {...register('neighborhood')} />{errors.neighborhood && <p className="text-xs text-destructive">{errors.neighborhood.message}</p>}</div>
-              <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label>Cidade</Label><Input {...register('city')} />{errors.city && <p className="text-xs text-destructive">{errors.city.message}</p>}</div><div className="space-y-2"><Label>Estado</Label><Input {...register('state')} maxLength={2} />{errors.state && <p className="text-xs text-destructive">{errors.state.message}</p>}</div></div>
+            </CardHeader>
+            <CardContent className="p-8 space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label className="text-xs font-black uppercase tracking-widest text-slate-500">Nome</Label><Input {...register('first_name')} />{errors.first_name && <p className="text-xs font-bold text-red-400">{errors.first_name.message}</p>}</div>
+                <div className="space-y-2"><Label className="text-xs font-black uppercase tracking-widest text-slate-500">Sobrenome</Label><Input {...register('last_name')} />{errors.last_name && <p className="text-xs font-bold text-red-400">{errors.last_name.message}</p>}</div>
+              </div>
+              <div className="space-y-2"><Label className="text-xs font-black uppercase tracking-widest text-slate-500">Telefone</Label><Input {...register('phone')} onChange={e => e.target.value = maskPhone(e.target.value)} placeholder="(48) 99999-9999" />{errors.phone && <p className="text-xs font-bold text-red-400">{errors.phone.message}</p>}</div>
+              <div className="space-y-2">
+                <Label className="text-xs font-black uppercase tracking-widest text-slate-500">CEP (Somente Curitiba)</Label>
+                <div className="flex space-x-2">
+                  <Input {...register('cep')} onChange={e => e.target.value = maskCep(e.target.value)} />
+                  <Button type="button" size="icon" onClick={handleCepLookup} disabled={isFetchingCep} className="bg-sky-500 hover:bg-sky-400 text-white h-12 w-12 rounded-xl shrink-0">
+                    {isFetchingCep ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
+                  </Button>
+                </div>
+                {errors.cep && <p className="text-xs font-bold text-red-400">{errors.cep.message}</p>}
+              </div>
+              <div className="space-y-2"><Label className="text-xs font-black uppercase tracking-widest text-slate-500">Rua</Label><Input {...register('street')} />{errors.street && <p className="text-xs font-bold text-red-400">{errors.street.message}</p>}</div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2"><Label className="text-xs font-black uppercase tracking-widest text-slate-500">Número</Label><Input {...register('number')} />{errors.number && <p className="text-xs font-bold text-red-400">{errors.number.message}</p>}</div>
+                <div className="col-span-2 space-y-2"><Label className="text-xs font-black uppercase tracking-widest text-slate-500">Complemento</Label><Input {...register('complement')} /></div>
+              </div>
+              <div className="space-y-2"><Label className="text-xs font-black uppercase tracking-widest text-slate-500">Bairro</Label><Input {...register('neighborhood')} />{errors.neighborhood && <p className="text-xs font-bold text-red-400">{errors.neighborhood.message}</p>}</div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label className="text-xs font-black uppercase tracking-widest text-slate-500">Cidade</Label><Input {...register('city')} />{errors.city && <p className="text-xs font-bold text-red-400">{errors.city.message}</p>}</div>
+                <div className="space-y-2"><Label className="text-xs font-black uppercase tracking-widest text-slate-500">Estado</Label><Input {...register('state')} maxLength={2} />{errors.state && <p className="text-xs font-bold text-red-400">{errors.state.message}</p>}</div>
+              </div>
             </CardContent>
           </Card>
         </div>
 
         <div className="space-y-8 mt-8 lg:mt-0">
-          <Card className="bg-white">
-            <CardHeader><CardTitle className="font-serif text-2xl text-charcoal-gray">Método de Pagamento</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <Button type="button" onClick={() => setValue('payment_method', 'mercadopago')} disabled={!isCreditCardEnabled} className={cn("h-24 flex flex-col items-center justify-center space-y-2 transition-all", paymentMethod === 'mercadopago' ? "bg-gold-accent text-charcoal-gray border-2 border-gold-accent ring-2 ring-gold-accent/20" : "bg-stone-50 text-stone-500 border border-stone-200")}><CreditCard className="h-6 w-6" /><span className="font-bold">Cartão de Crédito</span></Button>
-                <Button type="button" onClick={() => setValue('payment_method', 'pix')} className={cn("h-24 flex flex-col items-center justify-center space-y-2 transition-all", paymentMethod === 'pix' ? "bg-gold-accent text-charcoal-gray border-2 border-gold-accent ring-2 ring-gold-accent/20" : "bg-stone-50 text-stone-500 border border-stone-200")}><MessageSquare className="h-6 w-6" /><span className="font-bold">PIX via WhatsApp</span></Button>
+          <Card className="bg-white/5 border-white/10 shadow-2xl rounded-[2rem] overflow-hidden backdrop-blur-sm">
+            <CardHeader className="bg-white/[0.02] border-b border-white/5 p-8">
+              <div className="flex items-center space-x-4">
+                <div className="p-3 bg-sky-500/20 rounded-2xl">
+                  <CreditCard className="h-6 w-6 text-sky-400" />
+                </div>
+                <CardTitle className="font-black text-2xl tracking-tighter italic uppercase">Pagamento.</CardTitle>
               </div>
-              {!isCreditCardEnabled && <Alert variant="destructive" className="bg-red-50 text-red-800 border-red-200"><AlertTriangle className="h-4 w-4" /><AlertDescription className="text-xs">Pagamento com cartão liberado apenas após a primeira compra ou liberação manual.</AlertDescription></Alert>}
+            </CardHeader>
+            <CardContent className="p-8 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <Button type="button" onClick={() => setValue('payment_method', 'mercadopago')} disabled={!isCreditCardEnabled} className={cn("h-24 flex flex-col items-center justify-center space-y-2 transition-all rounded-2xl", paymentMethod === 'mercadopago' ? "bg-sky-500 text-white border-2 border-sky-400 ring-4 ring-sky-500/20" : "bg-white/5 text-slate-400 border border-white/10")}>
+                  <CreditCard className="h-6 w-6" /><span className="font-black uppercase text-[10px] tracking-widest">Cartão de Crédito</span>
+                </Button>
+                <Button type="button" onClick={() => setValue('payment_method', 'pix')} className={cn("h-24 flex flex-col items-center justify-center space-y-2 transition-all rounded-2xl", paymentMethod === 'pix' ? "bg-sky-500 text-white border-2 border-sky-400 ring-4 ring-sky-500/20" : "bg-white/5 text-slate-400 border border-white/10")}>
+                  <MessageSquare className="h-6 w-6" /><span className="font-black uppercase text-[10px] tracking-widest">PIX via WhatsApp</span>
+                </Button>
+              </div>
+              {!isCreditCardEnabled && (
+                <Alert className="bg-red-500/10 text-red-400 border-red-500/20 rounded-xl">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription className="text-[10px] font-bold uppercase tracking-wider">Cartão liberado apenas após a primeira compra ou liberação manual.</AlertDescription>
+                </Alert>
+              )}
             </CardContent>
           </Card>
 
-          <Card className="bg-white">
-            <CardHeader><CardTitle className="font-serif text-2xl text-charcoal-gray">Resumo do Pedido</CardTitle></CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">{items.map(item => (<div key={`${item.itemType}-${item.itemId}`} className="flex items-center space-x-4"><img src={item.image_url} alt={item.name} className="h-16 w-16 object-cover rounded-md" /><div className="flex-grow"><p className="font-serif text-charcoal-gray leading-tight">{item.name}</p><p className="text-sm text-stone-500">Qtd: {item.quantity}</p></div><p className="font-bold text-charcoal-gray whitespace-nowrap">R$ {(item.price * item.quantity).toFixed(2).replace('.', ',')}</p></div>))}</div>
-              <Separator />
-              <div className="space-y-4"><div className="flex justify-between items-center"><Label className="text-charcoal-gray font-medium">Cupom de Desconto</Label><Button type="button" variant="link" size="sm" className="text-gold-accent p-0 h-auto" onClick={() => setIsCouponsModalOpen(true)}>Resgatar pontos</Button></div>{coupons.length > 0 ? (<Select onValueChange={handleCouponChange} value={selectedCoupon?.user_coupon_id.toString() || 'none'}><SelectTrigger><SelectValue placeholder="Selecione um cupom" /></SelectTrigger><SelectContent><SelectItem value="none">Nenhum cupom</SelectItem>{coupons.map(coupon => (<SelectItem key={coupon.user_coupon_id} value={coupon.user_coupon_id.toString()} disabled={subtotal < coupon.minimum_order_value}>{coupon.name} (R$ {coupon.discount_value.toFixed(2).replace('.', ',')} off)</SelectItem>))}</SelectContent></Select>) : (<p className="text-sm text-stone-500 italic">Nenhum cupom disponível.</p>)}</div>
-              <div className="space-y-2 bg-stone-50 p-4 rounded-lg"><div className="flex justify-between text-stone-600"><span>Subtotal:</span><span>R$ {subtotal.toFixed(2).replace('.', ',')}</span></div>{selectedCoupon && <div className="flex justify-between text-green-600 font-medium"><span>Desconto:</span><span>- R$ {discount.toFixed(2).replace('.', ',')}</span></div>}<div className="flex justify-between text-stone-600"><span>Frete:</span><span className="text-green-600 font-medium">Grátis</span></div><Separator className="my-2" /><div className="flex justify-between font-bold text-xl text-charcoal-gray"><span>Total:</span><span className="text-tobacco-brown">R$ {total.toFixed(2).replace('.', ',')}</span></div></div>
-              <Button type="submit" size="lg" className="w-full bg-gold-accent hover:bg-gold-accent/90 text-charcoal-gray font-bold text-lg py-6 shadow-lg" disabled={isSubmitting || items.length === 0}>{isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Finalizar Pedido"}</Button>
+          <Card className="bg-white/5 border-white/10 shadow-2xl rounded-[2rem] overflow-hidden backdrop-blur-sm">
+            <CardHeader className="bg-white/[0.02] border-b border-white/5 p-8">
+              <div className="flex items-center space-x-4">
+                <div className="p-3 bg-sky-500/20 rounded-2xl">
+                  <ShoppingBag className="h-6 w-6 text-sky-400" />
+                </div>
+                <CardTitle className="font-black text-2xl tracking-tighter italic uppercase">Resumo.</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="p-8 space-y-6">
+              <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                {items.map(item => (
+                  <div key={`${item.itemType}-${item.itemId}`} className="flex items-center space-x-4 bg-white/[0.02] p-3 rounded-xl border border-white/5">
+                    <img src={item.image_url} alt={item.name} className="h-14 w-14 object-cover rounded-lg" />
+                    <div className="flex-grow">
+                      <p className="font-black text-white uppercase text-xs tracking-tight">{item.name}</p>
+                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Qtd: {item.quantity}</p>
+                    </div>
+                    <p className="font-black text-sky-400 tracking-tighter">R$ {(item.price * item.quantity).toFixed(2).replace('.', ',')}</p>
+                  </div>
+                ))}
+              </div>
+              
+              <Separator className="bg-white/5" />
+              
+              <div className="space-y-3">
+                <div className="flex justify-between items-center"><Label className="text-xs font-black uppercase tracking-widest text-slate-500">Cupom de Desconto</Label><Button type="button" variant="link" size="sm" className="text-sky-400 font-black uppercase text-[10px] p-0 h-auto" onClick={() => setIsCouponsModalOpen(true)}>Resgatar pontos</Button></div>
+                {coupons.length > 0 ? (
+                  <Select onValueChange={handleCouponChange} value={selectedCoupon?.user_coupon_id.toString() || 'none'}>
+                    <SelectTrigger className="bg-slate-900 border-white/10 rounded-xl h-12 text-white">
+                      <SelectValue placeholder="Selecione um cupom" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-white/10 text-white">
+                      <SelectItem value="none">Nenhum cupom</SelectItem>
+                      {coupons.map(coupon => (
+                        <SelectItem key={coupon.user_coupon_id} value={coupon.user_coupon_id.toString()} disabled={subtotal < coupon.minimum_order_value}>
+                          {coupon.name} (R$ {coupon.discount_value.toFixed(2).replace('.', ',')} off)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <p className="text-[10px] text-slate-600 font-bold uppercase italic">Nenhum cupom disponível.</p>
+                )}
+              </div>
+
+              <div className="space-y-3 bg-white/[0.03] p-6 rounded-2xl border border-white/5">
+                <div className="flex justify-between text-xs text-slate-400 font-bold uppercase tracking-widest"><span>Subtotal</span><span>R$ {subtotal.toFixed(2).replace('.', ',')}</span></div>
+                {selectedCoupon && <div className="flex justify-between text-xs text-green-400 font-bold uppercase tracking-widest"><span>Desconto</span><span>- R$ {discount.toFixed(2).replace('.', ',')}</span></div>}
+                <div className="flex justify-between text-xs text-slate-400 font-bold uppercase tracking-widest"><span>Frete</span><span className="text-green-400">Grátis</span></div>
+                <Separator className="my-2 bg-white/10" />
+                <div className="flex justify-between font-black text-3xl text-white tracking-tighter italic uppercase"><span>Total</span><span className="text-sky-400">R$ {total.toFixed(2).replace('.', ',')}</span></div>
+              </div>
+
+              <Button type="submit" size="lg" className="w-full bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-[0.2em] h-16 rounded-2xl shadow-xl transition-all active:scale-95" disabled={isSubmitting || items.length === 0}>
+                {isSubmitting ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : "Finalizar Pedido"}
+              </Button>
             </CardContent>
           </Card>
         </div>

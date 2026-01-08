@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 import { User, ShoppingCart, Menu, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Input } from '@/components/ui/input';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -16,13 +15,11 @@ interface HeaderProps {
 
 const Header = ({ onCartClick }: HeaderProps) => {
   const isMobile = useIsMobile();
-  const navigate = useNavigate();
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [loadingLogo, setLoadingLogo] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
   const [isProfileIncomplete, setIsProfileIncomplete] = useState(false);
   const [cartCount, setCartCount] = useState(0);
-  const [searchTerm, setSearchTerm] = useState('');
 
   const checkProfileStatus = async (user: any) => {
     if (!user) {
@@ -41,13 +38,6 @@ const Header = ({ onCartClick }: HeaderProps) => {
 
   const updateCartCount = () => {
     setCartCount(getCartTotalItems());
-  };
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchTerm.trim()) {
-      navigate(`/produtos?search=${encodeURIComponent(searchTerm)}`);
-    }
   };
 
   useEffect(() => {
@@ -98,60 +88,47 @@ const Header = ({ onCartClick }: HeaderProps) => {
   };
 
   return (
-    <div className="flex flex-col w-full sticky top-0 z-50">
-      {/* Barra de Aviso Superior */}
-      <div className="bg-[#0ea5e9] py-2 text-center px-4">
-        <p className="text-[10px] md:text-xs font-bold text-white uppercase tracking-wider leading-tight">
-          Fazendo seu pedido após as 14h será enviado na próxima rota!
-        </p>
-      </div>
-
-      <header className="bg-slate-950 border-b border-white/5">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            {isMobile && (
-              <Sheet>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon" className="hover:bg-white/10 text-white p-0 h-8 w-8">
-                    <Menu className="h-6 w-6" />
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="bg-slate-950 border-white/10 text-white p-8">
-                  <Link to="/" className="mb-12 inline-block">
-                    <h1 className="text-2xl font-black italic tracking-tighter text-sky-400 uppercase">DKCWB.</h1>
-                  </Link>
-                  <nav><NavLinks mobile /></nav>
-                </SheetContent>
-              </Sheet>
-            )}
-            {!isMobile && (
-              <Link to="/" className="flex items-center group">
-                {loadingLogo ? (
-                  <Skeleton className="h-8 w-40 bg-white/10" />
-                ) : logoUrl ? (
-                  <img src={logoUrl} alt="Logo" className="h-9 w-auto brightness-125" />
-                ) : (
-                  <h1 className="text-3xl font-black italic tracking-tighter text-sky-400 uppercase">DKCWB.</h1>
-                )}
-              </Link>
-            )}
-          </div>
-
+    <header className="bg-slate-950/80 backdrop-blur-xl border-b border-white/5 sticky top-0 z-50">
+      <div className="container mx-auto px-6 py-5 flex items-center justify-between">
+        <div className="flex items-center space-x-6">
           {isMobile && (
-            <Link to="/" className="flex items-center">
-              {loadingLogo ? (
-                <Skeleton className="h-6 w-24 bg-white/10" />
-              ) : logoUrl ? (
-                <img src={logoUrl} alt="Logo" className="h-8 w-auto" />
-              ) : (
-                <h1 className="text-xl font-black italic tracking-tighter text-sky-400 uppercase">DKCWB.</h1>
-              )}
-            </Link>
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="hover:bg-white/10">
+                  <Menu className="h-6 w-6 text-white" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="bg-slate-950 border-white/10 text-white p-8">
+                <Link to="/" className="mb-12 inline-block">
+                   <h1 className="text-2xl font-black italic tracking-tighter text-sky-400 uppercase">DKCWB.</h1>
+                </Link>
+                <nav><NavLinks mobile /></nav>
+              </SheetContent>
+            </Sheet>
           )}
+          <Link to="/" className="flex items-center group">
+            {loadingLogo ? (
+              <Skeleton className="h-8 w-40 bg-white/10" />
+            ) : logoUrl ? (
+              <img 
+                src={logoUrl} 
+                alt="Logo" 
+                className="h-9 w-auto brightness-125 transition-all duration-300 group-hover:scale-110 group-hover:brightness-100" 
+              />
+            ) : (
+              <h1 className="text-3xl font-black italic tracking-tighter text-sky-400 group-hover:scale-105 transition-transform uppercase">DKCWB.</h1>
+            )}
+          </Link>
+        </div>
 
-          <div className="flex items-center space-x-2 md:space-x-4">
-            {!isMobile && <nav className="mr-4"><NavLinks /></nav>}
-            <Button asChild variant="ghost" size="icon" className="relative hover:bg-sky-400/10 hover:text-sky-400 text-slate-300 p-0 h-9 w-9">
+        <div className="flex items-center space-x-8">
+          {!isMobile && <nav><NavLinks /></nav>}
+          <div className="flex items-center space-x-3">
+            <Button asChild variant="ghost" size="icon" className="hover:bg-sky-400/10 hover:text-sky-400 text-slate-300">
+              <Link to="/produtos"><Search className="h-5 w-5" /></Link>
+            </Button>
+            
+            <Button asChild variant="ghost" size="icon" className="relative hover:bg-sky-400/10 hover:text-sky-400 text-slate-300">
               <Link to={session ? "/dashboard" : "/login"}>
                 <User className="h-5 w-5" />
                 {isProfileIncomplete && session && (
@@ -160,33 +137,18 @@ const Header = ({ onCartClick }: HeaderProps) => {
               </Link>
             </Button>
 
-            <Button variant="ghost" size="icon" onClick={onCartClick} className="relative hover:bg-sky-400/10 hover:text-sky-400 text-slate-300 p-0 h-9 w-9">
+            <Button variant="ghost" size="icon" onClick={onCartClick} className="relative hover:bg-sky-400/10 hover:text-sky-400 text-slate-300">
               <ShoppingCart className="h-5 w-5" />
               {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-sky-500 text-white text-[10px] font-black h-4 w-4 flex items-center justify-center rounded-full">
+                <span className="absolute -top-1 -right-1 bg-sky-500 text-white text-[10px] font-black h-4 w-4 flex items-center justify-center rounded-full shadow-[0_0_10px_rgba(14,165,233,0.6)]">
                   {cartCount}
                 </span>
               )}
             </Button>
           </div>
         </div>
-      </header>
-
-      {/* Barra de Busca abaixo do Header */}
-      <div className="px-6 py-3 bg-white border-b border-stone-100">
-        <form onSubmit={handleSearch} className="container mx-auto max-w-4xl relative">
-          <Input 
-            placeholder="Digite o que você procura" 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="bg-stone-50 border-stone-200 rounded-lg pr-10 text-sm h-11 text-stone-900 placeholder:text-stone-400 focus:ring-sky-500/20 focus:border-sky-500"
-          />
-          <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-sky-500 transition-colors">
-            <Search className="h-5 w-5" />
-          </button>
-        </form>
       </div>
-    </div>
+    </header>
   );
 };
 

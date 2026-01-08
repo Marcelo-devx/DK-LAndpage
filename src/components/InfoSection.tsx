@@ -83,13 +83,13 @@ const InfoSection = () => {
                 const Icon = icons[item.icon_name];
                 return (
                   <CarouselItem key={index} className="pl-4 basis-full sm:basis-1/2 md:basis-1/4">
-                    <div className="flex items-center space-x-4 md:space-x-5 group h-full">
-                      <div className="p-2.5 bg-sky-500/10 rounded-xl md:rounded-2xl group-hover:bg-sky-500/20 transition-colors shrink-0">
-                        {Icon && <Icon className="h-5 w-5 md:h-7 md:w-7 text-sky-400" />}
+                    <div className="flex flex-col md:flex-row items-center text-center md:text-left md:space-x-5 group h-full px-8 md:px-0">
+                      <div className="p-2.5 bg-sky-500/10 rounded-xl md:rounded-2xl group-hover:bg-sky-500/20 transition-colors shrink-0 mb-3 md:mb-0">
+                        {Icon && <Icon className="h-6 w-6 md:h-7 md:w-7 text-sky-400" />}
                       </div>
                       <div className="min-w-0">
-                        <p className="font-black text-[11px] md:text-xs uppercase tracking-widest text-white leading-tight truncate">{item.title}</p>
-                        <p className="text-[12px] md:text-sm text-slate-400 font-medium mt-0.5 leading-tight truncate">{item.subtitle}</p>
+                        <p className="font-black text-xs uppercase tracking-widest text-white leading-tight">{item.title}</p>
+                        <p className="text-[11px] md:text-sm text-slate-400 font-medium mt-1 leading-tight">{item.subtitle}</p>
                       </div>
                     </div>
                   </CarouselItem>
@@ -97,13 +97,13 @@ const InfoSection = () => {
               })}
             </CarouselContent>
             
-            {/* Setas de navegação visíveis no mobile abaixo do conteúdo */}
-            <div className="flex md:hidden justify-center gap-6 mt-6">
-               <CarouselPrevious className="static translate-y-0 bg-slate-900 border-white/10 text-white hover:bg-sky-500 hover:text-white" />
-               <CarouselNext className="static translate-y-0 bg-slate-900 border-white/10 text-white hover:bg-sky-500 hover:text-white" />
+            {/* Setas de navegação nas laterais no mobile */}
+            <div className="md:hidden">
+               <CarouselPrevious className="absolute left-0 top-1/2 -translate-y-1/2 bg-slate-900/50 border-white/10 text-white h-8 w-8 hover:bg-sky-500" />
+               <CarouselNext className="absolute right-0 top-1/2 -translate-y-1/2 bg-slate-900/50 border-white/10 text-white h-8 w-8 hover:bg-sky-500" />
             </div>
             
-            {/* Setas de navegação no desktop (opcionais, aparecem se houver mais de 4 itens) */}
+            {/* Setas de navegação no desktop */}
             <div className="hidden md:block">
               <CarouselPrevious className="-left-12 bg-slate-900 border-white/10 text-white hover:bg-sky-500" />
               <CarouselNext className="-right-12 bg-slate-900 border-white/10 text-white hover:bg-sky-500" />

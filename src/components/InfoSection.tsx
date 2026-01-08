@@ -111,20 +111,38 @@ const InfoSection = () => {
           </Carousel>
         </div>
 
-        {/* Info Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 md:gap-8">
-          {infoCards.map((card, index) => (
-            <Link to={card.link_url || '#'} key={index} className="block group w-full relative">
-               <div className="absolute -inset-1 bg-sky-500/20 rounded-[1.5rem] md:rounded-[2rem] blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-              <Card className="overflow-hidden rounded-[1.5rem] md:rounded-[2rem] shadow-2xl h-[180px] md:h-[240px] border border-white/5 relative bg-white/5">
-                <img 
-                  src={card.image_url} 
-                  alt={`Info card ${index + 1}`} 
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
-                />
-              </Card>
-            </Link>
-          ))}
+        {/* Info Cards Carousel */}
+        <div className="relative">
+          <Carousel opts={{ align: "start", loop: true }} className="w-full">
+            <CarouselContent className="-ml-6">
+              {infoCards.map((card, index) => (
+                <CarouselItem key={index} className="pl-6 basis-full sm:basis-1/2 md:basis-1/3">
+                  <Link to={card.link_url || '#'} className="block group w-full relative">
+                    <div className="absolute -inset-1 bg-sky-500/20 rounded-[1.5rem] md:rounded-[2rem] blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <Card className="overflow-hidden rounded-[1.5rem] md:rounded-[2rem] shadow-2xl h-[180px] md:h-[240px] border border-white/5 relative bg-white/5">
+                      <img 
+                        src={card.image_url} 
+                        alt={`Info card ${index + 1}`} 
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
+                      />
+                    </Card>
+                  </Link>
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+            
+            {/* Setas para Mobile */}
+            <div className="md:hidden">
+              <CarouselPrevious className="absolute left-2 top-1/2 -translate-y-1/2 bg-slate-900/80 border-white/10 text-white h-10 w-10 hover:bg-sky-500 z-10" />
+              <CarouselNext className="absolute right-2 top-1/2 -translate-y-1/2 bg-slate-900/80 border-white/10 text-white h-10 w-10 hover:bg-sky-500 z-10" />
+            </div>
+
+            {/* Setas para Desktop */}
+            <div className="hidden md:block">
+              <CarouselPrevious className="-left-14 bg-slate-900 border-white/10 text-white hover:bg-sky-500" />
+              <CarouselNext className="-right-14 bg-slate-900 border-white/10 text-white hover:bg-sky-500" />
+            </div>
+          </Carousel>
         </div>
       </div>
     </section>

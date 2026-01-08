@@ -81,14 +81,14 @@ const Index = () => {
               <CarouselItem key={index}>
                 <Link 
                   to={slide.button_url || '#'} 
-                  className="block relative aspect-[4/3] sm:aspect-[16/9] md:aspect-[3/1] lg:aspect-[4/1] w-full overflow-hidden"
+                  className="block relative w-full h-auto"
                 >
                   <img 
                     src={slide.image_url} 
-                    className="w-full h-full object-cover" 
+                    className="w-full h-auto block" 
                     alt={slide.title || "Banner Principal"} 
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/20 to-transparent" />
                 </Link>
               </CarouselItem>
             ))}

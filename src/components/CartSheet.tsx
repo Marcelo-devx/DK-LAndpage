@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from './ui/skeleton';
-import { Plus, Minus, Trash2, ShoppingCart, Clock } from 'lucide-react';
+import { Plus, Minus, Trash2, ShoppingCart } from 'lucide-react';
 import { showError } from '@/utils/toast';
-import { getLocalCart, updateLocalCartItemQuantity, removeFromLocalCart, ItemType } from '@/utils/localCart';
+import { getLocalCart, updateLocalCartItemQuantity, removeFromLocalCart, ItemType, getCartCreatedAt } from '@/utils/localCart';
+import OrderTimer from './OrderTimer';
 
 interface DisplayItem {
   id: number;
@@ -31,10 +32,13 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
   const [items, setItems] = useState<DisplayItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
+  const [cartStartTime, setCartStartTime] = useState<string | null>(null);
 
   const fetchCartItems = useCallback(async () => {
     setLoading(true);
     const localCart = getLocalCart();
+    setCartStartTime(getCartCreatedAt());
+    
     let finalItems: DisplayItem[] = [];
 
     if (localCart.length > 0) {
@@ -138,13 +142,15 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
         </SheetHeader>
         <Separator className="my-4 bg-white/5" />
         
-        {items.length > 0 && (
-          <div className="bg-sky-500/10 border border-sky-500/20 p-4 rounded-xl flex items-start space-x-3 mb-6">
-            <Clock className="h-5 w-5 text-sky-400 shrink-0 mt-0.5" />
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-sky-400">Reserva de Estoque</p>
-              <p className="text-xs text-slate-300 leading-relaxed">Seus itens serão reservados por <strong>15 minutos</strong> assim que você finalizar o pedido.</p>
-            </div>
+        {items.length > 0 && cartStartTime && (
+          <div className="mb-6">
+            <OrderTimer 
+              createdAt={cartStartTime} 
+              className="bg-sky-500/10 border-sky-500/20"
+            />
+            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-2 px-2">
+              Complete seu pedido para garantir esses itens no estoque.
+            </p>
           </div>
         )}
 

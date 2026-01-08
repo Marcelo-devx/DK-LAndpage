@@ -1,4 +1,5 @@
 const LOCAL_CART_KEY = 'tabacaria.cart';
+const CART_TIME_KEY = 'tabacaria.cart_time';
 
 export type ItemType = 'product' | 'promotion';
 
@@ -6,12 +7,16 @@ export interface LocalCartItem {
   itemId: number;
   itemType: ItemType;
   quantity: number;
-  variantId?: string; // ID da variação selecionada
+  variantId?: string;
 }
 
 export const getLocalCart = (): LocalCartItem[] => {
   const cartJson = localStorage.getItem(LOCAL_CART_KEY);
   return cartJson ? JSON.parse(cartJson) : [];
+};
+
+export const getCartCreatedAt = (): string | null => {
+  return localStorage.getItem(CART_TIME_KEY);
 };
 
 export const getCartTotalItems = (): number => {
@@ -21,11 +26,18 @@ export const getCartTotalItems = (): number => {
 
 const saveLocalCart = (cart: LocalCartItem[]) => {
   localStorage.setItem(LOCAL_CART_KEY, JSON.stringify(cart));
+  
+  // Se o carrinho foi zerado, removemos o tempo
+  if (cart.length === 0) {
+    localStorage.removeItem(CART_TIME_KEY);
+  } else if (!localStorage.getItem(CART_TIME_KEY)) {
+    // Se é o primeiro item, marcamos o início
+    localStorage.setItem(CART_TIME_KEY, new Date().toISOString());
+  }
 };
 
 export const addToLocalCart = (itemId: number, quantity: number = 1, itemType: ItemType = 'product', variantId?: string) => {
   const cart = getLocalCart();
-  // Busca por item com o mesmo ID, Tipo e Variação
   const existingItemIndex = cart.findIndex(item => 
     item.itemId === itemId && 
     item.itemType === itemType && 
@@ -67,4 +79,5 @@ export const removeFromLocalCart = (itemId: number, itemType: ItemType, variantI
 
 export const clearLocalCart = () => {
   localStorage.removeItem(LOCAL_CART_KEY);
+  localStorage.removeItem(CART_TIME_KEY);
 };

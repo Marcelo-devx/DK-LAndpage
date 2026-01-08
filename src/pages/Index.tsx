@@ -96,7 +96,7 @@ const Index = () => {
         </Carousel>
       </section>
 
-      <div className="space-y-8 md:space-y-24 py-6 md:py-20">
+      <div className="space-y-4 md:space-y-12 py-4 md:py-10">
         <ScrollAnimationWrapper>
           <InfoSection />
         </ScrollAnimationWrapper>
@@ -108,7 +108,7 @@ const Index = () => {
         {promotions.length > 0 && (
           <ScrollAnimationWrapper>
             <section className="container mx-auto px-4 md:px-6">
-              <h2 className="text-[10px] md:text-xs font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-8 md:mb-12 text-center">Ofertas Exclusivas</h2>
+              <h2 className="text-[10px] md:text-xs font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-4 md:mb-8 text-center">Ofertas Exclusivas</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
                 {promotions.slice(0, 3).map((promo) => (
                   <CategoryCarouselCard 
@@ -124,10 +124,10 @@ const Index = () => {
 
         <ScrollAnimationWrapper>
           <section className="container mx-auto px-4 md:px-6">
-            <div className="flex flex-col md:flex-row items-start md:items-end justify-between mb-8 md:mb-12 gap-4">
+            <div className="flex flex-col md:flex-row items-start md:items-end justify-between mb-4 md:mb-8 gap-2">
                 <div>
-                    <h2 className="text-[10px] md:text-xs font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-2 md:mb-4">Lançamentos</h2>
-                    <h3 className="text-3xl md:text-6xl font-black tracking-tighter italic uppercase">NEW DROPS.</h3>
+                    <h2 className="text-[10px] md:text-xs font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-1 md:mb-2">Lançamentos</h2>
+                    <h3 className="text-2xl md:text-5xl font-black tracking-tighter italic uppercase">NEW DROPS.</h3>
                 </div>
                 <Link to="/produtos" className="text-[10px] font-bold uppercase tracking-widest hover:text-sky-400 transition-colors">Ver todos →</Link>
             </div>
@@ -158,9 +158,9 @@ const Index = () => {
 
         {featuredProducts.length > 0 && (
           <ScrollAnimationWrapper>
-            <section className="bg-white/5 py-12 md:py-24">
+            <section className="bg-white/5 py-8 md:py-16">
               <div className="container mx-auto px-4 md:px-6">
-                <h2 className="text-[10px] md:text-xs font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-8 md:mb-12 text-center">Seleção Premium</h2>
+                <h2 className="text-[10px] md:text-xs font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-4 md:mb-8 text-center">Seleção Premium</h2>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
                   {featuredProducts.map((p) => (
                     <ProductCard key={p.id} product={{ id: p.id, name: p.name, price: p.price, pixPrice: p.pix_price, imageUrl: p.image_url, url: `/produto/${p.id}` }} />

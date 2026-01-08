@@ -83,20 +83,20 @@ const ProductPage = () => {
     addToCart(product!.id, quantity, 'product', selectedVariant?.id);
   };
 
-  if (loading) return <div className="container mx-auto px-6 py-20"><Skeleton className="w-full h-[600px] rounded-3xl bg-white/5" /></div>;
+  if (loading) return <div className="container mx-auto px-6 py-10"><Skeleton className="w-full h-[500px] rounded-3xl bg-white/5" /></div>;
   if (!product) return null;
 
   const currentFullPrice = selectedVariant ? selectedVariant.price : product.price;
   const currentPixPrice = (selectedVariant ? selectedVariant.pix_price : product.pix_price) || currentFullPrice;
 
   return (
-    <div className="bg-slate-950 min-h-screen text-white pb-20">
-      <div className="container mx-auto px-6 py-12">
-        <Button variant="ghost" onClick={() => navigate(-1)} className="mb-8 text-slate-400 hover:text-white group">
+    <div className="bg-slate-950 min-h-screen text-white pb-10">
+      <div className="container mx-auto px-6 py-6 md:py-12">
+        <Button variant="ghost" onClick={() => navigate(-1)} className="mb-6 text-slate-400 hover:text-white group">
           <ChevronLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Voltar
         </Button>
 
-        <div className="grid lg:grid-cols-2 gap-16 items-start">
+        <div className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-start">
           <div className="relative group">
             <div className="absolute -inset-4 bg-sky-500/10 rounded-[2rem] blur-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
             <img 
@@ -106,17 +106,17 @@ const ProductPage = () => {
             />
           </div>
 
-          <div className="space-y-10">
+          <div className="space-y-6 md:space-y-10">
             <div>
-              <p className="text-sky-400 text-xs font-black uppercase tracking-[0.3em] mb-4">{product.category}</p>
-              <h1 className="text-4xl md:text-6xl font-black tracking-tighter leading-none mb-6">{product.name}</h1>
+              <p className="text-sky-400 text-xs font-black uppercase tracking-[0.3em] mb-2">{product.category}</p>
+              <h1 className="text-3xl md:text-6xl font-black tracking-tighter leading-none mb-4 md:mb-6">{product.name}</h1>
               
-              <div className="flex flex-col space-y-4">
+              <div className="flex flex-col space-y-2 md:space-y-4">
                 <div className="flex items-baseline space-x-3">
-                    <span className="text-5xl font-black tracking-tighter text-white">
+                    <span className="text-4xl md:text-5xl font-black tracking-tighter text-white">
                         {currentPixPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </span>
-                    <span className="text-sm font-black text-sky-400 uppercase tracking-widest">no pix</span>
+                    <span className="text-[10px] md:text-sm font-black text-sky-400 uppercase tracking-widest">no pix</span>
                 </div>
                 <p className="text-slate-400 text-sm font-medium">
                   Ou {currentFullPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} em até 3x sem juros
@@ -125,7 +125,7 @@ const ProductPage = () => {
             </div>
 
             {variants.length > 0 && (
-              <div className="space-y-6">
+              <div className="space-y-4">
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Opções Disponíveis</p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {variants.map((v) => (
@@ -149,7 +149,7 @@ const ProductPage = () => {
               </div>
             )}
 
-            <div className="bg-white/5 p-8 rounded-3xl border border-white/5 space-y-8">
+            <div className="bg-white/5 p-6 md:p-8 rounded-3xl border border-white/5 space-y-6 md:space-y-8">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Quantidade</p>
                 <div className="flex items-center bg-slate-950 rounded-xl p-1 border border-white/5">
@@ -169,7 +169,7 @@ const ProductPage = () => {
             </div>
 
             <div className="prose prose-invert max-w-none">
-              <p className="text-slate-400 leading-relaxed text-lg">{product.description}</p>
+              <p className="text-slate-400 leading-relaxed text-base md:text-lg">{product.description}</p>
             </div>
           </div>
         </div>

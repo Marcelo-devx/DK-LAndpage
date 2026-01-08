@@ -131,13 +131,13 @@ const AllProductsPage = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 md:py-16">
-      <header className="mb-8 text-center">
-        <h1 className="font-serif text-4xl md:text-5xl text-charcoal-gray">Nossos Produtos</h1>
-        <p className="mt-2 text-lg text-stone-600">Explore nossa linha completa de produtos.</p>
+    <div className="container mx-auto px-4 py-4 md:py-8">
+      <header className="mb-6 text-center">
+        <h1 className="font-serif text-3xl md:text-5xl text-charcoal-gray">Nossos Produtos</h1>
+        <p className="mt-1 text-base text-stone-600">Explore nossa linha completa de produtos.</p>
       </header>
       <div className="grid grid-cols-1 lg:grid-cols-4 lg:gap-8">
-        <div className="lg:col-span-1 mb-8 lg:mb-0">
+        <div className="lg:col-span-1 mb-6 lg:mb-0">
           <ProductFilters
             categories={allCategories}
             subCategories={allSubCategories}
@@ -158,7 +158,7 @@ const AllProductsPage = () => {
         </div>
         <main className="lg:col-span-3">
           {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
               {Array.from({ length: 9 }).map((_, index) => (
                  <div key={index} className="flex flex-col space-y-3">
                   <Skeleton className="w-full rounded-lg aspect-[4/5]" />
@@ -171,7 +171,7 @@ const AllProductsPage = () => {
               ))}
             </div>
           ) : products.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
               {products.map((product) => (
                 <ProductCard key={product.id} product={{
                   id: product.id,
@@ -184,9 +184,9 @@ const AllProductsPage = () => {
               ))}
             </div>
           ) : (
-            <div className="text-center py-16">
+            <div className="text-center py-12">
               <h3 className="font-serif text-2xl text-charcoal-gray">Nenhum produto encontrado</h3>
-              <p className="text-stone-600 mt-2">Tente ajustar seus filtros ou limpar a busca.</p>
+              <p className="text-stone-600 mt-1">Tente ajustar seus filtros ou limpar a busca.</p>
             </div>
           )}
         </main>

@@ -47,35 +47,35 @@ const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps)
   }, [categoryName]);
 
   return (
-    <section className="container mx-auto px-6 py-16">
-      <div className="flex items-end justify-between mb-12">
+    <section className="container mx-auto px-6 py-8 md:py-16">
+      <div className="flex items-end justify-between mb-8 md:mb-12">
         <div>
-          <h2 className="text-xs font-black tracking-[0.5em] text-sky-500 uppercase mb-4">{categoryName}</h2>
-          <h3 className="text-4xl md:text-5xl font-black tracking-tighter italic uppercase">{categoryName}.</h3>
+          <h2 className="text-[10px] md:text-xs font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-2 md:mb-4">{categoryName}</h2>
+          <h3 className="text-3xl md:text-5xl font-black tracking-tighter italic uppercase">{categoryName}.</h3>
         </div>
         {products.length > 0 && (
-          <Link to={`/produtos?category=${categoryName}`} className="text-xs font-bold uppercase tracking-widest hover:text-sky-400 transition-colors hidden md:block">
+          <Link to={`/produtos?category=${categoryName}`} className="text-[10px] font-bold uppercase tracking-widest hover:text-sky-400 transition-colors hidden md:block">
             Ver tudo →
           </Link>
         )}
       </div>
 
-      <div className="min-h-[300px]">
+      <div className="min-h-[250px] md:min-h-[300px]">
         {loading ? (
           <Carousel opts={{ align: "start" }} className="w-full">
-            <CarouselContent className="-ml-4">
+            <CarouselContent className="-ml-3 md:-ml-4">
               {Array.from({ length: 4 }).map((_, i) => (
-                <CarouselItem key={i} className="pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4">
-                  <Skeleton className="aspect-square bg-white/5 rounded-3xl" />
+                <CarouselItem key={i} className="pl-3 md:pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4">
+                  <Skeleton className="aspect-square bg-white/5 rounded-2xl md:rounded-3xl" />
                 </CarouselItem>
               ))}
             </CarouselContent>
           </Carousel>
         ) : products.length > 0 ? (
           <Carousel opts={{ align: "start", loop: products.length > 4 }} className="w-full">
-            <CarouselContent className="-ml-4">
+            <CarouselContent className="-ml-3 md:-ml-4">
               {products.map((p) => (
-                <CarouselItem key={p.id} className="pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4">
+                <CarouselItem key={p.id} className="pl-3 md:pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4">
                   <ProductCard product={{ 
                     id: p.id, 
                     name: p.name, 
@@ -93,7 +93,7 @@ const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps)
             </div>
           </Carousel>
         ) : (
-          <div className="h-20" /> /* Espaço vazio conforme solicitado */
+          <div className="h-10 md:h-20" />
         )}
       </div>
     </section>

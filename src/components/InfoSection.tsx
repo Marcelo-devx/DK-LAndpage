@@ -80,9 +80,9 @@ const InfoSection = () => {
 
   if (loading) {
     return (
-      <section className="py-8 md:py-12">
+      <section className="py-4 md:py-12">
         <div className="container mx-auto px-4 md:px-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 md:mb-12">
             {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 w-full bg-white/5 rounded-2xl" />)}
           </div>
         </div>
@@ -91,10 +91,10 @@ const InfoSection = () => {
   }
 
   return (
-    <section className="py-8 md:py-12">
+    <section className="py-4 md:py-12">
       <div className="container mx-auto px-4 md:px-6">
         {/* Info Bar Carousel */}
-        <div className="mb-12 md:mb-20 bg-white/5 p-6 md:p-10 rounded-3xl md:rounded-[2.5rem] border border-white/5 backdrop-blur-sm relative">
+        <div className="mb-8 md:mb-20 bg-white/5 p-6 md:p-10 rounded-3xl md:rounded-[2.5rem] border border-white/5 backdrop-blur-sm relative">
           <Carousel opts={{ align: "start", loop: true }} className="w-full">
             <CarouselContent className="-ml-4">
               {infoBarItems.map((item, index) => {

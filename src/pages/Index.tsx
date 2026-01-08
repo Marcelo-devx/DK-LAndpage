@@ -96,7 +96,7 @@ const Index = () => {
         </Carousel>
       </section>
 
-      <div className="space-y-16 md:space-y-24 py-12 md:py-20">
+      <div className="space-y-8 md:space-y-24 py-6 md:py-20">
         <ScrollAnimationWrapper>
           <InfoSection />
         </ScrollAnimationWrapper>
@@ -158,7 +158,7 @@ const Index = () => {
 
         {featuredProducts.length > 0 && (
           <ScrollAnimationWrapper>
-            <section className="bg-white/5 py-16 md:py-24">
+            <section className="bg-white/5 py-12 md:py-24">
               <div className="container mx-auto px-4 md:px-6">
                 <h2 className="text-[10px] md:text-xs font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-8 md:mb-12 text-center">Seleção Premium</h2>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">

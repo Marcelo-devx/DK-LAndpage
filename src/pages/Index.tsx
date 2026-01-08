@@ -81,7 +81,7 @@ const Index = () => {
               <CarouselItem key={index}>
                 <Link 
                   to={slide.button_url || '#'} 
-                  className="block relative aspect-[16/10] md:aspect-[3/1] lg:aspect-[4/1] w-full overflow-hidden"
+                  className="block relative aspect-[4/3] sm:aspect-[16/9] md:aspect-[3/1] lg:aspect-[4/1] w-full overflow-hidden"
                 >
                   <img 
                     src={slide.image_url} 

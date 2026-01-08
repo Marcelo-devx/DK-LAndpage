@@ -39,70 +39,58 @@ serve(async (req) => {
       const resourceId = body.data?.id || body.id;
 
       if (topic === 'payment' && resourceId) {
-        // Fetch payment details from Mercado Pago API
         // @ts-ignore
         const MERCADOPAGO_ACCESS_TOKEN = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN');
         
         const paymentResponse = await fetch(`https://api.mercadopago.com/v1/payments/${resourceId}`, {
-            headers: {
-                'Authorization': `Bearer ${MERCADOPAGO_ACCESS_TOKEN}`,
-            },
+            headers: { 'Authorization': `Bearer ${MERCADOPAGO_ACCESS_TOKEN}` },
         });
         
         const paymentData = await paymentResponse.json();
-        const externalReference = paymentData.external_reference; // This is our order_id
-        const paymentStatus = paymentData.status; // approved, pending, rejected
+        const externalReference = paymentData.external_reference; // Nosso order_id
+        const paymentStatus = paymentData.status; 
 
         if (externalReference && paymentStatus === 'approved') {
             const order_id_int = parseInt(externalReference);
             
-            // Call RPC to finalize order (deduct stock, clear cart, award points, mark coupon used)
-            const { error: finalizeError } = await supabaseAdmin.rpc('finalize_order_payment', { p_order_id: order_id_int });
+            // SEGURANÇA: Verificar se o pedido ainda está "Aguardando Pagamento"
+            // Se já estiver "Cancelado", significa que o estoque já foi devolvido!
+            const { data: order } = await supabaseAdmin
+                .from('orders')
+                .select('status')
+                .eq('id', order_id_int)
+                .single();
 
-            if (finalizeError) {
-                console.error(`Error finalizing order ${order_id_int} via webhook:`, finalizeError);
-                // Respond 200 to MP to avoid retries, but log the internal error
+            if (order && order.status === 'Aguardando Pagamento') {
+                const { error: finalizeError } = await supabaseAdmin.rpc('finalize_order_payment', { p_order_id: order_id_int });
+                if (finalizeError) console.error(`[mercadopago-webhook] Error finalizing order ${order_id_int}:`, finalizeError);
+                else console.log(`[mercadopago-webhook] Order ${order_id_int} finalized successfully.`);
             } else {
-                console.log(`Order ${order_id_int} finalized successfully via webhook.`);
+                console.warn(`[mercadopago-webhook] Payment received for order ${order_id_int} but status is ${order?.status}. Manual review needed.`);
+                // Opcional: Notificar o admin aqui, pois o dinheiro entrou mas o estoque pode ter sido vendido para outro.
             }
         }
       }
       
-      // Always respond 200 OK to webhooks to acknowledge receipt
       return new Response(JSON.stringify({ received: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       })
     }
 
-    // --- 2. Handle User Redirect (GET request from Mercado Pago back_urls) ---
+    // --- 2. Handle User Redirect ---
     if (isRedirect && orderId) {
-        // Redirect the user back to the client application status page
-        // We use the hardcoded project ID in the client redirect URL
         const clientRedirectUrl = `${SUPABASE_URL}/confirmacao-pedido/${orderId}`;
-
-        if (statusParam === 'success' || statusParam === 'approved') {
-            // If successful, the webhook should have already finalized the order.
-            // Redirect to the confirmation page.
-            return Response.redirect(clientRedirectUrl, 303);
-        } else if (statusParam === 'pending') {
-            // If pending (e.g., boleto), redirect to confirmation page.
-            return Response.redirect(clientRedirectUrl, 303);
-        } else {
-            // Failure/Rejected
-            // Redirect to the confirmation page, which will show the status from the DB (likely 'Aguardando Pagamento' or 'Cancelado')
-            return Response.redirect(clientRedirectUrl, 303);
-        }
+        return Response.redirect(clientRedirectUrl, 303);
     }
 
-    // Default response for unhandled GET requests
-    return new Response(JSON.stringify({ message: 'Webhook or Redirect endpoint reached.' }), {
+    return new Response(JSON.stringify({ message: 'OK' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     })
 
   } catch (error) {
-    console.error(error)
+    console.error("[mercadopago-webhook] Global Error:", error)
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,

@@ -9,6 +9,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import ReviewModal from '@/components/ReviewModal';
 import { showLoading, dismissToast, showError } from '@/utils/toast';
 import { cn } from '@/lib/utils';
+import OrderTimer from '@/components/OrderTimer';
 
 interface OrderItem {
   item_id: number;
@@ -155,6 +156,8 @@ const OrdersPage = () => {
             {orders.map((order) => {
               const financialStatus = getStatusBadge(order.status);
               const deliveryStatus = getDeliveryBadge(order.delivery_status || 'Aguardando');
+              const isPending = order.status === 'Aguardando Pagamento';
+              const isCancelled = order.status === 'Cancelado';
               
               return (
                 <AccordionItem value={`order-${order.id}`} key={order.id} className="bg-white/5 border border-white/10 rounded-[1.5rem] overflow-hidden transition-all duration-300 hover:border-sky-500/40 shadow-xl">
@@ -232,8 +235,12 @@ const OrdersPage = () => {
                           </div>
                         </div>
 
-                        {(order.status.toLowerCase().includes('aguardando') || order.status.toLowerCase().includes('pendente')) && (
+                        {isPending && (
                           <div className="space-y-4">
+                            <OrderTimer 
+                              createdAt={order.created_at} 
+                              onExpire={() => fetchOrders()} 
+                            />
                             <h4 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Ação Requerida</h4>
                             <div className="grid grid-cols-1 gap-3">
                               <Button onClick={() => handlePayWithMP(order)} className="w-full bg-sky-500 hover:bg-sky-400 text-white font-bold uppercase tracking-widest h-14 rounded-xl shadow-lg">
@@ -243,6 +250,13 @@ const OrdersPage = () => {
                                 <MessageSquare className="mr-2 h-5 w-5" /> Pagar via WhatsApp
                               </Button>
                             </div>
+                          </div>
+                        )}
+
+                        {isCancelled && (
+                          <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-2xl flex items-center space-x-3 text-red-400">
+                             <AlertCircle className="h-5 w-5 shrink-0" />
+                             <p className="text-xs font-bold uppercase tracking-wider">A reserva expirou. Por favor, faça um novo pedido para garantir os itens.</p>
                           </div>
                         )}
 

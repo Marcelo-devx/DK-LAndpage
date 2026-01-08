@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Link } from 'react-router-dom';
@@ -10,7 +10,9 @@ import {
   CarouselItem,
   CarouselNext,
   CarouselPrevious,
+  type CarouselApi,
 } from "@/components/ui/carousel";
+import { cn } from '@/lib/utils';
 
 interface InfoBarItem {
   icon_name: string;
@@ -34,6 +36,22 @@ const InfoSection = () => {
   const [infoBarItems, setInfoBarItems] = useState<InfoBarItem[]>([]);
   const [infoCards, setInfoCards] = useState<InfoCard[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // API para os pontinhos do carrossel de cards
+  const [api, setApi] = useState<CarouselApi>();
+  const [current, setCurrent] = useState(0);
+
+  const onSelect = useCallback(() => {
+    if (!api) return;
+    setCurrent(api.selectedScrollSnap());
+  }, [api]);
+
+  useEffect(() => {
+    if (!api) return;
+    onSelect();
+    api.on("select", onSelect);
+    api.on("reInit", onSelect);
+  }, [api, onSelect]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -97,13 +115,11 @@ const InfoSection = () => {
               })}
             </CarouselContent>
             
-            {/* Setas de navegação nas laterais no mobile */}
             <div className="md:hidden">
                <CarouselPrevious className="absolute left-0 top-1/2 -translate-y-1/2 bg-slate-900/50 border-white/10 text-white h-8 w-8 hover:bg-sky-500" />
                <CarouselNext className="absolute right-0 top-1/2 -translate-y-1/2 bg-slate-900/50 border-white/10 text-white h-8 w-8 hover:bg-sky-500" />
             </div>
             
-            {/* Setas de navegação no desktop */}
             <div className="hidden md:block">
               <CarouselPrevious className="-left-12 bg-slate-900 border-white/10 text-white hover:bg-sky-500" />
               <CarouselNext className="-right-12 bg-slate-900 border-white/10 text-white hover:bg-sky-500" />
@@ -111,9 +127,9 @@ const InfoSection = () => {
           </Carousel>
         </div>
 
-        {/* Info Cards Carousel */}
+        {/* Info Cards Carousel com Pontinhos */}
         <div className="relative">
-          <Carousel opts={{ align: "start", loop: true }} className="w-full">
+          <Carousel setApi={setApi} opts={{ align: "start", loop: true }} className="w-full">
             <CarouselContent className="-ml-6">
               {infoCards.map((card, index) => (
                 <CarouselItem key={index} className="pl-6 basis-full sm:basis-1/2 md:basis-1/3">
@@ -131,18 +147,33 @@ const InfoSection = () => {
               ))}
             </CarouselContent>
             
-            {/* Setas para Mobile */}
             <div className="md:hidden">
               <CarouselPrevious className="absolute left-2 top-1/2 -translate-y-1/2 bg-slate-900/80 border-white/10 text-white h-10 w-10 hover:bg-sky-500 z-10" />
               <CarouselNext className="absolute right-2 top-1/2 -translate-y-1/2 bg-slate-900/80 border-white/10 text-white h-10 w-10 hover:bg-sky-500 z-10" />
             </div>
 
-            {/* Setas para Desktop */}
             <div className="hidden md:block">
               <CarouselPrevious className="-left-14 bg-slate-900 border-white/10 text-white hover:bg-sky-500" />
               <CarouselNext className="-right-14 bg-slate-900 border-white/10 text-white hover:bg-sky-500" />
             </div>
           </Carousel>
+
+          {/* Pontinhos (Pagination Dots) - Visíveis no Mobile */}
+          <div className="flex md:hidden justify-center space-x-2 mt-6">
+            {infoCards.map((_, index) => (
+              <button
+                key={index}
+                onClick={() => api?.scrollTo(index)}
+                className={cn(
+                  "h-2 w-2 rounded-full transition-all duration-300",
+                  current === index 
+                    ? "bg-sky-500 w-4 shadow-[0_0_8px_rgba(14,165,233,0.6)]" 
+                    : "bg-white/20 hover:bg-white/40"
+                )}
+                aria-label={`Ir para o slide ${index + 1}`}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </section>

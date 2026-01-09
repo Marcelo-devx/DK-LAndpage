@@ -40,7 +40,9 @@ const CategoryProductsModal = ({ categoryName, isOpen, onOpenChange }: CategoryP
       const { data, error } = await supabase
         .from('products')
         .select('id, name, price, pix_price, image_url, category, sub_category')
-        .eq('category', categoryName);
+        .eq('category', categoryName)
+        .eq('is_visible', true)
+        .gt('stock_quantity', 0);
 
       if (error) {
         console.error("Error fetching products for category:", error);

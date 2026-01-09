@@ -35,6 +35,7 @@ const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps)
         .select('id, name, price, pix_price, image_url')
         .eq('category', categoryName)
         .eq('is_visible', true)
+        .gt('stock_quantity', 0)
         .limit(10);
 
       if (!error && data) {

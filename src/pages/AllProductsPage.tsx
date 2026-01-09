@@ -88,7 +88,8 @@ const AllProductsPage = () => {
       let query = supabase
         .from('products')
         .select('id, name, price, pix_price, image_url, category, sub_category')
-        .eq('is_visible', true);
+        .eq('is_visible', true)
+        .gt('stock_quantity', 0);
 
       if (debouncedSearchTerm) {
         query = query.ilike('name', `%${debouncedSearchTerm}%`);

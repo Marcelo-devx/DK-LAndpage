@@ -40,7 +40,9 @@ const BrandProductsModal = ({ brandName, isOpen, onOpenChange }: BrandProductsMo
       const { data, error } = await supabase
         .from('products')
         .select('id, name, price, pix_price, image_url, category, sub_category')
-        .eq('brand', brandName);
+        .eq('brand', brandName)
+        .eq('is_visible', true)
+        .gt('stock_quantity', 0);
 
       if (error) {
         console.error("Error fetching products for brand:", error);

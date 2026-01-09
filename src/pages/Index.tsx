@@ -32,12 +32,12 @@ const Index = () => {
   useEffect(() => {
     const fetchData = async () => {
       const [products, hero, promos, brandsData, categoriesData, featured, popups] = await Promise.all([
-        supabase.from('products').select('*').eq('is_visible', true).order('created_at', { ascending: false }).limit(12),
+        supabase.from('products').select('*').eq('is_visible', true).gt('stock_quantity', 0).order('created_at', { ascending: false }).limit(12),
         supabase.from('hero_slides').select('*').order('sort_order'),
-        supabase.from('promotions').select('*').eq('is_active', true).order('created_at', { ascending: false }),
+        supabase.from('promotions').select('*').eq('is_active', true).gt('stock_quantity', 0).order('created_at', { ascending: false }),
         supabase.from('brands').select('*').order('name'),
         supabase.from('categories').select('name').order('name'),
-        supabase.from('products').select('*').eq('is_featured', true).eq('is_visible', true).limit(8),
+        supabase.from('products').select('*').eq('is_featured', true).eq('is_visible', true).gt('stock_quantity', 0).limit(8),
         supabase.from('informational_popups').select('title, content').eq('is_active', true).limit(1).single()
       ]);
 

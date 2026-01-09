@@ -127,7 +127,7 @@ const Index = () => {
             <div className="flex flex-col md:flex-row items-start md:items-end justify-between mb-4 md:mb-8 gap-2">
                 <div>
                     <h2 className="text-[10px] md:text-xs font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-1 md:mb-2">Lançamentos</h2>
-                    <h3 className="text-2xl md:text-5xl font-black tracking-tighter italic uppercase">NEW DROPS.</h3>
+                    <h3 className="text-2xl md:text-5xl font-black tracking-tighter italic uppercase">NEW DROPS</h3>
                 </div>
                 <Link to="/produtos" className="text-[10px] font-bold uppercase tracking-widest hover:text-sky-400 transition-colors">Ver todos →</Link>
             </div>

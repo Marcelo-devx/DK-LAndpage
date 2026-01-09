@@ -93,7 +93,7 @@ const InfoSection = () => {
   return (
     <section className="py-4 md:py-12">
       <div className="container mx-auto px-4 md:px-6">
-        {/* Info Bar Carousel */}
+        {/* Info Bar Carousel - Setas removidas */}
         <div className="mb-8 md:mb-20 bg-white/5 p-6 md:p-10 rounded-3xl md:rounded-[2.5rem] border border-white/5 backdrop-blur-sm relative">
           <Carousel opts={{ align: "start", loop: true }} className="w-full">
             <CarouselContent className="-ml-4">
@@ -114,16 +114,6 @@ const InfoSection = () => {
                 );
               })}
             </CarouselContent>
-            
-            <div className="md:hidden">
-               <CarouselPrevious className="absolute left-0 top-1/2 -translate-y-1/2 bg-slate-900/50 border-white/10 text-white h-8 w-8 hover:bg-sky-500" />
-               <CarouselNext className="absolute right-0 top-1/2 -translate-y-1/2 bg-slate-900/50 border-white/10 text-white h-8 w-8 hover:bg-sky-500" />
-            </div>
-            
-            <div className="hidden md:block">
-              <CarouselPrevious className="-left-12 bg-slate-900 border-white/10 text-white hover:bg-sky-500" />
-              <CarouselNext className="-right-12 bg-slate-900 border-white/10 text-white hover:bg-sky-500" />
-            </div>
           </Carousel>
         </div>
 
@@ -147,14 +137,12 @@ const InfoSection = () => {
               ))}
             </CarouselContent>
             
-            {/* Setas apenas para Desktop */}
             <div className="hidden md:block">
               <CarouselPrevious className="-left-14 bg-slate-900 border-white/10 text-white hover:bg-sky-500" />
               <CarouselNext className="-right-14 bg-slate-900 border-white/10 text-white hover:bg-sky-500" />
             </div>
           </Carousel>
 
-          {/* Pontinhos (Pagination Dots) - Visíveis no Mobile */}
           <div className="flex md:hidden justify-center space-x-2 mt-6">
             {infoCards.map((_, index) => (
               <button

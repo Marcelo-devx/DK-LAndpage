@@ -56,7 +56,7 @@ const Dashboard = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-sky-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-sky-400" />
       </div>
     );
   }
@@ -67,7 +67,7 @@ const Dashboard = () => {
       description: 'Edite seu nome, endereço e telefone',
       icon: User,
       link: '/perfil',
-      color: 'text-blue-600 bg-blue-50',
+      color: 'text-blue-400 bg-blue-400/10',
       notification: false
     },
     {
@@ -75,7 +75,7 @@ const Dashboard = () => {
       description: 'Acompanhe seus pedidos e entregas',
       icon: ShoppingBag,
       link: '/compras',
-      color: 'text-green-600 bg-green-50',
+      color: 'text-green-400 bg-green-400/10',
       notification: pendingOrdersCount > 0
     },
     {
@@ -83,7 +83,7 @@ const Dashboard = () => {
       description: 'Veja os produtos que você avaliou',
       icon: Star,
       link: '/perfil?tab=reviews',
-      color: 'text-yellow-600 bg-yellow-50',
+      color: 'text-yellow-400 bg-yellow-400/10',
       notification: false
     },
     {
@@ -91,35 +91,36 @@ const Dashboard = () => {
       description: 'Ganhe pontos convidando pessoas',
       icon: Users,
       link: '/indicacoes',
-      color: 'text-purple-600 bg-purple-50',
+      color: 'text-purple-400 bg-purple-400/10',
       notification: false
     },
   ];
 
   return (
-    <div className="container mx-auto px-4 py-12 max-w-4xl">
+    <div className="container mx-auto px-4 py-12 max-w-4xl text-white">
       <header className="mb-12">
-        <h1 className="text-4xl font-black tracking-tighter mb-2 italic uppercase text-slate-900">
+        <h1 className="text-4xl font-black tracking-tighter mb-2 italic uppercase">
           Olá, {profile?.first_name || 'Membro'}!
         </h1>
-        <p className="text-slate-500 font-medium">Bem-vindo à sua conta exclusiva DKCWB.</p>
+        <p className="text-slate-400 font-medium">Bem-vindo à sua conta exclusiva DKCWB.</p>
         
-        <div className="mt-8 bg-white border border-slate-200 rounded-[2rem] p-8 flex flex-col md:flex-row items-center justify-between shadow-xl">
+        {/* Card de Pontos - Agora com Contraste Real */}
+        <div className="mt-8 bg-white/5 border border-white/10 rounded-[2rem] p-8 flex flex-col md:flex-row items-center justify-between shadow-2xl backdrop-blur-sm">
           <div className="flex items-center space-x-6 mb-6 md:mb-0">
-            <div className="bg-sky-50 p-4 rounded-2xl">
-              <Gem className="h-10 w-10 text-sky-600" />
+            <div className="bg-sky-500/20 p-4 rounded-2xl">
+              <Gem className="h-10 w-10 text-sky-400" />
             </div>
             <div>
-              <p className="text-slate-400 text-xs font-black uppercase tracking-[0.2em] mb-1">Saldo acumulado</p>
-              <p className="text-5xl font-black tracking-tighter text-slate-900">
-                {profile?.points || 0} <span className="text-xl text-sky-600 italic">PTS</span>
+              <p className="text-slate-500 text-xs font-black uppercase tracking-[0.2em] mb-1">Saldo acumulado</p>
+              <p className="text-5xl font-black tracking-tighter text-white">
+                {profile?.points || 0} <span className="text-xl text-sky-400 italic">PTS</span>
               </p>
             </div>
           </div>
           <Button 
             onClick={() => setIsCouponsModalOpen(true)}
             size="lg"
-            className="bg-sky-600 hover:bg-sky-700 text-white font-black uppercase tracking-widest px-8 h-14 rounded-xl shadow-lg transition-all active:scale-95"
+            className="bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest px-8 h-14 rounded-xl shadow-[0_10px_20px_-5px_rgba(14,165,233,0.4)] transition-all active:scale-95"
           >
             Resgatar Cupons
           </Button>
@@ -129,7 +130,7 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {menuItems.map((item, index) => (
           <Link key={index} to={item.link} className="group">
-            <Card className="bg-white border border-slate-200 hover:border-sky-300 hover:shadow-lg transition-all duration-300 rounded-2xl overflow-hidden relative">
+            <Card className="bg-white/5 border border-white/5 hover:border-sky-500/50 hover:bg-white/[0.08] transition-all duration-300 rounded-2xl overflow-hidden relative shadow-lg">
               <CardContent className="p-6 flex items-center justify-between">
                 <div className="flex items-center space-x-5">
                   <div className={`p-4 rounded-xl ${item.color} relative transition-transform group-hover:scale-110`}>
@@ -142,13 +143,13 @@ const Dashboard = () => {
                     )}
                   </div>
                   <div>
-                    <h3 className="font-black text-slate-900 uppercase tracking-tight text-lg group-hover:text-sky-600 transition-colors">
+                    <h3 className="font-black text-white uppercase tracking-tight text-lg group-hover:text-sky-400 transition-colors">
                       {item.title}
                     </h3>
-                    <p className="text-sm text-slate-500 font-medium">{item.description}</p>
+                    <p className="text-sm text-slate-400 font-medium">{item.description}</p>
                   </div>
                 </div>
-                <ChevronRight className="h-5 w-5 text-slate-300 group-hover:text-sky-600 group-hover:translate-x-1 transition-all" />
+                <ChevronRight className="h-5 w-5 text-slate-600 group-hover:text-sky-400 group-hover:translate-x-1 transition-all" />
               </CardContent>
             </Card>
           </Link>
@@ -158,18 +159,18 @@ const Dashboard = () => {
           onClick={() => setIsCouponsModalOpen(true)}
           className="text-left w-full group"
         >
-          <Card className="bg-white border border-slate-200 hover:border-sky-300 hover:shadow-lg transition-all duration-300 rounded-2xl h-full">
+          <Card className="bg-white/5 border border-white/5 hover:border-sky-500/50 hover:bg-white/[0.08] transition-all duration-300 rounded-2xl shadow-lg h-full">
             <CardContent className="p-6 flex items-center justify-between">
               <div className="flex items-center space-x-5">
-                <div className="p-4 rounded-xl bg-sky-50 text-sky-600 transition-transform group-hover:scale-110">
+                <div className="p-4 rounded-xl bg-sky-500/10 text-sky-400 transition-transform group-hover:scale-110">
                   <Ticket className="h-6 w-6" />
                 </div>
                 <div>
-                  <h3 className="font-black text-slate-900 uppercase tracking-tight text-lg group-hover:text-sky-600 transition-colors">Cupons</h3>
-                  <p className="text-sm text-slate-500 font-medium">Troque pontos por descontos</p>
+                  <h3 className="font-black text-white uppercase tracking-tight text-lg group-hover:text-sky-400 transition-colors">Cupons</h3>
+                  <p className="text-sm text-slate-400 font-medium">Troque pontos por descontos</p>
                 </div>
               </div>
-              <ChevronRight className="h-5 w-5 text-slate-300 group-hover:text-sky-600 group-hover:translate-x-1 transition-all" />
+              <ChevronRight className="h-5 w-5 text-slate-600 group-hover:text-sky-400 group-hover:translate-x-1 transition-all" />
             </CardContent>
           </Card>
         </button>
@@ -178,18 +179,18 @@ const Dashboard = () => {
           onClick={handleLogout}
           className="text-left w-full group"
         >
-          <Card className="bg-red-50 border border-red-100 hover:border-red-200 hover:shadow-lg transition-all duration-300 rounded-2xl">
+          <Card className="bg-red-500/5 border border-red-500/10 hover:border-red-500/50 hover:bg-red-500/10 transition-all duration-300 rounded-2xl shadow-lg">
             <CardContent className="p-6 flex items-center justify-between">
               <div className="flex items-center space-x-5">
-                <div className="p-4 rounded-xl bg-red-100 text-red-600 transition-transform group-hover:scale-110">
+                <div className="p-4 rounded-xl bg-red-500/10 text-red-500 transition-transform group-hover:scale-110">
                   <LogOut className="h-6 w-6" />
                 </div>
                 <div>
-                  <h3 className="font-black text-red-600 uppercase tracking-tight text-lg">Sair</h3>
-                  <p className="text-sm text-slate-500 font-medium">Encerrar sua sessão</p>
+                  <h3 className="font-black text-red-500 uppercase tracking-tight text-lg">Sair</h3>
+                  <p className="text-sm text-slate-400 font-medium">Encerrar sua sessão</p>
                 </div>
               </div>
-              <ChevronRight className="h-5 w-5 text-red-200 group-hover:text-red-600 group-hover:translate-x-1 transition-all" />
+              <ChevronRight className="h-5 w-5 text-red-900 group-hover:text-red-500 group-hover:translate-x-1 transition-all" />
             </CardContent>
           </Card>
         </button>

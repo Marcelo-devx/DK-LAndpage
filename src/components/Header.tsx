@@ -73,8 +73,8 @@ const Header = ({ onCartClick }: HeaderProps) => {
   }, []);
 
   const NavLinks = ({ mobile = false }: { mobile?: boolean }) => {
-    const linkClass = `font-sans font-bold transition-all ${mobile ? 'text-2xl text-slate-900' : 'text-xs text-slate-600 hover:text-sky-600 uppercase tracking-[0.2em]'}`;
-    const activeLinkClass = 'text-sky-600';
+    const linkClass = `font-sans font-bold transition-all ${mobile ? 'text-2xl text-white' : 'text-xs text-slate-300 hover:text-sky-400 uppercase tracking-[0.2em]'}`;
+    const activeLinkClass = 'text-sky-400 shadow-[0_0_15px_rgba(14,165,233,0.5)]';
 
     return (
       <ul className={`flex ${mobile ? 'flex-col space-y-6 items-start' : 'items-center space-x-8'}`}>
@@ -88,19 +88,19 @@ const Header = ({ onCartClick }: HeaderProps) => {
   };
 
   return (
-    <header className="bg-white/80 backdrop-blur-xl border-b border-slate-200 sticky top-0 z-50">
+    <header className="bg-slate-950/80 backdrop-blur-xl border-b border-white/5 sticky top-0 z-50">
       <div className="container mx-auto px-6 py-5 flex items-center justify-between">
         <div className="flex items-center space-x-6">
           {isMobile && (
             <Sheet>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="hover:bg-slate-100">
-                  <Menu className="h-6 w-6 text-slate-900" />
+                <Button variant="ghost" size="icon" className="hover:bg-white/10">
+                  <Menu className="h-6 w-6 text-white" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="bg-white border-slate-200 text-slate-900 p-8">
+              <SheetContent side="left" className="bg-slate-950 border-white/10 text-white p-8">
                 <Link to="/" className="mb-12 inline-block">
-                   <h1 className="text-2xl font-black italic tracking-tighter text-sky-600 uppercase">DKCWB.</h1>
+                   <h1 className="text-2xl font-black italic tracking-tighter text-sky-400 uppercase">DKCWB.</h1>
                 </Link>
                 <nav><NavLinks mobile /></nav>
               </SheetContent>
@@ -108,15 +108,15 @@ const Header = ({ onCartClick }: HeaderProps) => {
           )}
           <Link to="/" className="flex items-center group">
             {loadingLogo ? (
-              <Skeleton className="h-8 w-40 bg-slate-100" />
+              <Skeleton className="h-8 w-40 bg-white/10" />
             ) : logoUrl ? (
               <img 
                 src={logoUrl} 
                 alt="Logo" 
-                className="h-9 w-auto transition-all duration-300 group-hover:scale-110" 
+                className="h-9 w-auto brightness-125 transition-all duration-300 group-hover:scale-110 group-hover:brightness-100" 
               />
             ) : (
-              <h1 className="text-3xl font-black italic tracking-tighter text-sky-600 group-hover:scale-105 transition-transform uppercase">DKCWB.</h1>
+              <h1 className="text-3xl font-black italic tracking-tighter text-sky-400 group-hover:scale-105 transition-transform uppercase">DKCWB.</h1>
             )}
           </Link>
         </div>
@@ -124,23 +124,23 @@ const Header = ({ onCartClick }: HeaderProps) => {
         <div className="flex items-center space-x-8">
           {!isMobile && <nav><NavLinks /></nav>}
           <div className="flex items-center space-x-3">
-            <Button asChild variant="ghost" size="icon" className="hover:bg-sky-50 hover:text-sky-600 text-slate-600">
+            <Button asChild variant="ghost" size="icon" className="hover:bg-sky-400/10 hover:text-sky-400 text-slate-300">
               <Link to="/produtos"><Search className="h-5 w-5" /></Link>
             </Button>
             
-            <Button asChild variant="ghost" size="icon" className="relative hover:bg-sky-50 hover:text-sky-600 text-slate-600">
+            <Button asChild variant="ghost" size="icon" className="relative hover:bg-sky-400/10 hover:text-sky-400 text-slate-300">
               <Link to={session ? "/dashboard" : "/login"}>
                 <User className="h-5 w-5" />
                 {isProfileIncomplete && session && (
-                  <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500"></span>
+                  <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]"></span>
                 )}
               </Link>
             </Button>
 
-            <Button variant="ghost" size="icon" onClick={onCartClick} className="relative hover:bg-sky-50 hover:text-sky-600 text-slate-600">
+            <Button variant="ghost" size="icon" onClick={onCartClick} className="relative hover:bg-sky-400/10 hover:text-sky-400 text-slate-300">
               <ShoppingCart className="h-5 w-5" />
               {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-sky-600 text-white text-[10px] font-black h-4 w-4 flex items-center justify-center rounded-full">
+                <span className="absolute -top-1 -right-1 bg-sky-500 text-white text-[10px] font-black h-4 w-4 flex items-center justify-center rounded-full shadow-[0_0_10px_rgba(14,165,233,0.6)]">
                   {cartCount}
                 </span>
               )}

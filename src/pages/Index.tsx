@@ -64,7 +64,7 @@ const Index = () => {
   };
 
   return (
-    <div className="bg-background overflow-x-hidden text-foreground w-full">
+    <div className="bg-slate-950 overflow-x-hidden text-white w-full">
       {infoPopup && (
         <InformationalPopup 
           isOpen={isPopupOpen} 
@@ -88,7 +88,7 @@ const Index = () => {
                     className="w-full h-auto block" 
                     alt={slide.title || "Banner Principal"} 
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/20 to-transparent" />
                 </Link>
               </CarouselItem>
             ))}
@@ -108,7 +108,7 @@ const Index = () => {
         {promotions.length > 0 && (
           <ScrollAnimationWrapper>
             <section className="container mx-auto px-4 md:px-6">
-              <h2 className="text-[10px] md:text-xs font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-600 uppercase mb-4 md:mb-8 text-center">Ofertas Exclusivas</h2>
+              <h2 className="text-[10px] md:text-xs font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-4 md:mb-8 text-center">Ofertas Exclusivas</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
                 {promotions.slice(0, 3).map((promo) => (
                   <CategoryCarouselCard 
@@ -126,17 +126,17 @@ const Index = () => {
           <section className="container mx-auto px-4 md:px-6">
             <div className="flex flex-col md:flex-row items-start md:items-end justify-between mb-4 md:mb-8 gap-2">
                 <div>
-                    <h2 className="text-[10px] md:text-xs font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-600 uppercase mb-1 md:mb-2">Lançamentos</h2>
-                    <h3 className="text-2xl md:text-5xl font-black tracking-tighter italic uppercase text-slate-900">NEW DROPS.</h3>
+                    <h2 className="text-[10px] md:text-xs font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-1 md:mb-2">Lançamentos</h2>
+                    <h3 className="text-2xl md:text-5xl font-black tracking-tighter italic uppercase">NEW DROPS.</h3>
                 </div>
-                <Link to="/produtos" className="text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-sky-600 transition-colors">Ver todos →</Link>
+                <Link to="/produtos" className="text-[10px] font-bold uppercase tracking-widest hover:text-sky-400 transition-colors">Ver todos →</Link>
             </div>
             
             <Carousel opts={{ align: "start", loop: true }} className="w-full">
               <CarouselContent className="-ml-3 md:-ml-4">
                 {loadingProducts ? Array.from({ length: 4 }).map((_, i) => (
                   <CarouselItem key={i} className="pl-3 md:pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4">
-                    <Skeleton className="aspect-square bg-slate-100 rounded-2xl md:rounded-3xl" />
+                    <Skeleton className="aspect-square bg-white/5 rounded-2xl md:rounded-3xl" />
                   </CarouselItem>
                 )) :
                   displayedProducts.map((p) => (
@@ -158,9 +158,9 @@ const Index = () => {
 
         {featuredProducts.length > 0 && (
           <ScrollAnimationWrapper>
-            <section className="bg-slate-50 py-8 md:py-16">
+            <section className="bg-white/5 py-8 md:py-16">
               <div className="container mx-auto px-4 md:px-6">
-                <h2 className="text-[10px] md:text-xs font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-600 uppercase mb-4 md:mb-8 text-center">Seleção Premium</h2>
+                <h2 className="text-[10px] md:text-xs font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-4 md:mb-8 text-center">Seleção Premium</h2>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
                   {featuredProducts.map((p) => (
                     <ProductCard key={p.id} product={{ id: p.id, name: p.name, price: p.price, pixPrice: p.pix_price, imageUrl: p.image_url, url: `/produto/${p.id}` }} />

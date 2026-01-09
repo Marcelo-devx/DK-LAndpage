@@ -52,7 +52,9 @@ const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps)
       <div className="flex items-end justify-between mb-8 md:mb-12">
         <div>
           <h2 className="text-[10px] md:text-xs font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-2 md:mb-4">{categoryName}</h2>
-          <h3 className="text-3xl md:text-5xl font-black tracking-tighter italic uppercase">{categoryName}.</h3>
+          <h3 className="text-3xl md:text-5xl font-black tracking-tighter italic">
+            {categoryName}
+          </h3>
         </div>
         {products.length > 0 && (
           <Link to={`/produtos?category=${categoryName}`} className="text-[10px] font-bold uppercase tracking-widest hover:text-sky-400 transition-colors hidden md:block">

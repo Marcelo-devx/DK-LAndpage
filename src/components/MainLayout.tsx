@@ -6,6 +6,7 @@ import BrandProductsModal from "./BrandProductsModal";
 import { CartSheet } from "./CartSheet";
 import Footer from "./Footer";
 import SocialProofPopup from "./SocialProofPopup";
+import AgeVerificationPopup from "./AgeVerificationPopup";
 
 export interface OutletContextType {
   handleCategoryClick: (categoryName: string) => void;
@@ -35,6 +36,7 @@ const MainLayout = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-off-white">
+      <AgeVerificationPopup />
       <Header onCartClick={() => setIsCartOpen(true)} />
       <main className="flex-grow">
         <Outlet context={{ handleCategoryClick, handleBrandClick }} />

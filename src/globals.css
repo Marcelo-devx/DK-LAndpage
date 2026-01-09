@@ -4,42 +4,42 @@
 
 @layer base {
   :root {
-    --background: 222 47% 2%; /* Fundo quase preto para dar destaque */
-    --foreground: 0 0% 100%;  /* Texto principal Branco Puro */
+    --background: 210 40% 98%; /* Fundo cinza ultra claro / branco */
+    --foreground: 222 47% 11%; /* Texto quase preto */
 
-    --card: 222 47% 4%;
-    --card-foreground: 0 0% 100%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
 
-    --popover: 222 47% 2%;
-    --popover-foreground: 0 0% 100%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
 
     --primary: 199 89% 48%; 
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 217 32% 17%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222 47% 11.2%;
 
-    --muted: 215 25% 40%;
-    --muted-foreground: 215 20% 90%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
 
     --accent: 199 89% 48%;
-    --accent-foreground: 0 0% 100%;
+    --accent-foreground: 222 47% 11.2%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 217 32% 20%;
-    --input: 217 32% 25%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
     --ring: 199 89% 48%;
 
     --radius: 1rem;
 
     /* Variáveis de Alta Visibilidade */
-    --color-off-white: #020617;      
-    --color-charcoal-gray: #ffffff;  /* Texto Principal: Branco Total */
-    --color-gold-accent: #38bdf8;    /* Azul Sky Vibrante */
-    --color-tobacco-brown: #cbd5e1;  /* Texto Secundário: Slate 300 (Cinza muito claro) */
-    --color-light-tan: #0f172a;      
+    --color-off-white: #f8fafc;      
+    --color-charcoal-gray: #0f172a;  /* Texto Principal: Slate 900 */
+    --color-gold-accent: #0ea5e9;    /* Azul Sky Vibrante */
+    --color-tobacco-brown: #475569;  /* Texto Secundário: Slate 600 */
+    --color-light-tan: #ffffff;      
   }
 }
 
@@ -52,21 +52,19 @@
     @apply bg-background text-foreground selection:bg-primary/30 antialiased;
   }
   
-  /* Garantir que labels de formulários sejam visíveis */
   label {
-    @apply text-white font-bold mb-1 block;
+    @apply text-slate-900 font-bold mb-1 block;
   }
 
-  /* Deixar os campos de texto mais claros por dentro */
   input, textarea {
-    @apply bg-slate-900 border-white/20 text-white placeholder:text-slate-500 !important;
+    @apply bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 !important;
   }
 }
 
 .glass-effect {
-  @apply bg-white/[0.05] backdrop-blur-xl border border-white/20;
+  @apply bg-white/70 backdrop-blur-xl border border-slate-200;
 }
 
 .text-gradient {
-  @apply bg-clip-text text-transparent bg-gradient-to-r from-sky-400 to-white;
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-sky-600 to-slate-900;
 }

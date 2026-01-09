@@ -208,7 +208,7 @@ const OrdersPage = () => {
                           {order.order_items.map(item => (
                             <div key={`${order.id}-${item.item_id}-${item.item_type}`} className="flex justify-between items-center bg-white/[0.03] p-4 rounded-2xl border border-white/5 transition-colors hover:bg-white/[0.06]">
                               <div>
-                                <p className="text-slate-100 font-bold text-sm uppercase tracking-tight">{item.name_at_purchase}</p>
+                                <p className="text-slate-100 font-bold text-sm tracking-tight">{item.name_at_purchase}</p>
                                 <p className="text-xs text-slate-300 mt-1 font-semibold">{item.quantity}x R$ {item.price_at_purchase.toFixed(2).replace('.', ',')}</p>
                               </div>
                               {order.status.toLowerCase().includes('finalizada') && item.item_type === 'product' && (

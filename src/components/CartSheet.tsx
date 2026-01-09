@@ -193,7 +193,7 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
                 <div key={key} className="flex items-start space-x-4 bg-white/5 p-4 rounded-2xl border border-white/5">
                   <img src={item.image_url} alt={item.name} className="h-20 w-20 object-cover rounded-xl border border-white/5" />
                   <div className="flex-grow">
-                    <p className="font-bold text-white text-sm uppercase tracking-tight leading-tight">{item.name}</p>
+                    <p className="font-bold text-white text-sm tracking-tight leading-tight">{item.name}</p>
                     {item.variant_label && <p className="text-[10px] font-black text-sky-400 uppercase mt-1 tracking-widest">{item.variant_label}</p>}
                     <p className="text-slate-300 font-bold text-sm mt-1">R$ {item.price.toFixed(2).replace('.', ',')}</p>
                     <div className="flex items-center space-x-3 mt-3">

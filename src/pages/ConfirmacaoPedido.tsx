@@ -167,7 +167,7 @@ const ConfirmacaoPedido = () => {
                     <div className="flex items-center space-x-4">
                       <img src={item.image_url_at_purchase} alt={item.name_at_purchase} className="h-14 w-14 object-cover rounded-lg shadow-sm" />
                       <div>
-                        <p className="font-black text-white uppercase tracking-tight text-sm">{item.name_at_purchase}</p>
+                        <p className="font-black text-white tracking-tight text-sm">{item.name_at_purchase}</p>
                         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Qtd: {item.quantity}</p>
                       </div>
                     </div>

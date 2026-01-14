@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Link, NavLink } from 'react-router-dom';
-import { User, ShoppingCart, Menu, Search } from 'lucide-react';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { User, ShoppingCart, Menu, Search, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,11 +16,13 @@ interface HeaderProps {
 
 const Header = ({ onCartClick }: HeaderProps) => {
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [loadingLogo, setLoadingLogo] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
   const [isProfileIncomplete, setIsProfileIncomplete] = useState(false);
   const [cartCount, setCartCount] = useState(0);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const checkProfileStatus = async (user: any) => {
     if (!user) {
@@ -72,6 +75,13 @@ const Header = ({ onCartClick }: HeaderProps) => {
     };
   }, []);
 
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchTerm.trim()) {
+      navigate(`/produtos?search=${encodeURIComponent(searchTerm)}`);
+    }
+  };
+
   const NavLinks = ({ mobile = false }: { mobile?: boolean }) => {
     const linkClass = `font-sans font-bold transition-all ${mobile ? 'text-2xl text-slate-800' : 'text-xs text-slate-600 hover:text-sky-500 uppercase tracking-[0.2em]'}`;
     const activeLinkClass = 'text-sky-500 font-black';
@@ -88,9 +98,11 @@ const Header = ({ onCartClick }: HeaderProps) => {
   };
 
   return (
-    <header className="bg-off-white/80 backdrop-blur-xl border-b border-slate-200/60 sticky top-0 z-50">
-      <div className="container mx-auto px-6 py-5 flex items-center justify-between">
-        <div className="flex items-center space-x-6">
+    <header className="bg-off-white/90 backdrop-blur-xl border-b border-slate-200/60 sticky top-0 z-50">
+      <div className="container mx-auto px-4 md:px-6 py-4 flex items-center justify-between gap-4">
+        
+        {/* LOGO AREA */}
+        <div className="flex items-center space-x-4 shrink-0">
           {isMobile && (
             <Sheet>
               <SheetTrigger asChild>
@@ -108,45 +120,112 @@ const Header = ({ onCartClick }: HeaderProps) => {
           )}
           <Link to="/" className="flex items-center group">
             {loadingLogo ? (
-              <Skeleton className="h-8 w-40 bg-slate-200" />
+              <Skeleton className="h-8 w-32 bg-slate-200" />
             ) : logoUrl ? (
               <img 
                 src={logoUrl} 
                 alt="Logo" 
-                className="h-9 w-auto transition-all duration-300 group-hover:scale-110" 
+                className="h-8 md:h-10 w-auto transition-all duration-300 group-hover:scale-110" 
               />
             ) : (
-              <h1 className="text-3xl font-black italic tracking-tighter text-sky-500 group-hover:scale-105 transition-transform uppercase">DKCWB.</h1>
+              <h1 className="text-2xl md:text-3xl font-black italic tracking-tighter text-sky-500 group-hover:scale-105 transition-transform uppercase">DKCWB.</h1>
             )}
           </Link>
         </div>
 
-        <div className="flex items-center space-x-8">
-          {!isMobile && <nav><NavLinks /></nav>}
-          <div className="flex items-center space-x-3">
-            <Button asChild variant="ghost" size="icon" className="hover:bg-sky-500/10 hover:text-sky-500 text-slate-600">
-              <Link to="/produtos"><Search className="h-5 w-5" /></Link>
+        {/* SEARCH BAR (CENTER) - Visible on Desktop */}
+        <div className="hidden md:flex flex-1 max-w-2xl mx-8">
+          <form onSubmit={handleSearch} className="w-full relative">
+            <Input 
+              type="text" 
+              placeholder="Digite o que você procura..." 
+              className="w-full h-12 pl-5 pr-12 rounded-xl border-stone-200 bg-white text-slate-800 placeholder:text-slate-400 focus:border-sky-500 focus:ring-sky-500/20 shadow-sm"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <Button 
+              type="submit" 
+              size="icon" 
+              className="absolute right-1 top-1 h-10 w-10 bg-transparent hover:bg-stone-100 text-slate-500 hover:text-sky-500 rounded-lg transition-colors"
+            >
+              <Search className="h-5 w-5" />
             </Button>
-            
-            <Button asChild variant="ghost" size="icon" className="relative hover:bg-sky-500/10 hover:text-sky-500 text-slate-600">
-              <Link to={session ? "/dashboard" : "/login"}>
-                <User className="h-5 w-5" />
-                {isProfileIncomplete && session && (
-                  <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 shadow-sm"></span>
-                )}
-              </Link>
-            </Button>
-
-            <Button variant="ghost" size="icon" onClick={onCartClick} className="relative hover:bg-sky-500/10 hover:text-sky-500 text-slate-600">
-              <ShoppingCart className="h-5 w-5" />
-              {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-sky-500 text-white text-[10px] font-black h-4 w-4 flex items-center justify-center rounded-full shadow-sm">
-                  {cartCount}
-                </span>
-              )}
-            </Button>
-          </div>
+          </form>
         </div>
+
+        {/* ICONS AREA (RIGHT) */}
+        <div className="flex items-center space-x-2 md:space-x-6 shrink-0">
+          
+          {/* Mobile Search Trigger */}
+          <div className="md:hidden">
+             <Button variant="ghost" size="icon" onClick={() => navigate('/produtos')} className="text-slate-600">
+                <Search className="h-6 w-6" />
+             </Button>
+          </div>
+
+          {/* Meus Pedidos (Desktop) */}
+          <Link to="/compras" className="hidden lg:flex items-center gap-2 group">
+            <Package className="h-6 w-6 text-slate-700 group-hover:text-sky-500 transition-colors" />
+            <div className="flex flex-col leading-none">
+                <span className="text-[10px] text-slate-500 font-bold uppercase">Meus</span>
+                <span className="text-xs text-slate-800 font-black uppercase">Pedidos</span>
+            </div>
+          </Link>
+
+          {/* Login/User (Desktop & Mobile) */}
+          <Link to={session ? "/dashboard" : "/login"} className="flex items-center gap-2 group relative">
+            <div className="relative">
+                <User className="h-6 w-6 text-slate-700 group-hover:text-sky-500 transition-colors" />
+                {isProfileIncomplete && session && (
+                  <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-off-white"></span>
+                )}
+            </div>
+            <div className="hidden lg:flex flex-col leading-none">
+                <span className="text-[10px] text-slate-500 font-bold uppercase">
+                    {session ? `Olá, ${session.user.email?.split('@')[0].substring(0, 8)}...` : 'Entre ou'}
+                </span>
+                <span className="text-xs text-slate-800 font-black uppercase">
+                    {session ? 'Minha Conta' : 'Cadastre-se'}
+                </span>
+            </div>
+          </Link>
+
+          {/* Carrinho (Desktop & Mobile) */}
+          <button onClick={onCartClick} className="flex items-center gap-2 group relative">
+            <div className="relative">
+                <ShoppingCart className="h-6 w-6 text-slate-700 group-hover:text-sky-500 transition-colors" />
+                {cartCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 bg-sky-500 text-white text-[9px] font-black h-4 w-4 flex items-center justify-center rounded-full shadow-sm">
+                    {cartCount}
+                    </span>
+                )}
+            </div>
+            <div className="hidden lg:flex flex-col leading-none text-left">
+                <span className="text-[10px] text-slate-500 font-bold uppercase">Meu</span>
+                <span className="text-xs text-slate-800 font-black uppercase">Carrinho</span>
+            </div>
+          </button>
+        </div>
+      </div>
+      
+      {/* Mobile Search Bar (Only visible on small screens below navigation) */}
+      <div className="md:hidden px-4 pb-4">
+         <form onSubmit={handleSearch} className="relative">
+            <Input 
+              type="text" 
+              placeholder="O que você procura?" 
+              className="w-full h-10 pl-4 pr-10 rounded-lg border-stone-200 bg-white text-sm"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <Button 
+              type="submit" 
+              size="icon" 
+              className="absolute right-0 top-0 h-10 w-10 bg-transparent text-slate-400"
+            >
+              <Search className="h-4 w-4" />
+            </Button>
+         </form>
       </div>
     </header>
   );

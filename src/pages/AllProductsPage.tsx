@@ -4,6 +4,7 @@ import ProductCard from '@/components/ProductCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import ProductFilters from '@/components/ProductFilters';
 import { useDebounce } from '@/hooks/use-debounce';
+import { useSearchParams } from 'react-router-dom';
 
 interface Product {
   id: number;
@@ -16,6 +17,9 @@ interface Product {
 }
 
 const AllProductsPage = () => {
+  const [searchParams] = useSearchParams();
+  const initialSearch = searchParams.get('search') || '';
+
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -24,7 +28,7 @@ const AllProductsPage = () => {
   const [allBrands, setAllBrands] = useState<string[]>([]);
   const [allFlavors, setAllFlavors] = useState<string[]>([]);
 
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(initialSearch);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedSubCategories, setSelectedSubCategories] = useState<string[]>([]);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
@@ -32,6 +36,14 @@ const AllProductsPage = () => {
   const [sortBy, setSortBy] = useState('created_at-desc');
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
+
+  // Atualiza o termo de busca se a URL mudar (ex: nova pesquisa no header)
+  useEffect(() => {
+    const query = searchParams.get('search');
+    if (query !== null) {
+      setSearchTerm(query);
+    }
+  }, [searchParams]);
 
   const fetchFilterOptions = useCallback(async () => {
     const { data: catData, error: catError } = await supabase.from('categories').select('name');
@@ -125,6 +137,7 @@ const AllProductsPage = () => {
   }, [debouncedSearchTerm, selectedCategories, selectedSubCategories, selectedBrands, selectedFlavors, sortBy]);
 
   const handleClearFilters = () => {
+    setSearchTerm('');
     setSelectedCategories([]);
     setSelectedSubCategories([]);
     setSelectedBrands([]);

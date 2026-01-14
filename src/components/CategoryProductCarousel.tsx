@@ -51,7 +51,7 @@ const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps)
     <section className="container mx-auto px-6 py-8 md:py-16">
       <div className="flex items-end justify-between mb-8 md:mb-12">
         <div>
-          <h3 className="text-3xl md:text-5xl font-black tracking-tighter italic">
+          <h3 className="text-3xl md:text-5xl font-black tracking-tighter italic" translate="no">
             {categoryName}
           </h3>
         </div>

@@ -56,7 +56,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
         </div>
         <CardContent className="p-3 md:p-6 flex-grow flex flex-col">
           <div className="flex-grow">
-            <h3 className="text-slate-900 text-xs md:text-lg font-bold tracking-tight line-clamp-2 h-8 md:h-14 mb-2 md:mb-4 group-hover:text-sky-600 transition-colors leading-tight">
+            <h3 className="text-slate-900 text-xs md:text-lg font-bold tracking-tight line-clamp-2 h-8 md:h-14 mb-2 md:mb-4 group-hover:text-sky-600 transition-colors leading-tight" translate="no">
               {product.name}
             </h3>
             

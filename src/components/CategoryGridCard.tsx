@@ -29,7 +29,7 @@ const CategoryGridCard = ({ category, onClick, className }: CategoryGridCardProp
       
       <div className="relative h-full flex flex-col justify-end p-8">
         <p className="text-sky-400 text-[10px] font-black uppercase tracking-[0.3em] mb-2 translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500">Explorar</p>
-        <h3 className="text-2xl md:text-3xl text-white font-black tracking-tighter italic">
+        <h3 className="text-2xl md:text-3xl text-white font-black tracking-tighter italic" translate="no">
           {category.name}
         </h3>
       </div>

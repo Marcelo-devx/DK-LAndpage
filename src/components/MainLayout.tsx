@@ -38,7 +38,7 @@ const MainLayout = () => {
   return (
     <div className="flex flex-col min-h-screen bg-off-white text-charcoal-gray">
       <AgeVerificationPopup />
-      <div className="sticky top-0 z-50 w-full">
+      <div className="sticky top-0 z-40 w-full">
         <DeliveryTimerBar />
         <Header onCartClick={() => setIsCartOpen(true)} />
       </div>

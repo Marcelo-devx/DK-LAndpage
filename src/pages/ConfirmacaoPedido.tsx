@@ -81,7 +81,7 @@ const ConfirmacaoPedido = () => {
   if (!order) {
     return (
       <div className="container mx-auto px-4 py-16 text-center">
-        <h1 className="font-serif text-4xl text-white mb-4">Pedido não encontrado</h1>
+        <h1 className="font-serif text-4xl text-charcoal-gray mb-4">Pedido não encontrado</h1>
         <Button asChild><Link to="/compras">Ver meus pedidos</Link></Button>
       </div>
     );
@@ -92,22 +92,22 @@ const ConfirmacaoPedido = () => {
   const { shipping_address: addr } = order;
 
   return (
-    <div className="bg-slate-950 min-h-screen py-12 md:py-20 text-white">
+    <div className="bg-off-white min-h-screen py-12 md:py-20 text-charcoal-gray">
       <div className="container mx-auto px-4">
-        <Card className="max-w-3xl mx-auto bg-white/5 border border-white/10 shadow-2xl rounded-[2.5rem] overflow-hidden backdrop-blur-sm">
+        <Card className="max-w-3xl mx-auto bg-white border border-stone-200 shadow-2xl rounded-[2.5rem] overflow-hidden">
           <CardHeader className={cn(
-            "text-center p-8 border-b border-white/5",
-            isCancelled ? "bg-red-500/10" : isPending ? "bg-white/[0.02]" : "bg-sky-500/10"
+            "text-center p-8 border-b border-stone-100",
+            isCancelled ? "bg-red-50" : isPending ? "bg-stone-50" : "bg-sky-50"
           )}>
             {isCancelled ? (
               <AlertTriangle className="mx-auto h-16 w-16 text-red-500" />
             ) : (
-              <CheckCircle className="mx-auto h-16 w-16 text-sky-400" />
+              <CheckCircle className="mx-auto h-16 w-16 text-sky-500" />
             )}
-            <CardTitle className="font-black text-3xl tracking-tighter italic uppercase mt-4">
+            <CardTitle className="font-black text-3xl tracking-tighter italic uppercase mt-4 text-charcoal-gray">
               {isCancelled ? "Pedido Expirado." : "Pedido Recebido."}
             </CardTitle>
-            <CardDescription className="text-slate-400 mt-2 font-medium">
+            <CardDescription className="text-stone-500 mt-2 font-medium">
               Pedido #{order.id} • {new Date(order.created_at).toLocaleDateString('pt-BR')}
             </CardDescription>
           </CardHeader>
@@ -122,75 +122,75 @@ const ConfirmacaoPedido = () => {
             )}
 
             {isCancelled && (
-              <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-2xl text-center">
-                <p className="text-red-400 font-bold">Infelizmente o tempo de pagamento expirou e os itens voltaram para o estoque. Por favor, realize um novo pedido.</p>
-                <Button asChild variant="outline" className="mt-4 border-red-500/50 text-red-400 hover:bg-red-500/10">
+              <div className="bg-red-50 border border-red-200 p-6 rounded-2xl text-center">
+                <p className="text-red-500 font-bold">Infelizmente o tempo de pagamento expirou e os itens voltaram para o estoque. Por favor, realize um novo pedido.</p>
+                <Button asChild variant="outline" className="mt-4 border-red-200 text-red-500 hover:bg-red-50">
                   <Link to="/produtos">Voltar à Loja</Link>
                 </Button>
               </div>
             )}
 
             <div className="grid md:grid-cols-2 gap-8">
-              <div className="bg-white/5 p-6 rounded-2xl border border-white/5">
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Forma de Pagamento</p>
-                <div className="flex items-center space-x-3 text-white">
+              <div className="bg-stone-50 p-6 rounded-2xl border border-stone-100">
+                <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-3">Forma de Pagamento</p>
+                <div className="flex items-center space-x-3 text-charcoal-gray">
                   {order.payment_method?.toLowerCase().includes('pix') ? (
-                    <MessageSquare className="h-5 w-5 text-sky-400" />
+                    <MessageSquare className="h-5 w-5 text-sky-600" />
                   ) : (
-                    <CreditCard className="h-5 w-5 text-sky-400" />
+                    <CreditCard className="h-5 w-5 text-sky-600" />
                   )}
                   <p className="text-lg font-black tracking-tight uppercase italic">{order.payment_method || 'Pix'}</p>
                 </div>
                 <div className="mt-4">
-                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Status Financeiro</p>
-                   <p className="text-sm font-bold text-white mt-1">{order.status}</p>
+                   <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Status Financeiro</p>
+                   <p className="text-sm font-bold text-charcoal-gray mt-1">{order.status}</p>
                 </div>
               </div>
 
-              <div className="bg-white/5 p-6 rounded-2xl border border-white/5">
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Local de Entrega</p>
-                <div className="text-sm text-slate-300 space-y-1 font-medium">
-                  <p className="text-white font-bold">{addr.street}, {addr.number}</p>
+              <div className="bg-stone-50 p-6 rounded-2xl border border-stone-100">
+                <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-3">Local de Entrega</p>
+                <div className="text-sm text-stone-600 space-y-1 font-medium">
+                  <p className="text-charcoal-gray font-bold">{addr.street}, {addr.number}</p>
                   {addr.complement && <p>{addr.complement}</p>}
                   <p>{addr.neighborhood}</p>
                   <p>{addr.city} - {addr.state}</p>
-                  <p className="text-[10px] font-black tracking-widest text-sky-400 mt-2">{addr.cep}</p>
+                  <p className="text-[10px] font-black tracking-widest text-sky-600 mt-2">{addr.cep}</p>
                 </div>
               </div>
             </div>
 
             <div>
-              <h3 className="text-xs font-black text-slate-500 uppercase tracking-[0.3em] mb-6">Itens do Pedido</h3>
+              <h3 className="text-xs font-black text-stone-400 uppercase tracking-[0.3em] mb-6">Itens do Pedido</h3>
               <div className="space-y-4">
                 {items.map((item, index) => (
-                  <div key={index} className="flex items-center justify-between bg-white/[0.02] p-4 rounded-xl border border-white/5">
+                  <div key={index} className="flex items-center justify-between bg-white p-4 rounded-xl border border-stone-100">
                     <div className="flex items-center space-x-4">
                       <img src={item.image_url_at_purchase} alt={item.name_at_purchase} className="h-14 w-14 object-cover rounded-lg shadow-sm" />
                       <div>
-                        <p className="font-black text-white tracking-tight text-sm">{item.name_at_purchase}</p>
-                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Qtd: {item.quantity}</p>
+                        <p className="font-black text-charcoal-gray tracking-tight text-sm">{item.name_at_purchase}</p>
+                        <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest">Qtd: {item.quantity}</p>
                       </div>
                     </div>
-                    <p className="text-sky-400 font-black tracking-tighter">R$ {(item.price_at_purchase * item.quantity).toFixed(2).replace('.', ',')}</p>
+                    <p className="text-sky-600 font-black tracking-tighter">R$ {(item.price_at_purchase * item.quantity).toFixed(2).replace('.', ',')}</p>
                   </div>
                 ))}
               </div>
             </div>
             
-            <Separator className="bg-white/5" />
+            <Separator className="bg-stone-200" />
 
-            <div className="space-y-3 bg-white/5 p-6 rounded-2xl border border-white/5">
-              <div className="flex justify-between text-slate-400 text-sm font-medium">
+            <div className="space-y-3 bg-stone-50 p-6 rounded-2xl border border-stone-100">
+              <div className="flex justify-between text-stone-500 text-sm font-medium">
                 <p>Subtotal</p>
                 <p>R$ {order.total_price.toFixed(2).replace('.', ',')}</p>
               </div>
-              <div className="flex justify-between text-slate-400 text-sm font-medium">
+              <div className="flex justify-between text-stone-500 text-sm font-medium">
                 <p>Frete Especial</p>
-                <p className="text-green-400 font-black uppercase text-[10px] tracking-widest">Grátis</p>
+                <p className="text-green-600 font-black uppercase text-[10px] tracking-widest">Grátis</p>
               </div>
-              <div className="flex justify-between font-black text-3xl pt-4 border-t border-white/5 text-white tracking-tighter italic uppercase">
+              <div className="flex justify-between font-black text-3xl pt-4 border-t border-stone-200 mt-2 text-charcoal-gray tracking-tighter italic uppercase">
                 <p>Total</p>
-                <p className="text-sky-400">R$ {(order.total_price + order.shipping_cost).toFixed(2).replace('.', ',')}</p>
+                <p className="text-sky-600">R$ {(order.total_price + order.shipping_cost).toFixed(2).replace('.', ',')}</p>
               </div>
             </div>
 
@@ -198,7 +198,7 @@ const ConfirmacaoPedido = () => {
                 <Button asChild className="bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest px-10 h-16 text-lg rounded-2xl shadow-xl transition-all active:scale-95">
                     <Link to="/">Continuar Comprando</Link>
                 </Button>
-                <Button asChild variant="outline" className="px-10 h-16 text-lg border-white/10 hover:bg-white/5 rounded-2xl font-black uppercase tracking-widest">
+                <Button asChild variant="outline" className="px-10 h-16 text-lg border-stone-200 text-stone-600 hover:bg-stone-50 rounded-2xl font-black uppercase tracking-widest">
                     <Link to="/compras">Meus Pedidos</Link>
                 </Button>
             </div>

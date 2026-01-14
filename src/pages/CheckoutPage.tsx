@@ -236,7 +236,6 @@ const CheckoutPage = () => {
       await supabase.from('orders').update({ 
         payment_method: data.payment_method === 'pix' ? 'PIX via WhatsApp' : 'Cartão de Crédito',
         status: statusUpdate,
-        // Se for Correios, podemos marcar delivery_status como 'Pendente Envio Correios'
         delivery_status: deliveryType === 'correios' ? 'Aguardando Envio Correios' : 'Pendente'
       }).eq('id', new_order_id);
 
@@ -310,22 +309,22 @@ const CheckoutPage = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 md:py-16 text-white">
+    <div className="container mx-auto px-4 py-8 md:py-16 text-charcoal-gray">
       <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 lg:grid-cols-2 lg:gap-16">
         <div className="space-y-8">
-          <Card className="bg-white/5 border-white/10 shadow-2xl rounded-[2rem] overflow-hidden backdrop-blur-sm">
-            <CardHeader className="bg-white/[0.02] border-b border-white/5 p-8">
+          <Card className="bg-white border-stone-200 shadow-xl rounded-[2rem] overflow-hidden">
+            <CardHeader className="bg-stone-50 border-b border-stone-100 p-8">
               <div className="flex items-center space-x-4">
-                <div className="p-3 bg-sky-500/20 rounded-2xl">
-                  <MapPin className="h-6 w-6 text-sky-400" />
+                <div className="p-3 bg-sky-100 rounded-2xl">
+                  <MapPin className="h-6 w-6 text-sky-600" />
                 </div>
-                <CardTitle className="font-black text-2xl tracking-tighter italic uppercase">Dados de Entrega.</CardTitle>
+                <CardTitle className="font-black text-2xl tracking-tighter italic uppercase text-charcoal-gray">Dados de Entrega.</CardTitle>
               </div>
             </CardHeader>
             <CardContent className="p-8 space-y-6">
               
               {deliveryType === 'correios' && (
-                <Alert className="bg-yellow-500/10 border-yellow-500/20 text-yellow-200">
+                <Alert className="bg-yellow-50 border-yellow-200 text-yellow-800">
                   <Truck className="h-4 w-4" />
                   <AlertTitle className="font-bold uppercase text-xs tracking-wider">Entrega via Correios</AlertTitle>
                   <AlertDescription className="text-xs">
@@ -343,7 +342,7 @@ const CheckoutPage = () => {
                 <Label className="text-xs font-black uppercase tracking-widest text-slate-500">CEP</Label>
                 <div className="flex space-x-2">
                   <Input {...register('cep')} onChange={e => e.target.value = maskCep(e.target.value)} />
-                  <Button type="button" size="icon" onClick={handleCepLookup} disabled={isFetchingCep} className="bg-sky-500 hover:bg-sky-400 text-white h-12 w-12 rounded-xl shrink-0">
+                  <Button type="button" size="icon" onClick={handleCepLookup} disabled={isFetchingCep} className="bg-sky-500 hover:bg-sky-400 text-white h-10 w-12 rounded-xl shrink-0">
                     {isFetchingCep ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
                   </Button>
                 </div>
@@ -364,26 +363,26 @@ const CheckoutPage = () => {
         </div>
 
         <div className="space-y-8 mt-8 lg:mt-0">
-          <Card className="bg-white/5 border-white/10 shadow-2xl rounded-[2rem] overflow-hidden backdrop-blur-sm">
-            <CardHeader className="bg-white/[0.02] border-b border-white/5 p-8">
+          <Card className="bg-white border-stone-200 shadow-xl rounded-[2rem] overflow-hidden">
+            <CardHeader className="bg-stone-50 border-b border-stone-100 p-8">
               <div className="flex items-center space-x-4">
-                <div className="p-3 bg-sky-500/20 rounded-2xl">
-                  <CreditCard className="h-6 w-6 text-sky-400" />
+                <div className="p-3 bg-sky-100 rounded-2xl">
+                  <CreditCard className="h-6 w-6 text-sky-600" />
                 </div>
-                <CardTitle className="font-black text-2xl tracking-tighter italic uppercase">Pagamento.</CardTitle>
+                <CardTitle className="font-black text-2xl tracking-tighter italic uppercase text-charcoal-gray">Pagamento.</CardTitle>
               </div>
             </CardHeader>
             <CardContent className="p-8 space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <Button type="button" onClick={() => setValue('payment_method', 'mercadopago')} disabled={!isCreditCardEnabled} className={cn("h-24 flex flex-col items-center justify-center space-y-2 transition-all rounded-2xl", paymentMethod === 'mercadopago' ? "bg-sky-500 text-white border-2 border-sky-400 ring-4 ring-sky-500/20" : "bg-white/5 text-slate-400 border border-white/10")}>
+                <Button type="button" onClick={() => setValue('payment_method', 'mercadopago')} disabled={!isCreditCardEnabled} className={cn("h-24 flex flex-col items-center justify-center space-y-2 transition-all rounded-2xl", paymentMethod === 'mercadopago' ? "bg-sky-500 text-white border-2 border-sky-400 ring-4 ring-sky-500/20" : "bg-stone-100 text-slate-500 border border-stone-200 hover:bg-stone-200")}>
                   <CreditCard className="h-6 w-6" /><span className="font-black uppercase text-[10px] tracking-widest">Cartão de Crédito</span>
                 </Button>
-                <Button type="button" onClick={() => setValue('payment_method', 'pix')} className={cn("h-24 flex flex-col items-center justify-center space-y-2 transition-all rounded-2xl", paymentMethod === 'pix' ? "bg-sky-500 text-white border-2 border-sky-400 ring-4 ring-sky-500/20" : "bg-white/5 text-slate-400 border border-white/10")}>
+                <Button type="button" onClick={() => setValue('payment_method', 'pix')} className={cn("h-24 flex flex-col items-center justify-center space-y-2 transition-all rounded-2xl", paymentMethod === 'pix' ? "bg-sky-500 text-white border-2 border-sky-400 ring-4 ring-sky-500/20" : "bg-stone-100 text-slate-500 border border-stone-200 hover:bg-stone-200")}>
                   <MessageSquare className="h-6 w-6" /><span className="font-black uppercase text-[10px] tracking-widest">PIX via WhatsApp</span>
                 </Button>
               </div>
               {!isCreditCardEnabled && (
-                <Alert className="bg-red-500/10 text-red-400 border-red-500/20 rounded-xl">
+                <Alert className="bg-red-50 text-red-600 border-red-200 rounded-xl">
                   <AlertTriangle className="h-4 w-4" />
                   <AlertDescription className="text-[10px] font-bold uppercase tracking-wider">Cartão liberado apenas após a primeira compra ou liberação manual.</AlertDescription>
                 </Alert>
@@ -391,39 +390,39 @@ const CheckoutPage = () => {
             </CardContent>
           </Card>
 
-          <Card className="bg-white/5 border-white/10 shadow-2xl rounded-[2rem] overflow-hidden backdrop-blur-sm">
-            <CardHeader className="bg-white/[0.02] border-b border-white/5 p-8">
+          <Card className="bg-white border-stone-200 shadow-xl rounded-[2rem] overflow-hidden">
+            <CardHeader className="bg-stone-50 border-b border-stone-100 p-8">
               <div className="flex items-center space-x-4">
-                <div className="p-3 bg-sky-500/20 rounded-2xl">
-                  <ShoppingBag className="h-6 w-6 text-sky-400" />
+                <div className="p-3 bg-sky-100 rounded-2xl">
+                  <ShoppingBag className="h-6 w-6 text-sky-600" />
                 </div>
-                <CardTitle className="font-black text-2xl tracking-tighter italic uppercase">Resumo.</CardTitle>
+                <CardTitle className="font-black text-2xl tracking-tighter italic uppercase text-charcoal-gray">Resumo.</CardTitle>
               </div>
             </CardHeader>
             <CardContent className="p-8 space-y-6">
               <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                 {items.map(item => (
-                  <div key={`${item.itemType}-${item.itemId}`} className="flex items-center space-x-4 bg-white/[0.02] p-3 rounded-xl border border-white/5">
+                  <div key={`${item.itemType}-${item.itemId}`} className="flex items-center space-x-4 bg-stone-50 p-3 rounded-xl border border-stone-100">
                     <img src={item.image_url} alt={item.name} className="h-14 w-14 object-cover rounded-lg" />
                     <div className="flex-grow">
-                      <p className="font-black text-white uppercase text-xs tracking-tight">{item.name}</p>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Qtd: {item.quantity}</p>
+                      <p className="font-black text-charcoal-gray uppercase text-xs tracking-tight">{item.name}</p>
+                      <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest">Qtd: {item.quantity}</p>
                     </div>
-                    <p className="font-black text-sky-400 tracking-tighter">R$ {(item.price * item.quantity).toFixed(2).replace('.', ',')}</p>
+                    <p className="font-black text-sky-600 tracking-tighter">R$ {(item.price * item.quantity).toFixed(2).replace('.', ',')}</p>
                   </div>
                 ))}
               </div>
               
-              <Separator className="bg-white/5" />
+              <Separator className="bg-stone-200" />
               
               <div className="space-y-3">
-                <div className="flex justify-between items-center"><Label className="text-xs font-black uppercase tracking-widest text-slate-500">Cupom de Desconto</Label><Button type="button" variant="link" size="sm" className="text-sky-400 font-black uppercase text-[10px] p-0 h-auto" onClick={() => setIsCouponsModalOpen(true)}>Resgatar pontos</Button></div>
+                <div className="flex justify-between items-center"><Label className="text-xs font-black uppercase tracking-widest text-slate-500">Cupom de Desconto</Label><Button type="button" variant="link" size="sm" className="text-sky-500 font-black uppercase text-[10px] p-0 h-auto" onClick={() => setIsCouponsModalOpen(true)}>Resgatar pontos</Button></div>
                 {coupons.length > 0 ? (
                   <Select onValueChange={handleCouponChange} value={selectedCoupon?.user_coupon_id.toString() || 'none'}>
-                    <SelectTrigger className="bg-slate-900 border-white/10 rounded-xl h-12 text-white">
+                    <SelectTrigger className="bg-white border-stone-200 rounded-xl h-12 text-charcoal-gray">
                       <SelectValue placeholder="Selecione um cupom" />
                     </SelectTrigger>
-                    <SelectContent className="bg-slate-900 border-white/10 text-white">
+                    <SelectContent className="bg-white border-stone-200 text-charcoal-gray">
                       <SelectItem value="none">Nenhum cupom</SelectItem>
                       {coupons.map(coupon => (
                         <SelectItem key={coupon.user_coupon_id} value={coupon.user_coupon_id.toString()} disabled={subtotal < coupon.minimum_order_value}>
@@ -433,26 +432,25 @@ const CheckoutPage = () => {
                     </SelectContent>
                   </Select>
                 ) : (
-                  <p className="text-[10px] text-slate-600 font-bold uppercase italic">Nenhum cupom disponível.</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase italic">Nenhum cupom disponível.</p>
                 )}
               </div>
 
-              <div className="space-y-3 bg-white/[0.03] p-6 rounded-2xl border border-white/5">
-                <div className="flex justify-between text-xs text-slate-400 font-bold uppercase tracking-widest"><span>Subtotal</span><span>R$ {subtotal.toFixed(2).replace('.', ',')}</span></div>
-                {selectedCoupon && <div className="flex justify-between text-xs text-green-400 font-bold uppercase tracking-widest"><span>Desconto</span><span>- R$ {discount.toFixed(2).replace('.', ',')}</span></div>}
+              <div className="space-y-3 bg-stone-50 p-6 rounded-2xl border border-stone-100">
+                <div className="flex justify-between text-xs text-slate-500 font-bold uppercase tracking-widest"><span>Subtotal</span><span>R$ {subtotal.toFixed(2).replace('.', ',')}</span></div>
+                {selectedCoupon && <div className="flex justify-between text-xs text-green-600 font-bold uppercase tracking-widest"><span>Desconto</span><span>- R$ {discount.toFixed(2).replace('.', ',')}</span></div>}
                 
-                {/* Exibição condicional do Frete */}
-                <div className="flex justify-between text-xs text-slate-400 font-bold uppercase tracking-widest">
+                <div className="flex justify-between text-xs text-slate-500 font-bold uppercase tracking-widest">
                     <span>Frete</span>
                     {deliveryType === 'correios' ? (
-                        <span className="text-yellow-400">A Combinar (Correios)</span>
+                        <span className="text-yellow-600">A Combinar (Correios)</span>
                     ) : (
-                        <span className="text-green-400">Grátis</span>
+                        <span className="text-green-600">Grátis</span>
                     )}
                 </div>
 
-                <Separator className="my-2 bg-white/10" />
-                <div className="flex justify-between font-black text-3xl text-white tracking-tighter italic uppercase"><span>Total</span><span className="text-sky-400">R$ {total.toFixed(2).replace('.', ',')}</span></div>
+                <Separator className="my-2 bg-stone-200" />
+                <div className="flex justify-between font-black text-3xl text-charcoal-gray tracking-tighter italic uppercase"><span>Total</span><span className="text-sky-600">R$ {total.toFixed(2).replace('.', ',')}</span></div>
               </div>
 
               <Button type="submit" size="lg" className="w-full bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-[0.2em] h-16 rounded-2xl shadow-xl transition-all active:scale-95" disabled={isSubmitting || items.length === 0}>

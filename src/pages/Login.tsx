@@ -14,21 +14,21 @@ const customTheme: Theme = {
       brandAccent: '#0284c7', // sky-600
       brandButtonText: 'white',
       defaultButtonBackground: 'transparent',
-      defaultButtonBackgroundHover: '#1e293b', // slate-800
-      defaultButtonBorder: '#334155', // slate-700
-      defaultButtonText: '#f8fafc',
-      dividerBackground: '#334155',
-      inputBackground: '#020617', // slate-950 (mais escuro que o card)
-      inputBorder: '#334155', // slate-700
+      defaultButtonBackgroundHover: '#f1f5f9', // slate-100
+      defaultButtonBorder: '#e2e8f0', // slate-200
+      defaultButtonText: '#0f172a', // slate-900
+      dividerBackground: '#e2e8f0',
+      inputBackground: '#ffffff', // white
+      inputBorder: '#e2e8f0', // slate-200
       inputBorderHover: '#0ea5e9',
       inputBorderFocus: '#0ea5e9',
-      inputText: '#f8fafc',
-      inputLabelText: '#94a3b8', // slate-400
-      inputPlaceholder: '#475569', // slate-600
-      messageText: '#f8fafc',
+      inputText: '#0f172a', // slate-900
+      inputLabelText: '#64748b', // slate-500
+      inputPlaceholder: '#94a3b8', // slate-400
+      messageText: '#0f172a',
       messageTextDanger: '#ef4444',
-      anchorTextColor: '#38bdf8', // sky-400
-      anchorTextHoverColor: '#7dd3fc', // sky-300
+      anchorTextColor: '#0ea5e9', // sky-500
+      anchorTextHoverColor: '#0284c7', // sky-600
     },
     space: {
       spaceSmall: '4px',
@@ -103,22 +103,22 @@ const Login = () => {
   }, [navigate, from, location.search]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-950 relative overflow-hidden p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-off-white relative overflow-hidden p-4">
       {/* Elementos decorativos de fundo */}
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-sky-500/10 blur-[120px] rounded-full pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-indigo-500/10 blur-[120px] rounded-full pointer-events-none" />
+      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-sky-500/5 blur-[120px] rounded-full pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-indigo-500/5 blur-[120px] rounded-full pointer-events-none" />
 
       <div className="w-full max-w-[400px] relative z-10 flex flex-col gap-8">
         <div className="text-center space-y-2">
-           <h1 className="text-4xl font-black italic tracking-tighter text-white uppercase">
+           <h1 className="text-4xl font-black italic tracking-tighter text-charcoal-gray uppercase">
             DKCWB<span className="text-sky-500">.</span>
            </h1>
-           <p className="text-slate-400 text-xs font-bold tracking-[0.2em] uppercase">
+           <p className="text-slate-500 text-xs font-bold tracking-[0.2em] uppercase">
             Acesso Exclusivo
            </p>
         </div>
 
-        <Card className="bg-slate-900/50 backdrop-blur-xl border border-white/10 shadow-2xl rounded-[1.5rem] overflow-hidden">
+        <Card className="bg-white/80 backdrop-blur-xl border border-stone-200 shadow-2xl rounded-[1.5rem] overflow-hidden">
           <CardContent className="p-6 md:p-8">
             <Auth
               supabaseClient={supabase}
@@ -130,7 +130,7 @@ const Login = () => {
                 }
               }}
               providers={[]}
-              theme="dark"
+              theme="default"
               view={initialView}
               localization={{
                 variables: {
@@ -163,7 +163,7 @@ const Login = () => {
         </Card>
 
         <div className="text-center">
-          <Button asChild variant="link" className="text-slate-500 hover:text-white transition-colors">
+          <Button asChild variant="link" className="text-slate-500 hover:text-charcoal-gray transition-colors">
             <Link to="/" className="flex items-center text-[10px] font-bold uppercase tracking-widest gap-2">
               <ArrowLeft className="h-3 w-3" />
               Voltar para a loja

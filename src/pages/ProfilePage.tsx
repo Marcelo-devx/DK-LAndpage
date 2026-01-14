@@ -106,11 +106,6 @@ const ProfilePage = () => {
         Object.keys(initialFormValues).forEach((key) => {
           setValue(key as keyof ProfileFormData, initialFormValues[key as keyof ProfileFormData]);
         });
-        
-        // Initial Check if city is already loaded but not marked
-        if (profileData.city && profileData.city.toLowerCase() !== 'curitiba') {
-             // We could run logic here, but let's leave it for user action or simpler assumption
-        }
       }
       setLoading(false);
     };
@@ -144,23 +139,23 @@ const ProfilePage = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-12 md:py-20 text-white">
+    <div className="container mx-auto px-4 py-12 md:py-20 text-charcoal-gray">
       <Tabs defaultValue={defaultTab} className="max-w-4xl mx-auto">
-        <TabsList className="grid w-full grid-cols-2 bg-white/5 border border-white/10 h-14 rounded-2xl p-1">
-          <TabsTrigger value="profile" className="data-[state=active]:bg-sky-500 data-[state=active]:text-white rounded-xl font-bold uppercase text-xs tracking-widest">Meus Dados</TabsTrigger>
-          <TabsTrigger value="reviews" className="data-[state=active]:bg-sky-500 data-[state=active]:text-white rounded-xl font-bold uppercase text-xs tracking-widest">Minhas Avaliações</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 bg-stone-100 border border-stone-200 h-14 rounded-2xl p-1">
+          <TabsTrigger value="profile" className="data-[state=active]:bg-sky-500 data-[state=active]:text-white text-stone-500 rounded-xl font-bold uppercase text-xs tracking-widest">Meus Dados</TabsTrigger>
+          <TabsTrigger value="reviews" className="data-[state=active]:bg-sky-500 data-[state=active]:text-white text-stone-500 rounded-xl font-bold uppercase text-xs tracking-widest">Minhas Avaliações</TabsTrigger>
         </TabsList>
         
         <TabsContent value="profile" className="mt-8">
-          <Card className="bg-white/5 border border-white/10 shadow-2xl rounded-[2.5rem] overflow-hidden backdrop-blur-sm">
-            <CardHeader className="p-8 md:p-10 border-b border-white/5 bg-white/[0.02]">
+          <Card className="bg-white border border-stone-200 shadow-xl rounded-[2.5rem] overflow-hidden">
+            <CardHeader className="p-8 md:p-10 border-b border-stone-100 bg-stone-50">
               <div className="flex items-center space-x-4 mb-2">
-                <div className="p-3 bg-sky-500/20 rounded-2xl">
-                  <User className="h-6 w-6 text-sky-400" />
+                <div className="p-3 bg-sky-100 rounded-2xl">
+                  <User className="h-6 w-6 text-sky-600" />
                 </div>
                 <div>
-                  <CardTitle className="font-black text-3xl tracking-tighter italic uppercase">Meu Perfil.</CardTitle>
-                  <CardDescription className="text-slate-400 font-medium">Mantenha seus dados de entrega atualizados.</CardDescription>
+                  <CardTitle className="font-black text-3xl tracking-tighter italic uppercase text-charcoal-gray">Meu Perfil.</CardTitle>
+                  <CardDescription className="text-stone-500 font-medium">Mantenha seus dados de entrega atualizados.</CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -168,40 +163,40 @@ const ProfilePage = () => {
               <form onSubmit={handleSubmit(onAttemptSubmit)} className="space-y-10">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-3">
-                    <Label htmlFor="first_name" className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Nome</Label>
-                    <Input id="first_name" {...register('first_name')} className="bg-slate-950 border-white/10 h-12 rounded-xl focus:border-sky-500 transition-colors" />
+                    <Label htmlFor="first_name" className="text-xs font-black uppercase tracking-[0.2em] text-stone-500">Nome</Label>
+                    <Input id="first_name" {...register('first_name')} className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" />
                     {errors.first_name && <p className="text-xs font-bold text-red-400">{errors.first_name.message}</p>}
                   </div>
                   <div className="space-y-3">
-                    <Label htmlFor="last_name" className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Sobrenome</Label>
-                    <Input id="last_name" {...register('last_name')} className="bg-slate-950 border-white/10 h-12 rounded-xl focus:border-sky-500 transition-colors" />
+                    <Label htmlFor="last_name" className="text-xs font-black uppercase tracking-[0.2em] text-stone-500">Sobrenome</Label>
+                    <Input id="last_name" {...register('last_name')} className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" />
                     {errors.last_name && <p className="text-xs font-bold text-red-400">{errors.last_name.message}</p>}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-3">
-                    <Label htmlFor="date_of_birth" className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Data de Nascimento</Label>
+                    <Label htmlFor="date_of_birth" className="text-xs font-black uppercase tracking-[0.2em] text-stone-500">Data de Nascimento</Label>
                     <Controller name="date_of_birth" control={control} render={({ field }) => <DatePicker value={field.value} onChange={field.onChange} />} />
                     {errors.date_of_birth && <p className="text-xs font-bold text-red-400">{errors.date_of_birth.message}</p>}
                   </div>
                   <div className="space-y-3">
-                    <Label htmlFor="phone" className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Telefone</Label>
-                    <Input id="phone" placeholder="(48) 99999-9999" {...register('phone')} onChange={(e) => e.target.value = maskPhone(e.target.value)} className="bg-slate-950 border-white/10 h-12 rounded-xl focus:border-sky-500 transition-colors" />
+                    <Label htmlFor="phone" className="text-xs font-black uppercase tracking-[0.2em] text-stone-500">Telefone</Label>
+                    <Input id="phone" placeholder="(48) 99999-9999" {...register('phone')} onChange={(e) => e.target.value = maskPhone(e.target.value)} className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" />
                     {errors.phone && <p className="text-xs font-bold text-red-400">{errors.phone.message}</p>}
                   </div>
                 </div>
 
                 <div className="pt-6">
                   <div className="flex items-center space-x-3 mb-8">
-                    <div className="p-2 bg-sky-500/10 rounded-lg">
-                      <MapPin className="h-5 w-5 text-sky-400" />
+                    <div className="p-2 bg-sky-50 rounded-lg">
+                      <MapPin className="h-5 w-5 text-sky-600" />
                     </div>
-                    <h3 className="font-black text-xl tracking-tighter italic uppercase">Endereço de Entrega.</h3>
+                    <h3 className="font-black text-xl tracking-tighter italic uppercase text-charcoal-gray">Endereço de Entrega.</h3>
                   </div>
 
                   {deliveryType === 'correios' && (
-                    <Alert className="mb-6 bg-yellow-500/10 border-yellow-500/20 text-yellow-200">
+                    <Alert className="mb-6 bg-yellow-50 border-yellow-200 text-yellow-800">
                       <Truck className="h-4 w-4" />
                       <AlertTitle className="font-bold uppercase text-xs tracking-wider">Entrega via Correios</AlertTitle>
                       <AlertDescription className="text-xs">
@@ -212,9 +207,9 @@ const ProfilePage = () => {
 
                   <div className="space-y-8">
                     <div className="space-y-3">
-                      <Label htmlFor="cep" className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">CEP</Label>
+                      <Label htmlFor="cep" className="text-xs font-black uppercase tracking-[0.2em] text-stone-500">CEP</Label>
                       <div className="flex items-center space-x-3">
-                        <Input id="cep" {...register('cep')} onChange={(e) => e.target.value = maskCep(e.target.value)} className="bg-slate-950 border-white/10 h-12 rounded-xl focus:border-sky-500 transition-colors" />
+                        <Input id="cep" {...register('cep')} onChange={(e) => e.target.value = maskCep(e.target.value)} className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" />
                         <Button type="button" size="icon" onClick={handleCepLookup} disabled={isFetchingCep} className="bg-sky-500 hover:bg-sky-400 text-white h-12 w-12 rounded-xl shrink-0">
                           {isFetchingCep ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
                         </Button>
@@ -223,38 +218,38 @@ const ProfilePage = () => {
                     </div>
 
                     <div className="space-y-3">
-                      <Label htmlFor="street" className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Rua</Label>
-                      <Input id="street" {...register('street')} className="bg-slate-950 border-white/10 h-12 rounded-xl focus:border-sky-500 transition-colors" />
+                      <Label htmlFor="street" className="text-xs font-black uppercase tracking-[0.2em] text-stone-500">Rua</Label>
+                      <Input id="street" {...register('street')} className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" />
                       {errors.street && <p className="text-xs font-bold text-red-400">{errors.street.message}</p>}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                       <div className="space-y-3">
-                        <Label htmlFor="number" className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Número</Label>
-                        <Input id="number" {...register('number')} className="bg-slate-950 border-white/10 h-12 rounded-xl focus:border-sky-500 transition-colors" />
+                        <Label htmlFor="number" className="text-xs font-black uppercase tracking-[0.2em] text-stone-500">Número</Label>
+                        <Input id="number" {...register('number')} className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" />
                         {errors.number && <p className="text-xs font-bold text-red-400">{errors.number.message}</p>}
                       </div>
                       <div className="md:col-span-2 space-y-3">
-                        <Label htmlFor="complement" className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Complemento (opcional)</Label>
-                        <Input id="complement" {...register('complement')} className="bg-slate-950 border-white/10 h-12 rounded-xl focus:border-sky-500 transition-colors" />
+                        <Label htmlFor="complement" className="text-xs font-black uppercase tracking-[0.2em] text-stone-500">Complemento (opcional)</Label>
+                        <Input id="complement" {...register('complement')} className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" />
                       </div>
                     </div>
 
                     <div className="space-y-3">
-                      <Label htmlFor="neighborhood" className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Bairro</Label>
-                      <Input id="neighborhood" {...register('neighborhood')} className="bg-slate-950 border-white/10 h-12 rounded-xl focus:border-sky-500 transition-colors" />
+                      <Label htmlFor="neighborhood" className="text-xs font-black uppercase tracking-[0.2em] text-stone-500">Bairro</Label>
+                      <Input id="neighborhood" {...register('neighborhood')} className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" />
                       {errors.neighborhood && <p className="text-xs font-bold text-red-400">{errors.neighborhood.message}</p>}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       <div className="space-y-3">
-                        <Label htmlFor="city" className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Cidade</Label>
-                        <Input id="city" {...register('city')} className="bg-slate-950 border-white/10 h-12 rounded-xl focus:border-sky-500 transition-colors" />
+                        <Label htmlFor="city" className="text-xs font-black uppercase tracking-[0.2em] text-stone-500">Cidade</Label>
+                        <Input id="city" {...register('city')} className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" />
                         {errors.city && <p className="text-xs font-bold text-red-400">{errors.city.message}</p>}
                       </div>
                       <div className="space-y-3">
-                        <Label htmlFor="state" className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Estado</Label>
-                        <Input id="state" {...register('state')} className="bg-slate-950 border-white/10 h-12 rounded-xl focus:border-sky-500 transition-colors" />
+                        <Label htmlFor="state" className="text-xs font-black uppercase tracking-[0.2em] text-stone-500">Estado</Label>
+                        <Input id="state" {...register('state')} className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" />
                         {errors.state && <p className="text-xs font-bold text-red-400">{errors.state.message}</p>}
                       </div>
                     </div>
@@ -270,15 +265,15 @@ const ProfilePage = () => {
         </TabsContent>
 
         <TabsContent value="reviews" className="mt-8">
-          <Card className="bg-white/5 border border-white/10 shadow-2xl rounded-[2.5rem] overflow-hidden backdrop-blur-sm">
-            <CardHeader className="p-8 md:p-10 border-b border-white/5 bg-white/[0.02]">
+          <Card className="bg-white border border-stone-200 shadow-xl rounded-[2.5rem] overflow-hidden">
+            <CardHeader className="p-8 md:p-10 border-b border-stone-100 bg-stone-50">
               <div className="flex items-center space-x-4">
-                <div className="p-3 bg-yellow-500/20 rounded-2xl">
-                  <Star className="h-6 w-6 text-yellow-400" />
+                <div className="p-3 bg-yellow-100 rounded-2xl">
+                  <Star className="h-6 w-6 text-yellow-500" />
                 </div>
                 <div>
-                  <CardTitle className="font-black text-3xl tracking-tighter italic uppercase">Minhas Avaliações.</CardTitle>
-                  <CardDescription className="text-slate-400 font-medium">Histórico de produtos que você avaliou.</CardDescription>
+                  <CardTitle className="font-black text-3xl tracking-tighter italic uppercase text-charcoal-gray">Minhas Avaliações.</CardTitle>
+                  <CardDescription className="text-stone-500 font-medium">Histórico de produtos que você avaliou.</CardDescription>
                 </div>
               </div>
             </CardHeader>

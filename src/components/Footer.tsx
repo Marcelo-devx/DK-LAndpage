@@ -25,7 +25,7 @@ const Footer = () => {
             <ul className="space-y-4 text-sm font-medium">
               <li className="flex flex-col">
                 <span className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">Horário</span>
-                <p>Segunda a Sexta: 9h - 18h</p>
+                <p>Segunda a Sábado: 10h - 18h</p>
               </li>
               <li className="flex flex-col">
                 <span className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">E-mail</span>

@@ -52,7 +52,7 @@ const Index = () => {
       const triggerInfoPopup = () => {
         if (popups.data && !sessionStorage.getItem('info_popup_seen')) {
           setInfoPopup(popups.data);
-          setTimeout(() => setIsPopupOpen(true), 1500); // Pequeno delay após confirmar a idade
+          setIsPopupOpen(true); // Exibe instantaneamente
         }
       };
 

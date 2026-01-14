@@ -100,7 +100,8 @@ const ProductPage = () => {
         </Button>
 
         <div className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-start mb-16">
-          <div className="relative group sticky top-24">
+          {/* Adicionado lg:sticky e lg:top-24 para funcionar apenas em desktop */}
+          <div className="relative group lg:sticky lg:top-24">
             <div className="absolute -inset-4 bg-sky-500/10 rounded-[2rem] blur-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
             <img 
               src={product.image_url || ''} 

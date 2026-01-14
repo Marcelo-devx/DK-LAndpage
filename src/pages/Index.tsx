@@ -48,9 +48,24 @@ const Index = () => {
       setCategories(categoriesData.data || []);
       setFeaturedProducts(featured.data || []);
       
-      if (popups.data && !sessionStorage.getItem('info_popup_seen')) {
-        setInfoPopup(popups.data);
-        setTimeout(() => setIsPopupOpen(true), 2000);
+      // Lógica do Popup Informativo: Só mostra se já verificou a idade ou espera o evento
+      const triggerInfoPopup = () => {
+        if (popups.data && !sessionStorage.getItem('info_popup_seen')) {
+          setInfoPopup(popups.data);
+          setTimeout(() => setIsPopupOpen(true), 1500); // Pequeno delay após confirmar a idade
+        }
+      };
+
+      const isAgeVerified = sessionStorage.getItem('age-verified-v2');
+      if (isAgeVerified) {
+        triggerInfoPopup();
+      } else {
+        // Se não verificou, aguarda o evento do AgeVerificationPopup
+        const handleVerification = () => {
+          triggerInfoPopup();
+          window.removeEventListener('ageVerified', handleVerification);
+        };
+        window.addEventListener('ageVerified', handleVerification);
       }
       
       setLoadingProducts(false);

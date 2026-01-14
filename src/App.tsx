@@ -17,6 +17,9 @@ import AllProductsPage from "./pages/AllProductsPage";
 import CompleteProfilePage from "./pages/CompleteProfilePage";
 import ReferralsPage from "./pages/ReferralsPage";
 import Dashboard from "./pages/Dashboard";
+import AdminLogistics from "./pages/AdminLogistics";
+import UpdatePassword from "./pages/UpdatePassword";
+import AuthEventHandler from "./components/AuthEventHandler";
 
 const queryClient = new QueryClient();
 
@@ -26,6 +29,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <AuthEventHandler />
         <Routes>
           <Route element={<MainLayout />}>
             <Route path="/" element={<Index />} />
@@ -41,6 +45,8 @@ const App = () => (
           </Route>
           <Route path="/login" element={<Login />} />
           <Route path="/complete-profile" element={<CompleteProfilePage />} />
+          <Route path="/update-password" element={<UpdatePassword />} />
+          <Route path="/admin/logistica" element={<AdminLogistics />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

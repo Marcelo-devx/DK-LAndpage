@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Truck, Clock } from 'lucide-react';
+import { Truck, Clock, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const DeliveryTimerBar = () => {
@@ -21,19 +21,19 @@ const DeliveryTimerBar = () => {
         deadline.setHours(14, 0, 0, 0); // 14:00
         if (now < deadline) {
           showTimer = true;
-          msg = "Peça antes das 14h para envio hoje!";
+          msg = "Peça antes das 14h para envio HOJE!";
           urgent = true;
         } else {
-          msg = "Pedidos feitos agora serão enviados na próxima rota.";
+          msg = "Pedidos feitos agora serão enviados na PRÓXIMA ROTA.";
         }
       } else if (day === 6) { // Sábado
         deadline.setHours(12, 30, 0, 0); // 12:30
         if (now < deadline) {
           showTimer = true;
-          msg = "Peça antes das 12:30h para envio hoje!";
+          msg = "Peça antes das 12:30h para envio HOJE!";
           urgent = true;
         } else {
-          msg = "Pedidos feitos agora serão enviados na próxima rota (Segunda-feira).";
+          msg = "Pedidos feitos agora serão enviados na PRÓXIMA ROTA (Segunda).";
         }
       } else { // Domingo
         msg = "Hoje é Domingo. Seu pedido será enviado no próximo dia útil!";
@@ -64,16 +64,22 @@ const DeliveryTimerBar = () => {
 
   return (
     <div className={cn(
-      "w-full py-2 px-4 flex justify-center items-center text-center text-[10px] md:text-xs font-bold uppercase tracking-widest transition-colors duration-300",
+      "w-full py-3 px-4 flex justify-center items-center text-center font-black uppercase tracking-widest transition-all duration-300 shadow-lg relative z-50",
       isUrgent 
         ? "bg-sky-500 text-slate-950" 
-        : "bg-slate-900 text-slate-400 border-b border-white/5"
+        : "bg-indigo-600 text-white"
     )}>
-      <div className="flex items-center gap-2">
-        {isUrgent ? <Clock className="h-3 w-3 md:h-4 md:w-4 animate-pulse" /> : <Truck className="h-3 w-3 md:h-4 md:w-4" />}
-        <span>{message}</span>
+      <div className="flex items-center gap-2.5 text-[11px] md:text-xs">
+        {isUrgent ? (
+          <Clock className="h-4 w-4 md:h-5 md:w-5 animate-pulse" strokeWidth={2.5} />
+        ) : (
+          <Truck className="h-4 w-4 md:h-5 md:w-5" strokeWidth={2.5} />
+        )}
+        
+        <span className={cn(isUrgent && "animate-pulse")}>{message}</span>
+        
         {timeLeft && (
-          <span className="bg-black/20 px-1.5 py-0.5 rounded ml-1 font-black tabular-nums">
+          <span className="bg-slate-950/20 px-2 py-0.5 rounded-md ml-1 font-black tabular-nums border border-slate-950/10">
             {timeLeft}
           </span>
         )}

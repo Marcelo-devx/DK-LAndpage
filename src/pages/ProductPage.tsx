@@ -175,7 +175,7 @@ const ProductPage = () => {
         </div>
 
         {/* Product Description Section */}
-        <div className="w-full max-w-4xl mx-auto">
+        <div className="w-full">
           <Card className="bg-white border-stone-200 shadow-xl rounded-[2.5rem] overflow-hidden">
             <CardContent className="p-8 md:p-12">
               <div className="flex items-center space-x-3 mb-8 border-b border-stone-100 pb-6">

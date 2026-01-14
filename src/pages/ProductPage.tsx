@@ -172,7 +172,7 @@ const ProductPage = () => {
             </div>
 
             <div className="prose prose-stone max-w-none">
-              <p className="text-stone-600 leading-relaxed text-base md:text-lg">{product.description}</p>
+              <p className="text-stone-600 leading-relaxed text-base md:text-lg whitespace-pre-line">{product.description}</p>
             </div>
           </div>
         </div>

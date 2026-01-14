@@ -38,8 +38,10 @@ const MainLayout = () => {
   return (
     <div className="flex flex-col min-h-screen bg-off-white text-charcoal-gray">
       <AgeVerificationPopup />
-      <DeliveryTimerBar />
-      <Header onCartClick={() => setIsCartOpen(true)} />
+      <div className="sticky top-0 z-50 w-full">
+        <DeliveryTimerBar />
+        <Header onCartClick={() => setIsCartOpen(true)} />
+      </div>
       <main className="flex-grow">
         <Outlet context={{ handleCategoryClick, handleBrandClick }} />
       </main>

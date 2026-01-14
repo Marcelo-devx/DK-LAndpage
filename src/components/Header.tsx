@@ -98,7 +98,7 @@ const Header = ({ onCartClick }: HeaderProps) => {
   };
 
   return (
-    <header className="bg-black border-b border-white/10 sticky top-0 z-50">
+    <header className="bg-black border-b border-white/10">
       <div className="container mx-auto px-4 md:px-6 py-4 flex items-center justify-between gap-4">
         
         {/* LOGO AREA */}

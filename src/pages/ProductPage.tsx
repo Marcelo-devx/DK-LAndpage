@@ -3,10 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, Minus, ChevronLeft, Loader2 } from "lucide-react";
+import { Plus, Minus, ChevronLeft, Loader2, FileText } from "lucide-react";
 import { addToCart } from '@/utils/cart';
 import { cn } from '@/lib/utils';
 import { showError } from '@/utils/toast';
+import { Card, CardContent } from "@/components/ui/card";
 
 interface Product {
   id: number;
@@ -92,14 +93,14 @@ const ProductPage = () => {
   const currentPixPrice = (selectedVariant ? selectedVariant.pix_price : product.pix_price) || currentFullPrice;
 
   return (
-    <div className="bg-off-white min-h-screen text-charcoal-gray pb-10">
+    <div className="bg-off-white min-h-screen text-charcoal-gray pb-20">
       <div className="container mx-auto px-6 py-6 md:py-12">
         <Button variant="ghost" onClick={() => navigate(-1)} className="mb-6 text-stone-500 hover:text-charcoal-gray group">
           <ChevronLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Voltar
         </Button>
 
-        <div className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-start">
-          <div className="relative group">
+        <div className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-start mb-16">
+          <div className="relative group sticky top-24">
             <div className="absolute -inset-4 bg-sky-500/10 rounded-[2rem] blur-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
             <img 
               src={product.image_url || ''} 
@@ -170,11 +171,29 @@ const ProductPage = () => {
                 {isAdding ? <Loader2 className="animate-spin h-5 w-5" /> : 'Adicionar ao Carrinho'}
               </Button>
             </div>
-
-            <div className="prose prose-stone max-w-none">
-              <p className="text-stone-600 leading-relaxed text-base md:text-lg whitespace-pre-line">{product.description}</p>
-            </div>
           </div>
+        </div>
+
+        {/* Product Description Section */}
+        <div className="w-full max-w-4xl mx-auto">
+          <Card className="bg-white border-stone-200 shadow-xl rounded-[2.5rem] overflow-hidden">
+            <CardContent className="p-8 md:p-12">
+              <div className="flex items-center space-x-3 mb-8 border-b border-stone-100 pb-6">
+                <div className="p-3 bg-sky-100 rounded-2xl">
+                  <FileText className="h-6 w-6 text-sky-600" />
+                </div>
+                <h2 className="font-black text-2xl tracking-tighter italic uppercase text-charcoal-gray">
+                  Detalhes do Produto.
+                </h2>
+              </div>
+              
+              <div className="prose prose-stone prose-lg max-w-none">
+                <p className="text-stone-600 leading-relaxed whitespace-pre-line">
+                  {product.description || 'Sem descrição disponível para este produto.'}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

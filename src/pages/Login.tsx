@@ -10,25 +10,42 @@ import { ArrowLeft } from 'lucide-react';
 const customTheme: Theme = {
   default: {
     colors: {
-      brand: '#0ea5e9', // sky-400
-      brandAccent: '#38bdf8',
-      brandButtonText: '#ffffff',
-      defaultButtonBackground: 'rgba(255, 255, 255, 0.05)',
-      defaultButtonBackgroundHover: 'rgba(255, 255, 255, 0.1)',
-      defaultButtonBorder: 'rgba(255, 255, 255, 0.1)',
+      brand: '#0ea5e9', // sky-500
+      brandAccent: '#0284c7', // sky-600
+      brandButtonText: 'white',
+      defaultButtonBackground: 'transparent',
+      defaultButtonBackgroundHover: '#1e293b', // slate-800
+      defaultButtonBorder: '#334155', // slate-700
       defaultButtonText: '#f8fafc',
-      dividerBackground: 'rgba(255, 255, 255, 0.1)',
-      inputBackground: 'rgba(255, 255, 255, 0.05)',
-      inputBorder: 'rgba(255, 255, 255, 0.1)',
-      inputBorderHover: 'rgba(14, 165, 233, 0.5)',
+      dividerBackground: '#334155',
+      inputBackground: '#020617', // slate-950 (mais escuro que o card)
+      inputBorder: '#334155', // slate-700
+      inputBorderHover: '#0ea5e9',
       inputBorderFocus: '#0ea5e9',
-      inputText: '#ffffff',
+      inputText: '#f8fafc',
       inputLabelText: '#94a3b8', // slate-400
       inputPlaceholder: '#475569', // slate-600
       messageText: '#f8fafc',
       messageTextDanger: '#ef4444',
-      anchorTextColor: '#0ea5e9',
-      anchorTextHoverColor: '#38bdf8',
+      anchorTextColor: '#38bdf8', // sky-400
+      anchorTextHoverColor: '#7dd3fc', // sky-300
+    },
+    space: {
+      spaceSmall: '4px',
+      spaceMedium: '8px',
+      spaceLarge: '16px',
+      labelBottomMargin: '6px',
+      anchorBottomMargin: '4px',
+      emailInputSpacing: '4px',
+      socialAuthSpacing: '4px',
+      buttonPadding: '12px 16px',
+      inputPadding: '12px 16px',
+    },
+    fontSizes: {
+      baseBodySize: '14px',
+      baseInputSize: '15px',
+      baseLabelSize: '13px',
+      baseButtonSize: '15px',
     },
     fonts: {
       bodyFontFamily: 'inherit',
@@ -37,8 +54,8 @@ const customTheme: Theme = {
       labelFontFamily: 'inherit',
     },
     radii: {
-      borderRadiusButton: '1rem',
-      buttonBorderRadius: '1rem',
+      borderRadiusButton: '0.75rem',
+      buttonBorderRadius: '0.75rem',
       inputBorderRadius: '0.75rem',
     },
   },
@@ -86,26 +103,32 @@ const Login = () => {
   }, [navigate, from, location.search]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 relative overflow-hidden p-6">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-950 relative overflow-hidden p-4">
       {/* Elementos decorativos de fundo */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-sky-500/10 blur-[120px] rounded-full" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-500/10 blur-[120px] rounded-full" />
+      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-sky-500/10 blur-[120px] rounded-full pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-indigo-500/10 blur-[120px] rounded-full pointer-events-none" />
 
-      <div className="w-full max-w-md relative z-10">
-        <div className="text-center mb-10">
-           <h1 className="text-3xl font-black italic tracking-tighter text-white uppercase">
-            DKCWB<span className="text-sky-400">.</span>
+      <div className="w-full max-w-[400px] relative z-10 flex flex-col gap-8">
+        <div className="text-center space-y-2">
+           <h1 className="text-4xl font-black italic tracking-tighter text-white uppercase">
+            DKCWB<span className="text-sky-500">.</span>
            </h1>
-           <p className="text-slate-400 text-sm font-medium mt-3 tracking-wide uppercase">
+           <p className="text-slate-400 text-xs font-bold tracking-[0.2em] uppercase">
             Acesso Exclusivo
            </p>
         </div>
 
-        <Card className="bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl rounded-[2rem] overflow-hidden">
-          <CardContent className="p-8 md:p-10">
+        <Card className="bg-slate-900/50 backdrop-blur-xl border border-white/10 shadow-2xl rounded-[1.5rem] overflow-hidden">
+          <CardContent className="p-6 md:p-8">
             <Auth
               supabaseClient={supabase}
-              appearance={{ theme: customTheme }}
+              appearance={{ 
+                theme: customTheme,
+                style: {
+                  button: { textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: '800', fontSize: '12px' },
+                  label: { textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700', fontSize: '11px' }
+                }
+              }}
               providers={[]}
               theme="dark"
               view={initialView}
@@ -114,24 +137,24 @@ const Login = () => {
                   sign_in: {
                     email_label: 'E-mail',
                     password_label: 'Senha',
-                    email_input_placeholder: 'ex: seu@email.com',
-                    password_input_placeholder: 'Sua senha segura',
-                    button_label: 'Acessar Conta',
-                    link_text: 'Ainda não é membro? Cadastre-se',
+                    email_input_placeholder: 'seu@email.com',
+                    password_input_placeholder: '••••••••',
+                    button_label: 'Entrar',
+                    link_text: 'Não tem uma conta? Cadastre-se',
                   },
                   sign_up: {
                     email_label: 'E-mail',
                     password_label: 'Senha',
-                    email_input_placeholder: 'ex: seu@email.com',
-                    password_input_placeholder: 'Mínimo 6 caracteres',
-                    button_label: 'Criar Minha Conta',
-                    link_text: 'Já possui uma conta? Entre aqui',
+                    email_input_placeholder: 'seu@email.com',
+                    password_input_placeholder: 'Crie uma senha segura',
+                    button_label: 'Criar Conta',
+                    link_text: 'Já tem conta? Entre',
                   },
                   forgotten_password: {
                     email_label: 'E-mail',
                     email_input_placeholder: 'seu@email.com',
-                    button_label: 'Recuperar Acesso',
-                    link_text: 'Esqueceu sua senha?',
+                    button_label: 'Enviar link de recuperação',
+                    link_text: 'Esqueci minha senha',
                   },
                 },
               }}
@@ -139,10 +162,10 @@ const Login = () => {
           </CardContent>
         </Card>
 
-        <div className="mt-8 text-center">
-          <Button asChild variant="ghost" className="text-slate-500 hover:text-white hover:bg-white/5 rounded-xl transition-all">
-            <Link to="/" className="flex items-center text-xs font-bold uppercase tracking-widest">
-              <ArrowLeft className="mr-2 h-4 w-4" />
+        <div className="text-center">
+          <Button asChild variant="link" className="text-slate-500 hover:text-white transition-colors">
+            <Link to="/" className="flex items-center text-[10px] font-bold uppercase tracking-widest gap-2">
+              <ArrowLeft className="h-3 w-3" />
               Voltar para a loja
             </Link>
           </Button>

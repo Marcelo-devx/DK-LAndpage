@@ -9,10 +9,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { showError, showSuccess, showLoading, dismissToast } from '@/utils/toast';
-import { Loader2, Search } from 'lucide-react';
+import { Loader2, Search, Truck, AlertCircle } from 'lucide-react';
 import { maskCep, maskPhone } from '@/utils/masks';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { format } from 'date-fns';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const profileSchema = z.object({
   first_name: z.string().min(1, "Nome é obrigatório"),
@@ -36,6 +37,7 @@ const CompleteProfilePage = () => {
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isFetchingCep, setIsFetchingCep] = useState(false);
+  const [deliveryType, setDeliveryType] = useState<'local' | 'correios' | null>(null);
 
   const { register, handleSubmit, control, setValue, getValues, formState: { errors } } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -49,6 +51,7 @@ const CompleteProfilePage = () => {
       return;
     }
     setIsFetchingCep(true);
+    setDeliveryType(null);
     try {
       const { data, error } = await supabase.functions.invoke('validate-cep', {
         body: { cep: cleanedCep },
@@ -68,6 +71,14 @@ const CompleteProfilePage = () => {
       setValue('neighborhood', data.bairro);
       setValue('city', data.localidade);
       setValue('state', data.uf);
+      
+      if (data.deliveryType === 'correios') {
+        setDeliveryType('correios');
+        showSuccess("Endereço localizado (Entrega via Correios)");
+      } else {
+        setDeliveryType('local');
+      }
+
     } catch (e) {
       showError("Ocorreu um erro inesperado ao buscar o CEP.");
     } finally {
@@ -170,8 +181,19 @@ const CompleteProfilePage = () => {
             </div>
             <div className="border-t border-white/10 pt-6 space-y-4">
                 <h3 className="text-xl font-bold text-sky-400 italic">Endereço de Entrega.</h3>
+                
+                {deliveryType === 'correios' && (
+                  <Alert className="bg-yellow-500/10 border-yellow-500/20 text-yellow-200">
+                    <Truck className="h-4 w-4" />
+                    <AlertTitle className="font-bold uppercase text-xs tracking-wider">Entrega via Correios</AlertTitle>
+                    <AlertDescription className="text-xs">
+                      Para sua região, os pedidos são enviados via Correios. O prazo de entrega pode variar.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
                 <div className="space-y-2">
-                  <Label htmlFor="cep">CEP (Somente Curitiba)</Label>
+                  <Label htmlFor="cep">CEP</Label>
                   <div className="flex items-center space-x-2">
                     <Input id="cep" {...register('cep')} onChange={(e) => e.target.value = maskCep(e.target.value)} className="bg-slate-900 border-white/10 text-white" />
                     <Button type="button" size="icon" onClick={handleCepLookup} disabled={isFetchingCep} className="bg-sky-500 hover:bg-sky-400 text-white shrink-0">

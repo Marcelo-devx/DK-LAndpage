@@ -9,12 +9,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { showError, showSuccess, showLoading, dismissToast } from '@/utils/toast';
-import { Loader2, Search, User, MapPin, Star } from 'lucide-react';
+import { Loader2, Search, User, MapPin, Star, Truck } from 'lucide-react';
 import { maskCep, maskPhone } from '@/utils/masks';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import UserReviewsTab from '@/components/UserReviewsTab';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { format } from 'date-fns';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const profileSchema = z.object({
   first_name: z.string().min(1, "Nome é obrigatório"),
@@ -39,6 +40,7 @@ const ProfilePage = () => {
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isFetchingCep, setIsFetchingCep] = useState(false);
+  const [deliveryType, setDeliveryType] = useState<'local' | 'correios' | null>(null);
 
   const { register, handleSubmit, control, setValue, getValues, formState: { errors } } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -52,6 +54,7 @@ const ProfilePage = () => {
       return;
     }
     setIsFetchingCep(true);
+    setDeliveryType(null);
     try {
       const { data, error } = await supabase.functions.invoke('validate-cep', { body: { cep: cleanedCep } });
       if (error) {
@@ -61,6 +64,12 @@ const ProfilePage = () => {
         return;
       }
       setValue('street', data.logradouro); setValue('neighborhood', data.bairro); setValue('city', data.localidade); setValue('state', data.uf);
+      
+      if (data.deliveryType === 'correios') {
+        setDeliveryType('correios');
+      } else {
+        setDeliveryType('local');
+      }
     } catch (e) {
       showError("Ocorreu um erro inesperado ao buscar o CEP.");
     } finally {
@@ -97,6 +106,11 @@ const ProfilePage = () => {
         Object.keys(initialFormValues).forEach((key) => {
           setValue(key as keyof ProfileFormData, initialFormValues[key as keyof ProfileFormData]);
         });
+        
+        // Initial Check if city is already loaded but not marked
+        if (profileData.city && profileData.city.toLowerCase() !== 'curitiba') {
+             // We could run logic here, but let's leave it for user action or simpler assumption
+        }
       }
       setLoading(false);
     };
@@ -186,9 +200,19 @@ const ProfilePage = () => {
                     <h3 className="font-black text-xl tracking-tighter italic uppercase">Endereço de Entrega.</h3>
                   </div>
 
+                  {deliveryType === 'correios' && (
+                    <Alert className="mb-6 bg-yellow-500/10 border-yellow-500/20 text-yellow-200">
+                      <Truck className="h-4 w-4" />
+                      <AlertTitle className="font-bold uppercase text-xs tracking-wider">Entrega via Correios</AlertTitle>
+                      <AlertDescription className="text-xs">
+                        Para a região selecionada, os pedidos são enviados via Correios.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
                   <div className="space-y-8">
                     <div className="space-y-3">
-                      <Label htmlFor="cep" className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">CEP (Somente Curitiba)</Label>
+                      <Label htmlFor="cep" className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">CEP</Label>
                       <div className="flex items-center space-x-3">
                         <Input id="cep" {...register('cep')} onChange={(e) => e.target.value = maskCep(e.target.value)} className="bg-slate-950 border-white/10 h-12 rounded-xl focus:border-sky-500 transition-colors" />
                         <Button type="button" size="icon" onClick={handleCepLookup} disabled={isFetchingCep} className="bg-sky-500 hover:bg-sky-400 text-white h-12 w-12 rounded-xl shrink-0">

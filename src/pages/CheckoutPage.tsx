@@ -11,11 +11,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { showError, showSuccess, showLoading, dismissToast } from '@/utils/toast';
-import { Loader2, Search, AlertTriangle, CreditCard, MessageSquare, MapPin, ShoppingBag } from 'lucide-react';
+import { Loader2, Search, AlertTriangle, CreditCard, MessageSquare, MapPin, ShoppingBag, Truck } from 'lucide-react';
 import { getLocalCart, ItemType, clearLocalCart } from '@/utils/localCart';
 import { maskCep, maskPhone } from '@/utils/masks';
 import CouponsModal from '@/components/CouponsModal';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 
 interface DisplayItem {
@@ -67,6 +67,7 @@ const CheckoutPage = () => {
   const [isFetchingCep, setIsFetchingCep] = useState(false);
   const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null);
   const [isCreditCardEnabled, setIsCreditCardEnabled] = useState(false);
+  const [deliveryType, setDeliveryType] = useState<'local' | 'correios' | null>(null);
 
   const { register, handleSubmit, setValue, getValues, watch, formState: { errors } } = useForm<CheckoutFormData>({
     resolver: zodResolver(checkoutSchema),
@@ -82,6 +83,7 @@ const CheckoutPage = () => {
       return;
     }
     setIsFetchingCep(true);
+    setDeliveryType(null);
     try {
       const { data, error } = await supabase.functions.invoke('validate-cep', { body: { cep: cleanedCep } });
       if (error) {
@@ -91,6 +93,12 @@ const CheckoutPage = () => {
         return;
       }
       setValue('street', data.logradouro); setValue('neighborhood', data.bairro); setValue('city', data.localidade); setValue('state', data.uf);
+      
+      if (data.deliveryType === 'correios') {
+        setDeliveryType('correios');
+      } else {
+        setDeliveryType('local');
+      }
     } catch (e) {
       showError("Ocorreu um erro inesperado ao buscar o CEP.");
     } finally {
@@ -227,7 +235,9 @@ const CheckoutPage = () => {
       const statusUpdate = data.payment_method === 'pix' ? 'Em Preparação' : 'Aguardando Pagamento';
       await supabase.from('orders').update({ 
         payment_method: data.payment_method === 'pix' ? 'PIX via WhatsApp' : 'Cartão de Crédito',
-        status: statusUpdate
+        status: statusUpdate,
+        // Se for Correios, podemos marcar delivery_status como 'Pendente Envio Correios'
+        delivery_status: deliveryType === 'correios' ? 'Aguardando Envio Correios' : 'Pendente'
       }).eq('id', new_order_id);
 
       if (final_price <= 0) {
@@ -242,7 +252,13 @@ const CheckoutPage = () => {
 
       if (data.payment_method === 'pix') {
         const itemsSummary = items.map(item => `- ${item.name} (Qtd: ${item.quantity})`).join('\n');
-        const whatsappMessage = `Olá! Gostaria de finalizar o pagamento do meu pedido (#${new_order_id}) via PIX.\n\nTotal: R$ ${final_price.toFixed(2).replace('.', ',')}\n\nItens:\n${itemsSummary}`;
+        
+        let whatsappMessage = `Olá! Gostaria de finalizar o pagamento do meu pedido (#${new_order_id}) via PIX.\n\nTotal: R$ ${final_price.toFixed(2).replace('.', ',')}\n\nItens:\n${itemsSummary}`;
+        
+        if (deliveryType === 'correios') {
+            whatsappMessage += `\n\n*Atenção:* Entrega via Correios para ${shippingAddress.city}/${shippingAddress.state}.`;
+        }
+
         const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`;
         
         dismissToast(toastId);
@@ -307,13 +323,24 @@ const CheckoutPage = () => {
               </div>
             </CardHeader>
             <CardContent className="p-8 space-y-6">
+              
+              {deliveryType === 'correios' && (
+                <Alert className="bg-yellow-500/10 border-yellow-500/20 text-yellow-200">
+                  <Truck className="h-4 w-4" />
+                  <AlertTitle className="font-bold uppercase text-xs tracking-wider">Entrega via Correios</AlertTitle>
+                  <AlertDescription className="text-xs">
+                    Para a região selecionada, os pedidos são enviados via Correios.
+                  </AlertDescription>
+                </Alert>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2"><Label className="text-xs font-black uppercase tracking-widest text-slate-500">Nome</Label><Input {...register('first_name')} />{errors.first_name && <p className="text-xs font-bold text-red-400">{errors.first_name.message}</p>}</div>
                 <div className="space-y-2"><Label className="text-xs font-black uppercase tracking-widest text-slate-500">Sobrenome</Label><Input {...register('last_name')} />{errors.last_name && <p className="text-xs font-bold text-red-400">{errors.last_name.message}</p>}</div>
               </div>
               <div className="space-y-2"><Label className="text-xs font-black uppercase tracking-widest text-slate-500">Telefone</Label><Input {...register('phone')} onChange={e => e.target.value = maskPhone(e.target.value)} placeholder="(48) 99999-9999" />{errors.phone && <p className="text-xs font-bold text-red-400">{errors.phone.message}</p>}</div>
               <div className="space-y-2">
-                <Label className="text-xs font-black uppercase tracking-widest text-slate-500">CEP (Somente Curitiba)</Label>
+                <Label className="text-xs font-black uppercase tracking-widest text-slate-500">CEP</Label>
                 <div className="flex space-x-2">
                   <Input {...register('cep')} onChange={e => e.target.value = maskCep(e.target.value)} />
                   <Button type="button" size="icon" onClick={handleCepLookup} disabled={isFetchingCep} className="bg-sky-500 hover:bg-sky-400 text-white h-12 w-12 rounded-xl shrink-0">
@@ -413,7 +440,17 @@ const CheckoutPage = () => {
               <div className="space-y-3 bg-white/[0.03] p-6 rounded-2xl border border-white/5">
                 <div className="flex justify-between text-xs text-slate-400 font-bold uppercase tracking-widest"><span>Subtotal</span><span>R$ {subtotal.toFixed(2).replace('.', ',')}</span></div>
                 {selectedCoupon && <div className="flex justify-between text-xs text-green-400 font-bold uppercase tracking-widest"><span>Desconto</span><span>- R$ {discount.toFixed(2).replace('.', ',')}</span></div>}
-                <div className="flex justify-between text-xs text-slate-400 font-bold uppercase tracking-widest"><span>Frete</span><span className="text-green-400">Grátis</span></div>
+                
+                {/* Exibição condicional do Frete */}
+                <div className="flex justify-between text-xs text-slate-400 font-bold uppercase tracking-widest">
+                    <span>Frete</span>
+                    {deliveryType === 'correios' ? (
+                        <span className="text-yellow-400">A Combinar (Correios)</span>
+                    ) : (
+                        <span className="text-green-400">Grátis</span>
+                    )}
+                </div>
+
                 <Separator className="my-2 bg-white/10" />
                 <div className="flex justify-between font-black text-3xl text-white tracking-tighter italic uppercase"><span>Total</span><span className="text-sky-400">R$ {total.toFixed(2).replace('.', ',')}</span></div>
               </div>

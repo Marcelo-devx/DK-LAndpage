@@ -64,7 +64,7 @@ const Index = () => {
   };
 
   return (
-    <div className="bg-slate-950 overflow-x-hidden text-white w-full">
+    <div className="bg-off-white overflow-x-hidden text-charcoal-gray w-full">
       {infoPopup && (
         <InformationalPopup 
           isOpen={isPopupOpen} 
@@ -88,7 +88,8 @@ const Index = () => {
                     className="w-full h-auto block" 
                     alt={slide.title || "Banner Principal"} 
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/20 to-transparent" />
+                  {/* Gradiente ajustado para o tema claro */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-off-white/80 via-transparent to-transparent" />
                 </Link>
               </CarouselItem>
             ))}
@@ -126,16 +127,16 @@ const Index = () => {
           <section className="container mx-auto px-4 md:px-6">
             <div className="flex flex-col md:flex-row items-start md:items-end justify-between mb-4 md:mb-8 gap-2">
                 <div>
-                    <h3 className="text-2xl md:text-5xl font-black tracking-tighter italic uppercase" translate="no">NEW DROPS</h3>
+                    <h3 className="text-2xl md:text-5xl font-black tracking-tighter italic uppercase text-charcoal-gray" translate="no">NEW DROPS</h3>
                 </div>
-                <Link to="/produtos" className="text-[10px] font-bold uppercase tracking-widest hover:text-sky-400 transition-colors">Ver todos →</Link>
+                <Link to="/produtos" className="text-[10px] font-bold uppercase tracking-widest hover:text-sky-500 transition-colors text-slate-600">Ver todos →</Link>
             </div>
             
             <Carousel opts={{ align: "start", loop: true }} className="w-full">
               <CarouselContent className="-ml-3 md:-ml-4">
                 {loadingProducts ? Array.from({ length: 4 }).map((_, i) => (
                   <CarouselItem key={i} className="pl-3 md:pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4">
-                    <Skeleton className="aspect-square bg-white/5 rounded-2xl md:rounded-3xl" />
+                    <Skeleton className="aspect-square bg-slate-200 rounded-2xl md:rounded-3xl" />
                   </CarouselItem>
                 )) :
                   displayedProducts.map((p) => (
@@ -157,7 +158,8 @@ const Index = () => {
 
         {featuredProducts.length > 0 && (
           <ScrollAnimationWrapper>
-            <section className="bg-white/5 py-8 md:py-16">
+            {/* Seção com fundo branco para contraste no tema claro */}
+            <section className="bg-white py-8 md:py-16">
               <div className="container mx-auto px-4 md:px-6">
                 <h2 className="text-[10px] md:text-xs font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-4 md:mb-8 text-center">Seleção Premium</h2>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">

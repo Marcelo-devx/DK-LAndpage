@@ -36,7 +36,7 @@ const MainLayout = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-off-white">
+    <div className="flex flex-col min-h-screen bg-off-white text-charcoal-gray">
       <AgeVerificationPopup />
       <DeliveryTimerBar />
       <Header onCartClick={() => setIsCartOpen(true)} />

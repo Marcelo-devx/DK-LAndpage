@@ -4,42 +4,43 @@
 
 @layer base {
   :root {
-    --background: 222 47% 2%; /* Fundo quase preto para dar destaque */
-    --foreground: 0 0% 100%;  /* Texto principal Branco Puro */
+    /* Tema Claro - Fundo #F4EEE3 */
+    --background: 39 42% 92%;  /* #F4EEE3 */
+    --foreground: 222 47% 11%; /* Slate 900 - Texto Escuro */
 
-    --card: 222 47% 4%;
-    --card-foreground: 0 0% 100%;
+    --card: 0 0% 100%;         /* White */
+    --card-foreground: 222 47% 11%;
 
-    --popover: 222 47% 2%;
-    --popover-foreground: 0 0% 100%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
 
-    --primary: 199 89% 48%; 
+    --primary: 199 89% 48%;    /* Sky 500 */
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 217 32% 17%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222 47% 11%;
 
-    --muted: 215 25% 40%;
-    --muted-foreground: 215 20% 90%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
 
-    --accent: 199 89% 48%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222 47% 11%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 217 32% 20%;
-    --input: 217 32% 25%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
     --ring: 199 89% 48%;
 
     --radius: 1rem;
 
-    /* Variáveis de Alta Visibilidade */
-    --color-off-white: #020617;      
-    --color-charcoal-gray: #ffffff;  /* Texto Principal: Branco Total */
-    --color-gold-accent: #38bdf8;    /* Azul Sky Vibrante */
-    --color-tobacco-brown: #cbd5e1;  /* Texto Secundário: Slate 300 (Cinza muito claro) */
-    --color-light-tan: #0f172a;      
+    /* Variáveis Personalizadas Atualizadas */
+    --color-off-white: #F4EEE3;      /* A cor solicitada */
+    --color-charcoal-gray: #0f172a;  /* Slate 900 - Texto Principal */
+    --color-gold-accent: #0ea5e9;    /* Sky 500 - Mantido */
+    --color-tobacco-brown: #334155;  /* Slate 700 - Texto Secundário */
+    --color-light-tan: #ffffff;      /* Branco para fundos de cards */
   }
 }
 
@@ -52,21 +53,20 @@
     @apply bg-background text-foreground selection:bg-primary/30 antialiased;
   }
   
-  /* Garantir que labels de formulários sejam visíveis */
   label {
-    @apply text-white font-bold mb-1 block;
+    @apply text-charcoal-gray font-bold mb-1 block;
   }
 
-  /* Deixar os campos de texto mais claros por dentro */
-  input, textarea {
-    @apply bg-slate-900 border-white/20 text-white placeholder:text-slate-500 !important;
+  /* Campos de texto claros */
+  input, textarea, select {
+    @apply bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 !important;
   }
 }
 
 .glass-effect {
-  @apply bg-white/[0.05] backdrop-blur-xl border border-white/20;
+  @apply bg-white/60 backdrop-blur-xl border border-white/40;
 }
 
 .text-gradient {
-  @apply bg-clip-text text-transparent bg-gradient-to-r from-sky-400 to-white;
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-sky-500 to-indigo-600;
 }

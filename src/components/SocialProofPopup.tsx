@@ -95,7 +95,7 @@ const SocialProofPopup = () => {
           initial={{ opacity: 0, y: 50, x: -20 }}
           animate={{ opacity: 1, y: 0, x: 0 }}
           exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
-          className="fixed bottom-6 left-6 bg-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl p-4 w-[320px] z-[100] flex items-center space-x-4 border border-white/10"
+          className="fixed bottom-6 left-6 bg-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl p-4 w-[320px] z-[45] flex items-center space-x-4 border border-white/10"
         >
           <div className="shrink-0 w-16 h-16 bg-white/5 rounded-xl overflow-hidden border border-white/5 flex items-center justify-center">
             {currentItem.product_image_url ? (

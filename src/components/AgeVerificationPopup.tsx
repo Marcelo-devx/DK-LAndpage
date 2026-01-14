@@ -7,14 +7,15 @@ const AgeVerificationPopup = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    const isVerified = sessionStorage.getItem('age-verified');
+    // Alterei a chave para 'v2' para garantir que apareça novamente para você testar
+    const isVerified = sessionStorage.getItem('age-verified-v2');
     if (!isVerified) {
       setIsOpen(true);
     }
   }, []);
 
   const handleConfirm = () => {
-    sessionStorage.setItem('age-verified', 'true');
+    sessionStorage.setItem('age-verified-v2', 'true');
     setIsOpen(false);
   };
 
@@ -25,7 +26,7 @@ const AgeVerificationPopup = () => {
   return (
     <Dialog open={isOpen} onOpenChange={() => {}}>
       <DialogContent 
-        className="w-[95vw] sm:max-w-md bg-slate-950 border-white/10 p-0 overflow-hidden rounded-[2rem] shadow-[0_0_100px_rgba(0,0,0,1)] outline-none [&>button]:hidden z-[110]"
+        className="w-[95vw] sm:max-w-md bg-slate-950 border-white/10 p-0 overflow-hidden rounded-[2rem] shadow-[0_0_100px_rgba(0,0,0,1)] outline-none [&>button]:hidden z-[150]"
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >

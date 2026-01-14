@@ -165,10 +165,11 @@ const CouponsModal = ({ isOpen, onOpenChange, userPoints, onRedemption }: Coupon
                   return (
                     <Card key={coupon.id} className={cn(
                       "bg-white border-stone-200 transition-all duration-300 rounded-2xl overflow-hidden shadow-sm",
-                      !canRedeem ? 'opacity-60 grayscale bg-stone-50' : 'hover:border-sky-500/50 hover:shadow-md'
+                      // Removido opacity-60 para garantir legibilidade
+                      !canRedeem ? 'bg-stone-50' : 'hover:border-sky-500/50 hover:shadow-md'
                     )}>
                       <CardContent className="p-5 flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-5">
+                        <div className={cn("flex items-center gap-5", !canRedeem && "opacity-60")}>
                           <div className="bg-sky-50 p-3 rounded-xl flex-shrink-0">
                             <Ticket className="h-7 w-7 text-sky-600" />
                           </div>
@@ -185,8 +186,10 @@ const CouponsModal = ({ isOpen, onOpenChange, userPoints, onRedemption }: Coupon
                           onClick={() => handleRedeem(coupon)} 
                           disabled={!canRedeem || redeemingId !== null}
                           className={cn(
-                            "font-black uppercase tracking-widest px-6 h-10 rounded-xl transition-all shadow-md",
-                            canRedeem ? "bg-sky-500 hover:bg-sky-400 text-white" : "bg-stone-200 text-stone-400 border-stone-200"
+                            "font-black uppercase tracking-widest px-6 h-10 rounded-xl transition-all shadow-md disabled:opacity-100",
+                            canRedeem 
+                              ? "bg-sky-500 hover:bg-sky-400 text-white" 
+                              : "bg-stone-200 text-stone-500 border border-stone-300" // Contraste aumentado
                           )}
                         >
                           {redeemingId === coupon.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Resgatar'}

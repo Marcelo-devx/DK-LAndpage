@@ -83,7 +83,7 @@ const Header = ({ onCartClick }: HeaderProps) => {
   };
 
   const NavLinks = ({ mobile = false }: { mobile?: boolean }) => {
-    const linkClass = `font-sans font-bold transition-all ${mobile ? 'text-2xl text-slate-800' : 'text-xs text-slate-600 hover:text-sky-500 uppercase tracking-[0.2em]'}`;
+    const linkClass = `font-sans font-bold transition-all ${mobile ? 'text-2xl text-slate-800' : 'text-xs text-slate-300 hover:text-white uppercase tracking-[0.2em]'}`;
     const activeLinkClass = 'text-sky-500 font-black';
 
     return (
@@ -98,7 +98,7 @@ const Header = ({ onCartClick }: HeaderProps) => {
   };
 
   return (
-    <header className="bg-off-white/90 backdrop-blur-xl border-b border-slate-200/60 sticky top-0 z-50">
+    <header className="bg-black border-b border-white/10 sticky top-0 z-50">
       <div className="container mx-auto px-4 md:px-6 py-4 flex items-center justify-between gap-4">
         
         {/* LOGO AREA */}
@@ -106,8 +106,8 @@ const Header = ({ onCartClick }: HeaderProps) => {
           {isMobile && (
             <Sheet>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="hover:bg-slate-200">
-                  <Menu className="h-6 w-6 text-slate-800" />
+                <Button variant="ghost" size="icon" className="hover:bg-white/10 text-white">
+                  <Menu className="h-6 w-6" />
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="bg-off-white border-slate-200 text-slate-900 p-8">
@@ -120,7 +120,7 @@ const Header = ({ onCartClick }: HeaderProps) => {
           )}
           <Link to="/" className="flex items-center group">
             {loadingLogo ? (
-              <Skeleton className="h-8 w-32 bg-slate-200" />
+              <Skeleton className="h-8 w-32 bg-white/10" />
             ) : logoUrl ? (
               <img 
                 src={logoUrl} 
@@ -139,14 +139,14 @@ const Header = ({ onCartClick }: HeaderProps) => {
             <Input 
               type="text" 
               placeholder="Digite o que você procura..." 
-              className="w-full h-12 pl-5 pr-12 rounded-xl border-stone-200 bg-white text-slate-800 placeholder:text-slate-400 focus:border-sky-500 focus:ring-sky-500/20 shadow-sm"
+              className="w-full h-12 pl-5 pr-12 rounded-xl border-transparent bg-white text-slate-900 placeholder:text-slate-400 focus:border-sky-500 focus:ring-sky-500/20 shadow-sm"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
             <Button 
               type="submit" 
               size="icon" 
-              className="absolute right-1 top-1 h-10 w-10 bg-transparent hover:bg-stone-100 text-slate-500 hover:text-sky-500 rounded-lg transition-colors"
+              className="absolute right-1 top-1 h-10 w-10 bg-transparent hover:bg-slate-100 text-slate-500 hover:text-sky-500 rounded-lg transition-colors"
             >
               <Search className="h-5 w-5" />
             </Button>
@@ -158,33 +158,33 @@ const Header = ({ onCartClick }: HeaderProps) => {
           
           {/* Mobile Search Trigger */}
           <div className="md:hidden">
-             <Button variant="ghost" size="icon" onClick={() => navigate('/produtos')} className="text-slate-600">
+             <Button variant="ghost" size="icon" onClick={() => navigate('/produtos')} className="text-white hover:bg-white/10">
                 <Search className="h-6 w-6" />
              </Button>
           </div>
 
           {/* Meus Pedidos (Desktop) */}
           <Link to="/compras" className="hidden lg:flex items-center gap-2 group">
-            <Package className="h-6 w-6 text-slate-700 group-hover:text-sky-500 transition-colors" />
+            <Package className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
             <div className="flex flex-col leading-none">
-                <span className="text-[10px] text-slate-500 font-bold uppercase">Meus</span>
-                <span className="text-xs text-slate-800 font-black uppercase">Pedidos</span>
+                <span className="text-[10px] text-slate-400 font-bold uppercase">Meus</span>
+                <span className="text-xs text-white font-black uppercase">Pedidos</span>
             </div>
           </Link>
 
           {/* Login/User (Desktop & Mobile) */}
           <Link to={session ? "/dashboard" : "/login"} className="flex items-center gap-2 group relative">
             <div className="relative">
-                <User className="h-6 w-6 text-slate-700 group-hover:text-sky-500 transition-colors" />
+                <User className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
                 {isProfileIncomplete && session && (
-                  <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-off-white"></span>
+                  <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-black"></span>
                 )}
             </div>
             <div className="hidden lg:flex flex-col leading-none">
-                <span className="text-[10px] text-slate-500 font-bold uppercase">
+                <span className="text-[10px] text-slate-400 font-bold uppercase">
                     {session ? `Olá, ${session.user.email?.split('@')[0].substring(0, 8)}...` : 'Entre ou'}
                 </span>
-                <span className="text-xs text-slate-800 font-black uppercase">
+                <span className="text-xs text-white font-black uppercase">
                     {session ? 'Minha Conta' : 'Cadastre-se'}
                 </span>
             </div>
@@ -193,16 +193,16 @@ const Header = ({ onCartClick }: HeaderProps) => {
           {/* Carrinho (Desktop & Mobile) */}
           <button onClick={onCartClick} className="flex items-center gap-2 group relative">
             <div className="relative">
-                <ShoppingCart className="h-6 w-6 text-slate-700 group-hover:text-sky-500 transition-colors" />
+                <ShoppingCart className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
                 {cartCount > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 bg-sky-500 text-white text-[9px] font-black h-4 w-4 flex items-center justify-center rounded-full shadow-sm">
+                    <span className="absolute -top-1.5 -right-1.5 bg-sky-500 text-white text-[9px] font-black h-4 w-4 flex items-center justify-center rounded-full shadow-sm ring-2 ring-black">
                     {cartCount}
                     </span>
                 )}
             </div>
             <div className="hidden lg:flex flex-col leading-none text-left">
-                <span className="text-[10px] text-slate-500 font-bold uppercase">Meu</span>
-                <span className="text-xs text-slate-800 font-black uppercase">Carrinho</span>
+                <span className="text-[10px] text-slate-400 font-bold uppercase">Meu</span>
+                <span className="text-xs text-white font-black uppercase">Carrinho</span>
             </div>
           </button>
         </div>
@@ -214,14 +214,14 @@ const Header = ({ onCartClick }: HeaderProps) => {
             <Input 
               type="text" 
               placeholder="O que você procura?" 
-              className="w-full h-10 pl-4 pr-10 rounded-lg border-stone-200 bg-white text-sm"
+              className="w-full h-10 pl-4 pr-10 rounded-lg border-transparent bg-white text-sm text-slate-900 placeholder:text-slate-400"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
             <Button 
               type="submit" 
               size="icon" 
-              className="absolute right-0 top-0 h-10 w-10 bg-transparent text-slate-400"
+              className="absolute right-0 top-0 h-10 w-10 bg-transparent text-slate-400 hover:text-sky-500"
             >
               <Search className="h-4 w-4" />
             </Button>

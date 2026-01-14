@@ -120,15 +120,15 @@ const Header = ({ onCartClick }: HeaderProps) => {
           )}
           <Link to="/" className="flex items-center group">
             {loadingLogo ? (
-              <Skeleton className="h-8 w-32 bg-white/10" />
+              <Skeleton className="h-12 w-32 bg-white/10" />
             ) : logoUrl ? (
               <img 
                 src={logoUrl} 
                 alt="Logo" 
-                className="h-8 md:h-10 w-auto transition-all duration-300 group-hover:scale-110" 
+                className="h-12 md:h-16 w-auto transition-all duration-300 group-hover:scale-110" 
               />
             ) : (
-              <h1 className="text-2xl md:text-3xl font-black italic tracking-tighter text-sky-500 group-hover:scale-105 transition-transform uppercase">DKCWB.</h1>
+              <h1 className="text-3xl md:text-4xl font-black italic tracking-tighter text-sky-500 group-hover:scale-105 transition-transform uppercase">DKCWB.</h1>
             )}
           </Link>
         </div>

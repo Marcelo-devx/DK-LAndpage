@@ -11,8 +11,18 @@ export interface LocalCartItem {
 }
 
 export const getLocalCart = (): LocalCartItem[] => {
-  const cartJson = localStorage.getItem(LOCAL_CART_KEY);
-  return cartJson ? JSON.parse(cartJson) : [];
+  try {
+    const cartJson = localStorage.getItem(LOCAL_CART_KEY);
+    // Verifica se é "undefined" string ou null ou vazio
+    if (!cartJson || cartJson === "undefined") return [];
+    
+    const parsed = JSON.parse(cartJson);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.error("Erro ao ler carrinho local, resetando dados corrompidos:", error);
+    localStorage.removeItem(LOCAL_CART_KEY);
+    return [];
+  }
 };
 
 export const getCartCreatedAt = (): string | null => {
@@ -25,14 +35,18 @@ export const getCartTotalItems = (): number => {
 };
 
 const saveLocalCart = (cart: LocalCartItem[]) => {
-  localStorage.setItem(LOCAL_CART_KEY, JSON.stringify(cart));
-  
-  // Se o carrinho foi zerado, removemos o tempo
-  if (cart.length === 0) {
-    localStorage.removeItem(CART_TIME_KEY);
-  } else if (!localStorage.getItem(CART_TIME_KEY)) {
-    // Se é o primeiro item, marcamos o início
-    localStorage.setItem(CART_TIME_KEY, new Date().toISOString());
+  try {
+    localStorage.setItem(LOCAL_CART_KEY, JSON.stringify(cart));
+    
+    // Se o carrinho foi zerado, removemos o tempo
+    if (cart.length === 0) {
+      localStorage.removeItem(CART_TIME_KEY);
+    } else if (!localStorage.getItem(CART_TIME_KEY)) {
+      // Se é o primeiro item, marcamos o início
+      localStorage.setItem(CART_TIME_KEY, new Date().toISOString());
+    }
+  } catch (error) {
+    console.error("Erro ao salvar carrinho:", error);
   }
 };
 

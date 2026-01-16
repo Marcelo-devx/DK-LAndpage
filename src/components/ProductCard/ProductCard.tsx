@@ -53,16 +53,17 @@ const ProductCard = ({ product }: ProductCardProps) => {
             </h3>
             
             <div className="space-y-0.5 pt-1">
-                {/* Preço cheio e parcelamento */}
-                <p className="text-[13px] md:text-[14px] font-black text-slate-400 leading-none">
+                {/* Preço cheio agora em preto intenso */}
+                <p className="text-[13px] md:text-[14px] font-black text-slate-900 leading-none">
                     {formattedFullPrice}
                 </p>
                 
-                <p className="text-[10px] md:text-[11px] text-slate-500 font-medium tracking-tight">
-                    até <span className="font-bold text-slate-700 uppercase">3x</span> de <span className="font-bold text-slate-700">{installmentValue}</span> <span className="text-[9px] font-black uppercase text-sky-600">no cartão</span>
+                {/* Parcelamento agora em preto/escuro para maior contraste */}
+                <p className="text-[10px] md:text-[11px] text-slate-900 font-medium tracking-tight">
+                    até <span className="font-black uppercase">3x</span> de <span className="font-black">{installmentValue}</span> <span className="text-[9px] font-black uppercase text-sky-600">no cartão</span>
                 </p>
                 
-                {/* Destaque PIX - Maior e mais vibrante */}
+                {/* Destaque PIX */}
                 <div className="flex flex-col gap-1 pt-3">
                     <div className="flex items-center gap-1.5">
                         <div className="flex items-center justify-center p-1 bg-emerald-50 text-emerald-600 rounded-md border border-emerald-100">

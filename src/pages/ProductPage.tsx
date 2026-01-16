@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, Minus, ChevronLeft, Loader2, FileText } from "lucide-react";
+import { Plus, Minus, ChevronLeft, Loader2, FileText, ShoppingCart } from "lucide-react";
 import { addToCart } from '@/utils/cart';
 import { cn } from '@/lib/utils';
 import { showError } from '@/utils/toast';
@@ -28,6 +28,13 @@ interface Variant {
   stock_quantity: number;
   flavor_name?: string;
 }
+
+const PixIcon = ({ className }: { className?: string }) => (
+    <svg viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+      <path d="M371.304 186.064L250 307.368L128.696 186.064L41.3043 273.456L250 482.152L458.696 273.456L371.304 186.064Z" fill="currentColor"/>
+      <path d="M128.696 313.936L250 192.632L371.304 313.936L458.696 226.544L250 17.848L41.3043 226.544L128.696 313.936Z" fill="currentColor"/>
+    </svg>
+);
 
 const ProductPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -91,6 +98,7 @@ const ProductPage = () => {
 
   const currentFullPrice = selectedVariant ? selectedVariant.price : product.price;
   const currentPixPrice = (selectedVariant ? selectedVariant.pix_price : product.pix_price) || currentFullPrice;
+  const installmentValue = (currentFullPrice / 3).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
   return (
     <div className="bg-off-white min-h-screen text-charcoal-gray pb-20">
@@ -100,37 +108,49 @@ const ProductPage = () => {
         </Button>
 
         <div className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-start mb-16">
-          {/* Adicionado lg:sticky e lg:top-24 para funcionar apenas em desktop */}
-          <div className="relative group lg:sticky lg:top-24">
-            <div className="absolute -inset-4 bg-sky-500/10 rounded-[2rem] blur-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="relative group lg:sticky lg:top-32">
+            <div className="absolute -inset-4 bg-sky-500/5 rounded-[3rem] blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
             <img 
               src={product.image_url || ''} 
               alt={product.name} 
-              className="w-full h-auto object-cover rounded-3xl border border-stone-200 shadow-2xl relative bg-white"
+              className="w-full h-auto object-cover rounded-[2.5rem] border border-stone-100 shadow-2xl relative bg-white"
             />
           </div>
 
-          <div className="space-y-6 md:space-y-10">
+          <div className="space-y-8 md:space-y-12">
             <div>
-              <p className="text-sky-500 text-xs font-black uppercase tracking-[0.3em] mb-2">{product.category}</p>
-              <h1 className="text-3xl md:text-6xl font-black tracking-tighter leading-none mb-4 md:mb-6 text-charcoal-gray" translate="no">{product.name}</h1>
+              <p className="text-sky-500 text-xs font-black uppercase tracking-[0.4em] mb-3">{product.category}</p>
+              <h1 className="text-4xl md:text-7xl font-black tracking-tighter leading-[0.9] mb-8 text-charcoal-gray" translate="no">{product.name}</h1>
               
-              <div className="flex flex-col space-y-2 md:space-y-4">
-                <div className="flex items-baseline space-x-3">
-                    <span className="text-4xl md:text-5xl font-black tracking-tighter text-charcoal-gray">
-                        {currentPixPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                    </span>
-                    <span className="text-[10px] md:text-sm font-black text-sky-500 uppercase tracking-widest">no pix</span>
+              <div className="space-y-4 bg-white/50 backdrop-blur-sm p-8 rounded-[2rem] border border-white">
+                <div className="space-y-1">
+                    <p className="text-xl md:text-2xl font-black text-slate-900">
+                        {currentFullPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </p>
+                    <p className="text-sm md:text-base text-slate-500 font-medium">
+                        até <span className="font-bold text-slate-700">3x</span> de <span className="font-bold text-slate-700">{installmentValue}</span> sem juros
+                    </p>
                 </div>
-                <p className="text-stone-500 text-sm font-medium">
-                  Ou {currentFullPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} em até 3x sem juros
-                </p>
+
+                <div className="flex items-center gap-4 pt-4 border-t border-slate-100">
+                    <div className="flex items-center justify-center p-3 bg-emerald-100 text-emerald-600 rounded-2xl">
+                      <PixIcon className="h-6 w-6 md:h-8 md:w-8" />
+                    </div>
+                    
+                    <div className="flex flex-wrap items-baseline gap-2 md:gap-3">
+                        <span className="text-sm md:text-base font-bold text-slate-400 uppercase">ou</span>
+                        <span className="text-4xl md:text-6xl font-black text-emerald-600 tracking-tighter">
+                            {currentPixPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </span>
+                        <span className="text-xs md:text-sm font-black text-emerald-600/80 uppercase tracking-widest">via pix</span>
+                    </div>
+                </div>
               </div>
             </div>
 
             {variants.length > 0 && (
               <div className="space-y-4">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-500">Opções Disponíveis</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Escolha sua Opção</p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {variants.map((v) => (
                     <button
@@ -138,38 +158,45 @@ const ProductPage = () => {
                       onClick={() => setSelectedVariant(v)}
                       disabled={v.stock_quantity <= 0}
                       className={cn(
-                        "p-4 border rounded-2xl transition-all text-left relative overflow-hidden",
+                        "p-5 border-2 rounded-[1.5rem] transition-all text-left relative overflow-hidden",
                         selectedVariant?.id === v.id 
-                          ? "border-sky-500 bg-sky-50 shadow-md ring-1 ring-sky-200" 
-                          : "border-stone-200 bg-white hover:border-stone-300",
-                        v.stock_quantity <= 0 && "opacity-50 grayscale cursor-not-allowed bg-stone-100"
+                          ? "border-sky-500 bg-sky-50/50 shadow-lg ring-4 ring-sky-500/10" 
+                          : "border-stone-100 bg-white hover:border-sky-200",
+                        v.stock_quantity <= 0 && "opacity-40 grayscale cursor-not-allowed"
                       )}
                     >
-                      <p className="font-bold text-xs text-charcoal-gray">{v.flavor_name || 'Original'}</p>
-                      {v.volume_ml && <p className="text-[10px] text-stone-500 mt-1">{v.volume_ml}ml</p>}
+                      <p className="font-black text-sm text-charcoal-gray uppercase tracking-tight">{v.flavor_name || 'Original'}</p>
+                      {v.volume_ml && <p className="text-[10px] text-slate-500 font-bold mt-1 uppercase tracking-widest">{v.volume_ml}ml</p>}
                     </button>
                   ))}
                 </div>
               </div>
             )}
 
-            <div className="bg-white p-6 md:p-8 rounded-3xl border border-stone-200 space-y-6 md:space-y-8 shadow-lg">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-bold text-stone-500 uppercase tracking-widest">Quantidade</p>
-                <div className="flex items-center bg-stone-100 rounded-xl p-1 border border-stone-200">
-                  <Button variant="ghost" size="icon" onClick={() => setQuantity(q => Math.max(1, q - 1))} className="h-10 w-10 text-charcoal-gray hover:bg-white"><Minus className="h-4 w-4" /></Button>
-                  <span className="w-12 text-center font-black text-lg text-charcoal-gray">{quantity}</span>
-                  <Button variant="ghost" size="icon" onClick={() => setQuantity(q => q + 1)} className="h-10 w-10 text-charcoal-gray hover:bg-white"><Plus className="h-4 w-4" /></Button>
+            <div className="bg-slate-950 p-8 md:p-10 rounded-[2.5rem] space-y-8 shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-sky-500/10 blur-[60px] rounded-full" />
+              
+              <div className="flex items-center justify-between relative z-10">
+                <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Quantidade</p>
+                <div className="flex items-center bg-white/5 rounded-2xl p-1.5 border border-white/10">
+                  <Button variant="ghost" size="icon" onClick={() => setQuantity(q => Math.max(1, q - 1))} className="h-12 w-12 text-white hover:bg-white/10 rounded-xl"><Minus className="h-5 w-5" /></Button>
+                  <span className="w-14 text-center font-black text-2xl text-white tracking-tighter">{quantity}</span>
+                  <Button variant="ghost" size="icon" onClick={() => setQuantity(q => q + 1)} className="h-12 w-12 text-white hover:bg-white/10 rounded-xl"><Plus className="h-5 w-5" /></Button>
                 </div>
               </div>
 
               <Button 
                 size="lg" 
-                className="w-full bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-[0.2em] h-16 rounded-2xl shadow-[0_15px_30px_-10px_rgba(14,165,233,0.4)] transition-all active:scale-95" 
+                className="w-full bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-[0.2em] h-18 text-lg rounded-[1.5rem] shadow-[0_20px_40px_-10px_rgba(14,165,233,0.5)] transition-all active:scale-95 py-8" 
                 onClick={handleAddToCart}
                 disabled={isAdding}
               >
-                {isAdding ? <Loader2 className="animate-spin h-5 w-5" /> : 'Adicionar ao Carrinho'}
+                {isAdding ? <Loader2 className="animate-spin h-6 w-6" /> : (
+                    <span className="flex items-center gap-3">
+                        <ShoppingCart className="h-6 w-6" />
+                        ADICIONAR AO CARRINHO
+                    </span>
+                )}
               </Button>
             </div>
           </div>
@@ -177,19 +204,19 @@ const ProductPage = () => {
 
         {/* Product Description Section */}
         <div className="w-full">
-          <Card className="bg-white border-stone-200 shadow-xl rounded-[2.5rem] overflow-hidden">
-            <CardContent className="p-8 md:p-12">
-              <div className="flex items-center space-x-3 mb-8 border-b border-stone-100 pb-6">
-                <div className="p-3 bg-sky-100 rounded-2xl">
-                  <FileText className="h-6 w-6 text-sky-600" />
+          <Card className="bg-white border-none shadow-[0_30px_60px_-20px_rgba(0,0,0,0.05)] rounded-[3rem] overflow-hidden">
+            <CardContent className="p-10 md:p-16">
+              <div className="flex items-center space-x-4 mb-12 border-b border-stone-50 pb-8">
+                <div className="p-4 bg-sky-50 rounded-2xl text-sky-600">
+                  <FileText className="h-8 w-8" />
                 </div>
-                <h2 className="font-black text-2xl tracking-tighter italic uppercase text-charcoal-gray">
+                <h2 className="font-black text-3xl md:text-4xl tracking-tighter italic uppercase text-charcoal-gray">
                   Detalhes do Produto.
                 </h2>
               </div>
               
-              <div className="prose prose-stone prose-lg max-w-none">
-                <p className="text-stone-600 leading-relaxed whitespace-pre-line">
+              <div className="prose prose-stone prose-xl max-w-none">
+                <p className="text-slate-600 leading-relaxed whitespace-pre-line font-medium italic">
                   {product.description || 'Sem descrição disponível para este produto.'}
                 </p>
               </div>

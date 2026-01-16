@@ -87,8 +87,7 @@ const BrandProductsModal = ({ brandName, isOpen, onOpenChange }: BrandProductsMo
                   name: product.name,
                   price: product.price,
                   pixPrice: product.pix_price,
-                  imageUrl: product.image_url,
-                  url: `/produto/${product.id}`
+                  imageUrl: product.image_url
                 }} />
               ))}
             </div>

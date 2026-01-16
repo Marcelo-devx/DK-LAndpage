@@ -83,8 +83,7 @@ const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps)
                     name: p.name, 
                     price: p.price, 
                     pixPrice: p.pix_price, 
-                    imageUrl: p.image_url, 
-                    url: `/produto/${p.id}` 
+                    imageUrl: p.image_url
                   }} />
                 </CarouselItem>
               ))}

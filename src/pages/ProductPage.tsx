@@ -120,29 +120,29 @@ const ProductPage = () => {
           <div className="space-y-8 md:space-y-12">
             <div>
               <p className="text-sky-500 text-xs font-black uppercase tracking-[0.4em] mb-3">{product.category}</p>
-              <h1 className="text-4xl md:text-7xl font-black tracking-tighter leading-[0.9] mb-10 text-charcoal-gray" translate="no">{product.name}</h1>
+              <h1 className="text-4xl md:text-7xl font-black tracking-tighter leading-[0.9] mb-8 text-charcoal-gray" translate="no">{product.name}</h1>
               
-              <div className="space-y-8 bg-white/50 backdrop-blur-sm p-8 md:p-12 rounded-[2.5rem] border border-white shadow-sm">
-                <div className="space-y-2 border-b border-slate-100 pb-8">
-                    <p className="text-2xl md:text-3xl font-black text-slate-400 leading-none">
+              <div className="space-y-6 bg-white/50 backdrop-blur-sm p-8 rounded-[2rem] border border-white">
+                <div className="space-y-1 border-b border-slate-100 pb-6">
+                    <p className="text-xl md:text-2xl font-black text-slate-900">
                         {currentFullPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </p>
-                    <p className="text-base md:text-lg text-slate-600 font-bold tracking-tight">
-                        até <span className="text-slate-900">3X</span> de <span className="text-slate-900">{installmentValue}</span> <span className="text-sky-600 uppercase text-sm">no cartão</span>
+                    <p className="text-sm md:text-base text-slate-500 font-medium">
+                        ou até <span className="font-bold text-slate-700">3x</span> de <span className="font-bold text-slate-700">{installmentValue}</span> <span className="text-xs uppercase tracking-widest opacity-70">no cartão</span>
                     </p>
                 </div>
 
-                <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-3">
                     <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center p-2.5 bg-sky-50 text-sky-600 rounded-xl border border-sky-100">
-                          <PixIcon className="h-6 w-6" />
-                          <span className="text-xs font-black ml-2 uppercase tracking-widest">pix</span>
+                        <div className="flex items-center justify-center p-2 bg-sky-50 text-sky-600 rounded-xl border border-sky-100">
+                          <PixIcon className="h-5 w-5" />
+                          <span className="text-xs font-black ml-1.5 uppercase tracking-widest">pix</span>
                         </div>
-                        <span className="text-sm md:text-base font-black text-slate-400 uppercase tracking-widest">Pagamento à vista</span>
+                        <span className="text-xs md:text-sm font-bold text-slate-400 uppercase tracking-widest">Pagamento à vista</span>
                     </div>
                     
                     <div className="flex flex-wrap items-baseline">
-                        <span className="text-6xl md:text-8xl font-black text-emerald-600 tracking-tighter">
+                        <span className="text-5xl md:text-7xl font-black text-emerald-600 tracking-tighter">
                             {currentPixPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                         </span>
                     </div>
@@ -150,53 +150,53 @@ const ProductPage = () => {
               </div>
             </div>
 
-            {/* Variants */}
+            {/* ... restante do componente (variantes, quantidade, botão) sem alterações na lógica ... */}
             {variants.length > 0 && (
               <div className="space-y-4">
-                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 px-2">Escolha sua Opção</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Escolha sua Opção</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {variants.map((v) => (
                     <button
                       key={v.id}
                       onClick={() => setSelectedVariant(v)}
                       disabled={v.stock_quantity <= 0}
                       className={cn(
-                        "p-6 border-2 rounded-[1.5rem] transition-all text-left relative overflow-hidden",
+                        "p-5 border-2 rounded-[1.5rem] transition-all text-left relative overflow-hidden",
                         selectedVariant?.id === v.id 
                           ? "border-sky-500 bg-sky-50/50 shadow-lg ring-4 ring-sky-500/10" 
                           : "border-stone-100 bg-white hover:border-sky-200",
                         v.stock_quantity <= 0 && "opacity-40 grayscale cursor-not-allowed"
                       )}
                     >
-                      <p className="font-black text-base text-charcoal-gray uppercase tracking-tight">{v.flavor_name || 'Original'}</p>
-                      {v.volume_ml && <p className="text-xs text-slate-500 font-bold mt-1 uppercase tracking-widest">{v.volume_ml}ml</p>}
+                      <p className="font-black text-sm text-charcoal-gray uppercase tracking-tight">{v.flavor_name || 'Original'}</p>
+                      {v.volume_ml && <p className="text-[10px] text-slate-500 font-bold mt-1 uppercase tracking-widest">{v.volume_ml}ml</p>}
                     </button>
                   ))}
                 </div>
               </div>
             )}
 
-            <div className="bg-slate-950 p-8 md:p-12 rounded-[3rem] space-y-10 shadow-2xl relative overflow-hidden">
+            <div className="bg-slate-950 p-8 md:p-10 rounded-[2.5rem] space-y-8 shadow-2xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-sky-500/10 blur-[60px] rounded-full" />
               
               <div className="flex items-center justify-between relative z-10">
-                <p className="text-sm font-black text-slate-400 uppercase tracking-[0.2em]">Quantidade</p>
-                <div className="flex items-center bg-white/5 rounded-2xl p-2 border border-white/10">
-                  <Button variant="ghost" size="icon" onClick={() => setQuantity(q => Math.max(1, q - 1))} className="h-14 w-14 text-white hover:bg-white/10 rounded-xl"><Minus className="h-6 w-6" /></Button>
-                  <span className="w-16 text-center font-black text-3xl text-white tracking-tighter">{quantity}</span>
-                  <Button variant="ghost" size="icon" onClick={() => setQuantity(q => q + 1)} className="h-14 w-14 text-white hover:bg-white/10 rounded-xl"><Plus className="h-6 w-6" /></Button>
+                <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Quantidade</p>
+                <div className="flex items-center bg-white/5 rounded-2xl p-1.5 border border-white/10">
+                  <Button variant="ghost" size="icon" onClick={() => setQuantity(q => Math.max(1, q - 1))} className="h-12 w-12 text-white hover:bg-white/10 rounded-xl"><Minus className="h-5 w-5" /></Button>
+                  <span className="w-14 text-center font-black text-2xl text-white tracking-tighter">{quantity}</span>
+                  <Button variant="ghost" size="icon" onClick={() => setQuantity(q => q + 1)} className="h-12 w-12 text-white hover:bg-white/10 rounded-xl"><Plus className="h-5 w-5" /></Button>
                 </div>
               </div>
 
               <Button 
                 size="lg" 
-                className="w-full bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-[0.2em] h-20 text-xl rounded-[2rem] shadow-[0_20px_40px_-10px_rgba(14,165,233,0.5)] transition-all active:scale-95" 
+                className="w-full bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-[0.2em] h-18 text-lg rounded-[1.5rem] shadow-[0_20px_40px_-10px_rgba(14,165,233,0.5)] transition-all active:scale-95 py-8" 
                 onClick={handleAddToCart}
                 disabled={isAdding}
               >
-                {isAdding ? <Loader2 className="animate-spin h-8 w-8" /> : (
-                    <span className="flex items-center gap-4">
-                        <ShoppingCart className="h-8 w-8" />
+                {isAdding ? <Loader2 className="animate-spin h-6 w-6" /> : (
+                    <span className="flex items-center gap-3">
+                        <ShoppingCart className="h-6 w-6" />
                         ADICIONAR AO CARRINHO
                     </span>
                 )}
@@ -205,7 +205,7 @@ const ProductPage = () => {
           </div>
         </div>
         
-        {/* Description */}
+        {/* ... descrição ... */}
         <div className="w-full">
           <Card className="bg-white border-none shadow-[0_30px_60px_-20px_rgba(0,0,0,0.05)] rounded-[3rem] overflow-hidden">
             <CardContent className="p-10 md:p-16">

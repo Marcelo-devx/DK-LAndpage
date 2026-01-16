@@ -46,35 +46,34 @@ const ProductCard = ({ product }: ProductCardProps) => {
           </div>
         </div>
         
-        <CardContent className="p-4 md:p-6 flex-grow flex flex-col">
-          <div className="flex-grow space-y-4">
-            <h3 className="text-slate-900 text-sm md:text-base font-bold tracking-tight line-clamp-2 h-10 md:h-12 group-hover:text-sky-600 transition-colors leading-tight" translate="no">
+        <CardContent className="p-4 md:p-5 flex-grow flex flex-col">
+          <div className="flex-grow space-y-3">
+            <h3 className="text-slate-900 text-xs md:text-sm font-bold tracking-tight line-clamp-2 h-8 md:h-10 group-hover:text-sky-600 transition-colors leading-tight" translate="no">
               {product.name}
             </h3>
             
-            <div className="space-y-1.5 pt-1">
-                {/* Preço cheio maior */}
-                <p className="text-[17px] md:text-[19px] font-black text-slate-400 leading-none">
+            <div className="space-y-0.5 pt-1">
+                {/* Preço cheio e parcelamento */}
+                <p className="text-[13px] md:text-[14px] font-black text-slate-400 leading-none">
                     {formattedFullPrice}
                 </p>
                 
-                {/* Parcelamento maior e mais legível */}
-                <p className="text-[12px] md:text-[13px] text-slate-500 font-bold tracking-tight">
-                    até <span className="text-slate-800">3X</span> de <span className="text-slate-800">{installmentValue}</span> <span className="text-sky-600 uppercase">NO CARTÃO</span>
+                <p className="text-[10px] md:text-[11px] text-slate-500 font-medium tracking-tight">
+                    até <span className="font-bold text-slate-700 uppercase">3x</span> de <span className="font-bold text-slate-700">{installmentValue}</span> <span className="text-[9px] font-black uppercase text-sky-600">no cartão</span>
                 </p>
                 
-                {/* Destaque PIX Gigante */}
-                <div className="flex flex-col gap-2 pt-4">
-                    <div className="flex items-center gap-2">
-                        <div className="flex items-center justify-center p-1.5 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100">
-                          <PixIcon className="h-4 w-4" />
-                          <span className="text-[10px] font-black ml-1 uppercase tracking-wider">pix</span>
+                {/* Destaque PIX - Maior e mais vibrante */}
+                <div className="flex flex-col gap-1 pt-3">
+                    <div className="flex items-center gap-1.5">
+                        <div className="flex items-center justify-center p-1 bg-emerald-50 text-emerald-600 rounded-md border border-emerald-100">
+                          <PixIcon className="h-3.5 w-3.5" />
+                          <span className="text-[9px] font-black ml-1 uppercase tracking-wider">pix</span>
                         </div>
-                        <span className="text-xs font-black text-emerald-600/70 uppercase">à vista</span>
+                        <span className="text-[10px] font-black text-emerald-600/60 uppercase">à vista</span>
                     </div>
                     
                     <div className="flex items-baseline gap-1.5">
-                        <span className="text-4xl md:text-5xl font-black text-emerald-600 tracking-tighter leading-none">
+                        <span className="text-3xl md:text-4xl font-black text-emerald-600 tracking-tighter leading-none">
                             {formattedPixPrice}
                         </span>
                     </div>
@@ -83,7 +82,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
           </div>
           
           <Button 
-            className="w-full bg-slate-950 hover:bg-sky-500 text-white font-black uppercase text-xs tracking-[0.2em] mt-8 h-12 rounded-xl transition-all duration-300 shadow-md group-hover:translate-y-[-2px]"
+            className="w-full bg-slate-950 hover:bg-sky-500 text-white font-black uppercase text-[10px] tracking-[0.2em] mt-6 h-11 rounded-xl transition-all duration-300 shadow-md group-hover:translate-y-[-2px]"
             onClick={handleAddToCart}
             disabled={isAdding}
           >

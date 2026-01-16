@@ -8,6 +8,7 @@ import Footer from "./Footer";
 import SocialProofPopup from "./SocialProofPopup";
 import AgeVerificationPopup from "./AgeVerificationPopup";
 import DeliveryTimerBar from "./DeliveryTimerBar";
+import WhatsAppButton from "./WhatsAppButton";
 
 export interface OutletContextType {
   handleCategoryClick: (categoryName: string) => void;
@@ -58,6 +59,7 @@ const MainLayout = () => {
       />
       <CartSheet isOpen={isCartOpen} onOpenChange={setIsCartOpen} />
       <SocialProofPopup />
+      <WhatsAppButton />
     </div>
   );
 };

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, Minus, ChevronLeft, Loader2, FileText, ShoppingCart } from "lucide-react";
+import { Plus, Minus, ChevronLeft, Loader2, FileText, ShoppingCart, CreditCard } from "lucide-react";
 import { addToCart } from '@/utils/cart';
 import { cn } from '@/lib/utils';
 import { showError } from '@/utils/toast';
@@ -122,32 +122,35 @@ const ProductPage = () => {
               <p className="text-sky-500 text-xs font-black uppercase tracking-[0.4em] mb-3">{product.category}</p>
               <h1 className="text-4xl md:text-7xl font-black tracking-tighter leading-[0.9] mb-8 text-charcoal-gray" translate="no">{product.name}</h1>
               
-              <div className="space-y-4 bg-white/50 backdrop-blur-sm p-8 rounded-[2rem] border border-white">
-                <div className="space-y-1">
+              <div className="space-y-6 bg-white/50 backdrop-blur-sm p-8 rounded-[2rem] border border-white">
+                <div className="space-y-1 border-b border-slate-100 pb-6">
                     <p className="text-xl md:text-2xl font-black text-slate-900">
                         {currentFullPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </p>
                     <p className="text-sm md:text-base text-slate-500 font-medium">
-                        até <span className="font-bold text-slate-700">3x</span> de <span className="font-bold text-slate-700">{installmentValue}</span> sem juros
+                        ou até <span className="font-bold text-slate-700">3x</span> de <span className="font-bold text-slate-700">{installmentValue}</span> <span className="text-xs uppercase tracking-widest opacity-70">no cartão</span>
                     </p>
                 </div>
 
-                <div className="flex items-center gap-4 pt-4 border-t border-slate-100">
-                    <div className="flex items-center justify-center p-3 bg-emerald-100 text-emerald-600 rounded-2xl">
-                      <PixIcon className="h-6 w-6 md:h-8 md:w-8" />
+                <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center p-2 bg-sky-50 text-sky-600 rounded-xl border border-sky-100">
+                          <PixIcon className="h-5 w-5" />
+                          <span className="text-xs font-black ml-1.5 uppercase tracking-widest">pix</span>
+                        </div>
+                        <span className="text-xs md:text-sm font-bold text-slate-400 uppercase tracking-widest">Pagamento à vista</span>
                     </div>
                     
-                    <div className="flex flex-wrap items-baseline gap-2 md:gap-3">
-                        <span className="text-sm md:text-base font-bold text-slate-400 uppercase">ou</span>
-                        <span className="text-4xl md:text-6xl font-black text-emerald-600 tracking-tighter">
+                    <div className="flex flex-wrap items-baseline">
+                        <span className="text-5xl md:text-7xl font-black text-emerald-600 tracking-tighter">
                             {currentPixPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                         </span>
-                        <span className="text-xs md:text-sm font-black text-emerald-600/80 uppercase tracking-widest">via pix</span>
                     </div>
                 </div>
               </div>
             </div>
 
+            {/* ... restante do componente (variantes, quantidade, botão) sem alterações na lógica ... */}
             {variants.length > 0 && (
               <div className="space-y-4">
                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Escolha sua Opção</p>
@@ -201,8 +204,8 @@ const ProductPage = () => {
             </div>
           </div>
         </div>
-
-        {/* Product Description Section */}
+        
+        {/* ... descrição ... */}
         <div className="w-full">
           <Card className="bg-white border-none shadow-[0_30px_60px_-20px_rgba(0,0,0,0.05)] rounded-[3rem] overflow-hidden">
             <CardContent className="p-10 md:p-16">

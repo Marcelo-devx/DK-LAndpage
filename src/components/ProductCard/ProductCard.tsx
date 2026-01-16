@@ -2,7 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { addToCart } from "@/utils/cart";
-import { ShoppingCart, Loader2 } from "lucide-react";
+import { ShoppingCart, Loader2, CreditCard } from "lucide-react";
 import { useState } from "react";
 import { ProductCardProps } from "./ProductCard.types";
 
@@ -52,27 +52,28 @@ const ProductCard = ({ product }: ProductCardProps) => {
               {product.name}
             </h3>
             
-            {/* Seção de Preços Inspirada no Anexo */}
             <div className="space-y-0.5 pt-1">
-                <p className="text-[13px] md:text-[15px] font-black text-slate-900 leading-none">
+                <p className="text-[13px] md:text-[14px] font-black text-slate-900 leading-none">
                     {formattedFullPrice}
                 </p>
                 
                 <p className="text-[10px] md:text-[11px] text-slate-500 font-medium tracking-tight">
-                    até <span className="font-bold text-slate-700">3x</span> de <span className="font-bold text-slate-700">{installmentValue}</span> sem juros
+                    até <span className="font-bold text-slate-700 uppercase">3x</span> de <span className="font-bold text-slate-700">{installmentValue}</span> <span className="text-[9px] uppercase tracking-tighter opacity-80">no cartão</span>
                 </p>
                 
-                <div className="flex items-center gap-2 pt-2 group/pix">
-                    <div className="flex items-center justify-center p-1.5 bg-emerald-50 text-emerald-600 rounded-lg group-hover/pix:bg-emerald-600 group-hover/pix:text-white transition-colors duration-300">
-                      <PixIcon className="h-4 w-4 md:h-5 md:w-5" />
+                <div className="flex flex-col gap-1 pt-2">
+                    <div className="flex items-center gap-1.5">
+                        <div className="flex items-center justify-center p-1 bg-sky-50 text-sky-600 rounded-md border border-sky-100">
+                          <PixIcon className="h-3.5 w-3.5" />
+                          <span className="text-[9px] font-black ml-1 uppercase tracking-wider">pix</span>
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">à vista</span>
                     </div>
                     
-                    <div className="flex flex-wrap items-baseline gap-1.5">
-                        <span className="text-[11px] font-bold text-slate-400 uppercase">ou</span>
-                        <span className="text-xl md:text-2xl font-black text-emerald-600 tracking-tighter">
+                    <div className="flex items-baseline gap-1.5">
+                        <span className="text-2xl md:text-3xl font-black text-emerald-600 tracking-tighter leading-none">
                             {formattedPixPrice}
                         </span>
-                        <span className="text-[10px] md:text-[11px] font-bold text-emerald-600/80 uppercase">via pix</span>
                     </div>
                 </div>
             </div>

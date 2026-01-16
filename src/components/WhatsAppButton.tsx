@@ -33,8 +33,8 @@ const WhatsAppButton = () => {
   return (
     <a
       href={whatsappUrl}
-      target="_blank"
-      rel="noopener noreferrer"
+      // Removido target="_blank" para forçar o redirecionamento na mesma página
+      // Isso evita popups em branco em webviews ou navegadores restritos
       className={cn(
         "fixed bottom-6 right-6 z-[100]", // Z-Index alto para ficar acima de tudo
         "bg-[#25D366] hover:bg-[#128C7E] text-white",

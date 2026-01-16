@@ -133,6 +133,11 @@ const Header = ({ onCartClick }: HeaderProps) => {
           </Link>
         </div>
 
+        {/* Navigation Links (Desktop) - RESTAURADO */}
+        <div className="hidden md:block ml-6">
+          <NavLinks />
+        </div>
+
         {/* SEARCH BAR (CENTER) - Visible on Desktop */}
         <div className="hidden md:flex flex-1 max-w-2xl mx-8">
           <form onSubmit={handleSearch} className="w-full relative">

@@ -16,13 +16,11 @@ const SocialProofPopup = () => {
   const [currentItemIndex, setCurrentItemIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
   
-  // Estados para os tempos vindo do banco (em milissegundos)
-  const [displayDuration, setDisplayDuration] = useState(6000); // Tempo visível
-  const [displayInterval, setDisplayInterval] = useState(10000); // Tempo entre popups
+  const [displayDuration, setDisplayDuration] = useState(6000);
+  const [displayInterval, setDisplayInterval] = useState(10000);
 
   useEffect(() => {
     const fetchData = async () => {
-      // 1. Busca as configurações de tempo
       const { data: settings } = await supabase
         .from('app_settings')
         .select('key, value')
@@ -36,7 +34,6 @@ const SocialProofPopup = () => {
         if (interval?.value) setDisplayInterval(parseInt(interval.value) * 1000);
       }
 
-      // 2. Busca as vendas recentes
       const { data, error } = await supabase
         .from('sales_popups')
         .select('id, customer_name, product_name, product_image_url, time_ago')
@@ -51,7 +48,6 @@ const SocialProofPopup = () => {
 
       if (data && data.length > 0) {
         setItems(data);
-        // Inicia a exibição após um breve delay inicial fixo
         setTimeout(() => setIsVisible(true), 3000);
       }
     };
@@ -61,25 +57,19 @@ const SocialProofPopup = () => {
 
   useEffect(() => {
     if (items.length === 0 || !isVisible) return;
-
-    // O popup fica visível pelo tempo definido no banco
     const hideTimeout = setTimeout(() => {
       setIsVisible(false);
     }, displayDuration);
-
     return () => clearTimeout(hideTimeout);
   }, [isVisible, items.length, displayDuration]);
 
   useEffect(() => {
     if (items.length === 0) return;
-
     if (!isVisible) {
-      // Espera o intervalo definido no banco antes de mostrar o próximo
       const nextPopupTimeout = setTimeout(() => {
         setCurrentItemIndex((prevIndex) => (prevIndex + 1) % items.length);
         setIsVisible(true);
       }, displayInterval);
-
       return () => clearTimeout(nextPopupTimeout);
     }
   }, [isVisible, items.length, displayInterval]);
@@ -95,6 +85,7 @@ const SocialProofPopup = () => {
           initial={{ opacity: 0, y: 50, x: -20 }}
           animate={{ opacity: 1, y: 0, x: 0 }}
           exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+          // Restaurado para a posição original (canto esquerdo inferior)
           className="fixed bottom-6 left-6 bg-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl p-4 w-[320px] z-[45] flex items-center space-x-4 border border-white/10"
         >
           <div className="shrink-0 w-16 h-16 bg-white/5 rounded-xl overflow-hidden border border-white/5 flex items-center justify-center">

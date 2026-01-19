@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { User, ShoppingCart, Menu, Search, Package, ChevronDown, ArrowRight } from 'lucide-react';
+import { User, ShoppingCart, Menu, Search, Package, ChevronDown, ArrowRight, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -18,6 +18,7 @@ import {
   NavigationMenuContent,
 } from "@/components/ui/navigation-menu";
 import { cn } from '@/lib/utils';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 interface Category {
   id: number;
@@ -91,22 +92,21 @@ const Header = ({ onCartClick }: HeaderProps) => {
   };
 
   const DesktopNav = () => (
-    <NavigationMenu className="max-w-full justify-center mx-auto">
-      <NavigationMenuList className="gap-0">
+    <NavigationMenu className="max-w-full justify-center">
+      <NavigationMenuList className="flex flex-nowrap overflow-x-auto no-scrollbar gap-0">
         {categories.map((category) => {
           const categorySubs = subCategories.filter(s => s.category_id === category.id);
           
           return (
-            <NavigationMenuItem key={category.id}>
+            <NavigationMenuItem key={category.id} className="shrink-0">
               <NavigationMenuTrigger 
-                className="bg-transparent text-white hover:text-sky-400 data-[state=open]:bg-white/20 data-[state=open]:text-sky-400 font-black uppercase text-[11px] tracking-[0.15em] h-14 px-6 transition-all" 
+                className="bg-transparent text-white hover:text-sky-400 data-[state=open]:bg-white/10 data-[state=open]:text-sky-400 font-black uppercase text-[11px] tracking-[0.15em] h-14 px-6 transition-all whitespace-nowrap" 
                 translate="no"
               >
                 {category.name}
               </NavigationMenuTrigger>
               <NavigationMenuContent>
                 <div className="w-[600px] p-8 bg-black border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,1)] rounded-2xl grid grid-cols-[1fr_240px] gap-10">
-                  {/* Lista de Sub-Categorias */}
                   <div className="space-y-6">
                     <h4 className="text-[11px] font-black text-sky-500 uppercase tracking-[0.3em] border-b border-white/10 pb-3">Sub-Categorias</h4>
                     <ul className="grid grid-cols-1 gap-1 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
@@ -130,10 +130,8 @@ const Header = ({ onCartClick }: HeaderProps) => {
                     </ul>
                   </div>
 
-                  {/* Box de Destaque à Direita (Igual ao exemplo) */}
                   <div className="bg-white/[0.03] rounded-2xl p-7 flex flex-col justify-between border border-white/5 relative overflow-hidden group/box">
                     <div className="absolute top-0 right-0 w-24 h-24 bg-sky-500/10 blur-[40px] rounded-full" />
-                    
                     <div className="relative z-10">
                         <h5 className="text-white font-black text-lg uppercase tracking-tighter italic mb-4 leading-tight border-l-4 border-sky-500 pl-3">
                             {category.name}.
@@ -142,7 +140,6 @@ const Header = ({ onCartClick }: HeaderProps) => {
                             Acesse agora nossa curadoria premium completa e exclusiva desenvolvida para a linha {category.name}.
                         </p>
                     </div>
-
                     <Button asChild size="lg" className="mt-8 bg-white text-black hover:bg-sky-500 hover:text-white font-black uppercase text-[10px] tracking-[0.2em] h-12 rounded-xl transition-all shadow-xl relative z-10">
                         <Link to={`/produtos?category=${category.name}`}>Explorar Tudo</Link>
                     </Button>
@@ -161,46 +158,61 @@ const Header = ({ onCartClick }: HeaderProps) => {
       <div className="container mx-auto px-4 md:px-6 py-4 flex items-center justify-between gap-4">
         
         {/* LOGO AREA */}
-        <div className="flex items-center space-x-4 shrink-0">
-          {isMobile && (
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="hover:bg-white/10 text-white">
-                  <Menu className="h-6 w-6" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="bg-slate-950 border-white/10 text-white p-8">
-                <Link to="/" className="mb-12 inline-block">
-                   <h1 className="text-2xl font-black italic tracking-tighter text-sky-500 uppercase">DKCWB.</h1>
-                </Link>
-                <nav className="flex flex-col gap-6">
-                  <Link to="/produtos" className="text-lg font-black uppercase tracking-widest">Todos Produtos</Link>
-                  {categories.map(cat => (
-                    <div key={cat.id} className="space-y-4">
-                      <Link to={`/produtos?category=${cat.name}`} className="text-lg font-black uppercase tracking-widest text-sky-500" translate="no">{cat.name}</Link>
-                      <div className="pl-4 flex flex-col gap-3">
-                        {subCategories.filter(s => s.category_id === cat.id).map(sub => (
-                          <Link key={sub.id} to={`/produtos?category=${cat.name}&sub_category=${sub.name}`} className="text-sm font-bold text-slate-400 uppercase tracking-wider" translate="no">{sub.name}</Link>
+        <div className="flex items-center space-x-2 shrink-0">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="hover:bg-white/10 text-white md:hidden">
+                <Menu className="h-6 w-6" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="bg-black border-white/10 text-white p-0 w-[300px]">
+              <div className="p-6 border-b border-white/5">
+                <h1 className="text-2xl font-black italic tracking-tighter text-sky-500 uppercase">MENU DKCWB.</h1>
+              </div>
+              
+              <div className="p-6 overflow-y-auto max-h-[calc(100vh-100px)] custom-scrollbar">
+                <nav className="flex flex-col gap-8">
+                  <div className="space-y-4">
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Navegação Principal</h3>
+                    <Link to="/produtos" className="block text-lg font-black uppercase tracking-widest hover:text-sky-400">Todos Produtos</Link>
+                    <Link to="/compras" className="block text-lg font-black uppercase tracking-widest hover:text-sky-400">Meus Pedidos</Link>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Categorias</h3>
+                    <Accordion type="single" collapsible className="w-full">
+                        {categories.map((cat) => (
+                            <AccordionItem key={cat.id} value={`cat-${cat.id}`} className="border-white/5">
+                                <AccordionTrigger className="text-sm font-black uppercase tracking-widest hover:no-underline py-4">
+                                    {cat.name}
+                                </AccordionTrigger>
+                                <AccordionContent className="pl-4 pb-4 space-y-3">
+                                    <Link to={`/produtos?category=${cat.name}`} className="block text-xs font-bold text-sky-500 uppercase tracking-widest border-b border-white/5 pb-2">Explorar Tudo</Link>
+                                    {subCategories.filter(s => s.category_id === cat.id).map(sub => (
+                                        <Link key={sub.id} to={`/produtos?category=${cat.name}&sub_category=${sub.name}`} className="block text-xs font-medium text-slate-400 uppercase tracking-widest hover:text-white">{sub.name}</Link>
+                                    ))}
+                                </AccordionContent>
+                            </AccordionItem>
                         ))}
-                      </div>
-                    </div>
-                  ))}
+                    </Accordion>
+                  </div>
                 </nav>
-              </SheetContent>
-            </Sheet>
-          )}
-          <Link to="/" className="flex items-center group">
+              </div>
+            </SheetContent>
+          </Sheet>
+          
+          <Link to="/" className="flex items-center group ml-1 md:ml-0">
             {loadingLogo ? (
-              <Skeleton className="h-12 w-32 bg-white/10" />
+              <Skeleton className="h-10 w-24 bg-white/10" />
             ) : logoUrl ? (
-              <img src={logoUrl} alt="Logo" className="h-12 md:h-16 w-auto transition-all duration-300 group-hover:scale-110" />
+              <img src={logoUrl} alt="Logo" className="h-10 md:h-16 w-auto transition-all duration-300 group-hover:scale-110" />
             ) : (
-              <h1 className="text-3xl md:text-4xl font-black italic tracking-tighter text-sky-500 group-hover:scale-105 transition-transform uppercase">DKCWB.</h1>
+              <h1 className="text-2xl md:text-4xl font-black italic tracking-tighter text-sky-500 group-hover:scale-105 transition-transform uppercase">DKCWB.</h1>
             )}
           </Link>
         </div>
 
-        {/* SEARCH BAR (CENTER) - Visible on Desktop */}
+        {/* SEARCH BAR (CENTER) */}
         <div className="hidden lg:flex flex-1 max-w-xl mx-8">
           <form onSubmit={handleSearch} className="w-full relative">
             <Input 
@@ -217,7 +229,7 @@ const Header = ({ onCartClick }: HeaderProps) => {
         </div>
 
         {/* ICONS AREA (RIGHT) */}
-        <div className="flex items-center space-x-2 md:space-x-6 shrink-0">
+        <div className="flex items-center space-x-3 md:space-x-6 shrink-0">
           <Link to="/compras" className="hidden sm:flex items-center gap-2 group">
             <Package className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
             <div className="hidden lg:flex flex-col leading-none">
@@ -227,9 +239,7 @@ const Header = ({ onCartClick }: HeaderProps) => {
           </Link>
 
           <Link to={session ? "/dashboard" : "/login"} className="flex items-center gap-2 group relative">
-            <div className="relative">
-                <User className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
-            </div>
+            <User className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
             <div className="hidden lg:flex flex-col leading-none">
                 <span className="text-[9px] text-slate-500 font-black uppercase">
                     {session ? 'Olá, Membro' : 'Acesse'}
@@ -257,9 +267,9 @@ const Header = ({ onCartClick }: HeaderProps) => {
         </div>
       </div>
 
-      {/* CATEGORY DROPDOWN BAR (DESKTOP) - Fundo Preto Sólido */}
+      {/* CATEGORY BAR (DESKTOP) - Com rolagem horizontal */}
       <div className="hidden md:block border-t border-white/10 bg-black">
-        <div className="container mx-auto px-6 py-0">
+        <div className="container mx-auto px-6 overflow-x-auto no-scrollbar">
           <DesktopNav />
         </div>
       </div>

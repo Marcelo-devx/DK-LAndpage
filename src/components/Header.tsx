@@ -233,7 +233,7 @@ const Header = ({ onCartClick }: HeaderProps) => {
           <Link to="/compras" className="hidden sm:flex items-center gap-2 group">
             <Package className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
             <div className="hidden lg:flex flex-col leading-none">
-                <span className="text-[9px] text-slate-500 font-black uppercase">Meus</span>
+                <span className="text-[9px] text-slate-400 font-black uppercase">Meus</span>
                 <span className="text-[11px] text-white font-black uppercase tracking-tighter">Pedidos</span>
             </div>
           </Link>
@@ -241,7 +241,7 @@ const Header = ({ onCartClick }: HeaderProps) => {
           <Link to={session ? "/dashboard" : "/login"} className="flex items-center gap-2 group relative">
             <User className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
             <div className="hidden lg:flex flex-col leading-none">
-                <span className="text-[9px] text-slate-500 font-black uppercase">
+                <span className="text-[9px] text-slate-400 font-black uppercase">
                     {session ? 'Olá, Membro' : 'Acesse'}
                 </span>
                 <span className="text-[11px] text-white font-black uppercase tracking-tighter">
@@ -260,7 +260,7 @@ const Header = ({ onCartClick }: HeaderProps) => {
                 )}
             </div>
             <div className="hidden lg:flex flex-col leading-none">
-                <span className="text-[9px] text-slate-500 font-black uppercase">Meu</span>
+                <span className="text-[9px] text-slate-400 font-black uppercase">Meu</span>
                 <span className="text-[11px] text-white font-black uppercase tracking-tighter">Carrinho</span>
             </div>
           </button>
@@ -274,8 +274,8 @@ const Header = ({ onCartClick }: HeaderProps) => {
         </div>
       </div>
       
-      {/* Mobile Search Bar */}
-      <div className="md:hidden px-4 pb-4">
+      {/* Mobile Search Bar & Quick Categories */}
+      <div className="md:hidden px-4 pb-4 space-y-3">
          <form onSubmit={handleSearch} className="relative">
             <Input 
               type="text" 
@@ -288,6 +288,19 @@ const Header = ({ onCartClick }: HeaderProps) => {
               <Search className="h-4 w-4" />
             </Button>
          </form>
+
+         {/* Navegação Rápida Horizontal (Mobile) */}
+         <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+            {categories.map((cat) => (
+               <Link 
+                 key={cat.id} 
+                 to={`/produtos?category=${cat.name}`}
+                 className="whitespace-nowrap px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-[10px] font-black uppercase tracking-widest text-white hover:bg-sky-500 hover:text-white transition-colors"
+               >
+                 {cat.name}
+               </Link>
+            ))}
+         </div>
       </div>
     </header>
   );

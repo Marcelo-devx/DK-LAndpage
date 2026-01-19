@@ -8,9 +8,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { showError, showSuccess, showLoading, dismissToast } from '@/utils/toast';
 import { Loader2, Search, User, MapPin, Star, Truck } from 'lucide-react';
-import { maskCep, maskPhone } from '@/utils/masks';
+import { maskCep, maskPhone, maskCpfCnpj } from '@/utils/masks';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import UserReviewsTab from '@/components/UserReviewsTab';
 import { DatePicker } from '@/components/ui/DatePicker';
@@ -22,6 +23,8 @@ const profileSchema = z.object({
   last_name: z.string().min(1, "Sobrenome é obrigatório"),
   date_of_birth: z.date({ required_error: "Data de nascimento é obrigatória." }),
   phone: z.string().min(14, "Telefone inválido").max(15, "Telefone inválido"),
+  cpf_cnpj: z.string().min(11, "CPF/CNPJ inválido").max(18, "CPF/CNPJ inválido"),
+  gender: z.string({ required_error: "Gênero é obrigatório" }).min(1, "Selecione um gênero"),
   cep: z.string().min(9, "CEP inválido"),
   street: z.string().min(1, "Rua é obrigatória"),
   number: z.string().min(1, "Número é obrigatório"),
@@ -95,6 +98,8 @@ const ProfilePage = () => {
           last_name: profileData.last_name || '',
           date_of_birth: profileData.date_of_birth ? new Date(`${profileData.date_of_birth}T00:00:00`) : new Date(),
           phone: profileData.phone ? maskPhone(profileData.phone) : '',
+          cpf_cnpj: profileData.cpf_cnpj ? maskCpfCnpj(profileData.cpf_cnpj) : '',
+          gender: profileData.gender || '',
           cep: profileData.cep ? maskCep(profileData.cep) : '',
           street: profileData.street || '',
           number: profileData.number || '',
@@ -120,6 +125,7 @@ const ProfilePage = () => {
     const updatePayload: any = {
       ...data,
       phone: data.phone.replace(/\D/g, ''),
+      cpf_cnpj: data.cpf_cnpj.replace(/\D/g, ''),
       date_of_birth: format(data.date_of_birth, 'yyyy-MM-dd'),
     };
 
@@ -172,6 +178,39 @@ const ProfilePage = () => {
                     <Input id="last_name" {...register('last_name')} className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" />
                     {errors.last_name && <p className="text-xs font-bold text-red-400">{errors.last_name.message}</p>}
                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-3">
+                      <Label htmlFor="cpf_cnpj" className="text-xs font-black uppercase tracking-[0.2em] text-stone-500">CPF / CNPJ</Label>
+                      <Input 
+                        id="cpf_cnpj" 
+                        {...register('cpf_cnpj')} 
+                        onChange={(e) => e.target.value = maskCpfCnpj(e.target.value)} 
+                        className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" 
+                      />
+                      {errors.cpf_cnpj && <p className="text-xs font-bold text-red-400">{errors.cpf_cnpj.message}</p>}
+                    </div>
+                    <div className="space-y-3">
+                      <Label htmlFor="gender" className="text-xs font-black uppercase tracking-[0.2em] text-stone-500">Gênero</Label>
+                      <Controller
+                        name="gender"
+                        control={control}
+                        render={({ field }) => (
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <SelectTrigger className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors">
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white border-stone-200 text-charcoal-gray">
+                              <SelectItem value="male">Masculino</SelectItem>
+                              <SelectItem value="female">Feminino</SelectItem>
+                              <SelectItem value="other">Outro</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                      {errors.gender && <p className="text-xs font-bold text-red-400">{errors.gender.message}</p>}
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

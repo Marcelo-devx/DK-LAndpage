@@ -91,7 +91,12 @@ const Login = () => {
           .eq('id', session.user.id)
           .single();
 
-        const isProfileComplete = profile && profile.first_name && profile.last_name && profile.cep;
+        const isProfileComplete = profile && 
+          profile.first_name && 
+          profile.last_name && 
+          profile.cpf_cnpj &&
+          profile.gender &&
+          profile.cep;
 
         if (!isProfileComplete) {
           navigate('/complete-profile', { replace: true });

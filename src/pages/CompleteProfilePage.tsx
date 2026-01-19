@@ -8,9 +8,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { showError, showSuccess, showLoading, dismissToast } from '@/utils/toast';
-import { Loader2, Search, Truck, AlertCircle } from 'lucide-react';
-import { maskCep, maskPhone } from '@/utils/masks';
+import { Loader2, Search, Truck } from 'lucide-react';
+import { maskCep, maskPhone, maskCpfCnpj } from '@/utils/masks';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { format } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -20,6 +21,8 @@ const profileSchema = z.object({
   last_name: z.string().min(1, "Sobrenome é obrigatório"),
   date_of_birth: z.date({ required_error: "Data de nascimento é obrigatória." }),
   phone: z.string().min(14, "Telefone inválido").max(15, "Telefone inválido"),
+  cpf_cnpj: z.string().min(11, "CPF/CNPJ inválido").max(18, "CPF/CNPJ inválido"),
+  gender: z.string({ required_error: "Gênero é obrigatório" }).min(1, "Selecione um gênero"),
   cep: z.string().min(9, "CEP inválido"),
   street: z.string().min(1, "Rua é obrigatória"),
   number: z.string().min(1, "Número é obrigatório"),
@@ -95,11 +98,23 @@ const CompleteProfilePage = () => {
         setUser(session.user);
         const { data: profile } = await supabase
           .from('profiles')
-          .select('first_name, last_name, date_of_birth, phone, cep, street, number, neighborhood, city, state')
+          .select('*')
           .eq('id', session.user.id)
           .single();
         
-        const isProfileComplete = profile && profile.first_name && profile.last_name && profile.date_of_birth && profile.phone && profile.cep && profile.street && profile.number && profile.neighborhood && profile.city && profile.state;
+        const isProfileComplete = profile && 
+          profile.first_name && 
+          profile.last_name && 
+          profile.date_of_birth && 
+          profile.phone && 
+          profile.cpf_cnpj &&
+          profile.gender &&
+          profile.cep && 
+          profile.street && 
+          profile.number && 
+          profile.neighborhood && 
+          profile.city && 
+          profile.state;
 
         if (isProfileComplete) {
           navigate('/');
@@ -120,6 +135,7 @@ const CompleteProfilePage = () => {
       .update({
         ...data,
         phone: data.phone.replace(/\D/g, ''),
+        cpf_cnpj: data.cpf_cnpj.replace(/\D/g, ''),
         date_of_birth: format(data.date_of_birth, 'yyyy-MM-dd'),
       })
       .eq('id', user.id);
@@ -161,6 +177,41 @@ const CompleteProfilePage = () => {
                 {errors.last_name && <p className="text-sm text-red-400 font-bold">{errors.last_name.message}</p>}
               </div>
             </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="cpf_cnpj">CPF / CNPJ</Label>
+                  <Input 
+                    id="cpf_cnpj" 
+                    {...register('cpf_cnpj')} 
+                    onChange={(e) => e.target.value = maskCpfCnpj(e.target.value)} 
+                    placeholder="000.000.000-00" 
+                    className="bg-slate-900 border-white/10 text-white" 
+                  />
+                  {errors.cpf_cnpj && <p className="text-sm text-red-400 font-bold">{errors.cpf_cnpj.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="gender">Gênero</Label>
+                  <Controller
+                    name="gender"
+                    control={control}
+                    render={({ field }) => (
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <SelectTrigger className="bg-slate-900 border-white/10 text-white">
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-900 border-white/10 text-white">
+                          <SelectItem value="male">Masculino</SelectItem>
+                          <SelectItem value="female">Feminino</SelectItem>
+                          <SelectItem value="other">Outro</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  {errors.gender && <p className="text-sm text-red-400 font-bold">{errors.gender.message}</p>}
+                </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="date_of_birth">Data de Nascimento</Label>

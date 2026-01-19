@@ -21,6 +21,7 @@ import AdminLogistics from "./pages/AdminLogistics";
 import UpdatePassword from "./pages/UpdatePassword";
 import AuthEventHandler from "./components/AuthEventHandler";
 import { ThemeProvider } from "./context/ThemeContext";
+import AdminCustomizer from "./components/AdminCustomizer";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +33,8 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <AuthEventHandler />
+          {/* O AdminCustomizer agora está aqui, visível em TODAS as rotas */}
+          <AdminCustomizer />
           <Routes>
             <Route element={<MainLayout />}>
               <Route path="/" element={<Index />} />

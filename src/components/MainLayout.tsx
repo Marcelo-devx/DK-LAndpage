@@ -9,7 +9,6 @@ import SocialProofPopup from "./SocialProofPopup";
 import AgeVerificationPopup from "./AgeVerificationPopup";
 import DeliveryTimerBar from "./DeliveryTimerBar";
 import WhatsAppButton from "./WhatsAppButton";
-import AdminCustomizer from "./AdminCustomizer";
 
 export interface OutletContextType {
   handleCategoryClick: (categoryName: string) => void;
@@ -40,7 +39,7 @@ const MainLayout = () => {
   return (
     <div className="flex flex-col min-h-screen bg-off-white text-charcoal-gray transition-colors duration-500">
       <AgeVerificationPopup />
-      <AdminCustomizer /> {/* Botão de personalização (apenas admins) */}
+      {/* AdminCustomizer removido daqui pois agora está em App.tsx */}
       
       <div className="sticky top-0 z-40 w-full">
         <DeliveryTimerBar />

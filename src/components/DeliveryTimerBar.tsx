@@ -1,35 +1,18 @@
 import { useEffect, useState } from 'react';
-import { Truck, Clock, Info } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { useTheme } from '@/context/ThemeContext';
+import { Truck, Clock } from 'lucide-react';
 
 const DeliveryTimerBar = () => {
-  const { settings } = useTheme();
   const [message, setMessage] = useState('');
   const [timeLeft, setTimeLeft] = useState<string | null>(null);
-  const [isUrgent, setIsUrgent] = useState(false);
+  const [showTimer, setShowTimer] = useState(false);
 
   useEffect(() => {
-    // Verifica se existe texto personalizado e se NÃO é o texto antigo que queremos remover
-    const announcement = settings.headerAnnouncement;
-    const hasAnnouncement = announcement && announcement.trim() !== '';
-    const isLegacyMessage = announcement && announcement.includes('FRETE GRÁTIS PARA CURITIBA');
-
-    // Se tiver anúncio válido (e não for a mensagem antiga), exibe ele
-    if (hasAnnouncement && !isLegacyMessage) {
-      setMessage(announcement);
-      setTimeLeft(null);
-      setIsUrgent(true);
-      return;
-    }
-
     const updateTimer = () => {
       const now = new Date();
       const day = now.getDay();
       let deadline = new Date();
-      let showTimer = false;
+      let isTimerVisible = false;
       let msg = "";
-      let urgent = false; // Define se a cor de fundo será azul (urgente) ou roxo (info)
 
       // Segunda a Sexta (1 a 5)
       if (day >= 1 && day <= 5) {
@@ -37,12 +20,11 @@ const DeliveryTimerBar = () => {
         deadline.setHours(14, 0, 0, 0);
         
         if (now.getTime() <= deadline.getTime()) {
-          showTimer = true;
+          isTimerVisible = true;
           msg = "Faça seu pedido antes das 14h para ser enviado ainda hoje! Tempo restante:";
-          urgent = true; // Azul
         } else {
           msg = "Fazendo seu pedido após as 14h será enviado na próxima rota!";
-          urgent = false; // Roxo
+          isTimerVisible = false;
         }
       } 
       // Sábado (6)
@@ -51,24 +33,23 @@ const DeliveryTimerBar = () => {
         deadline.setHours(12, 30, 0, 0);
         
         if (now.getTime() <= deadline.getTime()) {
-          showTimer = true;
+          isTimerVisible = true;
           msg = "Faça seu pedido antes das 12:30h para ser enviado ainda hoje! Tempo restante:";
-          urgent = true; // Azul
         } else {
           msg = "Fazendo o pedido após as 12:30h será enviado na próxima rota!.";
-          urgent = false; // Roxo
+          isTimerVisible = false;
         }
       } 
       // Domingo (0)
       else {
         msg = "Hoje é Domingo. Seu pedido será enviado no próximo dia útil!";
-        urgent = false; // Roxo
+        isTimerVisible = false;
       }
 
       setMessage(msg);
-      setIsUrgent(urgent);
+      setShowTimer(isTimerVisible);
 
-      if (showTimer) {
+      if (isTimerVisible) {
         const diff = deadline.getTime() - now.getTime();
         const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
         const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
@@ -85,27 +66,22 @@ const DeliveryTimerBar = () => {
     const interval = setInterval(updateTimer, 1000);
 
     return () => clearInterval(interval);
-  }, [settings.headerAnnouncement]);
+  }, []);
 
   return (
-    <div className={cn(
-      "w-full py-3 px-4 flex justify-center items-center text-center font-black uppercase tracking-widest transition-all duration-300 shadow-lg relative z-50",
-      isUrgent 
-        ? "bg-sky-500 text-slate-950" 
-        : "bg-indigo-600 text-white"
-    )}>
+    <div className="w-full py-3 px-4 flex justify-center items-center text-center font-black uppercase tracking-widest shadow-lg relative z-50 bg-sky-500 text-slate-950">
       <div className="flex flex-wrap justify-center items-center gap-2 text-[10px] md:text-xs leading-tight">
-        {timeLeft ? (
+        {showTimer ? (
           <Clock className="h-4 w-4 md:h-5 md:w-5 animate-pulse shrink-0" strokeWidth={2.5} />
         ) : (
           <Truck className="h-4 w-4 md:h-5 md:w-5 shrink-0" strokeWidth={2.5} />
         )}
         
-        <span className={cn(isUrgent && "animate-pulse")}>
+        <span>
           {message}
         </span>
         
-        {timeLeft && (
+        {showTimer && timeLeft && (
           <span className="bg-slate-950/20 px-2 py-0.5 rounded-md font-black tabular-nums border border-slate-950/10 inline-block min-w-[70px]">
             {timeLeft}
           </span>

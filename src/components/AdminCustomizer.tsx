@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Settings, Palette, Layout, Type, Save, Link as LinkIcon, Lock } from 'lucide-react';
+import { Settings, Palette, Layout, Type, Save, Link as LinkIcon, Lock, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -75,13 +75,14 @@ const AdminCustomizer = () => {
           </SheetDescription>
         </SheetHeader>
 
-        <Tabs defaultValue="login" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-6">
+        <Tabs defaultValue="dashboard" className="w-full">
+          <TabsList className="grid w-full grid-cols-6 mb-6">
             <TabsTrigger value="colors" title="Cores"><Palette className="h-4 w-4" /></TabsTrigger>
             <TabsTrigger value="layout" title="Layout"><Layout className="h-4 w-4" /></TabsTrigger>
             <TabsTrigger value="content" title="Conteúdo"><Type className="h-4 w-4" /></TabsTrigger>
             <TabsTrigger value="footer" title="Rodapé"><LinkIcon className="h-4 w-4" /></TabsTrigger>
             <TabsTrigger value="login" title="Login"><Lock className="h-4 w-4" /></TabsTrigger>
+            <TabsTrigger value="dashboard" title="Conta"><User className="h-4 w-4" /></TabsTrigger>
           </TabsList>
 
           <TabsContent value="colors" className="space-y-6">
@@ -295,6 +296,44 @@ const AdminCustomizer = () => {
                   value={settings.loginSubtitle} 
                   onChange={(e) => updateSetting('login_subtitle', e.target.value)}
                   placeholder="Acesso Exclusivo"
+                />
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="dashboard" className="space-y-6">
+            <div className="space-y-4">
+              <h3 className="font-bold text-lg border-b pb-2">Minha Conta (Dashboard)</h3>
+              <div className="space-y-2">
+                <Label>Saudação</Label>
+                <Input 
+                  value={settings.dashboardGreeting} 
+                  onChange={(e) => updateSetting('dashboard_greeting', e.target.value)}
+                  placeholder="Olá"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Subtítulo de Boas-vindas</Label>
+                <Input 
+                  value={settings.dashboardSubtitle} 
+                  onChange={(e) => updateSetting('dashboard_subtitle', e.target.value)}
+                  placeholder="Bem-vindo à sua conta exclusiva..."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Rótulo dos Pontos</Label>
+                <Input 
+                  value={settings.dashboardPointsLabel} 
+                  onChange={(e) => updateSetting('dashboard_points_label', e.target.value)}
+                  placeholder="Saldo acumulado"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Texto do Botão</Label>
+                <Input 
+                  value={settings.dashboardButtonText} 
+                  onChange={(e) => updateSetting('dashboard_button_text', e.target.value)}
+                  placeholder="Resgatar Cupons"
                 />
               </div>
             </div>

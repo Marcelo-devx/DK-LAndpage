@@ -15,9 +15,11 @@ import {
   Loader2
 } from 'lucide-react';
 import CouponsModal from '@/components/CouponsModal';
+import { useTheme } from '@/context/ThemeContext';
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { settings } = useTheme();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
   const [isCouponsModalOpen, setIsCouponsModalOpen] = useState(false);
@@ -100,9 +102,9 @@ const Dashboard = () => {
     <div className="container mx-auto px-4 py-12 max-w-4xl text-charcoal-gray">
       <header className="mb-12">
         <h1 className="text-4xl font-black tracking-tighter mb-2 italic uppercase text-charcoal-gray">
-          Olá, {profile?.first_name || 'Membro'}!
+          {settings.dashboardGreeting}, {profile?.first_name || 'Membro'}!
         </h1>
-        <p className="text-stone-500 font-medium">Bem-vindo à sua conta exclusiva DKCWB.</p>
+        <p className="text-stone-500 font-medium">{settings.dashboardSubtitle}</p>
         
         <div className="mt-8 bg-white border border-stone-200 rounded-[2rem] p-8 flex flex-col md:flex-row items-center justify-between shadow-xl">
           <div className="flex items-center space-x-6 mb-6 md:mb-0">
@@ -110,7 +112,7 @@ const Dashboard = () => {
               <Gem className="h-10 w-10 text-sky-500" />
             </div>
             <div>
-              <p className="text-stone-400 text-xs font-black uppercase tracking-[0.2em] mb-1">Saldo acumulado</p>
+              <p className="text-stone-400 text-xs font-black uppercase tracking-[0.2em] mb-1">{settings.dashboardPointsLabel}</p>
               <p className="text-5xl font-black tracking-tighter text-charcoal-gray">
                 {profile?.points || 0} <span className="text-xl text-sky-500 italic">PTS</span>
               </p>
@@ -121,7 +123,7 @@ const Dashboard = () => {
             size="lg"
             className="bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest px-8 h-14 rounded-xl shadow-[0_10px_20px_-5px_rgba(14,165,233,0.3)] transition-all active:scale-95"
           >
-            Resgatar Cupons
+            {settings.dashboardButtonText}
           </Button>
         </div>
       </header>

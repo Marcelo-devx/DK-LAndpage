@@ -22,6 +22,10 @@ interface ThemeSettings {
   socialTwitter: string;
   loginTitle: string;
   loginSubtitle: string;
+  dashboardGreeting: string;
+  dashboardSubtitle: string;
+  dashboardPointsLabel: string;
+  dashboardButtonText: string;
 }
 
 interface ThemeContextType {
@@ -50,7 +54,11 @@ const defaultSettings: ThemeSettings = {
   socialInstagram: '#',
   socialTwitter: '#',
   loginTitle: 'DKCWB',
-  loginSubtitle: 'Acesso Exclusivo'
+  loginSubtitle: 'Acesso Exclusivo',
+  dashboardGreeting: 'Olá',
+  dashboardSubtitle: 'Bem-vindo à sua conta exclusiva DKCWB.',
+  dashboardPointsLabel: 'Saldo acumulado',
+  dashboardButtonText: 'Resgatar Cupons',
 };
 
 const ThemeContext = createContext<ThemeContextType>({
@@ -102,6 +110,10 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
         if (item.key === 'social_twitter') newSettings.socialTwitter = item.value || '';
         if (item.key === 'login_title') newSettings.loginTitle = item.value || 'DKCWB';
         if (item.key === 'login_subtitle') newSettings.loginSubtitle = item.value || 'Acesso Exclusivo';
+        if (item.key === 'dashboard_greeting') newSettings.dashboardGreeting = item.value || 'Olá';
+        if (item.key === 'dashboard_subtitle') newSettings.dashboardSubtitle = item.value || 'Bem-vindo à sua conta exclusiva DKCWB.';
+        if (item.key === 'dashboard_points_label') newSettings.dashboardPointsLabel = item.value || 'Saldo acumulado';
+        if (item.key === 'dashboard_button_text') newSettings.dashboardButtonText = item.value || 'Resgatar Cupons';
       });
 
       setSettings(newSettings);
@@ -131,7 +143,11 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
       'social_instagram': 'socialInstagram',
       'social_twitter': 'socialTwitter',
       'login_title': 'loginTitle',
-      'login_subtitle': 'loginSubtitle'
+      'login_subtitle': 'loginSubtitle',
+      'dashboard_greeting': 'dashboardGreeting',
+      'dashboard_subtitle': 'dashboardSubtitle',
+      'dashboard_points_label': 'dashboardPointsLabel',
+      'dashboard_button_text': 'dashboardButtonText',
     };
 
     const settingKey = mapKey[key];

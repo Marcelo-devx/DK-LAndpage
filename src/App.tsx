@@ -20,36 +20,39 @@ import Dashboard from "./pages/Dashboard";
 import AdminLogistics from "./pages/AdminLogistics";
 import UpdatePassword from "./pages/UpdatePassword";
 import AuthEventHandler from "./components/AuthEventHandler";
+import { ThemeProvider } from "./context/ThemeContext";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthEventHandler />
-        <Routes>
-          <Route element={<MainLayout />}>
-            <Route path="/" element={<Index />} />
-            <Route path="/produtos" element={<AllProductsPage />} />
-            <Route path="/produto/:id" element={<ProductPage />} />
-            <Route path="/promocao/:id" element={<PromotionPage />} />
-            <Route path="/perfil" element={<ProfilePage />} />
-            <Route path="/checkout" element={<CheckoutPage />} />
-            <Route path="/compras" element={<OrdersPage />} />
-            <Route path="/confirmacao-pedido/:id" element={<ConfirmacaoPedido />} />
-            <Route path="/indicacoes" element={<ReferralsPage />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-          </Route>
-          <Route path="/login" element={<Login />} />
-          <Route path="/complete-profile" element={<CompleteProfilePage />} />
-          <Route path="/update-password" element={<UpdatePassword />} />
-          <Route path="/admin/logistica" element={<AdminLogistics />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+      <ThemeProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AuthEventHandler />
+          <Routes>
+            <Route element={<MainLayout />}>
+              <Route path="/" element={<Index />} />
+              <Route path="/produtos" element={<AllProductsPage />} />
+              <Route path="/produto/:id" element={<ProductPage />} />
+              <Route path="/promocao/:id" element={<PromotionPage />} />
+              <Route path="/perfil" element={<ProfilePage />} />
+              <Route path="/checkout" element={<CheckoutPage />} />
+              <Route path="/compras" element={<OrdersPage />} />
+              <Route path="/confirmacao-pedido/:id" element={<ConfirmacaoPedido />} />
+              <Route path="/indicacoes" element={<ReferralsPage />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+            </Route>
+            <Route path="/login" element={<Login />} />
+            <Route path="/complete-profile" element={<CompleteProfilePage />} />
+            <Route path="/update-password" element={<UpdatePassword />} />
+            <Route path="/admin/logistica" element={<AdminLogistics />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </ThemeProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

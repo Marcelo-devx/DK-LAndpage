@@ -1,24 +1,33 @@
 import { useEffect, useState } from 'react';
-import { Truck, Clock, AlertCircle } from 'lucide-react';
+import { Truck, Clock, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTheme } from '@/context/ThemeContext';
 
 const DeliveryTimerBar = () => {
+  const { settings } = useTheme();
   const [message, setMessage] = useState('');
   const [timeLeft, setTimeLeft] = useState<string | null>(null);
   const [isUrgent, setIsUrgent] = useState(false);
 
   useEffect(() => {
+    // Se houver anúncio personalizado no painel, usa ele e para o timer
+    if (settings.headerAnnouncement) {
+      setMessage(settings.headerAnnouncement);
+      setTimeLeft(null);
+      setIsUrgent(true); // Estilo destacado
+      return;
+    }
+
     const updateTimer = () => {
       const now = new Date();
-      const day = now.getDay(); // 0 = Domingo, 6 = Sábado
+      const day = now.getDay();
       let deadline = new Date();
       let showTimer = false;
       let msg = "";
       let urgent = false;
 
-      // Lógica de horários
-      if (day >= 1 && day <= 5) { // Segunda a Sexta
-        deadline.setHours(14, 0, 0, 0); // 14:00
+      if (day >= 1 && day <= 5) {
+        deadline.setHours(14, 0, 0, 0);
         if (now < deadline) {
           showTimer = true;
           msg = "Peça antes das 14h para envio HOJE!";
@@ -26,8 +35,8 @@ const DeliveryTimerBar = () => {
         } else {
           msg = "Pedidos feitos agora serão enviados na PRÓXIMA ROTA.";
         }
-      } else if (day === 6) { // Sábado
-        deadline.setHours(12, 30, 0, 0); // 12:30
+      } else if (day === 6) {
+        deadline.setHours(12, 30, 0, 0);
         if (now < deadline) {
           showTimer = true;
           msg = "Peça antes das 12:30h para envio HOJE!";
@@ -35,7 +44,7 @@ const DeliveryTimerBar = () => {
         } else {
           msg = "Pedidos feitos agora serão enviados na PRÓXIMA ROTA (Segunda).";
         }
-      } else { // Domingo
+      } else {
         msg = "Hoje é Domingo. Seu pedido será enviado no próximo dia útil!";
       }
 
@@ -55,12 +64,11 @@ const DeliveryTimerBar = () => {
       }
     };
 
-    // Atualiza imediatamente e depois a cada segundo
     updateTimer();
     const interval = setInterval(updateTimer, 1000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [settings.headerAnnouncement]);
 
   return (
     <div className={cn(
@@ -70,13 +78,15 @@ const DeliveryTimerBar = () => {
         : "bg-indigo-600 text-white"
     )}>
       <div className="flex items-center gap-2.5 text-[11px] md:text-xs">
-        {isUrgent ? (
+        {settings.headerAnnouncement ? (
+            <Info className="h-4 w-4 md:h-5 md:w-5" strokeWidth={2.5} />
+        ) : isUrgent ? (
           <Clock className="h-4 w-4 md:h-5 md:w-5 animate-pulse" strokeWidth={2.5} />
         ) : (
           <Truck className="h-4 w-4 md:h-5 md:w-5" strokeWidth={2.5} />
         )}
         
-        <span className={cn(isUrgent && "animate-pulse")}>{message}</span>
+        <span className={cn(!settings.headerAnnouncement && isUrgent && "animate-pulse")}>{message}</span>
         
         {timeLeft && (
           <span className="bg-slate-950/20 px-2 py-0.5 rounded-md ml-1 font-black tabular-nums border border-slate-950/10">

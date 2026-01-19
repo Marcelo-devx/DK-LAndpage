@@ -13,8 +13,10 @@ import InfoSection from '@/components/InfoSection';
 import CategoryProductCarousel from '@/components/CategoryProductCarousel';
 import BrandSection from '@/components/BrandSection';
 import InformationalPopup from '@/components/InformationalPopup';
+import { useTheme } from '@/context/ThemeContext';
 
 const Index = () => {
+  const { settings } = useTheme(); // Hook do tema
   const [displayedProducts, setDisplayedProducts] = useState<any[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [heroSlides, setHeroSlides] = useState<any[]>([]);
@@ -33,10 +35,10 @@ const Index = () => {
     const fetchData = async () => {
       const [products, hero, promos, brandsData, categoriesData, featured, popups] = await Promise.all([
         supabase.from('products').select('*').eq('is_visible', true).gt('stock_quantity', 0).order('created_at', { ascending: false }).limit(12),
-        supabase.from('hero_slides').select('*').order('sort_order'),
+        supabase.from('hero_slides').select('*').eq('is_active', true).order('sort_order'),
         supabase.from('promotions').select('*').eq('is_active', true).gt('stock_quantity', 0).order('created_at', { ascending: false }),
-        supabase.from('brands').select('*').order('name'),
-        supabase.from('categories').select('name').order('name'),
+        supabase.from('brands').select('*').eq('is_visible', true).order('name'),
+        supabase.from('categories').select('name').eq('is_visible', true).order('name'),
         supabase.from('products').select('*').eq('is_featured', true).eq('is_visible', true).gt('stock_quantity', 0).limit(8),
         supabase.from('informational_popups').select('title, content').eq('is_active', true).limit(1).single()
       ]);
@@ -48,11 +50,10 @@ const Index = () => {
       setCategories(categoriesData.data || []);
       setFeaturedProducts(featured.data || []);
       
-      // Lógica do Popup Informativo: Só mostra se já verificou a idade ou espera o evento
       const triggerInfoPopup = () => {
         if (popups.data && !sessionStorage.getItem('info_popup_seen')) {
           setInfoPopup(popups.data);
-          setIsPopupOpen(true); // Exibe instantaneamente
+          setIsPopupOpen(true);
         }
       };
 
@@ -60,7 +61,6 @@ const Index = () => {
       if (isAgeVerified) {
         triggerInfoPopup();
       } else {
-        // Se não verificou, aguarda o evento do AgeVerificationPopup
         const handleVerification = () => {
           triggerInfoPopup();
           window.removeEventListener('ageVerified', handleVerification);
@@ -79,7 +79,7 @@ const Index = () => {
   };
 
   return (
-    <div className="bg-off-white overflow-x-hidden text-charcoal-gray w-full">
+    <div className="bg-off-white overflow-x-hidden text-charcoal-gray w-full transition-colors duration-500">
       {infoPopup && (
         <InformationalPopup 
           isOpen={isPopupOpen} 
@@ -89,39 +89,45 @@ const Index = () => {
         />
       )}
 
-      <section className="relative w-full overflow-hidden">
-        <Carousel plugins={[Autoplay({ delay: 5000 })]} className="w-full">
-          <CarouselContent>
-            {heroSlides.map((slide, index) => (
-              <CarouselItem key={index}>
-                <Link 
-                  to={slide.button_url || '#'} 
-                  className="block relative w-full h-auto"
-                >
-                  <img 
-                    src={slide.image_url} 
-                    className="w-full h-auto block" 
-                    alt={slide.title || "Banner Principal"} 
-                  />
-                  {/* Gradiente ajustado para o tema claro */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-off-white/80 via-transparent to-transparent" />
-                </Link>
-              </CarouselItem>
-            ))}
-          </CarouselContent>
-        </Carousel>
-      </section>
+      {settings.showHero && (
+        <section className="relative w-full overflow-hidden">
+          <Carousel plugins={[Autoplay({ delay: 5000 })]} className="w-full">
+            <CarouselContent>
+              {heroSlides.map((slide, index) => (
+                <CarouselItem key={index}>
+                  <Link 
+                    to={slide.button_url || '#'} 
+                    className="block relative w-full h-auto"
+                  >
+                    <img 
+                      src={slide.image_url} 
+                      className="w-full h-auto block" 
+                      alt={slide.title || "Banner Principal"} 
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-off-white/80 via-transparent to-transparent" />
+                  </Link>
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+          </Carousel>
+        </section>
+      )}
 
       <div className="space-y-4 md:space-y-12 py-4 md:py-10">
-        <ScrollAnimationWrapper>
-          <InfoSection />
-        </ScrollAnimationWrapper>
+        
+        {settings.showInfo && (
+          <ScrollAnimationWrapper>
+            <InfoSection />
+          </ScrollAnimationWrapper>
+        )}
 
-        <ScrollAnimationWrapper>
-          <BrandSection brands={brands} loading={false} onBrandClick={handleBrandClick} />
-        </ScrollAnimationWrapper>
+        {settings.showBrands && (
+          <ScrollAnimationWrapper>
+            <BrandSection brands={brands} loading={false} onBrandClick={handleBrandClick} />
+          </ScrollAnimationWrapper>
+        )}
 
-        {promotions.length > 0 && (
+        {settings.showPromotions && promotions.length > 0 && (
           <ScrollAnimationWrapper>
             <section className="container mx-auto px-4 md:px-6">
               <h2 className="text-[10px] md:text-xs font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-4 md:mb-8 text-center">Ofertas Exclusivas</h2>
@@ -156,7 +162,7 @@ const Index = () => {
                 )) :
                   displayedProducts.map((p) => (
                     <CarouselItem key={p.id} className="pl-3 md:pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4">
-                      <ProductCard product={{ id: p.id, name: p.name, price: p.price, pixPrice: p.pix_price, imageUrl: p.image_url }} />
+                      <ProductCard product={{ id: p.id, name: p.name, price: p.price, pixPrice: p.pix_price, imageUrl: p.image_url, stockQuantity: p.stock_quantity }} />
                     </CarouselItem>
                   ))
                 }
@@ -173,13 +179,12 @@ const Index = () => {
 
         {featuredProducts.length > 0 && (
           <ScrollAnimationWrapper>
-            {/* Seção com fundo branco para contraste no tema claro */}
-            <section className="bg-white py-8 md:py-16">
+            <section className="bg-white py-8 md:py-16 rounded-[3rem] mx-4 md:mx-0 shadow-sm border border-stone-100">
               <div className="container mx-auto px-4 md:px-6">
                 <h2 className="text-[10px] md:text-xs font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-4 md:mb-8 text-center">Seleção Premium</h2>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
                   {featuredProducts.map((p) => (
-                    <ProductCard key={p.id} product={{ id: p.id, name: p.name, price: p.price, pixPrice: p.pix_price, imageUrl: p.image_url }} />
+                    <ProductCard key={p.id} product={{ id: p.id, name: p.name, price: p.price, pixPrice: p.pix_price, imageUrl: p.image_url, stockQuantity: p.stock_quantity }} />
                   ))}
                 </div>
               </div>

@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Settings, Palette, Layout, Type, Save } from 'lucide-react';
+import { Settings, Palette, Layout, Type, Save, Link as LinkIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Sheet,
   SheetContent,
@@ -58,11 +59,12 @@ const AdminCustomizer = () => {
           </SheetDescription>
         </SheetHeader>
 
-        <Tabs defaultValue="colors" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-6">
-            <TabsTrigger value="colors"><Palette className="h-4 w-4 mr-2" /> Cores</TabsTrigger>
-            <TabsTrigger value="layout"><Layout className="h-4 w-4 mr-2" /> Layout</TabsTrigger>
-            <TabsTrigger value="content"><Type className="h-4 w-4 mr-2" /> Texto</TabsTrigger>
+        <Tabs defaultValue="footer" className="w-full">
+          <TabsList className="grid w-full grid-cols-4 mb-6">
+            <TabsTrigger value="colors"><Palette className="h-4 w-4" /></TabsTrigger>
+            <TabsTrigger value="layout"><Layout className="h-4 w-4" /></TabsTrigger>
+            <TabsTrigger value="content"><Type className="h-4 w-4" /></TabsTrigger>
+            <TabsTrigger value="footer"><LinkIcon className="h-4 w-4" /></TabsTrigger>
           </TabsList>
 
           <TabsContent value="colors" className="space-y-6">
@@ -181,11 +183,88 @@ const AdminCustomizer = () => {
               </p>
             </div>
           </TabsContent>
+
+          <TabsContent value="footer" className="space-y-6">
+            <div className="space-y-4">
+              <h3 className="font-bold text-lg border-b pb-2">Banner Final</h3>
+              <div className="space-y-2">
+                <Label>Título</Label>
+                <Input 
+                  value={settings.footerBannerTitle} 
+                  onChange={(e) => updateSetting('footer_banner_title', e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Subtítulo</Label>
+                <Textarea 
+                  value={settings.footerBannerSubtitle} 
+                  onChange={(e) => updateSetting('footer_banner_subtitle', e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Texto do Botão</Label>
+                <Input 
+                  value={settings.footerBannerButtonText} 
+                  onChange={(e) => updateSetting('footer_banner_button_text', e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="font-bold text-lg border-b pb-2">Contato</h3>
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input 
+                  value={settings.contactEmail} 
+                  onChange={(e) => updateSetting('contact_email', e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Telefone</Label>
+                <Input 
+                  value={settings.contactPhone} 
+                  onChange={(e) => updateSetting('contact_phone', e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Horário</Label>
+                <Input 
+                  value={settings.contactHours} 
+                  onChange={(e) => updateSetting('contact_hours', e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="font-bold text-lg border-b pb-2">Redes Sociais</h3>
+              <div className="space-y-2">
+                <Label>Facebook (Link)</Label>
+                <Input 
+                  value={settings.socialFacebook} 
+                  onChange={(e) => updateSetting('social_facebook', e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Instagram (Link)</Label>
+                <Input 
+                  value={settings.socialInstagram} 
+                  onChange={(e) => updateSetting('social_instagram', e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Twitter/X (Link)</Label>
+                <Input 
+                  value={settings.socialTwitter} 
+                  onChange={(e) => updateSetting('social_twitter', e.target.value)}
+                />
+              </div>
+            </div>
+          </TabsContent>
         </Tabs>
 
-        <div className="mt-8 pt-6 border-t">
+        <div className="mt-8 pt-6 border-t pb-8">
             <Button className="w-full bg-green-600 hover:bg-green-700 text-white" onClick={() => showSuccess('Alterações salvas e aplicadas!')}>
-                <Save className="mr-2 h-4 w-4" /> Concluir Edição
+                <Save className="mr-2 h-4 w-4" /> Salvar Tudo
             </Button>
         </div>
       </SheetContent>

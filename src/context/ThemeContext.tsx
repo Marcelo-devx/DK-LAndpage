@@ -11,6 +11,16 @@ interface ThemeSettings {
   showBrands: boolean;
   headerAnnouncement: string;
   logoUrl: string | null;
+  // Novas configurações
+  footerBannerTitle: string;
+  footerBannerSubtitle: string;
+  footerBannerButtonText: string;
+  contactEmail: string;
+  contactPhone: string;
+  contactHours: string;
+  socialFacebook: string;
+  socialInstagram: string;
+  socialTwitter: string;
 }
 
 interface ThemeContextType {
@@ -28,7 +38,16 @@ const defaultSettings: ThemeSettings = {
   showPromotions: true,
   showBrands: true,
   headerAnnouncement: '',
-  logoUrl: null
+  logoUrl: null,
+  footerBannerTitle: 'O Futuro da Sua Experiência',
+  footerBannerSubtitle: 'Curadoria exclusiva dos melhores produtos do mundo para quem não aceita o comum.',
+  footerBannerButtonText: 'Explorar Tudo',
+  contactEmail: 'contato@dkcwb.com',
+  contactPhone: '(48) 99999-9999',
+  contactHours: 'Segunda a Sábado: 10h - 18h',
+  socialFacebook: '#',
+  socialInstagram: '#',
+  socialTwitter: '#'
 };
 
 const ThemeContext = createContext<ThemeContextType>({
@@ -45,10 +64,8 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const applyColors = (s: ThemeSettings) => {
     const root = document.documentElement;
     root.style.setProperty('--color-off-white', s.backgroundColor);
-    root.style.setProperty('--color-gold-accent', s.primaryColor); // Usando a variável de "sotaque"
+    root.style.setProperty('--color-gold-accent', s.primaryColor);
     root.style.setProperty('--color-charcoal-gray', s.textColor);
-    
-    // Atualiza também o background-color do body para garantir
     document.body.style.backgroundColor = s.backgroundColor;
   };
 
@@ -68,6 +85,17 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
         if (item.key === 'show_brands') newSettings.showBrands = item.value === 'true';
         if (item.key === 'header_announcement_text') newSettings.headerAnnouncement = item.value || '';
         if (item.key === 'logo_url') newSettings.logoUrl = item.value;
+        
+        // Mapeamento dos novos campos
+        if (item.key === 'footer_banner_title') newSettings.footerBannerTitle = item.value || '';
+        if (item.key === 'footer_banner_subtitle') newSettings.footerBannerSubtitle = item.value || '';
+        if (item.key === 'footer_banner_button_text') newSettings.footerBannerButtonText = item.value || '';
+        if (item.key === 'contact_email') newSettings.contactEmail = item.value || '';
+        if (item.key === 'contact_phone') newSettings.contactPhone = item.value || '';
+        if (item.key === 'contact_hours') newSettings.contactHours = item.value || '';
+        if (item.key === 'social_facebook') newSettings.socialFacebook = item.value || '';
+        if (item.key === 'social_instagram') newSettings.socialInstagram = item.value || '';
+        if (item.key === 'social_twitter') newSettings.socialTwitter = item.value || '';
       });
 
       setSettings(newSettings);
@@ -76,7 +104,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const updateSetting = async (key: string, value: string) => {
-    // Atualiza localmente para feedback instantâneo
+    // Mapeamento reverso para atualização local
     const mapKey: Record<string, keyof ThemeSettings> = {
       'site_background_color': 'backgroundColor',
       'site_primary_color': 'primaryColor',
@@ -86,12 +114,20 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
       'show_promotions': 'showPromotions',
       'show_brands': 'showBrands',
       'header_announcement_text': 'headerAnnouncement',
-      'logo_url': 'logoUrl'
+      'logo_url': 'logoUrl',
+      'footer_banner_title': 'footerBannerTitle',
+      'footer_banner_subtitle': 'footerBannerSubtitle',
+      'footer_banner_button_text': 'footerBannerButtonText',
+      'contact_email': 'contactEmail',
+      'contact_phone': 'contactPhone',
+      'contact_hours': 'contactHours',
+      'social_facebook': 'socialFacebook',
+      'social_instagram': 'socialInstagram',
+      'social_twitter': 'socialTwitter'
     };
 
     const settingKey = mapKey[key];
     if (settingKey) {
-        // Lógica específica para booleanos
         let finalValue: any = value;
         if (['showHero', 'showInfo', 'showPromotions', 'showBrands'].includes(settingKey)) {
             finalValue = value === 'true';
@@ -102,7 +138,6 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
         applyColors(newSettings);
     }
 
-    // Salva no banco
     const { error } = await supabase
       .from('app_settings')
       .upsert({ key, value });

@@ -1,7 +1,10 @@
 import { Link } from 'react-router-dom';
 import { Facebook, Instagram, Twitter } from 'lucide-react';
+import { useTheme } from '@/context/ThemeContext';
 
 const Footer = () => {
+  const { settings } = useTheme();
+
   return (
     <footer className="bg-white text-slate-500 border-t border-slate-200">
       <div className="container mx-auto px-6 py-16">
@@ -25,24 +28,24 @@ const Footer = () => {
             <ul className="space-y-4 text-sm font-medium">
               <li className="flex flex-col">
                 <span className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">Horário</span>
-                <p>Segunda a Sábado: 10h - 18h</p>
+                <p>{settings.contactHours}</p>
               </li>
               <li className="flex flex-col">
                 <span className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">E-mail</span>
-                <p>contato@dkcwb.com</p>
+                <p>{settings.contactEmail}</p>
               </li>
               <li className="flex flex-col">
                 <span className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">Telefone</span>
-                <p>(48) 99999-9999</p>
+                <p>{settings.contactPhone}</p>
               </li>
             </ul>
           </div>
           <div>
             <h4 className="font-bold text-slate-900 uppercase text-xs tracking-[0.2em] mb-6">Siga-nos</h4>
             <div className="flex space-x-6">
-              <a href="#" className="text-slate-400 hover:text-sky-500 transition-all hover:scale-110"><Facebook size={22} /></a>
-              <a href="#" className="text-slate-400 hover:text-sky-500 transition-all hover:scale-110"><Instagram size={22} /></a>
-              <a href="#" className="text-slate-400 hover:text-sky-500 transition-all hover:scale-110"><Twitter size={22} /></a>
+              <a href={settings.socialFacebook} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-sky-500 transition-all hover:scale-110"><Facebook size={22} /></a>
+              <a href={settings.socialInstagram} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-sky-500 transition-all hover:scale-110"><Instagram size={22} /></a>
+              <a href={settings.socialTwitter} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-sky-500 transition-all hover:scale-110"><Twitter size={22} /></a>
             </div>
           </div>
         </div>

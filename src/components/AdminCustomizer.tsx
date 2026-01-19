@@ -25,18 +25,36 @@ const AdminCustomizer = () => {
   useEffect(() => {
     const checkAdmin = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single();
-        if (data?.role === 'adm') {
-          setIsAdmin(true);
-        }
+      
+      if (!user) {
+        setIsAdmin(false);
+        return;
+      }
+
+      const { data } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+      
+      if (data?.role === 'adm') {
+        setIsAdmin(true);
+      } else {
+        setIsAdmin(false);
       }
     };
+
+    // Checa ao carregar
     checkAdmin();
+
+    // Escuta mudanças no login/logout (IMPORTANTE para funcionar ao logar sem refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      checkAdmin();
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   if (!isAdmin) return null;

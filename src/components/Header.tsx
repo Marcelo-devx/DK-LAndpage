@@ -92,15 +92,15 @@ const Header = ({ onCartClick }: HeaderProps) => {
   };
 
   const DesktopNav = () => (
-    <NavigationMenu className="max-w-full justify-center">
-      <NavigationMenuList className="flex flex-nowrap overflow-x-auto no-scrollbar gap-0">
+    <NavigationMenu className="max-w-full justify-center w-full">
+      <NavigationMenuList className="flex flex-wrap justify-center gap-y-0 gap-x-1">
         {categories.map((category) => {
           const categorySubs = subCategories.filter(s => s.category_id === category.id);
           
           return (
             <NavigationMenuItem key={category.id} className="shrink-0">
               <NavigationMenuTrigger 
-                className="bg-transparent text-white hover:text-sky-400 data-[state=open]:bg-white/10 data-[state=open]:text-sky-400 font-black uppercase text-[11px] tracking-[0.15em] h-14 px-6 transition-all whitespace-nowrap" 
+                className="bg-transparent text-white hover:text-sky-400 data-[state=open]:bg-white/10 data-[state=open]:text-sky-400 font-black uppercase text-[11px] tracking-[0.15em] h-14 px-4 transition-all" 
                 translate="no"
               >
                 {category.name}
@@ -157,7 +157,7 @@ const Header = ({ onCartClick }: HeaderProps) => {
     <header className="bg-black border-b border-white/10 w-full">
       <div className="container mx-auto px-4 md:px-6 py-4 flex items-center justify-between gap-4">
         
-        {/* LOGO AREA */}
+        {/* LOGO AREA & MOBILE MENU */}
         <div className="flex items-center space-x-2 shrink-0">
           <Sheet>
             <SheetTrigger asChild>
@@ -267,9 +267,9 @@ const Header = ({ onCartClick }: HeaderProps) => {
         </div>
       </div>
 
-      {/* CATEGORY BAR (DESKTOP) - Com rolagem horizontal */}
+      {/* CATEGORY BAR (DESKTOP) - Permitindo quebra de linha */}
       <div className="hidden md:block border-t border-white/10 bg-black">
-        <div className="container mx-auto px-6 overflow-x-auto no-scrollbar">
+        <div className="container mx-auto px-6 py-2">
           <DesktopNav />
         </div>
       </div>

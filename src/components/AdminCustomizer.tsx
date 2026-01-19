@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Settings, Palette, Layout, Type, Save, Link as LinkIcon } from 'lucide-react';
+import { Settings, Palette, Layout, Type, Save, Link as LinkIcon, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -44,10 +44,8 @@ const AdminCustomizer = () => {
       }
     };
 
-    // Checa ao carregar
     checkAdmin();
 
-    // Escuta mudanças no login/logout (IMPORTANTE para funcionar ao logar sem refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
       checkAdmin();
     });
@@ -63,13 +61,13 @@ const AdminCustomizer = () => {
     <Sheet>
       <SheetTrigger asChild>
         <Button 
-          className="fixed bottom-6 left-6 z-50 rounded-full h-14 w-14 bg-slate-900 text-white shadow-2xl border-2 border-white/20 hover:scale-110 transition-transform"
+          className="fixed bottom-6 left-6 z-[99999] rounded-full h-14 w-14 bg-slate-900 text-white shadow-2xl border-2 border-white/20 hover:scale-110 transition-transform"
           size="icon"
         >
           <Settings className="h-6 w-6 animate-spin-slow" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-[400px] overflow-y-auto bg-white/95 backdrop-blur-md">
+      <SheetContent side="left" className="w-[400px] overflow-y-auto bg-white/95 backdrop-blur-md z-[99999]">
         <SheetHeader className="mb-6">
           <SheetTitle className="text-2xl font-black uppercase italic tracking-tighter">Editor Visual</SheetTitle>
           <SheetDescription>
@@ -77,12 +75,13 @@ const AdminCustomizer = () => {
           </SheetDescription>
         </SheetHeader>
 
-        <Tabs defaultValue="footer" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-6">
-            <TabsTrigger value="colors"><Palette className="h-4 w-4" /></TabsTrigger>
-            <TabsTrigger value="layout"><Layout className="h-4 w-4" /></TabsTrigger>
-            <TabsTrigger value="content"><Type className="h-4 w-4" /></TabsTrigger>
-            <TabsTrigger value="footer"><LinkIcon className="h-4 w-4" /></TabsTrigger>
+        <Tabs defaultValue="login" className="w-full">
+          <TabsList className="grid w-full grid-cols-5 mb-6">
+            <TabsTrigger value="colors" title="Cores"><Palette className="h-4 w-4" /></TabsTrigger>
+            <TabsTrigger value="layout" title="Layout"><Layout className="h-4 w-4" /></TabsTrigger>
+            <TabsTrigger value="content" title="Conteúdo"><Type className="h-4 w-4" /></TabsTrigger>
+            <TabsTrigger value="footer" title="Rodapé"><LinkIcon className="h-4 w-4" /></TabsTrigger>
+            <TabsTrigger value="login" title="Login"><Lock className="h-4 w-4" /></TabsTrigger>
           </TabsList>
 
           <TabsContent value="colors" className="space-y-6">
@@ -274,6 +273,28 @@ const AdminCustomizer = () => {
                 <Input 
                   value={settings.socialTwitter} 
                   onChange={(e) => updateSetting('social_twitter', e.target.value)}
+                />
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="login" className="space-y-6">
+            <div className="space-y-4">
+              <h3 className="font-bold text-lg border-b pb-2">Página de Login</h3>
+              <div className="space-y-2">
+                <Label>Título (Nome da Marca)</Label>
+                <Input 
+                  value={settings.loginTitle} 
+                  onChange={(e) => updateSetting('login_title', e.target.value)}
+                  placeholder="DKCWB"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Subtítulo</Label>
+                <Input 
+                  value={settings.loginSubtitle} 
+                  onChange={(e) => updateSetting('login_subtitle', e.target.value)}
+                  placeholder="Acesso Exclusivo"
                 />
               </div>
             </div>

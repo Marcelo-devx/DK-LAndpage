@@ -20,6 +20,8 @@ interface ThemeSettings {
   socialFacebook: string;
   socialInstagram: string;
   socialTwitter: string;
+  loginTitle: string;
+  loginSubtitle: string;
 }
 
 interface ThemeContextType {
@@ -46,7 +48,9 @@ const defaultSettings: ThemeSettings = {
   contactHours: 'Segunda a Sábado: 10h - 18h',
   socialFacebook: '#',
   socialInstagram: '#',
-  socialTwitter: '#'
+  socialTwitter: '#',
+  loginTitle: 'DKCWB',
+  loginSubtitle: 'Acesso Exclusivo'
 };
 
 const ThemeContext = createContext<ThemeContextType>({
@@ -96,6 +100,8 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
         if (item.key === 'social_facebook') newSettings.socialFacebook = item.value || '';
         if (item.key === 'social_instagram') newSettings.socialInstagram = item.value || '';
         if (item.key === 'social_twitter') newSettings.socialTwitter = item.value || '';
+        if (item.key === 'login_title') newSettings.loginTitle = item.value || 'DKCWB';
+        if (item.key === 'login_subtitle') newSettings.loginSubtitle = item.value || 'Acesso Exclusivo';
       });
 
       setSettings(newSettings);
@@ -123,7 +129,9 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
       'contact_hours': 'contactHours',
       'social_facebook': 'socialFacebook',
       'social_instagram': 'socialInstagram',
-      'social_twitter': 'socialTwitter'
+      'social_twitter': 'socialTwitter',
+      'login_title': 'loginTitle',
+      'login_subtitle': 'loginSubtitle'
     };
 
     const settingKey = mapKey[key];

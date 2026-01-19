@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
+import { useTheme } from '@/context/ThemeContext';
 
 const customTheme: Theme = {
   default: {
@@ -64,6 +65,7 @@ const customTheme: Theme = {
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { settings } = useTheme();
   const from = location.state?.from?.pathname || '/';
 
   const params = new URLSearchParams(location.search);
@@ -111,10 +113,10 @@ const Login = () => {
       <div className="w-full max-w-[400px] relative z-10 flex flex-col gap-8">
         <div className="text-center space-y-2">
            <h1 className="text-4xl font-black italic tracking-tighter text-charcoal-gray uppercase">
-            DKCWB<span className="text-sky-500">.</span>
+            {settings.loginTitle}<span className="text-sky-500">.</span>
            </h1>
            <p className="text-slate-500 text-xs font-bold tracking-[0.2em] uppercase">
-            Acesso Exclusivo
+            {settings.loginSubtitle}
            </p>
         </div>
 

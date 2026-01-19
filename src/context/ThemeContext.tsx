@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface ThemeSettings {
@@ -11,7 +11,6 @@ interface ThemeSettings {
   showBrands: boolean;
   headerAnnouncement: string;
   logoUrl: string | null;
-  // Novas configurações
   footerBannerTitle: string;
   footerBannerSubtitle: string;
   footerBannerButtonText: string;
@@ -60,6 +59,9 @@ export const useTheme = () => useContext(ThemeContext);
 
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const [settings, setSettings] = useState<ThemeSettings>(defaultSettings);
+  
+  // Ref para armazenar os timers de debounce de cada chave
+  const dbTimeouts = useRef<Record<string, NodeJS.Timeout>>({});
 
   const applyColors = (s: ThemeSettings) => {
     const root = document.documentElement;
@@ -85,8 +87,6 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
         if (item.key === 'show_brands') newSettings.showBrands = item.value === 'true';
         if (item.key === 'header_announcement_text') newSettings.headerAnnouncement = item.value || '';
         if (item.key === 'logo_url') newSettings.logoUrl = item.value;
-        
-        // Mapeamento dos novos campos
         if (item.key === 'footer_banner_title') newSettings.footerBannerTitle = item.value || '';
         if (item.key === 'footer_banner_subtitle') newSettings.footerBannerSubtitle = item.value || '';
         if (item.key === 'footer_banner_button_text') newSettings.footerBannerButtonText = item.value || '';
@@ -104,7 +104,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const updateSetting = async (key: string, value: string) => {
-    // Mapeamento reverso para atualização local
+    // 1. Atualização Otimista Instantânea (Local)
     const mapKey: Record<string, keyof ThemeSettings> = {
       'site_background_color': 'backgroundColor',
       'site_primary_color': 'primaryColor',
@@ -138,11 +138,19 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
         applyColors(newSettings);
     }
 
-    const { error } = await supabase
-      .from('app_settings')
-      .upsert({ key, value });
+    // 2. Atualização Debounced no Banco de Dados (espera 1s após parar de digitar)
+    if (dbTimeouts.current[key]) {
+      clearTimeout(dbTimeouts.current[key]);
+    }
 
-    if (error) console.error('Erro ao salvar configuração:', error);
+    dbTimeouts.current[key] = setTimeout(async () => {
+      const { error } = await supabase
+        .from('app_settings')
+        .upsert({ key, value });
+
+      if (error) console.error(`Erro ao salvar ${key}:`, error);
+      delete dbTimeouts.current[key];
+    }, 1000);
   };
 
   useEffect(() => {

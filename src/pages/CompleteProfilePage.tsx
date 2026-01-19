@@ -102,6 +102,7 @@ const CompleteProfilePage = () => {
           .eq('id', session.user.id)
           .single();
         
+        // Verificação rigorosa na própria página para evitar loop de redirecionamento ou saída prematura
         const isProfileComplete = profile && 
           profile.first_name && 
           profile.last_name && 

@@ -91,12 +91,20 @@ const Login = () => {
           .eq('id', session.user.id)
           .single();
 
+        // Verificação rigorosa de todos os campos
         const isProfileComplete = profile && 
           profile.first_name && 
           profile.last_name && 
+          profile.phone &&
           profile.cpf_cnpj &&
           profile.gender &&
-          profile.cep;
+          profile.date_of_birth &&
+          profile.cep &&
+          profile.street &&
+          profile.number &&
+          profile.neighborhood &&
+          profile.city &&
+          profile.state;
 
         if (!isProfileComplete) {
           navigate('/complete-profile', { replace: true });

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { User, ShoppingCart, Menu, Search, Package, ChevronDown } from 'lucide-react';
+import { User, ShoppingCart, Menu, Search, Package, ChevronDown, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -40,7 +40,6 @@ const Header = ({ onCartClick }: HeaderProps) => {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [loadingLogo, setLoadingLogo] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
-  const [isProfileIncomplete, setIsProfileIncomplete] = useState(false);
   const [cartCount, setCartCount] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -65,16 +64,16 @@ const Header = ({ onCartClick }: HeaderProps) => {
       if (logoData) setLogoUrl(logoData.value);
       setLoadingLogo(false);
 
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      setSession(currentSession);
       updateCartCount();
       fetchNavData();
     };
 
     fetchInitialData();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, currentSession) => {
+      setSession(currentSession);
     });
 
     window.addEventListener('cartUpdated', updateCartCount);
@@ -93,46 +92,55 @@ const Header = ({ onCartClick }: HeaderProps) => {
 
   const DesktopNav = () => (
     <NavigationMenu className="max-w-full justify-start">
-      <NavigationMenuList className="gap-2">
-        <NavigationMenuItem>
-          <Link to="/produtos" className="group inline-flex h-10 w-max items-center justify-center rounded-md px-4 py-2 text-xs font-black uppercase tracking-widest text-slate-300 hover:text-sky-400 transition-colors">
-            Todos Produtos
-          </Link>
-        </NavigationMenuItem>
-
+      <NavigationMenuList className="gap-1">
         {categories.map((category) => {
           const categorySubs = subCategories.filter(s => s.category_id === category.id);
           
-          if (categorySubs.length === 0) {
-            return (
-              <NavigationMenuItem key={category.id}>
-                <Link to={`/produtos?category=${category.name}`} className="group inline-flex h-10 w-max items-center justify-center rounded-md px-4 py-2 text-xs font-black uppercase tracking-widest text-slate-300 hover:text-sky-400 transition-colors" translate="no">
-                  {category.name}
-                </Link>
-              </NavigationMenuItem>
-            );
-          }
-
           return (
             <NavigationMenuItem key={category.id}>
-              <NavigationMenuTrigger className="bg-transparent text-slate-300 hover:text-sky-400 data-[state=open]:text-sky-400 font-black uppercase text-[10px] tracking-widest h-10 px-4 transition-colors" translate="no">
+              <NavigationMenuTrigger 
+                className="bg-transparent text-slate-300 hover:text-sky-400 data-[state=open]:text-sky-400 font-black uppercase text-[10px] tracking-widest h-12 px-4 transition-colors" 
+                translate="no"
+              >
                 {category.name}
               </NavigationMenuTrigger>
               <NavigationMenuContent>
-                <ul className="grid w-[240px] gap-1 p-4 bg-slate-950 border border-white/10 shadow-2xl rounded-xl">
-                  {categorySubs.map((sub) => (
-                    <li key={sub.id}>
-                      <NavigationMenuLink asChild>
-                        <Link
-                          to={`/produtos?category=${category.name}&sub_category=${sub.name}`}
-                          className="block select-none space-y-1 rounded-lg p-3 leading-none no-underline outline-none transition-colors hover:bg-white/5 hover:text-sky-400"
-                        >
-                          <div className="text-[11px] font-black uppercase tracking-wider text-slate-200" translate="no">{sub.name}</div>
-                        </Link>
-                      </NavigationMenuLink>
-                    </li>
-                  ))}
-                </ul>
+                <div className="w-[500px] p-6 bg-slate-950 border border-white/10 shadow-2xl rounded-2xl grid grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <h4 className="text-[10px] font-black text-sky-500 uppercase tracking-[0.2em] border-b border-white/5 pb-2">Sub-Categorias</h4>
+                    <ul className="space-y-1">
+                      {categorySubs.length > 0 ? (
+                        categorySubs.map((sub) => (
+                          <li key={sub.id}>
+                            <NavigationMenuLink asChild>
+                              <Link
+                                to={`/produtos?category=${category.name}&sub_category=${sub.name}`}
+                                className="flex items-center justify-between group p-2 rounded-lg hover:bg-white/5 transition-all"
+                              >
+                                <span className="text-xs font-bold text-slate-300 group-hover:text-white uppercase tracking-tight" translate="no">{sub.name}</span>
+                                <ArrowRight className="h-3 w-3 text-sky-500 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all" />
+                              </Link>
+                            </NavigationMenuLink>
+                          </li>
+                        ))
+                      ) : (
+                        <li className="text-[10px] text-slate-500 italic font-medium p-2">Nenhuma sub-categoria encontrada.</li>
+                      )}
+                    </ul>
+                  </div>
+
+                  <div className="bg-white/5 rounded-xl p-5 flex flex-col justify-between border border-white/5">
+                    <div>
+                        <h5 className="text-white font-black text-sm uppercase tracking-tighter italic mb-1">{category.name}.</h5>
+                        <p className="text-[10px] text-slate-400 font-medium leading-relaxed">
+                            Confira nossa seleção exclusiva e premium para esta categoria.
+                        </p>
+                    </div>
+                    <Button asChild size="sm" className="mt-4 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase text-[9px] tracking-widest h-9 rounded-lg">
+                        <Link to={`/produtos?category=${category.name}`}>Ver Tudo</Link>
+                    </Button>
+                  </div>
+                </div>
               </NavigationMenuContent>
             </NavigationMenuItem>
           );
@@ -214,9 +222,6 @@ const Header = ({ onCartClick }: HeaderProps) => {
           <Link to={session ? "/dashboard" : "/login"} className="flex items-center gap-2 group relative">
             <div className="relative">
                 <User className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
-                {isProfileIncomplete && session && (
-                  <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-black"></span>
-                )}
             </div>
             <div className="hidden lg:flex flex-col leading-none">
                 <span className="text-[9px] text-slate-500 font-black uppercase">
@@ -247,7 +252,7 @@ const Header = ({ onCartClick }: HeaderProps) => {
 
       {/* CATEGORY DROPDOWN BAR (DESKTOP) */}
       <div className="hidden md:block border-t border-white/5 bg-slate-950/50 backdrop-blur-sm">
-        <div className="container mx-auto px-6 py-1">
+        <div className="container mx-auto px-6 py-0">
           <DesktopNav />
         </div>
       </div>

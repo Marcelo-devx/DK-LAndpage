@@ -10,9 +10,14 @@ const DeliveryTimerBar = () => {
   const [isUrgent, setIsUrgent] = useState(false);
 
   useEffect(() => {
-    // Se houver anúncio personalizado no painel (e não for vazio), usa ele
-    if (settings.headerAnnouncement && settings.headerAnnouncement.trim() !== '') {
-      setMessage(settings.headerAnnouncement);
+    // Verifica se existe texto personalizado e se NÃO é o texto antigo que queremos remover
+    const announcement = settings.headerAnnouncement;
+    const hasAnnouncement = announcement && announcement.trim() !== '';
+    const isLegacyMessage = announcement && announcement.includes('FRETE GRÁTIS PARA CURITIBA');
+
+    // Se tiver anúncio válido (e não for a mensagem antiga), exibe ele
+    if (hasAnnouncement && !isLegacyMessage) {
+      setMessage(announcement);
       setTimeLeft(null);
       setIsUrgent(true);
       return;
@@ -90,17 +95,13 @@ const DeliveryTimerBar = () => {
         : "bg-indigo-600 text-white"
     )}>
       <div className="flex flex-wrap justify-center items-center gap-2 text-[10px] md:text-xs leading-tight">
-        {settings.headerAnnouncement && settings.headerAnnouncement.trim() !== '' ? (
-            <Info className="h-4 w-4 md:h-5 md:w-5 shrink-0" strokeWidth={2.5} />
-        ) : isUrgent ? (
+        {timeLeft ? (
           <Clock className="h-4 w-4 md:h-5 md:w-5 animate-pulse shrink-0" strokeWidth={2.5} />
         ) : (
           <Truck className="h-4 w-4 md:h-5 md:w-5 shrink-0" strokeWidth={2.5} />
         )}
         
-        <span className={cn(
-          (!settings.headerAnnouncement || settings.headerAnnouncement.trim() === '') && isUrgent && "animate-pulse"
-        )}>
+        <span className={cn(isUrgent && "animate-pulse")}>
           {message}
         </span>
         

@@ -11,11 +11,11 @@ import type { Session } from '@supabase/supabase-js';
 import { getCartTotalItems } from '@/utils/localCart';
 import {
   NavigationMenu,
-  NavigationMenuContent,
   NavigationMenuItem,
   NavigationMenuLink,
   NavigationMenuList,
   NavigationMenuTrigger,
+  NavigationMenuContent,
 } from "@/components/ui/navigation-menu";
 import { cn } from '@/lib/utils';
 
@@ -91,23 +91,23 @@ const Header = ({ onCartClick }: HeaderProps) => {
   };
 
   const DesktopNav = () => (
-    <NavigationMenu className="max-w-full justify-start">
-      <NavigationMenuList className="gap-1">
+    <NavigationMenu className="max-w-full justify-center mx-auto">
+      <NavigationMenuList className="gap-0">
         {categories.map((category) => {
           const categorySubs = subCategories.filter(s => s.category_id === category.id);
           
           return (
             <NavigationMenuItem key={category.id}>
               <NavigationMenuTrigger 
-                className="bg-transparent text-slate-300 hover:text-sky-400 data-[state=open]:text-sky-400 font-black uppercase text-[10px] tracking-widest h-12 px-4 transition-colors" 
+                className="bg-transparent text-white hover:text-sky-400 data-[state=open]:text-sky-400 font-black uppercase text-[11px] tracking-[0.15em] h-14 px-6 transition-colors" 
                 translate="no"
               >
                 {category.name}
               </NavigationMenuTrigger>
               <NavigationMenuContent>
-                <div className="w-[500px] p-6 bg-slate-950 border border-white/10 shadow-2xl rounded-2xl grid grid-cols-2 gap-8">
+                <div className="w-[500px] p-6 bg-black border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,1)] rounded-2xl grid grid-cols-2 gap-8">
                   <div className="space-y-4">
-                    <h4 className="text-[10px] font-black text-sky-500 uppercase tracking-[0.2em] border-b border-white/5 pb-2">Sub-Categorias</h4>
+                    <h4 className="text-[10px] font-black text-sky-500 uppercase tracking-[0.3em] border-b border-white/5 pb-2">Sub-Categorias</h4>
                     <ul className="space-y-1">
                       {categorySubs.length > 0 ? (
                         categorySubs.map((sub) => (
@@ -115,9 +115,9 @@ const Header = ({ onCartClick }: HeaderProps) => {
                             <NavigationMenuLink asChild>
                               <Link
                                 to={`/produtos?category=${category.name}&sub_category=${sub.name}`}
-                                className="flex items-center justify-between group p-2 rounded-lg hover:bg-white/5 transition-all"
+                                className="flex items-center justify-between group p-2.5 rounded-lg hover:bg-white/5 transition-all"
                               >
-                                <span className="text-xs font-bold text-slate-300 group-hover:text-white uppercase tracking-tight" translate="no">{sub.name}</span>
+                                <span className="text-[11px] font-bold text-slate-300 group-hover:text-white uppercase tracking-wider" translate="no">{sub.name}</span>
                                 <ArrowRight className="h-3 w-3 text-sky-500 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all" />
                               </Link>
                             </NavigationMenuLink>
@@ -129,15 +129,15 @@ const Header = ({ onCartClick }: HeaderProps) => {
                     </ul>
                   </div>
 
-                  <div className="bg-white/5 rounded-xl p-5 flex flex-col justify-between border border-white/5">
+                  <div className="bg-white/[0.03] rounded-xl p-6 flex flex-col justify-between border border-white/5">
                     <div>
-                        <h5 className="text-white font-black text-sm uppercase tracking-tighter italic mb-1">{category.name}.</h5>
-                        <p className="text-[10px] text-slate-400 font-medium leading-relaxed">
-                            Confira nossa seleção exclusiva e premium para esta categoria.
+                        <h5 className="text-white font-black text-sm uppercase tracking-tighter italic mb-2">{category.name}.</h5>
+                        <p className="text-[11px] text-slate-400 font-medium leading-relaxed">
+                            Confira nossa curadoria completa e exclusiva para a linha {category.name}.
                         </p>
                     </div>
-                    <Button asChild size="sm" className="mt-4 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase text-[9px] tracking-widest h-9 rounded-lg">
-                        <Link to={`/produtos?category=${category.name}`}>Ver Tudo</Link>
+                    <Button asChild size="sm" className="mt-6 bg-white text-black hover:bg-sky-500 hover:text-white font-black uppercase text-[10px] tracking-widest h-10 rounded-lg transition-all">
+                        <Link to={`/produtos?category=${category.name}`}>Explorar Tudo</Link>
                     </Button>
                   </div>
                 </div>
@@ -250,8 +250,8 @@ const Header = ({ onCartClick }: HeaderProps) => {
         </div>
       </div>
 
-      {/* CATEGORY DROPDOWN BAR (DESKTOP) */}
-      <div className="hidden md:block border-t border-white/5 bg-slate-950/50 backdrop-blur-sm">
+      {/* CATEGORY DROPDOWN BAR (DESKTOP) - Fundo Preto Sólido */}
+      <div className="hidden md:block border-t border-white/10 bg-black">
         <div className="container mx-auto px-6 py-0">
           <DesktopNav />
         </div>

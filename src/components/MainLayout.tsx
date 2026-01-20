@@ -9,6 +9,7 @@ import SocialProofPopup from "./SocialProofPopup";
 import AgeVerificationPopup from "./AgeVerificationPopup";
 import DeliveryTimerBar from "./DeliveryTimerBar";
 import WhatsAppButton from "./WhatsAppButton";
+import LoyaltyButton from "./LoyaltyButton";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface OutletContextType {
@@ -99,6 +100,9 @@ const MainLayout = () => {
       />
       <CartSheet isOpen={isCartOpen} onOpenChange={setIsCartOpen} />
       <SocialProofPopup />
+      
+      {/* Botões Flutuantes */}
+      <LoyaltyButton />
       <WhatsAppButton />
     </div>
   );

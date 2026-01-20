@@ -79,6 +79,14 @@ const Dashboard = () => {
       notification: pendingOrdersCount > 0
     },
     {
+      title: 'DK Clube',
+      description: 'Troque pontos e suba de nível',
+      icon: Ticket,
+      link: '/clube-dk',
+      color: 'text-sky-600 bg-sky-100',
+      notification: false
+    },
+    {
       title: 'Minhas Avaliações',
       description: 'Veja os produtos que você avaliou',
       icon: Star,
@@ -134,7 +142,7 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {menuItems.map((item, index) => (
           <Link key={index} to={item.link} className="group">
-            <Card className="bg-white border border-stone-200 hover:border-sky-500/50 hover:shadow-lg transition-all duration-300 rounded-2xl overflow-hidden relative">
+            <Card className="bg-white border border-stone-200 hover:border-sky-500/50 hover:shadow-lg transition-all duration-300 rounded-2xl overflow-hidden relative h-full">
               <CardContent className="p-6 flex items-center justify-between">
                 <div className="flex items-center space-x-5">
                   <div className={`p-4 rounded-xl ${item.color} relative transition-transform group-hover:scale-110`}>
@@ -159,28 +167,11 @@ const Dashboard = () => {
           </Link>
         ))}
 
-        <Link to="/clube-dk" className="text-left w-full group">
-          <Card className="bg-white border border-stone-200 hover:border-sky-500/50 hover:shadow-lg transition-all duration-300 rounded-2xl h-full">
-            <CardContent className="p-6 flex items-center justify-between">
-              <div className="flex items-center space-x-5">
-                <div className="p-4 rounded-xl bg-sky-100 text-sky-600 transition-transform group-hover:scale-110">
-                  <Ticket className="h-6 w-6" />
-                </div>
-                <div>
-                  <h3 className="font-black text-charcoal-gray uppercase tracking-tight text-lg group-hover:text-sky-500 transition-colors">DK Clube</h3>
-                  <p className="text-sm text-stone-500 font-medium">Troque pontos e suba de nível</p>
-                </div>
-              </div>
-              <ChevronRight className="h-5 w-5 text-stone-400 group-hover:text-sky-500 group-hover:translate-x-1 transition-all" />
-            </CardContent>
-          </Card>
-        </Link>
-
         <button 
           onClick={handleLogout}
           className="text-left w-full group"
         >
-          <Card className="bg-red-50 border border-red-100 hover:border-red-300 hover:bg-red-100 transition-all duration-300 rounded-2xl">
+          <Card className="bg-red-50 border border-red-100 hover:border-red-300 hover:bg-red-100 transition-all duration-300 rounded-2xl h-full">
             <CardContent className="p-6 flex items-center justify-between">
               <div className="flex items-center space-x-5">
                 <div className="p-4 rounded-xl bg-red-200 text-red-600 transition-transform group-hover:scale-110">

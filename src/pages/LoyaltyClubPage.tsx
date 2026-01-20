@@ -5,9 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Gem, Lock, Unlock, Trophy, ArrowRight, History, Gift, TrendingUp } from 'lucide-react';
+import { Loader2, Gem, Lock, Unlock, Trophy, ArrowRight, History, Gift, TrendingUp, Clock, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
+import { differenceInDays, addMonths, format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface Tier {
   id: number;
@@ -23,6 +25,7 @@ interface LoyaltyProfile {
   spend_last_6_months: number;
   tier_id: number;
   current_tier_name: string;
+  last_tier_update: string;
 }
 
 interface HistoryItem {
@@ -31,12 +34,6 @@ interface HistoryItem {
   description: string;
   created_at: string;
   operation_type: string;
-}
-
-interface RedemptionRule {
-  id: number;
-  points_cost: number;
-  discount_value: number;
 }
 
 const TierColors: Record<string, string> = {
@@ -53,51 +50,30 @@ const LoyaltyClubPage = () => {
   const [tiers, setTiers] = useState<Tier[]>([]);
   const [profile, setProfile] = useState<LoyaltyProfile | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [redemptionRules, setRedemptionRules] = useState<RedemptionRule[]>([]);
   const [redeemingId, setRedeemingId] = useState<number | null>(null);
+  const [coupons, setCoupons] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { navigate('/login'); return; }
 
-      const [tiersRes, profileRes, historyRes, rulesRes] = await Promise.all([
+      const [tiersRes, profileRes, historyRes, couponsRes] = await Promise.all([
         supabase.from('loyalty_tiers').select('*').order('min_spend', { ascending: true }),
-        supabase.from('profiles').select('points, spend_last_6_months, tier_id, current_tier_name').eq('id', session.user.id).single(),
+        supabase.from('profiles').select('points, spend_last_6_months, tier_id, current_tier_name, last_tier_update').eq('id', session.user.id).single(),
         supabase.from('loyalty_history').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false }).limit(20),
-        supabase.from('loyalty_redemption_rules').select('*').eq('is_active', true).order('points_cost', { ascending: true })
+        supabase.from('coupons').select('*').eq('is_active', true).gt('stock_quantity', 0).order('points_cost')
       ]);
 
       if (tiersRes.data) setTiers(tiersRes.data);
       if (profileRes.data) setProfile(profileRes.data);
       if (historyRes.data) setHistory(historyRes.data);
-      if (rulesRes.data) setRedemptionRules(rulesRes.data);
+      if (couponsRes.data) setCoupons(couponsRes.data);
       
       setLoading(false);
     };
     fetchData();
   }, [navigate]);
-
-  const handleRedeem = async (ruleId: number, pointsCost: number, couponId: number) => { // NOTE: Function updated to call existing logic logic later
-     // We will reuse the logic from CouponsModal essentially, but here we invoke the generic redeem function
-     // For now, let's assume we map the "rule" to a "coupon" in the database.
-     // WARNING: The previous logic used 'redeem_coupon' which took a coupon_id.
-     // We need to map these rules to actual coupons or adapt the function.
-     // To keep it simple and working with previous logic:
-     // Let's assume we fetch real coupons that match these rules.
-     // Actually, let's list the REAL coupons from the 'coupons' table instead of rules for redemption to be consistent.
-  };
-  
-  // Refetch coupons instead of rules for consistency
-  const [coupons, setCoupons] = useState<any[]>([]);
-  
-  useEffect(() => {
-      const fetchCoupons = async () => {
-          const { data } = await supabase.from('coupons').select('*').eq('is_active', true).gt('stock_quantity', 0).order('points_cost');
-          if (data) setCoupons(data);
-      };
-      fetchCoupons();
-  }, []);
 
   const onRedeemCoupon = async (coupon: any) => {
     if (!profile || profile.points < coupon.points_cost) {
@@ -117,7 +93,7 @@ const LoyaltyClubPage = () => {
         const { data } = await supabase.from('profiles').select('points').eq('id', (await supabase.auth.getUser()).data.user?.id).single();
         if (data) setProfile(prev => prev ? { ...prev, points: data.points } : null);
         
-        // Add to history list locally for instant feedback
+        // Add to history list locally
         setHistory(prev => [{
             id: Date.now(),
             points: -coupon.points_cost,
@@ -151,13 +127,16 @@ const LoyaltyClubPage = () => {
     remaining = nextTier.min_spend - profile.spend_last_6_months;
   }
 
-  const isBlack = currentTier.name === 'Black';
+  // Cálculo de Expiração do Nível
+  const expirationDate = addMonths(new Date(profile.last_tier_update), 6);
+  const daysLeft = differenceInDays(expirationDate, new Date());
+  const isExpiringSoon = daysLeft <= 30;
 
   return (
     <div className="bg-slate-950 min-h-screen pb-20 text-white">
       {/* Header com Gradiente Temático */}
-      <div className={cn("relative overflow-hidden py-16 px-6 text-center", `bg-gradient-to-b ${TierColors[currentTier.name] || 'from-slate-800 to-slate-900'}`)}>
-        <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" />
+      <div className={cn("relative overflow-hidden py-12 px-6 text-center", `bg-gradient-to-b ${TierColors[currentTier.name] || 'from-slate-800 to-slate-900'}`)}>
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
         <div className="relative z-10 max-w-4xl mx-auto">
           <div className="inline-flex items-center justify-center p-3 bg-white/10 rounded-full mb-4 border border-white/20 backdrop-blur-md">
             <Trophy className="h-6 w-6 text-white" />
@@ -165,17 +144,19 @@ const LoyaltyClubPage = () => {
           <h1 className="text-4xl md:text-6xl font-black italic tracking-tighter uppercase mb-2">DK Clube.</h1>
           <p className="text-white/80 font-medium text-lg uppercase tracking-widest">{currentTier.name}</p>
           
-          <div className="mt-8 bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/10 max-w-lg mx-auto">
-            <div className="flex justify-between items-end mb-2">
+          <div className="mt-8 bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/10 max-w-lg mx-auto shadow-2xl">
+            <div className="flex justify-between items-end mb-4">
                 <span className="text-xs font-bold uppercase tracking-widest text-white/60">Gasto em 6 meses</span>
                 <span className="text-2xl font-black">{profile.spend_last_6_months.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
             </div>
             
             {nextTier ? (
                 <>
-                    <Progress value={progress} className="h-3 bg-black/40" /> {/* Necessita ajuste de cor no componente Progress se não suportar classes de cor diretas */}
-                    <p className="mt-3 text-xs md:text-sm font-medium text-white/80">
-                        Faltam <span className="text-white font-bold">{remaining.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span> para o nível <span className="font-bold uppercase text-white">{nextTier.name}</span>
+                    <div className="h-4 w-full bg-black/40 rounded-full overflow-hidden mb-4 border border-white/5">
+                        <div className="h-full bg-sky-500 transition-all duration-1000" style={{ width: `${progress}%` }} />
+                    </div>
+                    <p className="text-sm font-medium text-white/80">
+                        Faltam <span className="text-white font-black">{remaining.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span> para o nível <span className="font-black uppercase text-sky-400">{nextTier.name}</span>
                     </p>
                 </>
             ) : (
@@ -183,6 +164,15 @@ const LoyaltyClubPage = () => {
                     Nível Máximo Alcançado!
                 </div>
             )}
+
+            {/* Contador de Dias */}
+            <div className={cn("mt-6 pt-4 border-t border-white/10 flex items-center justify-between", isExpiringSoon ? "text-orange-300" : "text-slate-300")}>
+                <div className="flex items-center gap-2">
+                    {isExpiringSoon ? <AlertTriangle className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
+                    <span className="text-xs font-bold uppercase tracking-widest">Status válido por</span>
+                </div>
+                <span className="font-mono font-black text-sm">{daysLeft} dias</span>
+            </div>
           </div>
         </div>
       </div>
@@ -204,7 +194,7 @@ const LoyaltyClubPage = () => {
 
             <Card className="bg-slate-900 border-slate-800 text-white shadow-xl md:col-span-2">
                 <CardHeader className="pb-2">
-                    <CardTitle className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Benefícios Atuais ({currentTier.name})</CardTitle>
+                    <CardTitle className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Seus Benefícios Atuais</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -224,7 +214,7 @@ const LoyaltyClubPage = () => {
         <Tabs defaultValue="redeem" className="mt-12">
             <TabsList className="bg-slate-900 border border-slate-800 p-1 rounded-xl h-14 w-full justify-start overflow-x-auto">
                 <TabsTrigger value="redeem" className="data-[state=active]:bg-sky-600 data-[state=active]:text-white text-slate-400 rounded-lg px-6 h-10 uppercase text-xs font-black tracking-widest">Resgatar Prêmios</TabsTrigger>
-                <TabsTrigger value="tiers" className="data-[state=active]:bg-sky-600 data-[state=active]:text-white text-slate-400 rounded-lg px-6 h-10 uppercase text-xs font-black tracking-widest">Estrutura de Níveis</TabsTrigger>
+                <TabsTrigger value="tiers" className="data-[state=active]:bg-sky-600 data-[state=active]:text-white text-slate-400 rounded-lg px-6 h-10 uppercase text-xs font-black tracking-widest">Níveis</TabsTrigger>
                 <TabsTrigger value="history" className="data-[state=active]:bg-sky-600 data-[state=active]:text-white text-slate-400 rounded-lg px-6 h-10 uppercase text-xs font-black tracking-widest">Extrato</TabsTrigger>
             </TabsList>
 

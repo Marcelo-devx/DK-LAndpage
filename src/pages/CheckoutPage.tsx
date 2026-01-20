@@ -10,8 +10,9 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { showError, showSuccess, showLoading, dismissToast } from '@/utils/toast';
-import { Loader2, Search, AlertTriangle, CreditCard, MessageSquare, MapPin, ShoppingBag, Truck } from 'lucide-react';
+import { Loader2, Search, AlertTriangle, CreditCard, MessageSquare, MapPin, ShoppingBag, Truck, Gift } from 'lucide-react';
 import { getLocalCart, ItemType, clearLocalCart } from '@/utils/localCart';
 import { maskCep, maskPhone } from '@/utils/masks';
 import CouponsModal from '@/components/CouponsModal';
@@ -68,6 +69,11 @@ const CheckoutPage = () => {
   const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null);
   const [isCreditCardEnabled, setIsCreditCardEnabled] = useState(false);
   const [deliveryType, setDeliveryType] = useState<'local' | 'correios' | null>(null);
+  
+  // Loyalty Benefits
+  const [tierName, setTierName] = useState<string>('');
+  const [tierBenefits, setTierBenefits] = useState<string[]>([]);
+  const [selectedBenefits, setSelectedBenefits] = useState<string[]>([]);
 
   const { register, handleSubmit, setValue, getValues, watch, formState: { errors } } = useForm<CheckoutFormData>({
     resolver: zodResolver(checkoutSchema),
@@ -140,9 +146,25 @@ const CheckoutPage = () => {
   const fetchUserData = useCallback(async (currentUser: any) => {
     if (!currentUser) return;
 
-    const { data: profileData } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single();
+    // Fetch profile and TIER details
+    const { data: profileData } = await supabase
+        .from('profiles')
+        .select(`
+            *,
+            tier_id,
+            loyalty_tiers ( name, benefits )
+        `)
+        .eq('id', currentUser.id)
+        .single();
+
     if (profileData) {
       setIsCreditCardEnabled(profileData.is_credit_card_enabled);
+      
+      // Set Tier Info
+      if (profileData.loyalty_tiers) {
+          setTierName(profileData.loyalty_tiers.name);
+          setTierBenefits(profileData.loyalty_tiers.benefits || []);
+      }
       
       if (!profileData.is_credit_card_enabled) {
         setValue('payment_method', 'pix');
@@ -200,6 +222,12 @@ const CheckoutPage = () => {
   const discount = selectedCoupon?.discount_value ?? 0;
   const total = Math.max(0, subtotal - discount);
 
+  const handleBenefitToggle = (benefit: string) => {
+      setSelectedBenefits(prev => 
+          prev.includes(benefit) ? prev.filter(b => b !== benefit) : [...prev, benefit]
+      );
+  };
+
   const onSubmit = async (data: CheckoutFormData) => {
     setIsSubmitting(true);
     const toastId = showLoading("Finalizando seu pedido...");
@@ -219,14 +247,21 @@ const CheckoutPage = () => {
       state: data.state 
     };
 
+    // Formatar os benefícios selecionados para texto
+    const benefitsString = selectedBenefits.length > 0 
+        ? `Nível ${tierName}: ${selectedBenefits.join(', ')}`
+        : null;
+
     try {
       await supabase.from('profiles').update(shippingAddress).eq('id', user.id);
 
+      // Usando a nova versão da função RPC com suporte a benefícios
       const { data: orderData, error: orderError } = await supabase.rpc('create_pending_order_from_local_cart', {
         shipping_cost_input: 0,
         shipping_address_input: shippingAddress,
         cart_items_input: getLocalCart(),
         user_coupon_id_input: selectedCoupon?.user_coupon_id,
+        benefits_input: benefitsString
       });
 
       if (orderError) throw new Error(orderError.message);
@@ -256,6 +291,10 @@ const CheckoutPage = () => {
         
         if (deliveryType === 'correios') {
             whatsappMessage += `\n\n*Atenção:* Entrega via Correios para ${shippingAddress.city}/${shippingAddress.state}.`;
+        }
+
+        if (benefitsString) {
+            whatsappMessage += `\n\n*Benefícios do Clube Usados:* ${benefitsString}`;
         }
 
         const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`;
@@ -363,6 +402,44 @@ const CheckoutPage = () => {
         </div>
 
         <div className="space-y-8 mt-8 lg:mt-0">
+          
+          {/* Seção de Benefícios do Clube */}
+          {tierBenefits.length > 0 && (
+              <Card className="bg-white border-stone-200 shadow-xl rounded-[2rem] overflow-hidden border-2 border-sky-500/20">
+                <CardHeader className="bg-sky-50 border-b border-sky-100 p-8">
+                  <div className="flex items-center space-x-4">
+                    <div className="p-3 bg-sky-500 rounded-2xl text-white">
+                      <Gift className="h-6 w-6" />
+                    </div>
+                    <div>
+                        <CardTitle className="font-black text-2xl tracking-tighter italic uppercase text-charcoal-gray">
+                            Benefícios <span className="text-sky-500">{tierName}</span>
+                        </CardTitle>
+                        <p className="text-xs text-stone-500 font-bold mt-1">Selecione o que deseja usar neste pedido.</p>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-8 space-y-4">
+                    {tierBenefits.map((benefit, idx) => (
+                        <div key={idx} className="flex items-center space-x-3 p-3 bg-stone-50 rounded-xl border border-stone-100 hover:border-sky-200 transition-colors">
+                            <Checkbox 
+                                id={`benefit-${idx}`} 
+                                checked={selectedBenefits.includes(benefit)}
+                                onCheckedChange={() => handleBenefitToggle(benefit)}
+                                className="data-[state=checked]:bg-sky-500 data-[state=checked]:border-sky-500"
+                            />
+                            <label
+                                htmlFor={`benefit-${idx}`}
+                                className="text-sm font-bold text-charcoal-gray cursor-pointer select-none leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                            >
+                                {benefit}
+                            </label>
+                        </div>
+                    ))}
+                </CardContent>
+              </Card>
+          )}
+
           <Card className="bg-white border-stone-200 shadow-xl rounded-[2rem] overflow-hidden">
             <CardHeader className="bg-stone-50 border-b border-stone-100 p-8">
               <div className="flex items-center space-x-4">

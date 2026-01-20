@@ -61,7 +61,7 @@ const LoyaltyClubPage = () => {
       const [tiersRes, profileRes, historyRes, couponsRes, ordersRes] = await Promise.all([
         supabase.from('loyalty_tiers').select('*').order('min_spend', { ascending: true }),
         supabase.from('profiles').select('points, spend_last_6_months, tier_id, current_tier_name, last_tier_update').eq('id', session.user.id).single(),
-        supabase.from('loyalty_history').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false }).limit(20),
+        supabase.from('loyalty_history').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false }).limit(100),
         supabase.from('coupons').select('*').eq('is_active', true).gt('stock_quantity', 0).order('points_cost'),
         supabase.from('orders').select('created_at, benefits_used').eq('user_id', session.user.id).order('created_at', { ascending: false }).limit(10)
       ]);
@@ -94,6 +94,7 @@ const LoyaltyClubPage = () => {
         const { data } = await supabase.from('profiles').select('points').eq('id', (await supabase.auth.getUser()).data.user?.id).single();
         if (data) setProfile(prev => prev ? { ...prev, points: data.points } : null);
         
+        // Atualiza a lista de histórico localmente para feedback instantâneo
         setHistory(prev => [{
             id: Date.now(),
             points: -coupon.points_cost,

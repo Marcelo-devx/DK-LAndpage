@@ -10,7 +10,7 @@ const LoyaltyButton = () => {
         <button
           className={cn(
             "fixed bottom-28 right-6 z-[100]", // Posicionado acima do WhatsApp
-            "bg-black hover:bg-slate-900 text-white", // Fundo preto conforme imagem
+            "bg-black hover:bg-slate-900 text-white", 
             "p-4 rounded-full shadow-[0_10px_30px_-5px_rgba(0,0,0,0.5)]",
             "transition-all duration-300 hover:scale-110 active:scale-95 group",
             "flex items-center justify-center animate-in fade-in zoom-in duration-500 delay-100",
@@ -26,7 +26,12 @@ const LoyaltyButton = () => {
           </span>
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-[350px] p-0 mr-6 mb-2 rounded-2xl overflow-hidden border-none shadow-2xl h-[550px]" side="top" align="end">
+      <PopoverContent 
+        className="w-[350px] p-0 mr-4 rounded-2xl overflow-hidden border-none shadow-2xl h-[550px] animate-in slide-in-from-right-5 duration-300" 
+        side="left" 
+        align="end"
+        sideOffset={5}
+      >
         <LoyaltyWidget />
       </PopoverContent>
     </Popover>

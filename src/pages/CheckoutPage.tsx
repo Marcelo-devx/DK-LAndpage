@@ -62,7 +62,8 @@ const isPassiveBenefit = (benefit: string) => {
          b.includes('pré-venda') || 
          b.includes('aniversário') || 
          b.includes('acesso') ||
-         b.includes('atendimento');
+         b.includes('atendimento') ||
+         b.includes('recorrente');
 };
 
 const CheckoutPage = () => {
@@ -416,11 +417,8 @@ const CheckoutPage = () => {
               </div>
             </CardContent>
           </Card>
-        </div>
 
-        <div className="space-y-8 mt-8 lg:mt-0">
-          
-          {/* Seção de Benefícios do Clube */}
+          {/* Seção de Benefícios do Clube (Movido para cá) */}
           {tierBenefits.length > 0 && (
               <Card className="bg-white border-stone-200 shadow-xl rounded-[2rem] overflow-hidden border-2 border-sky-500/20">
                 <CardHeader className="bg-sky-50 border-b border-sky-100 p-8">
@@ -466,7 +464,9 @@ const CheckoutPage = () => {
                 </CardContent>
               </Card>
           )}
+        </div>
 
+        <div className="space-y-8 mt-8 lg:mt-0">
           <Card className="bg-white border-stone-200 shadow-xl rounded-[2rem] overflow-hidden">
             <CardHeader className="bg-stone-50 border-b border-stone-100 p-8">
               <div className="flex items-center space-x-4">

@@ -12,7 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { showError, showSuccess, showLoading, dismissToast } from '@/utils/toast';
-import { Loader2, Search, AlertTriangle, CreditCard, MessageSquare, MapPin, ShoppingBag, Truck, Gift } from 'lucide-react';
+import { Loader2, Search, AlertTriangle, CreditCard, MessageSquare, MapPin, ShoppingBag, Truck, Gift, CheckCircle2 } from 'lucide-react';
 import { getLocalCart, ItemType, clearLocalCart } from '@/utils/localCart';
 import { maskCep, maskPhone } from '@/utils/masks';
 import CouponsModal from '@/components/CouponsModal';
@@ -52,6 +52,18 @@ const checkoutSchema = z.object({
 });
 
 type CheckoutFormData = z.infer<typeof checkoutSchema>;
+
+// Função auxiliar para determinar se um benefício é automático (passivo)
+const isPassiveBenefit = (benefit: string) => {
+  const b = benefit.toLowerCase();
+  // Lista de termos que indicam benefícios automáticos
+  return b.includes('pontos') || 
+         b.includes('frete') || 
+         b.includes('pré-venda') || 
+         b.includes('aniversário') || 
+         b.includes('acesso') ||
+         b.includes('atendimento');
+};
 
 const CheckoutPage = () => {
   const navigate = useNavigate();
@@ -146,7 +158,6 @@ const CheckoutPage = () => {
   const fetchUserData = useCallback(async (currentUser: any) => {
     if (!currentUser) return;
 
-    // Fetch profile and TIER details
     const { data: profileData } = await supabase
         .from('profiles')
         .select(`
@@ -160,10 +171,12 @@ const CheckoutPage = () => {
     if (profileData) {
       setIsCreditCardEnabled(profileData.is_credit_card_enabled);
       
-      // Set Tier Info
       if (profileData.loyalty_tiers) {
           setTierName(profileData.loyalty_tiers.name);
           setTierBenefits(profileData.loyalty_tiers.benefits || []);
+          
+          // Pré-selecionar benefícios passivos para garantir que estejam no contexto visual (opcional)
+          // Mas na lógica de envio, vamos montar a string considerando isso.
       }
       
       if (!profileData.is_credit_card_enabled) {
@@ -247,15 +260,19 @@ const CheckoutPage = () => {
       state: data.state 
     };
 
-    // Formatar os benefícios selecionados para texto
-    const benefitsString = selectedBenefits.length > 0 
-        ? `Nível ${tierName}: ${selectedBenefits.join(', ')}`
+    // Compila benefícios: Passivos (automáticos) + Selecionados (ativos)
+    const passiveBenefits = tierBenefits.filter(b => isPassiveBenefit(b));
+    const allActiveBenefits = [...passiveBenefits, ...selectedBenefits];
+    // Remove duplicatas caso haja alguma sobreposição estranha
+    const uniqueBenefits = [...new Set(allActiveBenefits)];
+
+    const benefitsString = uniqueBenefits.length > 0 
+        ? `Nível ${tierName}: ${uniqueBenefits.join(', ')}`
         : null;
 
     try {
       await supabase.from('profiles').update(shippingAddress).eq('id', user.id);
 
-      // Usando a nova versão da função RPC com suporte a benefícios
       const { data: orderData, error: orderError } = await supabase.rpc('create_pending_order_from_local_cart', {
         shipping_cost_input: 0,
         shipping_address_input: shippingAddress,
@@ -415,27 +432,37 @@ const CheckoutPage = () => {
                         <CardTitle className="font-black text-2xl tracking-tighter italic uppercase text-charcoal-gray">
                             Benefícios <span className="text-sky-500">{tierName}</span>
                         </CardTitle>
-                        <p className="text-xs text-stone-500 font-bold mt-1">Selecione o que deseja usar neste pedido.</p>
+                        <p className="text-xs text-stone-500 font-bold mt-1">Veja seus privilégios ativos e selecione opcionais.</p>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="p-8 space-y-4">
-                    {tierBenefits.map((benefit, idx) => (
-                        <div key={idx} className="flex items-center space-x-3 p-3 bg-stone-50 rounded-xl border border-stone-100 hover:border-sky-200 transition-colors">
-                            <Checkbox 
-                                id={`benefit-${idx}`} 
-                                checked={selectedBenefits.includes(benefit)}
-                                onCheckedChange={() => handleBenefitToggle(benefit)}
-                                className="data-[state=checked]:bg-sky-500 data-[state=checked]:border-sky-500"
-                            />
-                            <label
-                                htmlFor={`benefit-${idx}`}
-                                className="text-sm font-bold text-charcoal-gray cursor-pointer select-none leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                            >
-                                {benefit}
-                            </label>
-                        </div>
-                    ))}
+                    {tierBenefits.map((benefit, idx) => {
+                        const passive = isPassiveBenefit(benefit);
+                        return (
+                            <div key={idx} className={cn("flex items-center space-x-3 p-3 rounded-xl border transition-colors", passive ? "bg-sky-50 border-sky-100" : "bg-stone-50 border-stone-100 hover:border-sky-200")}>
+                                {passive ? (
+                                    <div className="h-5 w-5 bg-sky-500 rounded-full flex items-center justify-center shrink-0">
+                                        <CheckCircle2 className="h-3.5 w-3.5 text-white" />
+                                    </div>
+                                ) : (
+                                    <Checkbox 
+                                        id={`benefit-${idx}`} 
+                                        checked={selectedBenefits.includes(benefit)}
+                                        onCheckedChange={() => handleBenefitToggle(benefit)}
+                                        className="data-[state=checked]:bg-sky-500 data-[state=checked]:border-sky-500 shrink-0"
+                                    />
+                                )}
+                                <label
+                                    htmlFor={passive ? undefined : `benefit-${idx}`}
+                                    className={cn("text-sm font-bold cursor-pointer select-none leading-tight", passive ? "text-sky-700 cursor-default" : "text-charcoal-gray")}
+                                >
+                                    {benefit}
+                                    {passive && <span className="text-[9px] uppercase font-black tracking-widest text-sky-400 ml-2 bg-white px-2 py-0.5 rounded-md shadow-sm">Ativo</span>}
+                                </label>
+                            </div>
+                        );
+                    })}
                 </CardContent>
               </Card>
           )}

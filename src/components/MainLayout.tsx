@@ -45,7 +45,7 @@ const MainLayout = () => {
         const isProfileComplete = profile && 
           profile.first_name && 
           profile.last_name && 
-          profile.phone &&
+          profile.phone && 
           profile.cpf_cnpj &&
           profile.gender &&
           profile.date_of_birth &&
@@ -101,7 +101,7 @@ const MainLayout = () => {
       <CartSheet isOpen={isCartOpen} onOpenChange={setIsCartOpen} />
       <SocialProofPopup />
       
-      {/* Botões Flutuantes */}
+      {/* Botões Flutuantes: LoyaltyButton acima do WhatsAppButton */}
       <LoyaltyButton />
       <WhatsAppButton />
     </div>

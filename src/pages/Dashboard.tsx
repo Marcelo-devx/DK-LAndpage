@@ -14,7 +14,6 @@ import {
   ChevronRight,
   Loader2
 } from 'lucide-react';
-import CouponsModal from '@/components/CouponsModal';
 import { useTheme } from '@/context/ThemeContext';
 
 const Dashboard = () => {
@@ -22,7 +21,6 @@ const Dashboard = () => {
   const { settings } = useTheme();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
-  const [isCouponsModalOpen, setIsCouponsModalOpen] = useState(false);
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
 
   const fetchDashboardData = useCallback(async () => {
@@ -112,18 +110,23 @@ const Dashboard = () => {
               <Gem className="h-10 w-10 text-sky-500" />
             </div>
             <div>
-              <p className="text-stone-400 text-xs font-black uppercase tracking-[0.2em] mb-1">{settings.dashboardPointsLabel}</p>
+              <div className="flex items-center gap-2 mb-1">
+                <p className="text-stone-400 text-xs font-black uppercase tracking-[0.2em]">{settings.dashboardPointsLabel}</p>
+                {profile?.current_tier_name && (
+                    <span className="bg-slate-900 text-white text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-widest">{profile.current_tier_name}</span>
+                )}
+              </div>
               <p className="text-5xl font-black tracking-tighter text-charcoal-gray">
                 {profile?.points || 0} <span className="text-xl text-sky-500 italic">PTS</span>
               </p>
             </div>
           </div>
           <Button 
-            onClick={() => setIsCouponsModalOpen(true)}
+            asChild
             size="lg"
             className="bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest px-8 h-14 rounded-xl shadow-[0_10px_20px_-5px_rgba(14,165,233,0.3)] transition-all active:scale-95"
           >
-            {settings.dashboardButtonText}
+            <Link to="/clube-dk">{settings.dashboardButtonText}</Link>
           </Button>
         </div>
       </header>
@@ -156,10 +159,7 @@ const Dashboard = () => {
           </Link>
         ))}
 
-        <button 
-          onClick={() => setIsCouponsModalOpen(true)}
-          className="text-left w-full group"
-        >
+        <Link to="/clube-dk" className="text-left w-full group">
           <Card className="bg-white border border-stone-200 hover:border-sky-500/50 hover:shadow-lg transition-all duration-300 rounded-2xl h-full">
             <CardContent className="p-6 flex items-center justify-between">
               <div className="flex items-center space-x-5">
@@ -167,14 +167,14 @@ const Dashboard = () => {
                   <Ticket className="h-6 w-6" />
                 </div>
                 <div>
-                  <h3 className="font-black text-charcoal-gray uppercase tracking-tight text-lg group-hover:text-sky-500 transition-colors">Cupons</h3>
-                  <p className="text-sm text-stone-500 font-medium">Troque pontos por descontos</p>
+                  <h3 className="font-black text-charcoal-gray uppercase tracking-tight text-lg group-hover:text-sky-500 transition-colors">DK Clube</h3>
+                  <p className="text-sm text-stone-500 font-medium">Troque pontos e suba de nível</p>
                 </div>
               </div>
               <ChevronRight className="h-5 w-5 text-stone-400 group-hover:text-sky-500 group-hover:translate-x-1 transition-all" />
             </CardContent>
           </Card>
-        </button>
+        </Link>
 
         <button 
           onClick={handleLogout}
@@ -196,13 +196,6 @@ const Dashboard = () => {
           </Card>
         </button>
       </div>
-
-      <CouponsModal
-        isOpen={isCouponsModalOpen}
-        onOpenChange={setIsCouponsModalOpen}
-        userPoints={profile?.points}
-        onRedemption={fetchDashboardData} 
-      />
     </div>
   );
 };

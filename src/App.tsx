@@ -17,6 +17,7 @@ import AllProductsPage from "./pages/AllProductsPage";
 import CompleteProfilePage from "./pages/CompleteProfilePage";
 import ReferralsPage from "./pages/ReferralsPage";
 import Dashboard from "./pages/Dashboard";
+import LoyaltyClubPage from "./pages/LoyaltyClubPage";
 import AdminLogistics from "./pages/AdminLogistics";
 import UpdatePassword from "./pages/UpdatePassword";
 import AuthEventHandler from "./components/AuthEventHandler";
@@ -33,7 +34,6 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <AuthEventHandler />
-          {/* O AdminCustomizer agora está aqui, visível em TODAS as rotas */}
           <AdminCustomizer />
           <Routes>
             <Route element={<MainLayout />}>
@@ -47,6 +47,7 @@ const App = () => (
               <Route path="/confirmacao-pedido/:id" element={<ConfirmacaoPedido />} />
               <Route path="/indicacoes" element={<ReferralsPage />} />
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/clube-dk" element={<LoyaltyClubPage />} />
             </Route>
             <Route path="/login" element={<Login />} />
             <Route path="/complete-profile" element={<CompleteProfilePage />} />

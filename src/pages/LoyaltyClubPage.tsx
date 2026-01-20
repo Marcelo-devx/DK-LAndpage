@@ -2,13 +2,12 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Gem, Lock, Unlock, Trophy, ArrowRight, History, Gift, TrendingUp, Clock, AlertTriangle } from 'lucide-react';
+import { Loader2, Gem, Lock, Unlock, Trophy, History, Gift, TrendingUp, Clock, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { differenceInDays, addMonths, format } from 'date-fns';
+import { differenceInDays, addMonths, endOfWeek, isSameWeek, startOfWeek, addWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface Tier {
@@ -52,23 +51,27 @@ const LoyaltyClubPage = () => {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [redeemingId, setRedeemingId] = useState<number | null>(null);
   const [coupons, setCoupons] = useState<any[]>([]);
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { navigate('/login'); return; }
 
-      const [tiersRes, profileRes, historyRes, couponsRes] = await Promise.all([
+      const [tiersRes, profileRes, historyRes, couponsRes, ordersRes] = await Promise.all([
         supabase.from('loyalty_tiers').select('*').order('min_spend', { ascending: true }),
         supabase.from('profiles').select('points, spend_last_6_months, tier_id, current_tier_name, last_tier_update').eq('id', session.user.id).single(),
         supabase.from('loyalty_history').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false }).limit(20),
-        supabase.from('coupons').select('*').eq('is_active', true).gt('stock_quantity', 0).order('points_cost')
+        supabase.from('coupons').select('*').eq('is_active', true).gt('stock_quantity', 0).order('points_cost'),
+        // Buscamos os últimos pedidos para checar o uso de benefícios
+        supabase.from('orders').select('created_at, benefits_used').eq('user_id', session.user.id).order('created_at', { ascending: false }).limit(10)
       ]);
 
       if (tiersRes.data) setTiers(tiersRes.data);
       if (profileRes.data) setProfile(profileRes.data);
       if (historyRes.data) setHistory(historyRes.data);
       if (couponsRes.data) setCoupons(couponsRes.data);
+      if (ordersRes.data) setRecentOrders(ordersRes.data);
       
       setLoading(false);
     };
@@ -89,11 +92,9 @@ const LoyaltyClubPage = () => {
         if (error) throw error;
         
         showSuccess("Cupom resgatado com sucesso!");
-        // Refresh profile points
         const { data } = await supabase.from('profiles').select('points').eq('id', (await supabase.auth.getUser()).data.user?.id).single();
         if (data) setProfile(prev => prev ? { ...prev, points: data.points } : null);
         
-        // Add to history list locally
         setHistory(prev => [{
             id: Date.now(),
             points: -coupon.points_cost,
@@ -110,13 +111,55 @@ const LoyaltyClubPage = () => {
     }
   };
 
+  // Função auxiliar para calcular status do benefício
+  const getBenefitStatus = (benefit: string) => {
+    const lowerBenefit = benefit.toLowerCase();
+    const now = new Date();
+
+    // Lógica para benefícios semanais
+    if (lowerBenefit.includes('semana')) {
+        const usedThisWeek = recentOrders.some(o => 
+            o.benefits_used && 
+            o.benefits_used.includes(benefit) && 
+            isSameWeek(new Date(o.created_at), now, { locale: ptBR })
+        );
+
+        if (usedThisWeek) {
+            const nextMonday = startOfWeek(addWeeks(now, 1), { locale: ptBR, weekStartsOn: 1 }); // Próxima segunda (considerando semana começando segunda? Ajustando para padrão BR: Domingo = 0, Segunda = 1)
+            // Simples: Próximo Domingo + 1 dia ou Próxima Segunda
+            const endOfCurrentWeek = endOfWeek(now, { locale: ptBR });
+            const daysToRenew = differenceInDays(endOfCurrentWeek, now) + 1; // +1 para virar a semana
+
+            return {
+                status: 'used',
+                label: `Usado. Renova em ${daysToRenew} dias`,
+                color: 'text-stone-500 bg-stone-100 border-stone-200'
+            };
+        } else {
+            const endOfCurrentWeek = endOfWeek(now, { locale: ptBR });
+            const daysLeft = differenceInDays(endOfCurrentWeek, now);
+            return {
+                status: 'available',
+                label: daysLeft === 0 ? 'Expira HOJE!' : `Expira em ${daysLeft} dias`,
+                color: 'text-green-600 bg-green-100 border-green-200 animate-pulse'
+            };
+        }
+    }
+
+    // Padrão para benefícios passivos/constantes
+    return {
+        status: 'passive',
+        label: 'Ativo',
+        color: 'text-sky-600 bg-sky-100 border-sky-200'
+    };
+  };
+
   if (loading || !profile) return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-sky-400" /></div>;
 
   const currentTierIndex = tiers.findIndex(t => t.id === profile.tier_id);
   const currentTier = tiers[currentTierIndex] || tiers[0];
   const nextTier = tiers[currentTierIndex + 1];
   
-  // Cálculo de Progresso
   let progress = 100;
   let remaining = 0;
   
@@ -127,7 +170,6 @@ const LoyaltyClubPage = () => {
     remaining = nextTier.min_spend - profile.spend_last_6_months;
   }
 
-  // Cálculo de Expiração do Nível
   const expirationDate = addMonths(new Date(profile.last_tier_update), 6);
   const daysLeft = differenceInDays(expirationDate, new Date());
   const isExpiringSoon = daysLeft <= 30;
@@ -165,7 +207,6 @@ const LoyaltyClubPage = () => {
                 </div>
             )}
 
-            {/* Contador de Dias */}
             <div className={cn("mt-6 pt-4 border-t border-white/10 flex items-center justify-between", isExpiringSoon ? "text-orange-300" : "text-slate-300")}>
                 <div className="flex items-center gap-2">
                     {isExpiringSoon ? <AlertTriangle className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
@@ -197,15 +238,25 @@ const LoyaltyClubPage = () => {
                     <CardTitle className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Seus Benefícios Atuais</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {currentTier.benefits.map((benefit, idx) => (
-                            <div key={idx} className="flex items-center gap-3 bg-slate-800/50 p-3 rounded-xl border border-slate-700">
-                                <div className="p-1.5 bg-green-500/20 rounded-lg shrink-0">
-                                    <TrendingUp className="h-4 w-4 text-green-400" />
+                    <div className="grid grid-cols-1 gap-3">
+                        {currentTier.benefits.map((benefit, idx) => {
+                            const benefitStatus = getBenefitStatus(benefit);
+                            return (
+                                <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                                    <div className="flex items-center gap-3">
+                                        <div className={cn("p-2 rounded-lg shrink-0", benefitStatus.status === 'used' ? "bg-stone-700" : "bg-green-500/20")}>
+                                            {benefitStatus.status === 'used' ? <XCircle className="h-5 w-5 text-stone-400" /> : <TrendingUp className="h-5 w-5 text-green-400" />}
+                                        </div>
+                                        <span className={cn("text-sm font-bold", benefitStatus.status === 'used' ? "text-slate-500 line-through" : "text-slate-200")}>
+                                            {benefit}
+                                        </span>
+                                    </div>
+                                    <div className={cn("text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border text-center sm:text-right w-full sm:w-auto", benefitStatus.color)}>
+                                        {benefitStatus.label}
+                                    </div>
                                 </div>
-                                <span className="text-sm font-bold text-slate-200">{benefit}</span>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </CardContent>
             </Card>

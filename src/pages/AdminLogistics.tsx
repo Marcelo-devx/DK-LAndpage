@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Truck, MapPin, Package, RefreshCw } from 'lucide-react';
+import { Truck, MapPin, Package, RefreshCw, Gift } from 'lucide-react';
 import { format, isToday, isTomorrow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
@@ -12,6 +12,7 @@ interface OrderRoute {
   id: number;
   scheduled_delivery_date: string;
   status: string;
+  benefits_used: string | null;
   shipping_address: any;
   profiles: {
     first_name: string;
@@ -43,12 +44,13 @@ const AdminLogistics = () => {
         id,
         scheduled_delivery_date,
         status,
+        benefits_used,
         shipping_address,
         profiles (first_name, last_name)
       `)
       .neq('status', 'Cancelado')
       .neq('delivery_status', 'Entregue')
-      .order('scheduled_delivery_date', { ascending: true });
+      .order('created_at', { ascending: false }); // Ordenar por mais recente
 
     if (error) console.error(error);
     else setOrders(data as any[] || []);
@@ -60,9 +62,9 @@ const AdminLogistics = () => {
     fetchRoutes();
   }, []);
 
-  // Agrupar pedidos por data
+  // Agrupar pedidos por data (se não tiver data, agrupa como 'Indefinido')
   const groupedOrders = orders.reduce((acc, order) => {
-    const date = order.scheduled_delivery_date;
+    const date = order.scheduled_delivery_date || 'undefined';
     if (!acc[date]) acc[date] = [];
     acc[date].push(order);
     return acc;
@@ -75,7 +77,7 @@ const AdminLogistics = () => {
   };
 
   const formatDateTitle = (dateStr: string) => {
-    if (!dateStr) return 'Data não definida';
+    if (dateStr === 'undefined') return 'Aguardando Roteirização';
     const [year, month, day] = dateStr.split('-').map(Number);
     const date = new Date(year, month - 1, day);
     
@@ -116,36 +118,52 @@ const AdminLogistics = () => {
               <CardContent className="p-0">
                 <div className="divide-y divide-white/5">
                   {groupedOrders[date].map((order) => (
-                    <div key={order.id} className="p-4 hover:bg-white/[0.02] transition-colors flex flex-col md:flex-row justify-between md:items-center gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-1">
-                          <span className="font-mono text-sky-400 font-bold">#{order.id}</span>
-                          <span className="font-bold text-white uppercase text-sm">
-                            {order.profiles?.first_name} {order.profiles?.last_name}
-                          </span>
-                          <Badge className={`text-[10px] font-bold border ${getStatusColor(order.status)}`}>
-                            {order.status}
-                          </Badge>
-                        </div>
-                        <div className="flex items-start gap-2 text-sm text-slate-400">
-                          <MapPin className="h-4 w-4 mt-0.5 shrink-0" />
-                          <p>
-                            {order.shipping_address?.street}, {order.shipping_address?.number}
-                            {order.shipping_address?.complement && ` - ${order.shipping_address?.complement}`}
-                            <br />
-                            {order.shipping_address?.neighborhood} - {order.shipping_address?.city}
-                          </p>
-                        </div>
-                      </div>
+                    <div key={order.id} className="p-4 hover:bg-white/[0.02] transition-colors flex flex-col gap-4">
                       
-                      <div className="flex items-center gap-3 md:justify-end">
-                        <Button size="sm" variant="outline" className="border-white/10 text-slate-300 hover:text-white text-xs uppercase font-bold" onClick={() => window.open(`https://wa.me/55${order.shipping_address?.phone?.replace(/\D/g,'')}`, '_blank')}>
-                          WhatsApp
-                        </Button>
-                        <Button size="sm" className="bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs uppercase">
-                          Ver Detalhes
-                        </Button>
+                      {/* Linha Superior: Info Principal */}
+                      <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-1">
+                            <span className="font-mono text-sky-400 font-bold">#{order.id}</span>
+                            <span className="font-bold text-white uppercase text-sm">
+                              {order.profiles?.first_name} {order.profiles?.last_name}
+                            </span>
+                            <Badge className={`text-[10px] font-bold border ${getStatusColor(order.status)}`}>
+                              {order.status}
+                            </Badge>
+                          </div>
+                          <div className="flex items-start gap-2 text-sm text-slate-400">
+                            <MapPin className="h-4 w-4 mt-0.5 shrink-0" />
+                            <p>
+                              {order.shipping_address?.street}, {order.shipping_address?.number}
+                              {order.shipping_address?.complement && ` - ${order.shipping_address?.complement}`}
+                              <br />
+                              {order.shipping_address?.neighborhood} - {order.shipping_address?.city}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-3 md:justify-end">
+                          <Button size="sm" variant="outline" className="border-white/10 text-slate-300 hover:text-white text-xs uppercase font-bold" onClick={() => window.open(`https://wa.me/55${order.shipping_address?.phone?.replace(/\D/g,'')}`, '_blank')}>
+                            WhatsApp
+                          </Button>
+                          <Button size="sm" className="bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs uppercase">
+                            Ver Detalhes
+                          </Button>
+                        </div>
                       </div>
+
+                      {/* Linha Inferior: Benefícios Usados (OBSERVAÇÃO) */}
+                      {order.benefits_used && (
+                        <div className="bg-indigo-500/10 border border-indigo-500/20 p-3 rounded-lg flex items-start gap-3">
+                            <Gift className="h-5 w-5 text-indigo-400 shrink-0 mt-0.5" />
+                            <div>
+                                <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-0.5">Benefícios Aplicados (Clube)</p>
+                                <p className="text-sm font-bold text-white">{order.benefits_used}</p>
+                            </div>
+                        </div>
+                      )}
+
                     </div>
                   ))}
                 </div>

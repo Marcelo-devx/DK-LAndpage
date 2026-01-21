@@ -27,10 +27,11 @@ const LoyaltyButton = () => {
         </button>
       </PopoverTrigger>
       <PopoverContent 
-        className="w-[350px] p-0 mr-4 rounded-2xl overflow-hidden border-none shadow-2xl h-[550px] animate-in slide-in-from-right-5 duration-300" 
+        className="w-[calc(100vw-48px)] sm:w-[380px] p-0 rounded-2xl overflow-hidden border-none shadow-2xl h-[550px] max-h-[80vh] animate-in slide-in-from-right-5 duration-300 z-[101]" 
         side="left" 
         align="end"
-        sideOffset={5}
+        sideOffset={12}
+        collisionPadding={16}
       >
         <LoyaltyWidget />
       </PopoverContent>

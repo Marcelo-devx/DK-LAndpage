@@ -90,109 +90,109 @@ const LoyaltyWidget = ({ onClose }: LoyaltyWidgetProps) => {
   return (
     <div className="w-full h-full flex flex-col bg-white overflow-hidden">
       {/* Header Premium */}
-      <div className="bg-slate-950 text-white p-5 flex items-center justify-between shadow-xl shrink-0">
+      <div className="bg-slate-950 text-white p-4 flex items-center justify-between shadow-xl shrink-0">
         <div className="flex items-center gap-2.5">
             <div className="bg-sky-500/20 p-1.5 rounded-lg border border-sky-500/30">
-                <Gem className="h-5 w-5 text-sky-400" />
+                <Gem className="h-4 w-4 text-sky-400" />
             </div>
-            <span className="font-black text-sm uppercase tracking-tighter italic">DK Clube Points.</span>
+            <span className="font-black text-xs uppercase tracking-tighter italic">DK Clube Points.</span>
         </div>
         {onClose && <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors">×</button>}
       </div>
 
       {!session ? (
-        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-8">
-          <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
-            <User className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight italic">Membro Exclusivo.</h3>
-            <p className="text-xs text-slate-500 mt-2 leading-relaxed">Acesse sua conta para visualizar seus pontos e resgatar benefícios exclusivos da curadoria.</p>
+        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-6">
+          <div className="p-5 bg-slate-50 rounded-[2rem] border border-slate-100">
+            <User className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+            <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight italic">Membro Exclusivo.</h3>
+            <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">Acesse sua conta para visualizar seus pontos e resgatar benefícios exclusivos.</p>
           </div>
-          <Button onClick={() => navigate('/login')} className="w-full bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest h-14 rounded-xl shadow-lg transition-all active:scale-95">
+          <Button onClick={() => navigate('/login')} className="w-full bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest h-12 rounded-xl shadow-lg transition-all active:scale-95">
             Entrar no Clube
           </Button>
         </div>
       ) : (
         <div className="flex-1 overflow-hidden flex flex-col">
             {/* Saldo de Destaque */}
-            <div className="bg-slate-50/50 border-b border-slate-100 p-6 flex justify-between items-center shrink-0">
+            <div className="bg-slate-50/50 border-b border-slate-100 p-4 flex justify-between items-center shrink-0">
                 <div className="space-y-0.5">
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Saldo Acumulado</span>
-                    <p className="text-xs text-slate-500 font-bold">Resgate seus privilégios</p>
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Saldo Acumulado</span>
+                    <p className="text-[10px] text-slate-500 font-bold">Resgate seus privilégios</p>
                 </div>
                 <div className="text-right">
-                    <span className="text-3xl font-black text-sky-600 tracking-tighter tabular-nums">{profile?.points || 0}</span>
-                    <span className="text-xs font-black text-sky-600 ml-1 italic">PTS</span>
+                    <span className="text-2xl font-black text-sky-600 tracking-tighter tabular-nums">{profile?.points || 0}</span>
+                    <span className="text-[10px] font-black text-sky-600 ml-1 italic">PTS</span>
                 </div>
             </div>
 
             <Tabs defaultValue="redeem" className="flex-1 flex flex-col overflow-hidden">
-                <TabsList className="grid w-full grid-cols-2 bg-white border-b border-slate-100 rounded-none h-14 p-1 shrink-0">
-                    <TabsTrigger value="redeem" className="rounded-xl data-[state=active]:bg-sky-500 data-[state=active]:text-white text-slate-400 font-black uppercase text-[10px] tracking-widest h-full transition-all">Recompensas</TabsTrigger>
-                    <TabsTrigger value="earn" className="rounded-xl data-[state=active]:bg-sky-500 data-[state=active]:text-white text-slate-400 font-black uppercase text-[10px] tracking-widest h-full transition-all">Ganhar Pontos</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-2 bg-white border-b border-slate-100 rounded-none h-12 p-1 shrink-0">
+                    <TabsTrigger value="redeem" className="rounded-lg data-[state=active]:bg-sky-500 data-[state=active]:text-white text-slate-400 font-black uppercase text-[9px] tracking-widest h-full transition-all">Recompensas</TabsTrigger>
+                    <TabsTrigger value="earn" className="rounded-lg data-[state=active]:bg-sky-500 data-[state=active]:text-white text-slate-400 font-black uppercase text-[9px] tracking-widest h-full transition-all">Ganhar Pontos</TabsTrigger>
                 </TabsList>
 
-                <div className="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar bg-slate-50/30">
-                    <TabsContent value="earn" className="m-0 space-y-4">
+                <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-slate-50/30">
+                    <TabsContent value="earn" className="m-0 space-y-3">
                         {/* Como Ganhar */}
                         <div className="grid gap-3">
-                            <Card className="p-5 border-none shadow-sm bg-white rounded-2xl group hover:shadow-md transition-all">
-                                <div className="flex gap-4">
-                                    <div className="h-12 w-12 rounded-xl bg-sky-50 flex items-center justify-center shrink-0 group-hover:bg-sky-500 group-hover:text-white transition-colors">
-                                        <ShoppingBag className="h-6 w-6" />
+                            <Card className="p-4 border-none shadow-sm bg-white rounded-2xl group hover:shadow-md transition-all">
+                                <div className="flex gap-3">
+                                    <div className="h-10 w-10 rounded-xl bg-sky-50 flex items-center justify-center shrink-0 group-hover:bg-sky-500 group-hover:text-white transition-colors">
+                                        <ShoppingBag className="h-5 w-5" />
                                     </div>
                                     <div className="min-w-0">
-                                        <h4 className="font-black text-slate-900 text-xs uppercase tracking-tight italic">Compras na Loja</h4>
-                                        <p className="text-[11px] text-slate-500 mt-1 font-medium leading-snug">Cada <span className="text-sky-600 font-bold">R$ 1,00</span> gasto equivale a <span className="text-sky-600 font-bold">1 ponto</span> no seu saldo.</p>
+                                        <h4 className="font-black text-slate-900 text-[10px] uppercase tracking-tight italic">Compras na Loja</h4>
+                                        <p className="text-[10px] text-slate-500 mt-1 font-medium leading-snug">Cada <span className="text-sky-600 font-bold">R$ 1,00</span> gasto equivale a <span className="text-sky-600 font-bold">1 ponto</span>.</p>
                                     </div>
                                 </div>
                             </Card>
 
-                            <Card className="p-5 border-none shadow-sm bg-white rounded-2xl group hover:shadow-md transition-all">
-                                <div className="flex gap-4 items-start">
-                                    <div className="h-12 w-12 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0 group-hover:bg-indigo-500 group-hover:text-white transition-colors">
-                                        <Cake className="h-6 w-6" />
+                            <Card className="p-4 border-none shadow-sm bg-white rounded-2xl group hover:shadow-md transition-all">
+                                <div className="flex gap-3 items-start">
+                                    <div className="h-10 w-10 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0 group-hover:bg-indigo-500 group-hover:text-white transition-colors">
+                                        <Cake className="h-5 w-5" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <h4 className="font-black text-slate-900 text-xs uppercase tracking-tight italic">Presente de Aniversário</h4>
-                                        <p className="text-[11px] text-slate-500 mt-1 font-medium leading-snug">Receba <span className="text-indigo-600 font-bold">100 pontos</span> extras no dia do seu aniversário.</p>
+                                        <h4 className="font-black text-slate-900 text-[10px] uppercase tracking-tight italic">Aniversário</h4>
+                                        <p className="text-[10px] text-slate-500 mt-1 font-medium leading-snug">Receba <span className="text-indigo-600 font-bold">100 pontos</span> extras no seu dia.</p>
                                         
                                         {!profile?.date_of_birth ? (
-                                            <div className="mt-4">
+                                            <div className="mt-3">
                                                 {isEditingBirth ? (
                                                     <div className="flex gap-2">
                                                         <Input 
                                                             type="date" 
-                                                            className="h-9 text-xs rounded-lg border-slate-200" 
+                                                            className="h-8 text-[10px] rounded-lg border-slate-200" 
                                                             value={birthDate} 
                                                             onChange={(e) => setBirthDate(e.target.value)} 
                                                         />
-                                                        <Button size="sm" onClick={handleUpdateBirthDate} className="h-9 px-4 bg-slate-900 text-white rounded-lg font-bold text-[10px] uppercase">Salvar</Button>
+                                                        <Button size="sm" onClick={handleUpdateBirthDate} className="h-8 px-3 bg-slate-900 text-white rounded-lg font-bold text-[9px] uppercase">Salvar</Button>
                                                     </div>
                                                 ) : (
-                                                    <Button variant="outline" size="sm" onClick={() => setIsEditingBirth(true)} className="h-9 text-[10px] font-black uppercase tracking-widest border-slate-200 text-slate-600 hover:bg-slate-50 w-full rounded-lg">
+                                                    <Button variant="outline" size="sm" onClick={() => setIsEditingBirth(true)} className="h-8 text-[9px] font-black uppercase tracking-widest border-slate-200 text-slate-600 hover:bg-slate-50 w-full rounded-lg">
                                                         Definir Data
                                                     </Button>
                                                 )}
                                             </div>
                                         ) : (
-                                            <div className="mt-3 flex items-center text-[9px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-50 px-2.5 py-1.5 rounded-lg w-fit border border-emerald-100">
-                                                <CheckCircle className="mr-1.5 h-3 w-3" /> Data Registrada
+                                            <div className="mt-2 flex items-center text-[8px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg w-fit border border-emerald-100">
+                                                <CheckCircle className="mr-1 h-2.5 w-2.5" /> Registrada
                                             </div>
                                         )}
                                     </div>
                                 </div>
                             </Card>
 
-                            <Card className="p-5 border-none shadow-sm bg-white rounded-2xl">
-                                <div className="flex gap-4">
-                                    <div className="h-12 w-12 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
-                                        <Star className="h-6 w-6 text-emerald-600" />
+                            <Card className="p-4 border-none shadow-sm bg-white rounded-2xl">
+                                <div className="flex gap-3">
+                                    <div className="h-10 w-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+                                        <Star className="h-5 w-5 text-emerald-600" />
                                     </div>
                                     <div>
-                                        <h4 className="font-black text-slate-900 text-xs uppercase tracking-tight italic">Primeiro Cadastro</h4>
-                                        <p className="text-[11px] text-slate-500 mt-1 font-medium">Bônus de boas-vindas já creditado.</p>
-                                        <div className="mt-3 flex items-center text-[9px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-50 px-2.5 py-1.5 rounded-lg w-fit border border-emerald-100">
-                                            <CheckCircle className="mr-1.5 h-3 w-3" /> Concluído
+                                        <h4 className="font-black text-slate-900 text-[10px] uppercase tracking-tight italic">Boas-vindas</h4>
+                                        <p className="text-[10px] text-slate-500 mt-1 font-medium">Bônus de cadastro creditado.</p>
+                                        <div className="mt-2 flex items-center text-[8px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg w-fit border border-emerald-100">
+                                            <CheckCircle className="mr-1 h-2.5 w-2.5" /> Concluído
                                         </div>
                                     </div>
                                 </div>
@@ -200,27 +200,27 @@ const LoyaltyWidget = ({ onClose }: LoyaltyWidgetProps) => {
                         </div>
                     </TabsContent>
 
-                    <TabsContent value="redeem" className="m-0 space-y-4">
+                    <TabsContent value="redeem" className="m-0 space-y-3">
                         {coupons.length > 0 ? coupons.map((coupon) => {
                             const canAfford = (profile?.points || 0) >= coupon.points_cost;
                             return (
                                 <Card key={coupon.id} className={cn(
-                                    "p-5 border-none transition-all rounded-2xl relative overflow-hidden",
-                                    canAfford ? "bg-white shadow-sm hover:shadow-md hover:translate-y-[-2px]" : "bg-white/50 opacity-60 grayscale-[0.5]"
+                                    "p-4 border-none transition-all rounded-2xl relative overflow-hidden",
+                                    canAfford ? "bg-white shadow-sm hover:shadow-md" : "bg-white/50 opacity-60 grayscale-[0.5]"
                                 )}>
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className="bg-sky-500 text-white px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-sm">
+                                    <div className="flex justify-between items-start mb-3">
+                                        <div className="bg-sky-500 text-white px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest shadow-sm">
                                             {coupon.points_cost} PTS
                                         </div>
-                                        {!canAfford && <Lock className="h-3.5 w-3.5 text-slate-400" />}
+                                        {!canAfford && <Lock className="h-3 w-3 text-slate-400" />}
                                     </div>
                                     
-                                    <h4 className="font-black text-slate-900 text-lg tracking-tighter uppercase italic leading-none">{coupon.name}</h4>
-                                    <p className="text-[10px] text-slate-400 font-bold mt-2 uppercase tracking-widest">Gasto mínimo: R$ {coupon.minimum_order_value}</p>
+                                    <h4 className="font-black text-slate-900 text-sm tracking-tighter uppercase italic leading-tight line-clamp-2">{coupon.name}</h4>
+                                    <p className="text-[8px] text-slate-400 font-bold mt-1 uppercase tracking-widest">Mínimo: R$ {coupon.minimum_order_value}</p>
                                     
                                     <Button 
                                         className={cn(
-                                            "w-full h-11 text-[11px] font-black uppercase tracking-[0.2em] mt-5 rounded-xl transition-all shadow-md",
+                                            "w-full h-9 text-[9px] font-black uppercase tracking-[0.2em] mt-4 rounded-xl transition-all shadow-md",
                                             canAfford 
                                                 ? "bg-sky-500 hover:bg-sky-400 text-white active:scale-95" 
                                                 : "bg-slate-200 text-slate-500 cursor-not-allowed"
@@ -228,19 +228,19 @@ const LoyaltyWidget = ({ onClose }: LoyaltyWidgetProps) => {
                                         disabled={!canAfford || redeemingId === coupon.id}
                                         onClick={() => handleRedeem(coupon)}
                                     >
-                                        {redeemingId === coupon.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Resgatar Agora'}
+                                        {redeemingId === coupon.id ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Resgatar'}
                                     </Button>
                                 </Card>
                             )
                         }) : (
-                            <div className="py-12 text-center">
-                                <p className="text-xs font-bold text-slate-400 uppercase italic">Nenhum cupom disponível.</p>
+                            <div className="py-10 text-center">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase italic">Nenhum cupom disponível.</p>
                             </div>
                         )}
                         
-                        <div className="pt-4 pb-2">
-                            <Link to="/clube-dk" className="group flex items-center justify-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-sky-500 transition-colors">
-                                Explorar Clube Completo <ChevronRight className="h-3 w-3 group-hover:translate-x-1 transition-transform" />
+                        <div className="pt-2 pb-2">
+                            <Link to="/clube-dk" className="group flex items-center justify-center gap-1.5 text-[9px] font-black text-slate-400 uppercase tracking-widest hover:text-sky-500 transition-colors">
+                                Clube Completo <ChevronRight className="h-2.5 w-2.5 group-hover:translate-x-1 transition-transform" />
                             </Link>
                         </div>
                     </TabsContent>

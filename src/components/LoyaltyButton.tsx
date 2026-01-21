@@ -2,8 +2,11 @@ import { Gem } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import LoyaltyWidget from './LoyaltyWidget';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const LoyaltyButton = () => {
+  const isMobile = useIsMobile();
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -20,17 +23,19 @@ const LoyaltyButton = () => {
         >
           <Gem className="h-6 w-6 text-sky-400" />
           
-          {/* Tooltip flutuante à esquerda */}
-          <span className="absolute right-full mr-4 bg-white text-charcoal-gray text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-xl border border-stone-100">
+          {/* Tooltip flutuante à esquerda (apenas desktop) */}
+          <span className="absolute right-full mr-4 bg-white text-charcoal-gray text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-xl border border-stone-100 hidden md:block">
             Meus Pontos
           </span>
         </button>
       </PopoverTrigger>
       <PopoverContent 
-        className="w-[calc(100vw-48px)] sm:w-[380px] p-0 rounded-2xl overflow-hidden border-none shadow-2xl h-[550px] max-h-[80vh] animate-in slide-in-from-right-5 duration-300 z-[101]" 
-        side="left" 
+        // No mobile, usamos side="top" para não bater nas laterais
+        // E align="end" para alinhar com a direita da tela
+        className="w-[calc(100vw-32px)] sm:w-[380px] p-0 rounded-2xl overflow-hidden border-none shadow-2xl h-[550px] max-h-[85vh] animate-in slide-in-from-bottom-2 duration-300 z-[101]" 
+        side={isMobile ? "top" : "left"} 
         align="end"
-        sideOffset={12}
+        sideOffset={16}
         collisionPadding={16}
       >
         <LoyaltyWidget />

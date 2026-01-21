@@ -94,11 +94,11 @@ const LoyaltyClubPage = () => {
         const { data } = await supabase.from('profiles').select('points').eq('id', (await supabase.auth.getUser()).data.user?.id).single();
         if (data) setProfile(prev => prev ? { ...prev, points: data.points } : null);
         
-        // Atualiza a lista de histórico localmente para feedback instantâneo
+        // Atualiza a lista de histórico localmente com o novo padrão de nome
         setHistory(prev => [{
             id: Date.now(),
             points: -coupon.points_cost,
-            description: `Resgate: ${coupon.name}`,
+            description: `Resgate Clube DK: ${coupon.name}`,
             created_at: new Date().toISOString(),
             operation_type: 'redeem'
         }, ...prev]);

@@ -133,7 +133,7 @@ const Header = ({ onCartClick }: HeaderProps) => {
                   <div className="bg-white/[0.03] rounded-2xl p-7 flex flex-col justify-between border border-white/5 relative overflow-hidden group/box">
                     <div className="absolute top-0 right-0 w-24 h-24 bg-sky-500/10 blur-[40px] rounded-full" />
                     <div className="relative z-10">
-                        <h5 className="text-white font-black text-lg uppercase tracking-tighter italic mb-4 leading-tight border-l-4 border-sky-500 pl-3">
+                        <h5 className="text-white font-black text-lg uppercase tracking-tighter italic mb-4 leading-tight border-l-4 border-sky-500 pl-3" translate="no">
                             {category.name}.
                         </h5>
                         <p className="text-[11px] text-slate-400 font-medium leading-relaxed">
@@ -183,13 +183,13 @@ const Header = ({ onCartClick }: HeaderProps) => {
                     <Accordion type="single" collapsible className="w-full">
                         {categories.map((cat) => (
                             <AccordionItem key={cat.id} value={`cat-${cat.id}`} className="border-white/5">
-                                <AccordionTrigger className="text-sm font-black uppercase tracking-widest hover:no-underline py-4">
+                                <AccordionTrigger className="text-sm font-black uppercase tracking-widest hover:no-underline py-4" translate="no">
                                     {cat.name}
                                 </AccordionTrigger>
                                 <AccordionContent className="pl-4 pb-4 space-y-3">
                                     <Link to={`/produtos?category=${cat.name}`} className="block text-xs font-bold text-sky-500 uppercase tracking-widest border-b border-white/5 pb-2">Explorar Tudo</Link>
                                     {subCategories.filter(s => s.category_id === cat.id).map(sub => (
-                                        <Link key={sub.id} to={`/produtos?category=${cat.name}&sub_category=${sub.name}`} className="block text-xs font-medium text-slate-400 uppercase tracking-widest hover:text-white">{sub.name}</Link>
+                                        <Link key={sub.id} to={`/produtos?category=${cat.name}&sub_category=${sub.name}`} className="block text-xs font-medium text-slate-400 uppercase tracking-widest hover:text-white" translate="no">{sub.name}</Link>
                                     ))}
                                 </AccordionContent>
                             </AccordionItem>
@@ -207,7 +207,7 @@ const Header = ({ onCartClick }: HeaderProps) => {
             ) : logoUrl ? (
               <img src={logoUrl} alt="Logo" className="h-10 md:h-16 w-auto transition-all duration-300 group-hover:scale-110" />
             ) : (
-              <h1 className="text-2xl md:text-4xl font-black italic tracking-tighter text-sky-500 group-hover:scale-105 transition-transform uppercase">DKCWB.</h1>
+              <h1 className="text-2xl md:text-4xl font-black italic tracking-tighter text-sky-500 group-hover:scale-105 transition-transform uppercase" translate="no">DKCWB.</h1>
             )}
           </Link>
         </div>
@@ -296,6 +296,7 @@ const Header = ({ onCartClick }: HeaderProps) => {
                  key={cat.id} 
                  to={`/produtos?category=${cat.name}`}
                  className="whitespace-nowrap px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-[10px] font-black uppercase tracking-widest text-white hover:bg-sky-500 hover:text-white transition-colors"
+                 translate="no"
                >
                  {cat.name}
                </Link>

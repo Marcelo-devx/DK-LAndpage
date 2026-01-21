@@ -84,12 +84,14 @@ const ProductPage = () => {
   }, [id]);
 
   const handleAddToCart = async () => {
-    if (variants.length > 0 && !selectedVariant) {
+    if (product && variants.length > 0 && !selectedVariant) {
       showError("Selecione uma opção (sabor/volume)");
       return;
     }
+    if (!product) return;
+    
     setIsAdding(true);
-    await addToCart(product!.id, quantity, 'product', selectedVariant?.id);
+    await addToCart(product.id, quantity, 'product', selectedVariant?.id);
     setIsAdding(false);
   };
 
@@ -150,7 +152,6 @@ const ProductPage = () => {
               </div>
             </div>
 
-            {/* ... restante do componente (variantes, quantidade, botão) sem alterações na lógica ... */}
             {variants.length > 0 && (
               <div className="space-y-4">
                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Escolha sua Opção</p>
@@ -168,7 +169,7 @@ const ProductPage = () => {
                         v.stock_quantity <= 0 && "opacity-40 grayscale cursor-not-allowed"
                       )}
                     >
-                      <p className="font-black text-sm text-charcoal-gray uppercase tracking-tight">{v.flavor_name || 'Original'}</p>
+                      <p className="font-black text-sm text-charcoal-gray uppercase tracking-tight" translate="no">{v.flavor_name || 'Original'}</p>
                       {v.volume_ml && <p className="text-[10px] text-slate-500 font-bold mt-1 uppercase tracking-widest">{v.volume_ml}ml</p>}
                     </button>
                   ))}
@@ -205,7 +206,6 @@ const ProductPage = () => {
           </div>
         </div>
         
-        {/* ... descrição ... */}
         <div className="w-full">
           <Card className="bg-white border-none shadow-[0_30px_60px_-20px_rgba(0,0,0,0.05)] rounded-[3rem] overflow-hidden">
             <CardContent className="p-10 md:p-16">

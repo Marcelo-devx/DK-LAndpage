@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { User, ShoppingCart, Menu, Search, Package, ChevronDown, ArrowRight, X } from 'lucide-react';
+import { User, ShoppingCart, Menu, Search, Package, ChevronDown, ArrowRight, X, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -176,6 +176,7 @@ const Header = ({ onCartClick }: HeaderProps) => {
                     <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Navegação Principal</h3>
                     <Link to="/produtos" className="block text-lg font-black uppercase tracking-widest hover:text-sky-400">Todos Produtos</Link>
                     <Link to="/compras" className="block text-lg font-black uppercase tracking-widest hover:text-sky-400">Meus Pedidos</Link>
+                    <Link to="/como-funciona" className="block text-lg font-black uppercase tracking-widest hover:text-sky-400">Clube DK</Link>
                   </div>
 
                   <div className="space-y-4">
@@ -230,6 +231,15 @@ const Header = ({ onCartClick }: HeaderProps) => {
 
         {/* ICONS AREA (RIGHT) */}
         <div className="flex items-center space-x-3 md:space-x-6 shrink-0">
+          
+          <Link to="/como-funciona" className="hidden sm:flex items-center gap-2 group">
+            <Trophy className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
+            <div className="hidden lg:flex flex-col leading-none">
+                <span className="text-[9px] text-slate-400 font-black uppercase">Clube</span>
+                <span className="text-[11px] text-white font-black uppercase tracking-tighter">Vantagens</span>
+            </div>
+          </Link>
+
           <Link to="/compras" className="hidden sm:flex items-center gap-2 group">
             <Package className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
             <div className="hidden lg:flex flex-col leading-none">

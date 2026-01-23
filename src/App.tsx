@@ -18,6 +18,7 @@ import CompleteProfilePage from "./pages/CompleteProfilePage";
 import ReferralsPage from "./pages/ReferralsPage";
 import Dashboard from "./pages/Dashboard";
 import LoyaltyClubPage from "./pages/LoyaltyClubPage";
+import HowItWorksPage from "./pages/HowItWorksPage";
 import AdminLogistics from "./pages/AdminLogistics";
 import UpdatePassword from "./pages/UpdatePassword";
 import AuthEventHandler from "./components/AuthEventHandler";
@@ -48,6 +49,7 @@ const App = () => (
               <Route path="/indicacoes" element={<ReferralsPage />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/clube-dk" element={<LoyaltyClubPage />} />
+              <Route path="/como-funciona" element={<HowItWorksPage />} />
             </Route>
             <Route path="/login" element={<Login />} />
             <Route path="/complete-profile" element={<CompleteProfilePage />} />

@@ -10,7 +10,7 @@ const Footer = () => {
       <div className="container mx-auto px-6 py-16">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
           <div className="md:col-span-1">
-            <h3 className="text-xl text-sky-500 mb-6 uppercase font-black italic tracking-tighter">DKCWB.</h3>
+            <h3 className="text-xl text-sky-500 mb-6 uppercase font-black italic tracking-tighter" translate="no">DKCWB.</h3>
             <p className="text-sm leading-relaxed text-slate-600">
               Curadoria exclusiva e inovação em cada detalhe. A sua fonte definitiva para a melhor experiência premium.
             </p>
@@ -20,6 +20,7 @@ const Footer = () => {
             <ul className="space-y-4 text-sm font-medium">
               <li><Link to="/" className="hover:text-sky-500 transition-colors">Início</Link></li>
               <li><Link to="/produtos" className="hover:text-sky-500 transition-colors">Produtos</Link></li>
+              <li><Link to="/como-funciona" className="hover:text-sky-500 transition-colors">Como Funciona o Clube</Link></li>
               <li><Link to="/dashboard" className="hover:text-sky-500 transition-colors">Minha Conta</Link></li>
             </ul>
           </div>

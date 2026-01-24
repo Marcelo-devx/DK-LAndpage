@@ -27,7 +27,6 @@ interface Tier {
   benefits: string[];
 }
 
-// Cores baseadas nas imagens de referência (Bordas superiores dos cards)
 const TierColors: Record<string, string> = {
   'Bronze': 'bg-[#CD7F32]',   // Bronze
   'Prata': 'bg-[#C0C0C0]',    // Prata
@@ -98,15 +97,15 @@ const HowItWorksPage = () => {
     <div className="bg-white min-h-screen text-charcoal-gray pb-0 font-sans">
       
       {/* HERO SECTION - Estilo "Club Don DK" Dark */}
-      <section className="relative overflow-hidden bg-[#0a0f18] text-white py-24 px-6 min-h-[80vh] flex flex-col justify-center items-center">
+      <section className="relative overflow-hidden bg-[#0a0f18] text-white pt-24 pb-32 px-6 flex flex-col justify-center items-center">
         {/* Background Effects */}
         <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1534839874837-7729227546c2?q=80&w=2574&auto=format&fit=crop')] bg-cover bg-center opacity-20 mix-blend-overlay" />
         <div className="absolute inset-0 bg-gradient-to-b from-[#05080f] via-transparent to-[#0a0f18]" />
         
-        {/* Blue Triangle Glow Effect (Simulando o triângulo neon da imagem) */}
+        {/* Blue Triangle Glow Effect */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-sky-500/20 blur-[100px] rounded-full pointer-events-none" />
 
-        <div className="relative z-10 text-center max-w-5xl mx-auto space-y-8">
+        <div className="relative z-10 text-center max-w-5xl mx-auto space-y-8 flex flex-col items-center">
           
           {/* Badge Superior */}
           <div className="inline-flex items-center gap-2 px-6 py-2 rounded-full border border-sky-500/30 bg-sky-900/30 backdrop-blur-md mb-4 shadow-[0_0_20px_rgba(14,165,233,0.3)]">
@@ -134,6 +133,54 @@ const HowItWorksPage = () => {
               <Link to="/login">Já sou membro</Link>
             </Button>
           </div>
+
+          {/* GALERIA DE IMAGENS INSERIDA AQUI */}
+          <div className="mt-20 w-full grid grid-cols-1 md:grid-cols-2 gap-8 items-center max-w-6xl">
+            {/* Imagem 1 - Maior destaque */}
+            <ScrollAnimationWrapper className="w-full">
+              <div className="relative group rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl aspect-[4/3] rotate-[-2deg] hover:rotate-0 transition-all duration-500">
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10" />
+                
+                {/* Substitua o src abaixo pela sua imagem 1 */}
+                <img 
+                  src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop" 
+                  alt="Clube DK Lifestyle" 
+                  className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-1000"
+                />
+                
+                <div className="absolute bottom-0 left-0 p-8 z-20 text-left">
+                  <div className="bg-sky-500/20 backdrop-blur-md border border-sky-500/30 p-3 rounded-xl inline-block mb-3">
+                    <Star className="h-6 w-6 text-sky-400" />
+                  </div>
+                  <h3 className="text-2xl font-black italic uppercase tracking-tighter text-white mb-1">Exclusividade</h3>
+                  <p className="text-sm text-slate-300 font-medium">Produtos que só membros têm acesso.</p>
+                </div>
+              </div>
+            </ScrollAnimationWrapper>
+
+            {/* Imagem 2 - Deslocada para baixo (efeito stagger) */}
+            <ScrollAnimationWrapper className="w-full md:mt-24">
+              <div className="relative group rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl aspect-[4/3] rotate-[2deg] hover:rotate-0 transition-all duration-500">
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10" />
+                
+                {/* Substitua o src abaixo pela sua imagem 2 */}
+                <img 
+                  src="https://images.unsplash.com/photo-1520697517384-29928247471f?q=80&w=2670&auto=format&fit=crop" 
+                  alt="Clube DK Produtos" 
+                  className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-1000"
+                />
+                
+                <div className="absolute bottom-0 left-0 p-8 z-20 text-left">
+                  <div className="bg-indigo-500/20 backdrop-blur-md border border-indigo-500/30 p-3 rounded-xl inline-block mb-3">
+                    <Gift className="h-6 w-6 text-indigo-400" />
+                  </div>
+                  <h3 className="text-2xl font-black italic uppercase tracking-tighter text-white mb-1">Recompensas</h3>
+                  <p className="text-sm text-slate-300 font-medium">Troque seus pontos por itens premium.</p>
+                </div>
+              </div>
+            </ScrollAnimationWrapper>
+          </div>
+
         </div>
       </section>
 

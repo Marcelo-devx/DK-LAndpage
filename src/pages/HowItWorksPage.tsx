@@ -3,7 +3,17 @@ import { supabase } from '@/integrations/supabase/client';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Gem, Trophy, Gift, UserPlus, ShoppingBag, ArrowRight, Star, TrendingUp } from 'lucide-react';
+import { 
+  Gem, 
+  Gift, 
+  UserPlus, 
+  Truck, 
+  Star, 
+  Headset, 
+  Plus, 
+  TrendingUp,
+  Check
+} from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import ScrollAnimationWrapper from '@/components/ScrollAnimationWrapper';
 import { cn } from '@/lib/utils';
@@ -17,12 +27,21 @@ interface Tier {
   benefits: string[];
 }
 
+// Cores baseadas nas imagens de referência (Bordas superiores dos cards)
 const TierColors: Record<string, string> = {
-  'Bronze': 'bg-orange-700',
-  'Prata': 'bg-slate-400',
-  'Ouro': 'bg-yellow-500',
-  'Diamante': 'bg-cyan-500',
-  'Black': 'bg-slate-900',
+  'Bronze': 'bg-[#CD7F32]',   // Bronze
+  'Prata': 'bg-[#C0C0C0]',    // Prata
+  'Ouro': 'bg-[#FFD700]',     // Ouro
+  'Diamante': 'bg-[#00BFFF]', // Cyan/Azul Claro
+  'Black': 'bg-[#111111]',    // Preto
+};
+
+const TierTextColors: Record<string, string> = {
+  'Bronze': 'text-[#CD7F32]',
+  'Prata': 'text-[#A0A0A0]',
+  'Ouro': 'text-[#D4AF37]',
+  'Diamante': 'text-[#00BFFF]',
+  'Black': 'text-[#111111]',
 };
 
 const HowItWorksPage = () => {
@@ -42,207 +61,206 @@ const HowItWorksPage = () => {
     fetchTiers();
   }, []);
 
-  const steps = [
+  const benefitsList = [
     {
-      icon: ShoppingBag,
-      title: "1. Compre e Ganhe",
-      description: "A cada R$ 1,00 em compras, você ganha 1 ponto base. Quanto mais você compra, mais pontos acumula."
-    },
-    {
-      icon: Trophy,
-      title: "2. Suba de Nível",
-      description: "Seu gasto semestral define seu Nível VIP. Níveis superiores multiplicam seus pontos automaticamente."
+      icon: Plus,
+      title: "Pontos por Indicação",
+      description: "Ganhe pontos extras trazendo amigos"
     },
     {
       icon: Gift,
-      title: "3. Resgate Prêmios",
-      description: "Troque seus pontos por cupons de desconto, frete grátis e acesso a produtos exclusivos."
-    }
-  ];
-
-  const waysToEarn = [
-    {
-      icon: UserPlus,
-      title: "Indique Amigos",
-      desc: "Ganhe 200 pontos para cada amigo que fizer a primeira compra através do seu link.",
-      color: "text-purple-500 bg-purple-100"
+      title: "Brindes",
+      description: "Presentes exclusivos em pedidos"
     },
     {
       icon: Star,
-      title: "Avalie Produtos",
-      desc: "Sua opinião vale ouro. Ganhe pontos ao avaliar os produtos que você comprou.",
-      color: "text-yellow-500 bg-yellow-100"
+      title: "Experiências",
+      description: "Acesso a eventos e promoções"
     },
     {
       icon: TrendingUp,
-      title: "Bônus de Nível",
-      desc: "Clientes VIP ganham multiplicadores de até 2.0x em todas as compras.",
-      color: "text-sky-500 bg-sky-100"
+      title: "+ Pontos",
+      description: "Multiplicadores de acúmulo"
+    },
+    {
+      icon: Truck,
+      title: "Frete Grátis",
+      description: "Entrega gratuita selecionada"
+    },
+    {
+      icon: Headset,
+      title: "Pré Venda Privada",
+      description: "Acesso antecipado a lançamentos"
     }
   ];
 
   return (
-    <div className="bg-off-white min-h-screen text-charcoal-gray pb-20">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden bg-slate-900 text-white py-20 px-6">
-        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1550989460-0adf9ea622e2?q=80&w=2574&auto=format&fit=crop')] bg-cover bg-center opacity-10" />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/80 to-transparent" />
+    <div className="bg-white min-h-screen text-charcoal-gray pb-0 font-sans">
+      
+      {/* HERO SECTION - Estilo "Club Don DK" Dark */}
+      <section className="relative overflow-hidden bg-[#0a0f18] text-white py-24 px-6 min-h-[80vh] flex flex-col justify-center items-center">
+        {/* Background Effects */}
+        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1534839874837-7729227546c2?q=80&w=2574&auto=format&fit=crop')] bg-cover bg-center opacity-20 mix-blend-overlay" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#05080f] via-transparent to-[#0a0f18]" />
         
-        <div className="container mx-auto relative z-10 text-center max-w-4xl">
-          <div className="inline-flex items-center justify-center p-3 bg-sky-500/20 border border-sky-500/30 rounded-full mb-6 backdrop-blur-md">
-            <Gem className="h-6 w-6 text-sky-400 mr-2" />
-            <span className="text-sky-400 font-black uppercase tracking-widest text-xs">Programa de Fidelidade</span>
+        {/* Blue Triangle Glow Effect (Simulando o triângulo neon da imagem) */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-sky-500/20 blur-[100px] rounded-full pointer-events-none" />
+
+        <div className="relative z-10 text-center max-w-5xl mx-auto space-y-8">
+          
+          {/* Badge Superior */}
+          <div className="inline-flex items-center gap-2 px-6 py-2 rounded-full border border-sky-500/30 bg-sky-900/30 backdrop-blur-md mb-4 shadow-[0_0_20px_rgba(14,165,233,0.3)]">
+            <Gem className="h-4 w-4 text-sky-400" />
+            <span className="text-xs font-black uppercase tracking-[0.2em] text-sky-400">Programa de Fidelidade</span>
           </div>
-          <h1 className="text-4xl md:text-7xl font-black italic tracking-tighter uppercase mb-6 leading-none">
-            Clube <span className="text-sky-500" translate="no">DK</span>.
-          </h1>
-          <p className="text-lg md:text-xl text-slate-300 font-medium mb-10 max-w-2xl mx-auto leading-relaxed">
-            Mais do que compras, uma experiência. Acumule pontos, desbloqueie níveis exclusivos e aproveite benefícios que só a DKCWB oferece.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button asChild size="lg" className="bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest h-14 px-8 rounded-xl shadow-lg transition-transform hover:scale-105">
+
+          {/* Título Principal */}
+          <div className="space-y-2">
+            <h1 className="text-6xl md:text-8xl font-black italic tracking-tighter uppercase leading-none">
+              Clube <span className="text-sky-500">DK</span>.
+            </h1>
+            <p className="text-xl md:text-2xl text-slate-300 font-medium max-w-2xl mx-auto leading-relaxed pt-4">
+              Mais do que compras, uma experiência. <br/>
+              <span className="text-sky-400 font-bold">Você não ganha desconto. Você sobe de nível.</span>
+            </p>
+          </div>
+
+          {/* Botões de Ação */}
+          <div className="flex flex-col sm:flex-row gap-6 justify-center pt-8">
+            <Button asChild size="lg" className="bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest h-16 px-10 rounded-2xl shadow-[0_0_30px_rgba(14,165,233,0.4)] transition-all hover:scale-105 text-sm">
               <Link to="/login?view=sign_up">Quero Participar</Link>
             </Button>
-            <Button asChild variant="outline" size="lg" className="border-white/20 text-white hover:bg-white/10 font-black uppercase tracking-widest h-14 px-8 rounded-xl">
+            <Button asChild variant="outline" size="lg" className="bg-[#f4eee3] hover:bg-white text-slate-900 border-none font-black uppercase tracking-widest h-16 px-10 rounded-2xl shadow-lg transition-all hover:scale-105 text-sm">
               <Link to="/login">Já sou membro</Link>
             </Button>
           </div>
         </div>
       </section>
 
-      {/* Como Funciona - Steps */}
-      <section className="container mx-auto px-6 py-20">
-        <ScrollAnimationWrapper>
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-black italic uppercase tracking-tighter text-charcoal-gray mb-4">Simples e Recompensador</h2>
-            <p className="text-stone-500 font-medium">Veja como é fácil começar a ganhar.</p>
+      {/* BENEFÍCIOS SECTION - Estilo Diamante com Borda Vermelha */}
+      <section className="py-24 bg-[#05080f] relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-sky-900/20 via-[#05080f] to-[#05080f]" />
+        
+        <div className="container mx-auto px-6 relative z-10">
+          <div className="text-center mb-20">
+            <h2 className="text-3xl md:text-5xl font-black uppercase tracking-widest text-white mb-4">
+              Benefícios <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-indigo-400">Exclusivos</span>
+            </h2>
+            <div className="h-1 w-24 bg-gradient-to-r from-transparent via-red-500 to-transparent mx-auto" />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {steps.map((step, index) => (
-              <Card key={index} className="bg-white border border-stone-200 shadow-xl rounded-[2rem] hover:border-sky-500/30 transition-all duration-300 group">
-                <CardContent className="p-8 text-center">
-                  <div className="w-20 h-20 mx-auto bg-stone-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-sky-50 transition-colors">
-                    <step.icon className="h-10 w-10 text-stone-400 group-hover:text-sky-500 transition-colors" />
-                  </div>
-                  <h3 className="text-xl font-black text-charcoal-gray uppercase tracking-tight mb-3">{step.title}</h3>
-                  <p className="text-stone-500 leading-relaxed font-medium text-sm">{step.description}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </ScrollAnimationWrapper>
-      </section>
-
-      {/* Tiers Section */}
-      <section className="bg-white py-20 border-y border-stone-200">
-        <div className="container mx-auto px-6">
           <ScrollAnimationWrapper>
-            <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-charcoal-gray mb-4">Níveis de Exclusividade</h2>
-              <p className="text-stone-500 font-medium max-w-2xl mx-auto">
-                Seu status é atualizado automaticamente com base no seu volume de compras dos últimos 6 meses.
-              </p>
-            </div>
-
-            {loading ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
-                {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-96 w-full rounded-[2rem]" />)}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
-                {tiers.map((tier) => (
-                  <div key={tier.id} className="relative flex flex-col group">
-                    <div className={cn("h-2 w-full rounded-t-2xl", TierColors[tier.name] || 'bg-slate-200')} />
-                    <Card className="flex-1 bg-stone-50 border border-stone-200 shadow-sm hover:shadow-xl transition-all duration-300 rounded-b-2xl rounded-t-none overflow-hidden hover:-translate-y-2">
-                      <CardContent className="p-6 flex flex-col h-full">
-                        <div className="mb-6 text-center">
-                          <h3 className="text-2xl font-black uppercase tracking-tighter text-charcoal-gray mb-1" translate="no">{tier.name}</h3>
-                          <div className="inline-block px-3 py-1 bg-white rounded-lg border border-stone-200 shadow-sm">
-                            <span className="text-xs font-bold text-stone-500 uppercase tracking-widest">
-                              {tier.points_multiplier}x Pontos
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="space-y-4 mb-8 flex-1">
-                          <p className="text-xs font-bold text-stone-400 uppercase tracking-widest text-center mb-4">Requisitos</p>
-                          <div className="text-center">
-                            <p className="text-sm font-medium text-stone-600">Gasto Semestral</p>
-                            <p className="text-lg font-black text-charcoal-gray">
-                              {tier.min_spend === 0 ? 'Qualquer valor' : `R$ ${tier.min_spend.toLocaleString('pt-BR')}`}
-                              {tier.max_spend ? ` - R$ ${tier.max_spend.toLocaleString('pt-BR')}` : '+'}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="space-y-3 pt-6 border-t border-stone-200">
-                          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400 mb-2">Benefícios</p>
-                          {tier.benefits.map((benefit, idx) => (
-                            <div key={idx} className="flex items-start gap-2 text-sm text-stone-600 font-medium">
-                              <div className="mt-1 h-1.5 w-1.5 rounded-full bg-sky-500 shrink-0" />
-                              <span className="leading-tight">{benefit}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8 md:gap-4 justify-items-center">
+              {benefitsList.map((item, index) => (
+                <div key={index} className="flex flex-col items-center text-center group">
+                  {/* Container do Diamante */}
+                  <div className="relative w-24 h-24 mb-6 transition-transform duration-500 group-hover:scale-110">
+                    <div className="absolute inset-0 bg-[#0f1522] border-2 border-red-600 rotate-45 shadow-[0_0_15px_rgba(220,38,38,0.4)] group-hover:shadow-[0_0_30px_rgba(220,38,38,0.6)] transition-all" />
+                    <div className="absolute inset-0 flex items-center justify-center text-white">
+                      <item.icon className="h-10 w-10 drop-shadow-[0_0_5px_rgba(255,255,255,0.5)]" />
+                    </div>
                   </div>
-                ))}
-              </div>
-            )}
+                  
+                  <h3 className="text-white font-black uppercase text-[10px] md:text-xs tracking-widest max-w-[120px]">
+                    {item.title}
+                  </h3>
+                </div>
+              ))}
+            </div>
           </ScrollAnimationWrapper>
         </div>
       </section>
 
-      {/* Ways to Earn */}
-      <section className="container mx-auto px-6 py-20">
-        <ScrollAnimationWrapper>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div>
-              <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-charcoal-gray mb-6">
-                Acelere seus Ganhos
-              </h2>
-              <p className="text-lg text-stone-600 font-medium mb-8 leading-relaxed">
-                Além das suas compras, existem várias outras formas de acumular pontos e subir de nível mais rápido no Clube DK.
-              </p>
-              
-              <div className="space-y-6">
-                {waysToEarn.map((item, index) => (
-                  <div key={index} className="flex items-start gap-4 p-4 rounded-2xl bg-white border border-stone-100 shadow-sm hover:shadow-md transition-shadow">
-                    <div className={cn("p-3 rounded-xl shrink-0", item.color)}>
-                      <item.icon className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <h4 className="font-black text-charcoal-gray uppercase tracking-tight text-lg mb-1">{item.title}</h4>
-                      <p className="text-stone-500 text-sm font-medium leading-snug">{item.desc}</p>
+      {/* NÍVEIS SECTION - Cards Verticais com Topo Colorido */}
+      <section className="py-24 bg-white relative">
+        <div className="container mx-auto px-6">
+          <div className="text-center mb-16 space-y-4">
+            <h2 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter text-slate-900">
+              Níveis de Exclusividade
+            </h2>
+            <p className="text-slate-500 font-medium max-w-2xl mx-auto text-sm md:text-base">
+              Seu status é atualizado automaticamente com base no seu volume de compras dos últimos 6 meses.
+            </p>
+          </div>
+
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
+              {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-[500px] w-full rounded-none" />)}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 items-stretch">
+              {tiers.map((tier) => (
+                <ScrollAnimationWrapper key={tier.id} className="h-full">
+                  <div className="h-full flex flex-col bg-white shadow-xl hover:shadow-2xl transition-shadow duration-300 rounded-lg overflow-hidden border border-slate-100 group">
+                    {/* Borda Superior Colorida */}
+                    <div className={cn("h-3 w-full", TierColors[tier.name] || 'bg-slate-900')} />
+                    
+                    <div className="p-8 flex flex-col h-full items-center text-center">
+                      {/* Nome do Nível */}
+                      <h3 className="text-2xl font-black uppercase tracking-widest text-slate-900 mb-4">
+                        {tier.name}
+                      </h3>
+
+                      {/* Badge de Multiplicador */}
+                      <div className="mb-8">
+                        <span className="inline-block px-4 py-1.5 rounded-full border border-slate-200 text-slate-500 text-xs font-black uppercase tracking-widest">
+                          {tier.points_multiplier}x Pontos
+                        </span>
+                      </div>
+
+                      {/* Divisor "Requisitos" */}
+                      <div className="w-full border-t border-slate-100 pt-6 mb-6">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">
+                          Gasto Semestral
+                        </p>
+                        <p className={cn("text-lg font-black", TierTextColors[tier.name] || 'text-slate-900')}>
+                          {tier.min_spend === 0 ? 'Qualquer valor' : `R$ ${tier.min_spend.toLocaleString('pt-BR')}`}
+                          {tier.max_spend ? ` - R$ ${tier.max_spend.toLocaleString('pt-BR')}` : '+'}
+                        </p>
+                      </div>
+
+                      {/* Lista de Benefícios */}
+                      <div className="w-full border-t border-slate-100 pt-6 flex-1 text-left">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4 text-center">
+                          Benefícios
+                        </p>
+                        <ul className="space-y-3">
+                          {/* Benefício Base de Pontos */}
+                          <li className="flex items-start gap-2 text-xs font-bold text-slate-600">
+                            <div className={cn("mt-1 h-1.5 w-1.5 rounded-full shrink-0", TierColors[tier.name] || 'bg-slate-900')} />
+                            {tier.points_multiplier} {tier.points_multiplier === 1 ? 'ponto' : 'pontos'} por R$1 gasto
+                          </li>
+                          
+                          {/* Outros Benefícios */}
+                          {tier.benefits.map((benefit, idx) => (
+                            <li key={idx} className="flex items-start gap-2 text-xs font-medium text-slate-500">
+                              <div className={cn("mt-1 h-1.5 w-1.5 rounded-full shrink-0", TierColors[tier.name] || 'bg-slate-900')} />
+                              {benefit}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     </div>
                   </div>
-                ))}
-              </div>
+                </ScrollAnimationWrapper>
+              ))}
             </div>
-
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-tr from-sky-500/20 to-purple-500/20 rounded-[3rem] blur-3xl" />
-              <Card className="relative bg-slate-900 border-white/10 text-white shadow-2xl rounded-[3rem] overflow-hidden">
-                <CardContent className="p-10 md:p-14 text-center">
-                  <Trophy className="h-20 w-20 text-yellow-400 mx-auto mb-6" />
-                  <h3 className="text-3xl font-black uppercase italic tracking-tighter mb-4">Comece agora</h3>
-                  <p className="text-slate-300 font-medium mb-8">
-                    Crie sua conta hoje e já comece acumulando pontos na sua primeira compra.
-                  </p>
-                  <Button asChild size="lg" className="w-full bg-white text-slate-900 hover:bg-stone-200 font-black uppercase tracking-widest h-14 rounded-xl">
-                    <Link to="/login?view=sign_up">Criar Conta Grátis <ArrowRight className="ml-2 h-4 w-4" /></Link>
-                  </Button>
-                  <p className="text-xs text-slate-500 mt-6 font-medium">
-                    Já tem conta? <Link to="/login" className="text-sky-400 hover:underline">Faça login</Link> para ver seu saldo.
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </ScrollAnimationWrapper>
+          )}
+        </div>
       </section>
+
+      {/* FOOTER CALL TO ACTION - Texto Manuscrito / Script */}
+      <section className="bg-[#05080f] py-20 text-center relative overflow-hidden">
+        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1533227297464-675ad4a4dd5d?q=80&w=2670&auto=format&fit=crop')] bg-cover bg-center opacity-20 mix-blend-overlay" />
+        <div className="relative z-10 container mx-auto px-6">
+          <p className="font-serif italic text-3xl md:text-5xl text-white font-medium leading-relaxed tracking-wide drop-shadow-lg">
+            "Cada compra te leva <br className="md:hidden" />
+            para um <span className="text-sky-400">nível mais alto</span>."
+          </p>
+          <div className="h-1 w-32 bg-sky-500 mx-auto mt-8 rounded-full" />
+        </div>
+      </section>
+
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
@@ -10,9 +10,10 @@ import {
   User, 
   LayoutTemplate,
   Layers,
-  ChevronRight,
   Palette,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Network,
+  Webhook
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,7 +30,7 @@ import {
 } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTheme } from '@/context/ThemeContext';
-import { showSuccess } from '@/utils/toast';
+import { showSuccess, showError } from '@/utils/toast';
 import { cn } from '@/lib/utils';
 
 const AdminCustomizer = () => {
@@ -38,6 +39,14 @@ const AdminCustomizer = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState("global");
+
+  // Estado para Webhooks
+  const [webhooks, setWebhooks] = useState({
+    order_created: '',
+    order_updated: '',
+    customer_created: ''
+  });
+  const webhookTimeouts = useRef<Record<string, NodeJS.Timeout>>({});
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -56,8 +65,27 @@ const AdminCustomizer = () => {
       
       if (data?.role === 'adm') {
         setIsAdmin(true);
+        // Carregar Webhooks apenas se for admin
+        fetchWebhooks();
       } else {
         setIsAdmin(false);
+      }
+    };
+
+    const fetchWebhooks = async () => {
+      const { data } = await supabase.from('webhook_configs').select('trigger_event, target_url');
+      if (data) {
+        const currentHooks = {
+          order_created: '',
+          order_updated: '',
+          customer_created: ''
+        };
+        data.forEach(config => {
+          if (config.trigger_event === 'order_created') currentHooks.order_created = config.target_url;
+          if (config.trigger_event === 'order_updated') currentHooks.order_updated = config.target_url;
+          if (config.trigger_event === 'customer_created') currentHooks.customer_created = config.target_url;
+        });
+        setWebhooks(currentHooks);
       }
     };
 
@@ -72,13 +100,47 @@ const AdminCustomizer = () => {
     };
   }, []);
 
+  const updateWebhook = (event: string, url: string) => {
+    // Atualização Otimista
+    setWebhooks(prev => ({ ...prev, [event]: url }));
+
+    // Debounce para salvar no banco
+    if (webhookTimeouts.current[event]) clearTimeout(webhookTimeouts.current[event]);
+    
+    webhookTimeouts.current[event] = setTimeout(async () => {
+      // Se a URL estiver vazia, desativamos o webhook. Se tiver algo, ativamos.
+      const isActive = url.trim().length > 0;
+      
+      // Primeiro tenta atualizar se já existir
+      const { error, count } = await supabase
+        .from('webhook_configs')
+        .update({ target_url: url, is_active: isActive })
+        .eq('trigger_event', event)
+        .select(); // Select para ver se atualizou algo
+
+      // Se não atualizou nada (não existia), insere
+      if (!error && (count === null || count === 0)) {
+         await supabase.from('webhook_configs').insert({
+            trigger_event: event,
+            target_url: url,
+            is_active: isActive,
+            description: `Webhook para ${event}`
+         });
+      }
+
+      if (error) {
+        console.error('Erro ao salvar webhook:', error);
+        showError('Erro ao salvar configuração de integração.');
+      }
+    }, 1000); // 1 segundo de espera após parar de digitar
+  };
+
   // Sincroniza a aba com a rota atual se o usuário navegar manualmente
   useEffect(() => {
     const path = location.pathname;
     if (path === '/') setActiveTab('home');
     else if (path === '/login') setActiveTab('login');
     else if (path === '/dashboard' || path === '/perfil') setActiveTab('dashboard');
-    // 'global' não muda automaticamente para evitar saltos indesejados se o usuário estiver editando cores
   }, [location.pathname]);
 
   const handleTabChange = (value: string) => {
@@ -95,7 +157,6 @@ const AdminCustomizer = () => {
       case 'dashboard':
         if (location.pathname !== '/dashboard') navigate('/dashboard');
         break;
-      // 'global' mantém a página atual
     }
   };
 
@@ -143,6 +204,14 @@ const AdminCustomizer = () => {
                   )}
                 >
                   <Globe className="h-3.5 w-3.5" /> Global
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="integrations" 
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-purple-600 data-[state=active]:text-white data-[state=active]:border-purple-600 data-[state=active]:shadow-lg hover:bg-white hover:border-purple-200 bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"
+                  )}
+                >
+                  <Network className="h-3.5 w-3.5" /> Integrações
                 </TabsTrigger>
                 <TabsTrigger 
                   value="home" 
@@ -248,6 +317,71 @@ const AdminCustomizer = () => {
                     <Textarea value={settings.footerBannerSubtitle} onChange={(e) => updateSetting('footer_banner_subtitle', e.target.value)} placeholder="Subtítulo" rows={2} className="text-xs" />
                     <Input value={settings.footerBannerButtonText} onChange={(e) => updateSetting('footer_banner_button_text', e.target.value)} placeholder="Texto do Botão" />
                   </div>
+                </div>
+              </TabsContent>
+
+              {/* --- INTEGRAÇÕES --- */}
+              <TabsContent value="integrations" className="space-y-6 mt-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="bg-purple-50 border border-purple-100 p-4 rounded-xl mb-6">
+                    <div className="flex items-center gap-3 mb-2">
+                        <div className="bg-purple-500/10 p-2 rounded-lg">
+                            <Webhook className="h-5 w-5 text-purple-600" />
+                        </div>
+                        <h3 className="font-bold text-purple-900 text-sm">Configuração N8N</h3>
+                    </div>
+                    <p className="text-xs text-purple-700 leading-relaxed">
+                        Cole aqui os links dos seus Webhooks do N8N. O sistema enviará os dados automaticamente sempre que um evento ocorrer.
+                    </p>
+                </div>
+
+                <div className="space-y-4">
+                    <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-3">
+                        <div className="flex items-center justify-between">
+                            <Label className="text-xs font-bold uppercase tracking-wider text-slate-600">Novo Pedido</Label>
+                            <span className={cn("text-[9px] font-black uppercase px-2 py-0.5 rounded", webhooks.order_created ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-400")}>
+                                {webhooks.order_created ? 'Ativo' : 'Inativo'}
+                            </span>
+                        </div>
+                        <Input 
+                            value={webhooks.order_created} 
+                            onChange={(e) => updateWebhook('order_created', e.target.value)} 
+                            placeholder="https://seu-n8n.com/webhook/..." 
+                            className="bg-slate-50 font-mono text-xs"
+                        />
+                        <p className="text-[10px] text-slate-400">Disparado assim que um novo pedido é criado no site.</p>
+                    </div>
+
+                    <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-3">
+                        <div className="flex items-center justify-between">
+                            <Label className="text-xs font-bold uppercase tracking-wider text-slate-600">Atualização de Pedido</Label>
+                            <span className={cn("text-[9px] font-black uppercase px-2 py-0.5 rounded", webhooks.order_updated ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-400")}>
+                                {webhooks.order_updated ? 'Ativo' : 'Inativo'}
+                            </span>
+                        </div>
+                        <Input 
+                            value={webhooks.order_updated} 
+                            onChange={(e) => updateWebhook('order_updated', e.target.value)} 
+                            placeholder="https://seu-n8n.com/webhook/..." 
+                            className="bg-slate-50 font-mono text-xs"
+                        />
+                        <p className="text-[10px] text-slate-400">Disparado quando o status muda (ex: de Pendente para Pago).</p>
+                    </div>
+
+                    <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-3">
+                        <div className="flex items-center justify-between">
+                            <Label className="text-xs font-bold uppercase tracking-wider text-slate-600">Novo Cliente</Label>
+                            <span className={cn("text-[9px] font-black uppercase px-2 py-0.5 rounded", webhooks.customer_created ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-400")}>
+                                {webhooks.customer_created ? 'Ativo' : 'Inativo'}
+                            </span>
+                        </div>
+                        <Input 
+                            value={webhooks.customer_created} 
+                            onChange={(e) => updateWebhook('customer_created', e.target.value)} 
+                            placeholder="https://seu-n8n.com/webhook/..." 
+                            className="bg-slate-50 font-mono text-xs"
+                        />
+                        <p className="text-[10px] text-slate-400">Disparado quando um novo usuário completa o cadastro.</p>
+                    </div>
                 </div>
               </TabsContent>
 

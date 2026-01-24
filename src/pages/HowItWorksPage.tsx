@@ -76,8 +76,8 @@ const HowItWorksPage = () => {
     offset: ["start end", "end start"]
   });
 
-  // Transformação do movimento Y (sobe 15% e desce 15% em relação ao scroll)
-  const y = useTransform(scrollYProgress, [0, 1], ["-15%", "15%"]);
+  // Movimento vertical reduzido para não "estourar" o enquadramento
+  const y = useTransform(scrollYProgress, [0, 1], ["-10%", "10%"]);
 
   useEffect(() => {
     const fetchTiers = async () => {
@@ -308,26 +308,32 @@ const HowItWorksPage = () => {
         </div>
       </section>
 
-      {/* BANNER FINAL COM EFEITO PARALLAX */}
+      {/* BANNER FINAL COM EFEITO PARALLAX CORRIGIDO */}
       <section 
         ref={parallaxRef}
-        className="relative w-full h-[400px] md:h-[650px] overflow-hidden bg-black flex items-center justify-center border-t border-white/5"
+        className="relative w-full h-[450px] md:h-[700px] overflow-hidden bg-black flex items-center justify-center border-t border-white/5"
       >
-        {/* Contêiner da Imagem com Movimento Parallax */}
+        {/* Contêiner da Imagem com Movimento Parallax Suave */}
         <motion.div 
             style={{ y }}
-            className="absolute inset-0 w-full h-[140%] -top-[20%]" // A imagem é mais alta que o contêiner para permitir o movimento
+            className="absolute inset-0 w-full h-[120%] -top-[10%]"
         >
             <img 
-            src="https://jrlozhhvwqfmjtkmvukf.supabase.co/storage/v1/object/public/site_assets/clube_dk_cta_banner.jpg" 
+            src="https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=2670&auto=format&fit=crop" 
             alt="Clube DK Banner" 
             className="w-full h-full object-cover object-center grayscale-[0.2] contrast-[1.1]"
             />
         </motion.div>
         
-        {/* Overlays para transição e foco */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/40 opacity-60" />
-        <div className="absolute inset-0 bg-sky-500/5 mix-blend-overlay pointer-events-none" />
+        {/* Frase de Impacto sobre a imagem (Opcional, caso queira texto real) */}
+        <div className="relative z-20 text-center px-6">
+            <h2 className="text-4xl md:text-7xl font-black text-white italic tracking-tighter uppercase drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)]">
+                O Próximo Nível <br/> <span className="text-sky-500">é Seu.</span>
+            </h2>
+        </div>
+
+        {/* Overlays mais suaves para não apagar a imagem */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
       </section>
 
     </div>

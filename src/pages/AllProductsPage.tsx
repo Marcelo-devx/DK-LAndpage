@@ -18,7 +18,12 @@ interface Product {
 
 const AllProductsPage = () => {
   const [searchParams] = useSearchParams();
+  
+  // Inicializa os estados diretamente com os valores da URL para evitar delay na aplicação dos filtros
   const initialSearch = searchParams.get('search') || '';
+  const initialCategory = searchParams.get('category');
+  const initialSubCategory = searchParams.get('sub_category');
+  const initialBrand = searchParams.get('brand');
 
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,20 +34,33 @@ const AllProductsPage = () => {
   const [allFlavors, setAllFlavors] = useState<string[]>([]);
 
   const [searchTerm, setSearchTerm] = useState(initialSearch);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [selectedSubCategories, setSelectedSubCategories] = useState<string[]>([]);
-  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(initialCategory ? [initialCategory] : []);
+  const [selectedSubCategories, setSelectedSubCategories] = useState<string[]>(initialSubCategory ? [initialSubCategory] : []);
+  const [selectedBrands, setSelectedBrands] = useState<string[]>(initialBrand ? [initialBrand] : []);
   const [selectedFlavors, setSelectedFlavors] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState('created_at-desc');
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
-  // Atualiza o termo de busca se a URL mudar (ex: nova pesquisa no header)
+  // Sincroniza os filtros quando a URL muda (ex: clicando no menu superior)
   useEffect(() => {
-    const query = searchParams.get('search');
-    if (query !== null) {
-      setSearchTerm(query);
-    }
+    const querySearch = searchParams.get('search');
+    const queryCategory = searchParams.get('category');
+    const querySubCategory = searchParams.get('sub_category');
+    const queryBrand = searchParams.get('brand');
+
+    if (querySearch !== null) setSearchTerm(querySearch);
+    else setSearchTerm('');
+
+    if (queryCategory) setSelectedCategories([queryCategory]);
+    else setSelectedCategories([]);
+
+    if (querySubCategory) setSelectedSubCategories([querySubCategory]);
+    else setSelectedSubCategories([]);
+
+    if (queryBrand) setSelectedBrands([queryBrand]);
+    else setSelectedBrands([]);
+    
   }, [searchParams]);
 
   const fetchFilterOptions = useCallback(async () => {
@@ -142,6 +160,8 @@ const AllProductsPage = () => {
     setSelectedSubCategories([]);
     setSelectedBrands([]);
     setSelectedFlavors([]);
+    // Opcional: Limpar a URL também
+    window.history.pushState({}, '', '/produtos');
   };
 
   return (

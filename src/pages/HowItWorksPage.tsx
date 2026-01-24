@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import ScrollAnimationWrapper from '@/components/ScrollAnimationWrapper';
 import { cn } from '@/lib/utils';
+import { motion, useScroll, useTransform } from 'framer-motion';
 
 interface Tier {
   id: number;
@@ -67,6 +68,16 @@ const TierVisuals: Record<string, { bg: string, border: string, text: string, sh
 const HowItWorksPage = () => {
   const [tiers, setTiers] = useState<Tier[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Referência para o efeito Parallax
+  const parallaxRef = useRef(null);
+  const { scrollYProgress } = useScroll({
+    target: parallaxRef,
+    offset: ["start end", "end start"]
+  });
+
+  // Transformação do movimento Y (sobe 15% e desce 15% em relação ao scroll)
+  const y = useTransform(scrollYProgress, [0, 1], ["-15%", "15%"]);
 
   useEffect(() => {
     const fetchTiers = async () => {
@@ -297,18 +308,26 @@ const HowItWorksPage = () => {
         </div>
       </section>
 
-      {/* NOVO BANNER FINAL COM IMAGEM FORNECIDA */}
-      <section className="relative w-full h-[350px] md:h-[500px] overflow-hidden bg-black flex items-center justify-center">
-        {/* Usando a imagem como fundo de tela cheia */}
-        <img 
-          src="https://jrlozhhvwqfmjtkmvukf.supabase.co/storage/v1/object/public/site_assets/clube_dk_cta_banner.jpg" 
-          alt="Clube DK Banner" 
-          className="absolute inset-0 w-full h-full object-cover object-center"
-        />
+      {/* BANNER FINAL COM EFEITO PARALLAX */}
+      <section 
+        ref={parallaxRef}
+        className="relative w-full h-[400px] md:h-[650px] overflow-hidden bg-black flex items-center justify-center border-t border-white/5"
+      >
+        {/* Contêiner da Imagem com Movimento Parallax */}
+        <motion.div 
+            style={{ y }}
+            className="absolute inset-0 w-full h-[140%] -top-[20%]" // A imagem é mais alta que o contêiner para permitir o movimento
+        >
+            <img 
+            src="https://jrlozhhvwqfmjtkmvukf.supabase.co/storage/v1/object/public/site_assets/clube_dk_cta_banner.jpg" 
+            alt="Clube DK Banner" 
+            className="w-full h-full object-cover object-center grayscale-[0.2] contrast-[1.1]"
+            />
+        </motion.div>
         
-        {/* Overlays sutis para garantir transição suave */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-20" />
-        <div className="absolute inset-0 bg-gradient-to-b from-white to-transparent h-20 opacity-10" />
+        {/* Overlays para transição e foco */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/40 opacity-60" />
+        <div className="absolute inset-0 bg-sky-500/5 mix-blend-overlay pointer-events-none" />
       </section>
 
     </div>

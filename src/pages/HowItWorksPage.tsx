@@ -176,7 +176,7 @@ const HowItWorksPage = () => {
         </div>
       </section>
 
-      {/* JORNADA DE EXCLUSIVIDADE - NOVA SEÇÃO INSPIRADA NA IMAGEM */}
+      {/* JORNADA DE EXCLUSIVIDADE */}
       <section className="py-24 bg-[#0a0f18] relative">
         <div className="container mx-auto px-6">
           <div className="text-center mb-20">
@@ -194,14 +194,12 @@ const HowItWorksPage = () => {
                       "group relative h-full flex flex-col md:flex-row overflow-hidden rounded-[2rem] border transition-all duration-500 hover:-translate-y-2",
                       visual.bg, visual.border, visual.shadow, "shadow-2xl"
                     )}>
-                      {/* Lado Esquerdo: Nome do Nível Vertical */}
                       <div className="md:w-20 bg-black/40 flex items-center justify-center py-6 md:py-0 border-b md:border-b-0 md:border-r border-white/5 shrink-0">
                         <h3 className={cn("text-2xl font-black uppercase tracking-[0.3em] md:-rotate-90 whitespace-nowrap", visual.text)}>
                           {tier.name}
                         </h3>
                       </div>
 
-                      {/* Conteúdo Central */}
                       <div className="flex-1 p-8 md:p-10 flex flex-col justify-between">
                         <div>
                           <div className="flex flex-col sm:flex-row sm:items-baseline gap-2 mb-6">
@@ -233,7 +231,6 @@ const HowItWorksPage = () => {
                         </div>
                       </div>
 
-                      {/* Elemento Visual do Ícone no Fundo */}
                       <div className="absolute top-1/2 -right-12 -translate-y-1/2 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity duration-700 pointer-events-none">
                          <ShieldCheck className="h-64 w-64 text-white" />
                       </div>
@@ -246,7 +243,7 @@ const HowItWorksPage = () => {
         </div>
       </section>
 
-      {/* NÍVEIS SECTION VERTICAL (Original, mantido para redundância de informação ou removido se preferir) */}
+      {/* NÍVEIS SECTION VERTICAL */}
       <section className="py-24 bg-white relative">
         <div className="container mx-auto px-6">
           <div className="text-center mb-16 space-y-4">
@@ -300,15 +297,18 @@ const HowItWorksPage = () => {
         </div>
       </section>
 
-      {/* FOOTER CALL TO ACTION */}
-      <section className="bg-[#05080f] py-20 text-center relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1533227297464-675ad4a4dd5d?q=80&w=2670&auto=format&fit=crop')] bg-cover bg-center opacity-20 mix-blend-overlay" />
-        <div className="relative z-10 container mx-auto px-6">
-          <p className="font-serif italic text-3xl md:text-5xl text-white font-medium leading-relaxed tracking-wide drop-shadow-lg">
-            "Cada compra te leva <br className="md:hidden" /> para um <span className="text-sky-400">nível mais alto</span>."
-          </p>
-          <div className="h-1 w-32 bg-sky-500 mx-auto mt-8 rounded-full" />
-        </div>
+      {/* NOVO BANNER FINAL COM IMAGEM FORNECIDA */}
+      <section className="relative w-full h-[350px] md:h-[500px] overflow-hidden bg-black flex items-center justify-center">
+        {/* Usando a imagem como fundo de tela cheia */}
+        <img 
+          src="https://jrlozhhvwqfmjtkmvukf.supabase.co/storage/v1/object/public/site_assets/clube_dk_cta_banner.jpg" 
+          alt="Clube DK Banner" 
+          className="absolute inset-0 w-full h-full object-cover object-center"
+        />
+        
+        {/* Overlays sutis para garantir transição suave */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-20" />
+        <div className="absolute inset-0 bg-gradient-to-b from-white to-transparent h-20 opacity-10" />
       </section>
 
     </div>

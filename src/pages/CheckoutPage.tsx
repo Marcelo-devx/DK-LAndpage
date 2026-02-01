@@ -26,6 +26,7 @@ interface DisplayItem {
   quantity: number;
   name: string;
   price: number;
+  pixPrice: number | null;
   image_url: string;
 }
 
@@ -54,7 +55,6 @@ const checkoutSchema = z.object({
 type CheckoutFormData = z.infer<typeof checkoutSchema>;
 
 // Função auxiliar para determinar se um benefício é automático (passivo)
-// REMOVIDO 'frete' DAQUI PARA QUE ELE SE TORNE SELECIONÁVEL
 const isPassiveBenefit = (benefit: string) => {
   const b = benefit.toLowerCase();
   return b.includes('pontos') || 
@@ -99,20 +99,31 @@ const CheckoutPage = () => {
   const watchedNeighborhood = watch('neighborhood');
   const watchedCity = watch('city');
 
-  // Lógica de Cálculo de Frete (Observa mudanças no endereço e nos benefícios SELECIONADOS)
+  // Helper para obter o preço ativo baseado no método de pagamento
+  const getItemPrice = useCallback((item: DisplayItem) => {
+    if (paymentMethod === 'pix' && item.pixPrice && item.pixPrice > 0) {
+      return item.pixPrice;
+    }
+    return item.price;
+  }, [paymentMethod]);
+
+  // Cálculo do Subtotal Dinâmico
+  const subtotal = items.reduce((acc, item) => acc + getItemPrice(item) * item.quantity, 0);
+
+  // Lógica de Cálculo de Frete (Observa mudanças no endereço e nos benefícios)
   useEffect(() => {
     const calculateShipping = async () => {
-      // 1. Se for Correios, o cálculo é diferente
+      // 1. Se for Correios, o cálculo é diferente (mantemos 0 ou lógica externa por enquanto)
       if (deliveryType === 'correios') {
         setShippingCost(0); // Será "A Combinar"
         setIsFreeShippingApplied(false);
         return;
       }
 
-      // 2. Verificar se o Benefício de Frete Grátis foi SELECIONADO pelo usuário
-      const hasFreeShippingSelected = selectedBenefits.some(b => b.toLowerCase().includes('frete grátis'));
+      // 2. Verificar Benefício de Frete Grátis do Clube
+      const hasFreeShippingBenefit = selectedBenefits.some(b => b.toLowerCase().includes('frete grátis'));
       
-      if (hasFreeShippingSelected) {
+      if (hasFreeShippingBenefit) {
         setShippingCost(0);
         setIsFreeShippingApplied(true);
         return;
@@ -120,7 +131,7 @@ const CheckoutPage = () => {
         setIsFreeShippingApplied(false);
       }
 
-      // 3. Se não selecionou o benefício e temos endereço, busca no banco
+      // 3. Se não tem benefício e temos endereço, busca no banco
       if (watchedNeighborhood && watchedCity) {
         const { data, error } = await supabase.rpc('get_shipping_rate', { 
           p_neighborhood: watchedNeighborhood,
@@ -130,6 +141,7 @@ const CheckoutPage = () => {
         if (!error && data !== null) {
           setShippingCost(Number(data));
         } else {
+          // Se não encontrou na tabela, assume 0 (A Combinar) ou um valor padrão
           setShippingCost(0); 
         }
       }
@@ -139,13 +151,12 @@ const CheckoutPage = () => {
       if (watchedNeighborhood && watchedCity) {
         calculateShipping();
       } else if (selectedBenefits.some(b => b.toLowerCase().includes('frete grátis'))) {
-        // Recalcula se o usuário marcou/desmarcou o frete grátis mesmo sem mudar endereço
         calculateShipping();
       }
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [watchedNeighborhood, watchedCity, selectedBenefits, deliveryType]); // Adicionado selectedBenefits aqui
+  }, [watchedNeighborhood, watchedCity, selectedBenefits, deliveryType]);
 
 
   const handleCepLookup = async () => {
@@ -179,8 +190,6 @@ const CheckoutPage = () => {
     }
   };
 
-  const subtotal = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
-
   const fetchCartItems = useCallback(async () => {
     const localCart = getLocalCart();
     if (localCart.length === 0) { navigate('/', { replace: true }); return; }
@@ -188,13 +197,40 @@ const CheckoutPage = () => {
     const productIds = localCart.filter(i => i.itemType === 'product').map(i => i.itemId);
     const promotionIds = localCart.filter(i => i.itemType === 'promotion').map(i => i.itemId);
     
-    const { data: products } = await supabase.from('products').select('id, name, price, image_url').in('id', productIds);
-    const { data: promotions } = await supabase.from('promotions').select('id, name, price, image_url').in('id', promotionIds);
+    const { data: products } = await supabase.from('products').select('id, name, price, pix_price, image_url').in('id', productIds);
+    const { data: promotions } = await supabase.from('promotions').select('id, name, price, pix_price, image_url').in('id', promotionIds);
     
+    // Buscar variants para pegar preços específicos de variações se houver
+    const variantIds = localCart.filter(i => i.variantId).map(i => i.variantId!);
+    const { data: variants } = await supabase.from('product_variants').select('id, price, pix_price').in('id', variantIds);
+
     const finalItems = localCart.map(cartItem => {
-      const details = cartItem.itemType === 'product' 
-        ? products?.find(p => p.id === cartItem.itemId) 
-        : promotions?.find(p => p.id === cartItem.itemId);
+      let details: any = null;
+      let price = 0;
+      let pixPrice: number | null = null;
+
+      if (cartItem.itemType === 'product') {
+        details = products?.find(p => p.id === cartItem.itemId);
+        if (details) {
+            price = details.price;
+            pixPrice = details.pix_price;
+
+            // Se for variação, sobrescreve o preço
+            if (cartItem.variantId && variants) {
+                const variant = variants.find(v => v.id === cartItem.variantId);
+                if (variant) {
+                    price = variant.price;
+                    pixPrice = variant.pix_price;
+                }
+            }
+        }
+      } else {
+        details = promotions?.find(p => p.id === cartItem.itemId);
+        if (details) {
+            price = details.price;
+            pixPrice = details.pix_price;
+        }
+      }
         
       return details ? { 
         id: cartItem.itemId, 
@@ -202,7 +238,8 @@ const CheckoutPage = () => {
         itemType: cartItem.itemType, 
         quantity: cartItem.quantity, 
         name: details.name, 
-        price: details.price, 
+        price: price,
+        pixPrice: pixPrice,
         image_url: details.image_url || '' 
       } : null;
     }).filter((i): i is DisplayItem => i !== null);
@@ -325,11 +362,12 @@ const CheckoutPage = () => {
       await supabase.from('profiles').update(shippingAddress).eq('id', user.id);
 
       const { data: orderData, error: orderError } = await supabase.rpc('create_pending_order_from_local_cart', {
-        shipping_cost_input: shippingCost, // Envia o custo calculado (0 ou valor da tabela)
+        shipping_cost_input: shippingCost, 
         shipping_address_input: shippingAddress,
         cart_items_input: getLocalCart(),
         user_coupon_id_input: selectedCoupon?.user_coupon_id,
-        benefits_input: benefitsString
+        benefits_input: benefitsString,
+        payment_method_input: data.payment_method // Passa o método escolhido para o banco
       });
 
       if (orderError) throw new Error(orderError.message);
@@ -540,16 +578,19 @@ const CheckoutPage = () => {
             </CardHeader>
             <CardContent className="p-8 space-y-6">
               <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                {items.map(item => (
-                  <div key={`${item.itemType}-${item.itemId}`} className="flex items-center space-x-4 bg-stone-50 p-3 rounded-xl border border-stone-100">
-                    <img src={item.image_url} alt={item.name} className="h-14 w-14 object-cover rounded-lg" />
-                    <div className="flex-grow">
-                      <p className="font-black text-charcoal-gray uppercase text-xs tracking-tight">{item.name}</p>
-                      <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest">Qtd: {item.quantity}</p>
+                {items.map(item => {
+                  const currentPrice = getItemPrice(item);
+                  return (
+                    <div key={`${item.itemType}-${item.itemId}`} className="flex items-center space-x-4 bg-stone-50 p-3 rounded-xl border border-stone-100">
+                        <img src={item.image_url} alt={item.name} className="h-14 w-14 object-cover rounded-lg" />
+                        <div className="flex-grow">
+                        <p className="font-black text-charcoal-gray uppercase text-xs tracking-tight">{item.name}</p>
+                        <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest">Qtd: {item.quantity}</p>
+                        </div>
+                        <p className="font-black text-sky-600 tracking-tighter">R$ {(currentPrice * item.quantity).toFixed(2).replace('.', ',')}</p>
                     </div>
-                    <p className="font-black text-sky-600 tracking-tighter">R$ {(item.price * item.quantity).toFixed(2).replace('.', ',')}</p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               
               <Separator className="bg-stone-200" />

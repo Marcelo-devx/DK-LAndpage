@@ -45,7 +45,7 @@ const AdminCustomizer = () => {
     order_created: '',
     order_updated: '',
     customer_created: '',
-    support_contact_clicked: '' // Novo campo
+    chat_message_sent: '' // Alterado de support_contact para chat message
   });
   const webhookTimeouts = useRef<Record<string, NodeJS.Timeout>>({});
 
@@ -79,13 +79,13 @@ const AdminCustomizer = () => {
           order_created: '',
           order_updated: '',
           customer_created: '',
-          support_contact_clicked: ''
+          chat_message_sent: ''
         };
         data.forEach(config => {
           if (config.trigger_event === 'order_created') currentHooks.order_created = config.target_url;
           if (config.trigger_event === 'order_updated') currentHooks.order_updated = config.target_url;
           if (config.trigger_event === 'customer_created') currentHooks.customer_created = config.target_url;
-          if (config.trigger_event === 'support_contact_clicked') currentHooks.support_contact_clicked = config.target_url;
+          if (config.trigger_event === 'chat_message_sent') currentHooks.chat_message_sent = config.target_url;
         });
         setWebhooks(currentHooks);
       }
@@ -250,11 +250,11 @@ const AdminCustomizer = () => {
                         <Input value={webhooks.customer_created} onChange={(e) => updateWebhook('customer_created', e.target.value)} placeholder="https://seu-n8n.com/webhook/..." className="bg-slate-50 font-mono text-xs"/>
                     </div>
                     
-                    {/* NOVO CAMPO: SUPORTE */}
-                    <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-3 border-l-4 border-l-sky-500">
-                        <div className="flex items-center justify-between"><Label className="text-xs font-bold uppercase tracking-wider text-sky-600">Botão de Suporte (Click)</Label><span className={cn("text-[9px] font-black uppercase px-2 py-0.5 rounded", webhooks.support_contact_clicked ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-400")}>{webhooks.support_contact_clicked ? 'Ativo' : 'Inativo'}</span></div>
-                        <Input value={webhooks.support_contact_clicked} onChange={(e) => updateWebhook('support_contact_clicked', e.target.value)} placeholder="https://seu-n8n.com/webhook/..." className="bg-slate-50 font-mono text-xs"/>
-                        <p className="text-[10px] text-slate-400">Disparado quando o usuário clica no botão flutuante do WhatsApp.</p>
+                    {/* NOVO CAMPO: CHAT BOT */}
+                    <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-3 border-l-4 border-l-emerald-500">
+                        <div className="flex items-center justify-between"><Label className="text-xs font-bold uppercase tracking-wider text-emerald-600">Chat Bot (Mensagem)</Label><span className={cn("text-[9px] font-black uppercase px-2 py-0.5 rounded", webhooks.chat_message_sent ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-400")}>{webhooks.chat_message_sent ? 'Ativo' : 'Inativo'}</span></div>
+                        <Input value={webhooks.chat_message_sent} onChange={(e) => updateWebhook('chat_message_sent', e.target.value)} placeholder="https://seu-n8n.com/webhook/..." className="bg-slate-50 font-mono text-xs"/>
+                        <p className="text-[10px] text-slate-400">Webhook para processar mensagens do Chat no site. Deve retornar JSON com <code>text</code>.</p>
                     </div>
                 </div>
               </TabsContent>

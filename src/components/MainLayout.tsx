@@ -8,9 +8,9 @@ import Footer from "./Footer";
 import SocialProofPopup from "./SocialProofPopup";
 import AgeVerificationPopup from "./AgeVerificationPopup";
 import DeliveryTimerBar from "./DeliveryTimerBar";
-import WhatsAppButton from "./WhatsAppButton";
+import SupportChatWidget from "./SupportChatWidget"; // Novo
 import LoyaltyButton from "./LoyaltyButton";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from '@/integrations/supabase/client';
 
 export interface OutletContextType {
   handleCategoryClick: (categoryName: string) => void;
@@ -56,7 +56,6 @@ const MainLayout = () => {
           profile.city &&
           profile.state;
 
-        // Se estiver incompleto e não estiver na página de completar perfil, redireciona
         if (!isProfileComplete && location.pathname !== '/complete-profile') {
           navigate('/complete-profile', { replace: true });
         }
@@ -101,9 +100,9 @@ const MainLayout = () => {
       <CartSheet isOpen={isCartOpen} onOpenChange={setIsCartOpen} />
       <SocialProofPopup />
       
-      {/* Botões Flutuantes: LoyaltyButton acima do WhatsAppButton */}
+      {/* Botões Flutuantes */}
       <LoyaltyButton />
-      <WhatsAppButton />
+      <SupportChatWidget />
     </div>
   );
 };

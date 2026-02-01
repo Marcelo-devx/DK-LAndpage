@@ -15,16 +15,10 @@ interface Message {
 
 const SupportChatWidget = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'welcome',
-      text: 'Olá! Sou o assistente virtual da DKCWB. Como posso ajudar você hoje?',
-      sender: 'bot',
-      timestamp: new Date()
-    }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]); // Começa vazio
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [hasInitialized, setHasInitialized] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -34,6 +28,45 @@ const SupportChatWidget = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages, isOpen, isTyping]);
+
+  // Busca a mensagem de boas-vindas ao abrir pela primeira vez
+  useEffect(() => {
+    if (isOpen && !hasInitialized) {
+        setHasInitialized(true);
+        const fetchGreeting = async () => {
+            setIsTyping(true);
+            try {
+                // Envia comando /start para o N8N saber que é o início
+                const { data, error } = await supabase.functions.invoke('chat-proxy', {
+                    body: { message: "/start", history: [] }
+                });
+                
+                if (error) throw error;
+                
+                if (data?.reply) {
+                    setMessages([{
+                        id: Date.now().toString(),
+                        text: data.reply,
+                        sender: 'bot',
+                        timestamp: new Date()
+                    }]);
+                }
+            } catch (error) {
+                console.error("Falha ao buscar saudação:", error);
+                // Fallback caso o webhook falhe
+                setMessages([{
+                    id: 'default-welcome',
+                    text: 'Olá! Como posso ajudar você hoje?',
+                    sender: 'bot',
+                    timestamp: new Date()
+                }]);
+            } finally {
+                setIsTyping(false);
+            }
+        };
+        fetchGreeting();
+    }
+  }, [isOpen, hasInitialized]);
 
   const handleSendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();

@@ -54,10 +54,10 @@ const checkoutSchema = z.object({
 type CheckoutFormData = z.infer<typeof checkoutSchema>;
 
 // Função auxiliar para determinar se um benefício é automático (passivo)
+// REMOVIDO 'frete' DAQUI PARA QUE ELE SE TORNE SELECIONÁVEL
 const isPassiveBenefit = (benefit: string) => {
   const b = benefit.toLowerCase();
   return b.includes('pontos') || 
-         b.includes('frete') || 
          b.includes('pré-venda') || 
          b.includes('aniversário') || 
          b.includes('acesso') ||
@@ -99,20 +99,20 @@ const CheckoutPage = () => {
   const watchedNeighborhood = watch('neighborhood');
   const watchedCity = watch('city');
 
-  // Lógica de Cálculo de Frete (Observa mudanças no endereço e nos benefícios)
+  // Lógica de Cálculo de Frete (Observa mudanças no endereço e nos benefícios SELECIONADOS)
   useEffect(() => {
     const calculateShipping = async () => {
-      // 1. Se for Correios, o cálculo é diferente (mantemos 0 ou lógica externa por enquanto)
+      // 1. Se for Correios, o cálculo é diferente
       if (deliveryType === 'correios') {
         setShippingCost(0); // Será "A Combinar"
         setIsFreeShippingApplied(false);
         return;
       }
 
-      // 2. Verificar Benefício de Frete Grátis do Clube
-      const hasFreeShippingBenefit = tierBenefits.some(b => b.toLowerCase().includes('frete grátis'));
+      // 2. Verificar se o Benefício de Frete Grátis foi SELECIONADO pelo usuário
+      const hasFreeShippingSelected = selectedBenefits.some(b => b.toLowerCase().includes('frete grátis'));
       
-      if (hasFreeShippingBenefit) {
+      if (hasFreeShippingSelected) {
         setShippingCost(0);
         setIsFreeShippingApplied(true);
         return;
@@ -120,7 +120,7 @@ const CheckoutPage = () => {
         setIsFreeShippingApplied(false);
       }
 
-      // 3. Se não tem benefício e temos endereço, busca no banco
+      // 3. Se não selecionou o benefício e temos endereço, busca no banco
       if (watchedNeighborhood && watchedCity) {
         const { data, error } = await supabase.rpc('get_shipping_rate', { 
           p_neighborhood: watchedNeighborhood,
@@ -130,21 +130,22 @@ const CheckoutPage = () => {
         if (!error && data !== null) {
           setShippingCost(Number(data));
         } else {
-          // Se não encontrou na tabela, assume 0 (A Combinar) ou um valor padrão
           setShippingCost(0); 
         }
       }
     };
 
-    // Debounce simples para não chamar o banco a cada letra digitada
     const timeoutId = setTimeout(() => {
       if (watchedNeighborhood && watchedCity) {
         calculateShipping();
+      } else if (selectedBenefits.some(b => b.toLowerCase().includes('frete grátis'))) {
+        // Recalcula se o usuário marcou/desmarcou o frete grátis mesmo sem mudar endereço
+        calculateShipping();
       }
-    }, 800);
+    }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [watchedNeighborhood, watchedCity, tierBenefits, deliveryType]);
+  }, [watchedNeighborhood, watchedCity, selectedBenefits, deliveryType]); // Adicionado selectedBenefits aqui
 
 
   const handleCepLookup = async () => {

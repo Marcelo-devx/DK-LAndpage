@@ -56,7 +56,6 @@ type CheckoutFormData = z.infer<typeof checkoutSchema>;
 // Função auxiliar para determinar se um benefício é automático (passivo)
 const isPassiveBenefit = (benefit: string) => {
   const b = benefit.toLowerCase();
-  // Lista de termos que indicam benefícios automáticos
   return b.includes('pontos') || 
          b.includes('frete') || 
          b.includes('pré-venda') || 
@@ -83,6 +82,10 @@ const CheckoutPage = () => {
   const [isCreditCardEnabled, setIsCreditCardEnabled] = useState(false);
   const [deliveryType, setDeliveryType] = useState<'local' | 'correios' | null>(null);
   
+  // State de Frete
+  const [shippingCost, setShippingCost] = useState<number>(0);
+  const [isFreeShippingApplied, setIsFreeShippingApplied] = useState(false);
+  
   // Loyalty Benefits
   const [tierName, setTierName] = useState<string>('');
   const [tierBenefits, setTierBenefits] = useState<string[]>([]);
@@ -93,6 +96,56 @@ const CheckoutPage = () => {
   });
 
   const paymentMethod = watch('payment_method');
+  const watchedNeighborhood = watch('neighborhood');
+  const watchedCity = watch('city');
+
+  // Lógica de Cálculo de Frete (Observa mudanças no endereço e nos benefícios)
+  useEffect(() => {
+    const calculateShipping = async () => {
+      // 1. Se for Correios, o cálculo é diferente (mantemos 0 ou lógica externa por enquanto)
+      if (deliveryType === 'correios') {
+        setShippingCost(0); // Será "A Combinar"
+        setIsFreeShippingApplied(false);
+        return;
+      }
+
+      // 2. Verificar Benefício de Frete Grátis do Clube
+      const hasFreeShippingBenefit = tierBenefits.some(b => b.toLowerCase().includes('frete grátis'));
+      
+      if (hasFreeShippingBenefit) {
+        setShippingCost(0);
+        setIsFreeShippingApplied(true);
+        return;
+      } else {
+        setIsFreeShippingApplied(false);
+      }
+
+      // 3. Se não tem benefício e temos endereço, busca no banco
+      if (watchedNeighborhood && watchedCity) {
+        const { data, error } = await supabase.rpc('get_shipping_rate', { 
+          p_neighborhood: watchedNeighborhood,
+          p_city: watchedCity
+        });
+
+        if (!error && data !== null) {
+          setShippingCost(Number(data));
+        } else {
+          // Se não encontrou na tabela, assume 0 (A Combinar) ou um valor padrão
+          setShippingCost(0); 
+        }
+      }
+    };
+
+    // Debounce simples para não chamar o banco a cada letra digitada
+    const timeoutId = setTimeout(() => {
+      if (watchedNeighborhood && watchedCity) {
+        calculateShipping();
+      }
+    }, 800);
+
+    return () => clearTimeout(timeoutId);
+  }, [watchedNeighborhood, watchedCity, tierBenefits, deliveryType]);
+
 
   const handleCepLookup = async () => {
     const cep = getValues('cep');
@@ -175,9 +228,6 @@ const CheckoutPage = () => {
       if (profileData.loyalty_tiers) {
           setTierName(profileData.loyalty_tiers.name);
           setTierBenefits(profileData.loyalty_tiers.benefits || []);
-          
-          // Pré-selecionar benefícios passivos para garantir que estejam no contexto visual (opcional)
-          // Mas na lógica de envio, vamos montar a string considerando isso.
       }
       
       if (!profileData.is_credit_card_enabled) {
@@ -234,7 +284,7 @@ const CheckoutPage = () => {
   useEffect(() => { if (!loading && !isLoggedIn) { navigate('/login', { state: { from: location }, replace: true }); } }, [loading, isLoggedIn, navigate, location]);
 
   const discount = selectedCoupon?.discount_value ?? 0;
-  const total = Math.max(0, subtotal - discount);
+  const total = Math.max(0, subtotal - discount + shippingCost);
 
   const handleBenefitToggle = (benefit: string) => {
       setSelectedBenefits(prev => 
@@ -261,10 +311,9 @@ const CheckoutPage = () => {
       state: data.state 
     };
 
-    // Compila benefícios: Passivos (automáticos) + Selecionados (ativos)
+    // Compila benefícios
     const passiveBenefits = tierBenefits.filter(b => isPassiveBenefit(b));
     const allActiveBenefits = [...passiveBenefits, ...selectedBenefits];
-    // Remove duplicatas caso haja alguma sobreposição estranha
     const uniqueBenefits = [...new Set(allActiveBenefits)];
 
     const benefitsString = uniqueBenefits.length > 0 
@@ -275,7 +324,7 @@ const CheckoutPage = () => {
       await supabase.from('profiles').update(shippingAddress).eq('id', user.id);
 
       const { data: orderData, error: orderError } = await supabase.rpc('create_pending_order_from_local_cart', {
-        shipping_cost_input: 0,
+        shipping_cost_input: shippingCost, // Envia o custo calculado (0 ou valor da tabela)
         shipping_address_input: shippingAddress,
         cart_items_input: getLocalCart(),
         user_coupon_id_input: selectedCoupon?.user_coupon_id,
@@ -303,28 +352,13 @@ const CheckoutPage = () => {
       }
 
       if (data.payment_method === 'pix') {
-        const itemsSummary = items.map(item => `- ${item.name} (Qtd: ${item.quantity})`).join('\n');
-        
-        let whatsappMessage = `Olá! Gostaria de finalizar o pagamento do meu pedido (#${new_order_id}) via PIX.\n\nTotal: R$ ${final_price.toFixed(2).replace('.', ',')}\n\nItens:\n${itemsSummary}`;
-        
-        if (deliveryType === 'correios') {
-            whatsappMessage += `\n\n*Atenção:* Entrega via Correios para ${shippingAddress.city}/${shippingAddress.state}.`;
-        }
-
-        if (benefitsString) {
-            whatsappMessage += `\n\n*Benefícios do Clube Usados:* ${benefitsString}`;
-        }
-
-        const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`;
-        
         dismissToast(toastId);
-        showSuccess("Pedido realizado! Redirecionando para o WhatsApp...");
-        
+        showSuccess("Pedido realizado com sucesso!");
         setTimeout(() => {
           clearLocalCart();
           window.dispatchEvent(new CustomEvent('cartUpdated'));
-          window.location.href = whatsappUrl;
-        }, 1500);
+          navigate(`/confirmacao-pedido/${new_order_id}`);
+        }, 1000);
       } else {
         const { data: preferenceData, error: preferenceError } = await supabase.functions.invoke('create-mercadopago-preference', {
           body: { shipping_address: shippingAddress, order_id: new_order_id, total_price: final_price },
@@ -418,7 +452,7 @@ const CheckoutPage = () => {
             </CardContent>
           </Card>
 
-          {/* Seção de Benefícios do Clube (Movido para cá) */}
+          {/* Seção de Benefícios do Clube */}
           {tierBenefits.length > 0 && (
               <Card className="bg-white border-stone-200 shadow-xl rounded-[2rem] overflow-hidden border-2 border-sky-500/20">
                 <CardHeader className="bg-sky-50 border-b border-sky-100 p-8">
@@ -546,10 +580,14 @@ const CheckoutPage = () => {
                 
                 <div className="flex justify-between text-xs text-slate-500 font-bold uppercase tracking-widest">
                     <span>Frete</span>
-                    {deliveryType === 'correios' ? (
+                    {isFreeShippingApplied ? (
+                      <span className="text-green-600">GRÁTIS (Clube DK)</span>
+                    ) : deliveryType === 'correios' ? (
                         <span className="text-yellow-600">A Combinar (Correios)</span>
+                    ) : shippingCost > 0 ? (
+                        <span className="text-charcoal-gray">R$ {shippingCost.toFixed(2).replace('.', ',')}</span>
                     ) : (
-                        <span className="text-green-600">Grátis</span>
+                        <span className="text-green-600">Grátis / A Combinar</span>
                     )}
                 </div>
 

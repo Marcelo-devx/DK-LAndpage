@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { MessageCircle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { showSuccess, showError } from '@/utils/toast';
 
 const WhatsAppButton = () => {
   const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null);
@@ -24,30 +25,32 @@ const WhatsAppButton = () => {
   }, []);
 
   const handleClick = async () => {
-    if (!whatsappNumber) return;
+    if (loading) return;
     setLoading(true);
 
     try {
-        // 1. Dispara o Webhook para o Robô (silenciosamente)
-        await supabase.functions.invoke('trigger-integration', {
+        // 1. Dispara o Webhook para o Robô
+        const { error } = await supabase.functions.invoke('trigger-integration', {
             body: { 
                 event_type: 'support_contact_clicked',
                 payload: { origin: 'floating_button' }
             }
         });
+
+        if (error) throw error;
+
+        // 2. Feedback visual para o usuário (sem redirecionar)
+        showSuccess("Solicitação enviada! Nosso assistente entrará em contato pelo WhatsApp em instantes.");
+
     } catch (error) {
         console.error("Erro ao disparar webhook:", error);
-        // Não impede o usuário de abrir o whats se o webhook falhar
+        showError("Não foi possível solicitar o suporte automático no momento.");
+    } finally {
+        setLoading(false);
     }
-
-    // 2. Redireciona para o WhatsApp com a mensagem padrão "Olá"
-    const message = encodeURIComponent("Olá");
-    const url = `https://wa.me/${whatsappNumber.replace(/\D/g, '')}?text=${message}`;
-    
-    setLoading(false);
-    window.open(url, '_blank');
   };
 
+  // Se não tiver número configurado, nem mostra o botão (ou poderia mostrar desabilitado)
   if (!whatsappNumber) return null;
 
   return (
@@ -62,7 +65,7 @@ const WhatsAppButton = () => {
         "flex items-center justify-center animate-in fade-in zoom-in duration-500",
         "cursor-pointer border-none outline-none"
       )}
-      aria-label="Falar no WhatsApp"
+      aria-label="Solicitar Suporte no WhatsApp"
     >
       {loading ? (
         <Loader2 className="h-7 w-7 animate-spin" />
@@ -72,7 +75,7 @@ const WhatsAppButton = () => {
       
       {/* Tooltip flutuante */}
       <span className="absolute right-full mr-4 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-xl border border-white/10">
-        Suporte Online
+        {loading ? 'Chamando Assistente...' : 'Suporte Online'}
       </span>
     </button>
   );

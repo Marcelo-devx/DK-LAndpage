@@ -57,7 +57,6 @@ const OrdersPage = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [reviewingItem, setReviewingItem] = useState<{ productId: number; orderId: number; productName: string } | null>(null);
-  const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null);
 
   const fetchOrders = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -90,9 +89,6 @@ const OrdersPage = () => {
   useEffect(() => {
     setLoading(true);
     fetchOrders();
-    supabase.from('app_settings').select('value').eq('key', 'whatsapp_contact_number').single().then(({ data }) => {
-      if (data) setWhatsappNumber(data.value);
-    });
   }, [fetchOrders]);
 
   const handlePayWithMP = async (order: Order) => {
@@ -106,30 +102,6 @@ const OrdersPage = () => {
     } catch (e: any) {
       showError("Não foi possível iniciar o pagamento com cartão.");
     } finally { dismissToast(toastId); }
-  };
-
-  const handlePayWithPIX = async (order: Order) => {
-    if (!whatsappNumber) { showError("WhatsApp não configurado."); return; }
-    
-    const toastId = showLoading("Atualizando status...");
-    const { error } = await supabase
-      .from('orders')
-      .update({ status: 'Em Preparação' })
-      .eq('id', order.id);
-
-    if (error) {
-      dismissToast(toastId);
-      showError("Erro ao atualizar o pedido.");
-      return;
-    }
-
-    const itemsSummary = order.order_items.map(item => `- ${item.name_at_purchase} (Qtd: ${item.quantity})`).join('\n');
-    const msg = `Olá! Gostaria de finalizar o pagamento do meu pedido (#${order.id}) via PIX.\n\nTotal: R$ ${order.total_price.toFixed(2).replace('.', ',')}\n\nItens:\n${itemsSummary}`;
-    
-    dismissToast(toastId);
-    window.location.href = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(msg)}`;
-    
-    fetchOrders();
   };
 
   if (loading) return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-sky-400" /></div>;
@@ -156,8 +128,9 @@ const OrdersPage = () => {
             {orders.map((order) => {
               const financialStatus = getStatusBadge(order.status);
               const deliveryStatus = getDeliveryBadge(order.delivery_status || 'Aguardando');
-              const isPending = order.status === 'Aguardando Pagamento';
+              const isPending = order.status === 'Aguardando Pagamento' || order.status === 'Em Preparação';
               const isCancelled = order.status === 'Cancelado';
+              const isPix = order.payment_method?.toLowerCase().includes('pix');
               
               return (
                 <AccordionItem value={`order-${order.id}`} key={order.id} className="bg-white border border-stone-200 rounded-[1.5rem] overflow-hidden transition-all duration-300 hover:border-sky-500/40 shadow-md">
@@ -237,19 +210,31 @@ const OrdersPage = () => {
 
                         {isPending && (
                           <div className="space-y-4">
-                            <OrderTimer 
-                              createdAt={order.created_at} 
-                              onExpire={() => fetchOrders()}
-                              className="bg-sky-50 border-sky-200"
-                            />
+                            {!isPix && (
+                              <OrderTimer 
+                                createdAt={order.created_at} 
+                                onExpire={() => fetchOrders()}
+                                className="bg-sky-50 border-sky-200"
+                              />
+                            )}
+                            
                             <h4 className="text-[10px] font-extrabold text-stone-400 uppercase tracking-widest">Ação Requerida</h4>
                             <div className="grid grid-cols-1 gap-3">
-                              <Button onClick={() => handlePayWithMP(order)} className="w-full bg-sky-500 hover:bg-sky-400 text-white font-bold uppercase tracking-widest h-14 rounded-xl shadow-lg">
-                                <CreditCard className="mr-2 h-5 w-5" /> Cartão de Crédito
-                              </Button>
-                              <Button onClick={() => handlePayWithPIX(order)} variant="outline" className="w-full border-stone-300 hover:bg-stone-100 text-stone-600 font-bold uppercase tracking-widest h-14 rounded-xl">
-                                <MessageSquare className="mr-2 h-5 w-5" /> Pagar via WhatsApp
-                              </Button>
+                              {!isPix ? (
+                                <Button onClick={() => handlePayWithMP(order)} className="w-full bg-sky-500 hover:bg-sky-400 text-white font-bold uppercase tracking-widest h-14 rounded-xl shadow-lg">
+                                  <CreditCard className="mr-2 h-5 w-5" /> Pagar com Cartão
+                                </Button>
+                              ) : (
+                                <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl flex items-start gap-3">
+                                    <MessageSquare className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="text-sm font-bold text-emerald-800">Aguardando Contato</p>
+                                        <p className="text-xs text-emerald-700 mt-1">
+                                            Nosso sistema está processando seu pedido PIX. Você receberá uma mensagem no WhatsApp em breve.
+                                        </p>
+                                    </div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         )}

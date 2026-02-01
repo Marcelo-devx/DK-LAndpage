@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, CheckCircle, CreditCard, MessageSquare, AlertTriangle } from 'lucide-react';
+import { Loader2, CheckCircle, CreditCard, MessageSquare, AlertTriangle, Smartphone } from 'lucide-react';
 import OrderTimer from '@/components/OrderTimer';
 import { cn } from '@/lib/utils';
 
@@ -23,6 +23,7 @@ interface Order {
     state: string;
     cep: string;
     complement?: string;
+    phone?: string;
   };
 }
 
@@ -87,8 +88,9 @@ const ConfirmacaoPedido = () => {
     );
   }
 
-  const isPending = order.status === 'Aguardando Pagamento';
+  const isPending = order.status === 'Aguardando Pagamento' || order.status === 'Em Preparação';
   const isCancelled = order.status === 'Cancelado';
+  const isPix = order.payment_method?.toLowerCase().includes('pix');
   const { shipping_address: addr } = order;
 
   return (
@@ -113,8 +115,23 @@ const ConfirmacaoPedido = () => {
           </CardHeader>
           
           <CardContent className="p-8 md:p-12 space-y-10">
+            {/* Seção de Aviso do Robô (PIX) */}
+            {isPending && isPix && (
+              <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-[1.5rem] flex flex-col items-center text-center space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                 <div className="p-4 bg-emerald-100 rounded-full mb-1">
+                   <Smartphone className="h-8 w-8 text-emerald-600 animate-pulse" />
+                 </div>
+                 <div>
+                   <h3 className="text-emerald-800 font-black uppercase tracking-wide text-lg mb-2">Aguarde nosso contato</h3>
+                   <p className="text-emerald-700 font-medium text-sm max-w-md mx-auto leading-relaxed">
+                     Não é necessário fazer mais nada! Nosso <strong>assistente virtual</strong> enviará uma mensagem para o seu WhatsApp <strong>({addr.phone})</strong> em instantes com a chave PIX para pagamento.
+                   </p>
+                 </div>
+              </div>
+            )}
+
             {/* Seção de Alerta de Reserva */}
-            {isPending && (
+            {isPending && !isPix && (
               <OrderTimer 
                 createdAt={order.created_at} 
                 onExpire={() => fetchOrderDetails()} 
@@ -134,7 +151,7 @@ const ConfirmacaoPedido = () => {
               <div className="bg-stone-50 p-6 rounded-2xl border border-stone-100">
                 <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-3">Forma de Pagamento</p>
                 <div className="flex items-center space-x-3 text-charcoal-gray">
-                  {order.payment_method?.toLowerCase().includes('pix') ? (
+                  {isPix ? (
                     <MessageSquare className="h-5 w-5 text-sky-600" />
                   ) : (
                     <CreditCard className="h-5 w-5 text-sky-600" />

@@ -13,7 +13,10 @@ import {
   Palette,
   Link as LinkIcon,
   Network,
-  Webhook
+  Webhook,
+  Activity,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,13 +42,14 @@ const AdminCustomizer = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState("global");
+  const [testStatus, setTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   // Estado para Webhooks
   const [webhooks, setWebhooks] = useState({
     order_created: '',
     order_updated: '',
     customer_created: '',
-    chat_message_sent: '' // Alterado de support_contact para chat message
+    chat_message_sent: ''
   });
   const webhookTimeouts = useRef<Record<string, NodeJS.Timeout>>({});
 
@@ -134,6 +138,33 @@ const AdminCustomizer = () => {
     }, 1000);
   };
 
+  const handleTestConnection = async () => {
+    setTestStatus('loading');
+    try {
+      // Fazendo a requisição GET para a URL de teste fornecida
+      const response = await fetch("https://n8n-ws.dkcwb.cloud/webhook/testar-conexão", {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok && (data.status_code === 200 || data.mensagem)) {
+        setTestStatus('success');
+        showSuccess(data.mensagem || "Conexão estabelecida com sucesso!");
+      } else {
+        setTestStatus('error');
+        showError("O N8N respondeu, mas com erro.");
+      }
+    } catch (error) {
+      console.error("Erro no teste de conexão:", error);
+      setTestStatus('error');
+      showError("Não foi possível conectar ao N8N. Verifique se o serviço está online.");
+    } finally {
+      setTimeout(() => setTestStatus('idle'), 3000);
+    }
+  };
+
   const handleTabChange = (value: string) => {
     setActiveTab(value);
     switch (value) {
@@ -196,6 +227,7 @@ const AdminCustomizer = () => {
             <div className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-slate-50/30">
               
               <TabsContent value="global" className="space-y-8 mt-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                {/* Global Content */}
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 text-slate-400 mb-2"><Palette className="h-4 w-4" /><h3 className="font-bold text-xs uppercase tracking-widest">Identidade Visual</h3></div>
                   <div className="grid gap-3">
@@ -211,35 +243,38 @@ const AdminCustomizer = () => {
                     <div className="space-y-2"><Label className="text-xs">Barra de Topo (Anúncio)</Label><Input value={settings.headerAnnouncement} onChange={(e) => updateSetting('header_announcement_text', e.target.value)} placeholder="Ex: Frete Grátis..." className="bg-slate-50" /></div>
                   </div>
                 </div>
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-slate-400 mb-2"><LinkIcon className="h-4 w-4" /><h3 className="font-bold text-xs uppercase tracking-widest">Rodapé e Contato</h3></div>
-                  <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1"><Label className="text-[10px] text-slate-400 uppercase">Email</Label><Input className="h-9 text-xs" value={settings.contactEmail} onChange={(e) => updateSetting('contact_email', e.target.value)} /></div>
-                      <div className="space-y-1"><Label className="text-[10px] text-slate-400 uppercase">WhatsApp</Label><Input className="h-9 text-xs" value={settings.contactPhone} onChange={(e) => updateSetting('contact_phone', e.target.value)} /></div>
-                    </div>
-                    <div className="space-y-1"><Label className="text-[10px] text-slate-400 uppercase">Horário</Label><Input className="h-9 text-xs" value={settings.contactHours} onChange={(e) => updateSetting('contact_hours', e.target.value)} /></div>
-                  </div>
-                  <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-3">
-                    <Label className="text-xs font-bold">Banner Final (Call to Action)</Label>
-                    <Input value={settings.footerBannerTitle} onChange={(e) => updateSetting('footer_banner_title', e.target.value)} placeholder="Título" className="font-bold" />
-                    <Textarea value={settings.footerBannerSubtitle} onChange={(e) => updateSetting('footer_banner_subtitle', e.target.value)} placeholder="Subtítulo" rows={2} className="text-xs" />
-                    <Input value={settings.footerBannerButtonText} onChange={(e) => updateSetting('footer_banner_button_text', e.target.value)} placeholder="Texto do Botão" />
-                  </div>
-                </div>
               </TabsContent>
 
               <TabsContent value="integrations" className="space-y-6 mt-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="bg-purple-50 border border-purple-100 p-4 rounded-xl mb-6">
-                    <div className="flex items-center gap-3 mb-2"><div className="bg-purple-500/10 p-2 rounded-lg"><Webhook className="h-5 w-5 text-purple-600" /></div><h3 className="font-bold text-purple-900 text-sm">Configuração N8N</h3></div>
-                    <p className="text-xs text-purple-700 leading-relaxed">Cole aqui os links dos seus Webhooks do N8N.</p>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-purple-500/10 p-2 rounded-lg"><Webhook className="h-5 w-5 text-purple-600" /></div>
+                            <h3 className="font-bold text-purple-900 text-sm">Configuração N8N</h3>
+                        </div>
+                        {testStatus === 'success' && <div className="flex items-center gap-1 text-[10px] font-black text-green-600 bg-green-100 px-2 py-1 rounded-md uppercase tracking-wider"><CheckCircle2 className="h-3 w-3" /> Online</div>}
+                        {testStatus === 'error' && <div className="flex items-center gap-1 text-[10px] font-black text-red-600 bg-red-100 px-2 py-1 rounded-md uppercase tracking-wider"><XCircle className="h-3 w-3" /> Erro</div>}
+                    </div>
+                    <p className="text-xs text-purple-700 leading-relaxed mt-2 mb-4">Cole aqui os links dos seus Webhooks. O sistema já está configurado para o domínio: <strong>n8n-ws.dkcwb.cloud</strong>.</p>
+                    
+                    <Button 
+                        onClick={handleTestConnection} 
+                        disabled={testStatus === 'loading'}
+                        variant="outline" 
+                        className={cn(
+                            "w-full border-purple-200 text-purple-700 hover:bg-white hover:text-purple-900 h-9 text-xs font-bold uppercase tracking-wider transition-all",
+                            testStatus === 'success' && "border-green-300 text-green-700 bg-green-50",
+                            testStatus === 'error' && "border-red-300 text-red-700 bg-red-50"
+                        )}
+                    >
+                        {testStatus === 'loading' ? 'Testando...' : 'Testar Conexão (Ping)'} <Activity className="ml-2 h-3.5 w-3.5" />
+                    </Button>
                 </div>
 
                 <div className="space-y-4">
                     <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-3">
                         <div className="flex items-center justify-between"><Label className="text-xs font-bold uppercase tracking-wider text-slate-600">Novo Pedido</Label><span className={cn("text-[9px] font-black uppercase px-2 py-0.5 rounded", webhooks.order_created ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-400")}>{webhooks.order_created ? 'Ativo' : 'Inativo'}</span></div>
                         <Input value={webhooks.order_created} onChange={(e) => updateWebhook('order_created', e.target.value)} placeholder="https://seu-n8n.com/webhook/..." className="bg-slate-50 font-mono text-xs"/>
-                        <p className="text-[10px] text-slate-400">Disparado assim que um novo pedido é criado no site.</p>
                     </div>
                     <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-3">
                         <div className="flex items-center justify-between"><Label className="text-xs font-bold uppercase tracking-wider text-slate-600">Atualização de Pedido</Label><span className={cn("text-[9px] font-black uppercase px-2 py-0.5 rounded", webhooks.order_updated ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-400")}>{webhooks.order_updated ? 'Ativo' : 'Inativo'}</span></div>
@@ -249,18 +284,15 @@ const AdminCustomizer = () => {
                         <div className="flex items-center justify-between"><Label className="text-xs font-bold uppercase tracking-wider text-slate-600">Novo Cliente</Label><span className={cn("text-[9px] font-black uppercase px-2 py-0.5 rounded", webhooks.customer_created ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-400")}>{webhooks.customer_created ? 'Ativo' : 'Inativo'}</span></div>
                         <Input value={webhooks.customer_created} onChange={(e) => updateWebhook('customer_created', e.target.value)} placeholder="https://seu-n8n.com/webhook/..." className="bg-slate-50 font-mono text-xs"/>
                     </div>
-                    
-                    {/* NOVO CAMPO: CHAT BOT */}
                     <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-3 border-l-4 border-l-emerald-500">
                         <div className="flex items-center justify-between"><Label className="text-xs font-bold uppercase tracking-wider text-emerald-600">Chat Bot (Mensagem)</Label><span className={cn("text-[9px] font-black uppercase px-2 py-0.5 rounded", webhooks.chat_message_sent ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-400")}>{webhooks.chat_message_sent ? 'Ativo' : 'Inativo'}</span></div>
                         <Input value={webhooks.chat_message_sent} onChange={(e) => updateWebhook('chat_message_sent', e.target.value)} placeholder="https://seu-n8n.com/webhook/..." className="bg-slate-50 font-mono text-xs"/>
-                        <p className="text-[10px] text-slate-400">Webhook para processar mensagens do Chat no site. Deve retornar JSON com <code>text</code>.</p>
                     </div>
                 </div>
               </TabsContent>
 
               <TabsContent value="home" className="space-y-6 mt-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="flex items-center gap-2 text-slate-400 mb-2"><Layers className="h-4 w-4" /><h3 className="font-bold text-xs uppercase tracking-widest">Seções da Página</h3></div>
+                {/* Home Content */}
                 <div className="space-y-3">
                   {[
                     { id: 'hero', label: 'Banner Principal', sub: 'Carrossel grande no topo', key: 'show_hero_banner', checked: settings.showHero },

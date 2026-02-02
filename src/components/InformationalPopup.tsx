@@ -10,7 +10,6 @@ import { Separator } from "@/components/ui/separator";
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Info } from "lucide-react";
-import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 
 interface InformationalPopupProps {
   isOpen: boolean;
@@ -55,9 +54,9 @@ const InformationalPopup = ({ isOpen, onClose, title, content }: InformationalPo
         onEscapeKeyDown={(e) => e.preventDefault()}
         aria-describedby="info-popup-desc"
       >
-        <VisuallyHidden>
-            <DialogDescription>Popup com informações importantes sobre a loja.</DialogDescription>
-        </VisuallyHidden>
+        <DialogDescription className="sr-only">
+            Popup com informações importantes sobre a loja.
+        </DialogDescription>
 
         {/* Barra superior de destaque */}
         <div className="h-1.5 bg-gradient-to-r from-sky-500 to-indigo-500 w-full shrink-0" />

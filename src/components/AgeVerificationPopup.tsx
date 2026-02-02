@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, ShieldAlert } from 'lucide-react';
-import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 
 const AgeVerificationPopup = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -16,7 +15,6 @@ const AgeVerificationPopup = () => {
 
   const handleConfirm = () => {
     sessionStorage.setItem('age-verified-v2', 'true');
-    // Dispara um evento para avisar o restante do app (ex: Index.tsx)
     window.dispatchEvent(new Event('ageVerified'));
     setIsOpen(false);
   };
@@ -33,10 +31,11 @@ const AgeVerificationPopup = () => {
         onEscapeKeyDown={(e) => e.preventDefault()}
         aria-describedby="age-verification-desc"
       >
-        <VisuallyHidden>
-          <DialogTitle>Verificação de Idade</DialogTitle>
-          <DialogDescription>Confirme se você tem mais de 18 anos para acessar o site.</DialogDescription>
-        </VisuallyHidden>
+        {/* Título e Descrição obrigatórios para acessibilidade, ocultos visualmente */}
+        <DialogTitle className="sr-only">Verificação de Idade</DialogTitle>
+        <DialogDescription className="sr-only">
+          Confirme se você tem mais de 18 anos para acessar o site.
+        </DialogDescription>
 
         <div className="h-2 bg-gradient-to-r from-red-600 via-sky-500 to-red-600 w-full shrink-0 animate-pulse" />
         

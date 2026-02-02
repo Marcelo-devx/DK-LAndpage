@@ -4,11 +4,13 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Info } from "lucide-react";
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 
 interface InformationalPopupProps {
   isOpen: boolean;
@@ -51,7 +53,12 @@ const InformationalPopup = ({ isOpen, onClose, title, content }: InformationalPo
         className="w-[95vw] sm:max-w-2xl bg-slate-900 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] p-0 overflow-hidden rounded-[1.5rem] md:rounded-[2rem] max-h-[85vh] md:max-h-[90vh] flex flex-col outline-none [&>button]:hidden"
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
+        aria-describedby="info-popup-desc"
       >
+        <VisuallyHidden>
+            <DialogDescription>Popup com informações importantes sobre a loja.</DialogDescription>
+        </VisuallyHidden>
+
         {/* Barra superior de destaque */}
         <div className="h-1.5 bg-gradient-to-r from-sky-500 to-indigo-500 w-full shrink-0" />
         
@@ -67,7 +74,7 @@ const InformationalPopup = ({ isOpen, onClose, title, content }: InformationalPo
             </DialogHeader>
 
             {/* Área de conteúdo com rolagem otimizada */}
-            <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar" id="info-popup-desc">
               <div className="pb-4">
                 {renderContent(content)}
               </div>

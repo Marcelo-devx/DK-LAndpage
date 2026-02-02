@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, ShieldAlert } from 'lucide-react';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 
 const AgeVerificationPopup = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -30,7 +31,13 @@ const AgeVerificationPopup = () => {
         className="w-[95vw] sm:max-w-md bg-slate-950 border-white/10 p-0 overflow-hidden rounded-[2rem] shadow-[0_0_100px_rgba(0,0,0,1)] outline-none [&>button]:hidden z-[9999]"
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
+        aria-describedby="age-verification-desc"
       >
+        <VisuallyHidden>
+          <DialogTitle>Verificação de Idade</DialogTitle>
+          <DialogDescription>Confirme se você tem mais de 18 anos para acessar o site.</DialogDescription>
+        </VisuallyHidden>
+
         <div className="h-2 bg-gradient-to-r from-red-600 via-sky-500 to-red-600 w-full shrink-0 animate-pulse" />
         
         <div className="p-8 md:p-10 text-center space-y-8">
@@ -44,7 +51,7 @@ const AgeVerificationPopup = () => {
             <h2 className="text-3xl font-black tracking-tighter italic uppercase text-white">
               VERIFICAÇÃO DE <span className="text-sky-500">IDADE.</span>
             </h2>
-            <div className="space-y-2">
+            <div className="space-y-2" id="age-verification-desc">
                 <p className="text-slate-400 font-medium text-sm leading-relaxed">
                 Este site contém produtos destinados apenas a maiores de <strong className="text-white">18 anos</strong>. 
                 </p>

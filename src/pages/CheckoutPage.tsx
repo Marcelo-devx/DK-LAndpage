@@ -382,16 +382,24 @@ const CheckoutPage = () => {
         delivery_status: deliveryType === 'correios' ? 'Aguardando Envio Correios' : 'Pendente'
       }).eq('id', new_order_id);
 
-      // 4. DISPARO DO WEBHOOK VIA EDGE FUNCTION (NOVO)
-      // Disparamos o webhook em "fire and forget" (não travamos se der erro, mas logamos)
-      supabase.functions.invoke('trigger-integration', {
-        body: { 
-            event_type: 'order_created', 
-            payload: { order_id: new_order_id } 
-        }
-      }).then(({ error }) => {
-        if (error) console.error("Erro silencioso ao disparar webhook N8N:", error);
-      });
+      // 4. DISPARO DO WEBHOOK VIA EDGE FUNCTION (COM AWAIT)
+      // Agora aguardamos explicitamente o envio para garantir que o navegador não cancele.
+      // Usamos um Promise.race para não travar por mais de 3 segundos.
+      try {
+        const triggerPromise = supabase.functions.invoke('trigger-integration', {
+            body: { 
+                event_type: 'order_created', 
+                payload: { order_id: new_order_id } 
+            }
+        });
+        
+        // Timeout de segurança de 3 segundos
+        const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 3000));
+        
+        await Promise.race([triggerPromise, timeoutPromise]);
+      } catch (webhookError) {
+        console.error("Erro ao disparar webhook (ignorado para não travar o fluxo):", webhookError);
+      }
 
       // 5. Fluxo de Pagamento / Redirecionamento
       if (final_price <= 0) {
@@ -411,7 +419,7 @@ const CheckoutPage = () => {
           clearLocalCart();
           window.dispatchEvent(new CustomEvent('cartUpdated'));
           navigate(`/confirmacao-pedido/${new_order_id}`);
-        }, 1000);
+        }, 500); // Pequeno delay visual
       } else {
         const { data: preferenceData, error: preferenceError } = await supabase.functions.invoke('create-mercadopago-preference', {
           body: { shipping_address: shippingAddress, order_id: new_order_id, total_price: final_price },

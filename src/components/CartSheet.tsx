@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { supabase } from '@/integrations/supabase/client';
@@ -163,6 +163,9 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
       <SheetContent className="flex flex-col bg-white border-l border-stone-200 text-charcoal-gray sm:max-w-lg">
         <SheetHeader>
           <SheetTitle className="font-black text-2xl tracking-tighter italic uppercase text-charcoal-gray">Seu Carrinho.</SheetTitle>
+          <SheetDescription className="sr-only">
+            Visualize e gerencie os itens adicionados ao seu carrinho de compras.
+          </SheetDescription>
         </SheetHeader>
         <Separator className="my-4 bg-stone-200" />
         

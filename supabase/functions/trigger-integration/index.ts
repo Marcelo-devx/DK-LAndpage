@@ -23,62 +23,88 @@ serve(async (req) => {
 
     const { event_type, payload } = await req.json()
 
+    console.log(`[trigger-integration] Iniciando disparo para evento: ${event_type}`);
+
     // 1. Buscar a URL do webhook configurada no banco
-    const { data: config } = await supabaseClient
+    const { data: config, error: dbError } = await supabaseClient
       .from('webhook_configs')
       .select('target_url, is_active')
       .eq('trigger_event', event_type)
       .single();
 
-    if (!config || !config.is_active || !config.target_url) {
-      console.log(`[trigger-integration] Webhook para ${event_type} não configurado ou inativo.`);
-      return new Response(JSON.stringify({ message: 'Skipped' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      })
+    if (dbError || !config) {
+      console.error(`[trigger-integration] Configuração não encontrada para ${event_type}`, dbError);
+      return new Response(JSON.stringify({ error: 'Webhook não configurado' }), { status: 404, headers: corsHeaders });
     }
 
-    // 2. Enriquecer o payload com dados do usuário se estiver logado
-    let enrichedPayload = { ...payload, timestamp: new Date().toISOString() };
+    if (!config.is_active || !config.target_url) {
+      console.log(`[trigger-integration] Webhook inativo ou sem URL: ${event_type}`);
+      return new Response(JSON.stringify({ message: 'Skipped (Inactive)' }), { headers: corsHeaders });
+    }
+
+    console.log(`[trigger-integration] Alvo: ${config.target_url}`);
+
+    // 2. Enriquecer o payload
+    let enrichedPayload = { ...payload, event: event_type, timestamp: new Date().toISOString() };
     
-    // Tenta pegar o user do header de autorização (se enviado)
+    // Tenta pegar dados do usuário se disponível
     const authHeader = req.headers.get('Authorization');
     if (authHeader) {
-        const userClient = createClient(
-            // @ts-ignore
-            Deno.env.get('SUPABASE_URL') ?? '',
-            // @ts-ignore
-            Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-            { global: { headers: { Authorization: authHeader } } }
-        );
-        const { data: { user } } = await userClient.auth.getUser();
-        
-        if (user) {
-            const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', user.id).single();
-            enrichedPayload.user = {
-                id: user.id,
-                email: user.email,
-                name: profile?.first_name ? `${profile.first_name} ${profile.last_name}` : 'Visitante',
-                phone: profile?.phone,
-                tier: profile?.current_tier_name
-            };
+        try {
+            const userClient = createClient(
+                // @ts-ignore
+                Deno.env.get('SUPABASE_URL') ?? '',
+                // @ts-ignore
+                Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+                { global: { headers: { Authorization: authHeader } } }
+            );
+            const { data: { user } } = await userClient.auth.getUser();
+            
+            if (user) {
+                const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', user.id).single();
+                enrichedPayload.user = {
+                    id: user.id,
+                    email: user.email,
+                    name: profile?.first_name ? `${profile.first_name} ${profile.last_name}` : 'Visitante',
+                    phone: profile?.phone,
+                    tier: profile?.current_tier_name
+                };
+            }
+        } catch (authErr) {
+            console.warn("[trigger-integration] Erro ao enriquecer dados do usuário (continuando sem):", authErr);
         }
     }
 
-    // 3. Disparar para o N8N (Fire and Forget - não esperamos a resposta para não travar o botão)
-    fetch(config.target_url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(enrichedPayload)
-    }).catch(err => console.error(`[trigger-integration] Erro ao chamar webhook externo:`, err));
+    // 3. Disparar para o N8N e aguardar resposta para diagnóstico
+    try {
+        const response = await fetch(config.target_url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(enrichedPayload)
+        });
 
-    return new Response(JSON.stringify({ success: true }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200,
-    })
+        const responseText = await response.text();
+        console.log(`[trigger-integration] Resposta N8N (${response.status}):`, responseText.substring(0, 200));
 
-  } catch (error) {
-    console.error("[trigger-integration] Error:", error)
+        if (!response.ok) {
+            throw new Error(`N8N respondeu com erro ${response.status}: ${responseText}`);
+        }
+
+        return new Response(JSON.stringify({ success: true, n8n_status: response.status }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+        })
+
+    } catch (fetchErr: any) {
+        console.error(`[trigger-integration] Falha na conexão com N8N:`, fetchErr);
+        return new Response(JSON.stringify({ error: `Falha ao contatar N8N: ${fetchErr.message}` }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 502, // Bad Gateway
+        })
+    }
+
+  } catch (error: any) {
+    console.error("[trigger-integration] Global Error:", error)
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,

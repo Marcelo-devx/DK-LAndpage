@@ -332,7 +332,7 @@ const CheckoutPage = () => {
 
   const onSubmit = async (data: CheckoutFormData) => {
     setIsSubmitting(true);
-    const toastId = showLoading("Finalizando seu pedido...");
+    const toastId = showLoading("Processando pedido...");
     const cleanedPhone = data.phone.replace(/\D/g, '');
     const cleanedCep = data.cep.replace(/\D/g, '');
 
@@ -349,7 +349,6 @@ const CheckoutPage = () => {
       state: data.state 
     };
 
-    // Compila benefícios
     const passiveBenefits = tierBenefits.filter(b => isPassiveBenefit(b));
     const allActiveBenefits = [...passiveBenefits, ...selectedBenefits];
     const uniqueBenefits = [...new Set(allActiveBenefits)];
@@ -359,20 +358,23 @@ const CheckoutPage = () => {
         : null;
 
     try {
+      // 1. Atualiza Perfil
       await supabase.from('profiles').update(shippingAddress).eq('id', user.id);
 
+      // 2. Cria Pedido no Banco
       const { data: orderData, error: orderError } = await supabase.rpc('create_pending_order_from_local_cart', {
         shipping_cost_input: shippingCost, 
         shipping_address_input: shippingAddress,
         cart_items_input: getLocalCart(),
         user_coupon_id_input: selectedCoupon?.user_coupon_id,
         benefits_input: benefitsString,
-        payment_method_input: data.payment_method // Passa o método escolhido para o banco
+        payment_method_input: data.payment_method
       });
 
       if (orderError) throw new Error(orderError.message);
       const { new_order_id, final_price } = orderData;
 
+      // 3. Atualiza status inicial
       const statusUpdate = data.payment_method === 'pix' ? 'Em Preparação' : 'Aguardando Pagamento';
       await supabase.from('orders').update({ 
         payment_method: data.payment_method === 'pix' ? 'PIX via WhatsApp' : 'Cartão de Crédito',
@@ -380,6 +382,18 @@ const CheckoutPage = () => {
         delivery_status: deliveryType === 'correios' ? 'Aguardando Envio Correios' : 'Pendente'
       }).eq('id', new_order_id);
 
+      // 4. DISPARO DO WEBHOOK VIA EDGE FUNCTION (NOVO)
+      // Disparamos o webhook em "fire and forget" (não travamos se der erro, mas logamos)
+      supabase.functions.invoke('trigger-integration', {
+        body: { 
+            event_type: 'order_created', 
+            payload: { order_id: new_order_id } 
+        }
+      }).then(({ error }) => {
+        if (error) console.error("Erro silencioso ao disparar webhook N8N:", error);
+      });
+
+      // 5. Fluxo de Pagamento / Redirecionamento
       if (final_price <= 0) {
         await supabase.rpc('finalize_order_payment', { p_order_id: new_order_id });
         dismissToast(toastId);
@@ -406,7 +420,7 @@ const CheckoutPage = () => {
         if (preferenceError) throw new Error("Erro ao iniciar o checkout com Mercado Pago.");
 
         dismissToast(toastId);
-        showSuccess("Pedido realizado! Redirecionando para o pagamento...");
+        showSuccess("Redirecionando para o pagamento...");
         
         setTimeout(() => {
           clearLocalCart();

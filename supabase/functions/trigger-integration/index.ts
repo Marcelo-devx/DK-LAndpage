@@ -9,107 +9,127 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // 1. Configuração padrão de CORS (permite chamadas do front)
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    // Inicializa cliente Supabase com permissão de ADMIN (Service Role)
-    // Isso é necessário para ler a tabela de configurações sem ser barrado por regras de segurança
     const supabaseClient = createClient(
       // @ts-ignore
       Deno.env.get('SUPABASE_URL') ?? '',
       // @ts-ignore
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '' 
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // 2. RECEBE O GATILHO: O front manda "Quero disparar 'support_contact_clicked'"
     const { event_type, payload } = await req.json()
+    console.log(`[trigger-integration] Evento: ${event_type}`);
 
-    console.log(`[trigger-integration] Iniciando disparo para evento: ${event_type}`);
-
-    // 3. IDENTIFICA O DESTINO: Vai no banco descobrir qual a URL para esse evento
-    const { data: config, error: dbError } = await supabaseClient
+    // 1. Busca URL do Webhook
+    const { data: config } = await supabaseClient
       .from('webhook_configs')
       .select('target_url, is_active')
       .eq('trigger_event', event_type)
       .single();
 
-    if (dbError || !config) {
-      console.error(`[trigger-integration] Configuração não encontrada para ${event_type}`, dbError);
-      return new Response(JSON.stringify({ error: 'Webhook não configurado' }), { status: 404, headers: corsHeaders });
+    if (!config || !config.is_active || !config.target_url) {
+      return new Response(JSON.stringify({ message: 'Webhook inativo ou não configurado' }), { headers: corsHeaders });
     }
 
-    if (!config.is_active || !config.target_url) {
-      console.log(`[trigger-integration] Webhook inativo ou sem URL: ${event_type}`);
-      return new Response(JSON.stringify({ message: 'Skipped (Inactive)' }), { headers: corsHeaders });
-    }
+    let finalPayload = { ...payload, event: event_type, timestamp: new Date().toISOString() };
 
-    console.log(`[trigger-integration] Alvo: ${config.target_url}`);
+    // 2. LÓGICA ESPECIAL PARA PEDIDOS (Busca os itens no banco)
+    if (event_type === 'order_created' && payload.order_id) {
+        console.log(`[trigger-integration] Buscando detalhes completos do pedido #${payload.order_id}`);
+        
+        // Busca Pedido + Itens + Perfil do Cliente
+        const { data: order, error: orderError } = await supabaseClient
+            .from('orders')
+            .select(`
+                *,
+                order_items (
+                    name_at_purchase,
+                    quantity,
+                    price_at_purchase
+                ),
+                profiles (
+                    first_name,
+                    last_name,
+                    phone,
+                    cpf_cnpj,
+                    email: id -- Vamos pegar o email da auth.users separadamente se precisar, mas aqui é um join simulado
+                )
+            `)
+            .eq('id', payload.order_id)
+            .single();
 
-    // 4. PREPARA O PACOTE: Adiciona timestamp e tenta pegar dados do usuário logado
-    let enrichedPayload = { ...payload, event: event_type, timestamp: new Date().toISOString() };
-    
-    // Se o usuário mandou o token de auth, buscamos o perfil dele para facilitar sua vida no N8N
-    const authHeader = req.headers.get('Authorization');
-    if (authHeader) {
-        try {
-            const userClient = createClient(
-                // @ts-ignore
-                Deno.env.get('SUPABASE_URL') ?? '',
-                // @ts-ignore
-                Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-                { global: { headers: { Authorization: authHeader } } }
-            );
-            const { data: { user } } = await userClient.auth.getUser();
-            
-            if (user) {
-                const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', user.id).single();
-                enrichedPayload.user = {
-                    id: user.id,
-                    email: user.email,
-                    name: profile?.first_name ? `${profile.first_name} ${profile.last_name}` : 'Visitante',
-                    phone: profile?.phone,
-                    tier: profile?.current_tier_name
-                };
+        if (orderError || !order) {
+            console.error("Erro ao buscar pedido:", orderError);
+            throw new Error("Pedido não encontrado no banco.");
+        }
+
+        // Busca o email real na tabela de usuários (opcional, mas bom para garantir)
+        const { data: userData } = await supabaseClient.auth.admin.getUserById(order.user_id);
+        const userEmail = userData.user?.email || 'email@nao.encontrado';
+
+        // 3. Monta o JSON EXATAMENTE como no seu exemplo CURL
+        const formattedItems = order.order_items.map((item: any) => ({
+            name: item.name_at_purchase,
+            quantity: item.quantity,
+            price: item.price_at_purchase
+        }));
+
+        finalPayload = {
+            event: "order_created",
+            timestamp: new Date().toISOString(),
+            data: {
+                id: order.id,
+                total_price: order.total_price,
+                status: order.status,
+                payment_method: order.payment_method,
+                created_at: order.created_at,
+                shipping_cost: order.shipping_cost,
+                shipping_address: order.shipping_address, // Já está em JSONB no banco
+                customer: {
+                    id: order.user_id,
+                    full_name: `${order.profiles?.first_name || ''} ${order.profiles?.last_name || ''}`.trim(),
+                    phone: order.profiles?.phone || '',
+                    email: userEmail,
+                    cpf: order.profiles?.cpf_cnpj || ''
+                },
+                items: formattedItems // AQUI ESTÁ A LISTA DE ITENS!
             }
-        } catch (authErr) {
-            console.warn("[trigger-integration] Erro ao enriquecer dados do usuário (continuando sem):", authErr);
-        }
+        };
     }
 
-    // 5. ENVIA A REQUEST (O Disparo Real)
-    try {
-        const response = await fetch(config.target_url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(enrichedPayload)
-        });
+    // 4. Envia para o N8N
+    console.log(`[trigger-integration] Enviando payload para: ${config.target_url}`);
+    
+    // Log no banco antes de enviar
+    await supabaseClient.from('integration_logs').insert({
+        event_type: event_type,
+        status: 'sending',
+        payload: finalPayload,
+        details: `Disparando via Edge Function para ${config.target_url}`
+    });
 
-        // Lê o que o N8N respondeu para ajudar no debug
-        const responseText = await response.text();
-        console.log(`[trigger-integration] Resposta N8N (${response.status}):`, responseText.substring(0, 200));
+    const response = await fetch(config.target_url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(finalPayload)
+    });
 
-        if (!response.ok) {
-            throw new Error(`N8N respondeu com erro ${response.status}: ${responseText}`);
-        }
-
-        return new Response(JSON.stringify({ success: true, n8n_status: response.status }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200,
-        })
-
-    } catch (fetchErr: any) {
-        console.error(`[trigger-integration] Falha na conexão com N8N:`, fetchErr);
-        return new Response(JSON.stringify({ error: `Falha ao contatar N8N: ${fetchErr.message}` }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 502, // Bad Gateway
-        })
+    if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`N8N Erro ${response.status}: ${errText}`);
     }
+
+    return new Response(JSON.stringify({ success: true }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    })
 
   } catch (error: any) {
-    console.error("[trigger-integration] Global Error:", error)
+    console.error("[trigger-integration] Erro:", error)
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,

@@ -9,11 +9,14 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  // 1. Configuração padrão de CORS (permite chamadas do front)
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
+    // Inicializa cliente Supabase com permissão de ADMIN (Service Role)
+    // Isso é necessário para ler a tabela de configurações sem ser barrado por regras de segurança
     const supabaseClient = createClient(
       // @ts-ignore
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -21,11 +24,12 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '' 
     )
 
+    // 2. RECEBE O GATILHO: O front manda "Quero disparar 'support_contact_clicked'"
     const { event_type, payload } = await req.json()
 
     console.log(`[trigger-integration] Iniciando disparo para evento: ${event_type}`);
 
-    // 1. Buscar a URL do webhook configurada no banco
+    // 3. IDENTIFICA O DESTINO: Vai no banco descobrir qual a URL para esse evento
     const { data: config, error: dbError } = await supabaseClient
       .from('webhook_configs')
       .select('target_url, is_active')
@@ -44,10 +48,10 @@ serve(async (req) => {
 
     console.log(`[trigger-integration] Alvo: ${config.target_url}`);
 
-    // 2. Enriquecer o payload
+    // 4. PREPARA O PACOTE: Adiciona timestamp e tenta pegar dados do usuário logado
     let enrichedPayload = { ...payload, event: event_type, timestamp: new Date().toISOString() };
     
-    // Tenta pegar dados do usuário se disponível
+    // Se o usuário mandou o token de auth, buscamos o perfil dele para facilitar sua vida no N8N
     const authHeader = req.headers.get('Authorization');
     if (authHeader) {
         try {
@@ -75,7 +79,7 @@ serve(async (req) => {
         }
     }
 
-    // 3. Disparar para o N8N e aguardar resposta para diagnóstico
+    // 5. ENVIA A REQUEST (O Disparo Real)
     try {
         const response = await fetch(config.target_url, {
             method: 'POST',
@@ -83,6 +87,7 @@ serve(async (req) => {
             body: JSON.stringify(enrichedPayload)
         });
 
+        // Lê o que o N8N respondeu para ajudar no debug
         const responseText = await response.text();
         console.log(`[trigger-integration] Resposta N8N (${response.status}):`, responseText.substring(0, 200));
 

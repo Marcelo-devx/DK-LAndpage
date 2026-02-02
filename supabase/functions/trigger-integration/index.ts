@@ -22,57 +22,60 @@ serve(async (req) => {
     )
 
     const { event_type, payload } = await req.json()
-    console.log(`[trigger-integration] Evento: ${event_type}`);
+    console.log(`[trigger-integration] Iniciando processamento para evento: ${event_type}`, payload);
 
     // 1. Busca URL do Webhook
-    const { data: config } = await supabaseClient
+    const { data: config, error: configError } = await supabaseClient
       .from('webhook_configs')
       .select('target_url, is_active')
       .eq('trigger_event', event_type)
       .single();
 
-    if (!config || !config.is_active || !config.target_url) {
-      return new Response(JSON.stringify({ message: 'Webhook inativo ou não configurado' }), { headers: corsHeaders });
+    if (configError || !config || !config.is_active || !config.target_url) {
+      console.warn(`[trigger-integration] Webhook não configurado ou inativo para ${event_type}`);
+      return new Response(JSON.stringify({ message: 'Webhook ignorado (inativo/não config)' }), { headers: corsHeaders });
     }
 
     let finalPayload = { ...payload, event: event_type, timestamp: new Date().toISOString() };
 
-    // 2. LÓGICA ESPECIAL PARA PEDIDOS (Busca os itens no banco)
+    // 2. LÓGICA PARA PEDIDOS (Busca separada para evitar erro de relacionamento)
     if (event_type === 'order_created' && payload.order_id) {
-        console.log(`[trigger-integration] Buscando detalhes completos do pedido #${payload.order_id}`);
         
-        // Busca Pedido + Itens + Perfil do Cliente
+        // A. Busca o Pedido
         const { data: order, error: orderError } = await supabaseClient
             .from('orders')
-            .select(`
-                *,
-                order_items (
-                    name_at_purchase,
-                    quantity,
-                    price_at_purchase
-                ),
-                profiles (
-                    first_name,
-                    last_name,
-                    phone,
-                    cpf_cnpj,
-                    email: id -- Vamos pegar o email da auth.users separadamente se precisar, mas aqui é um join simulado
-                )
-            `)
+            .select('*')
             .eq('id', payload.order_id)
             .single();
 
         if (orderError || !order) {
-            console.error("Erro ao buscar pedido:", orderError);
-            throw new Error("Pedido não encontrado no banco.");
+            throw new Error(`Erro ao buscar pedido: ${orderError?.message || 'Não encontrado'}`);
         }
 
-        // Busca o email real na tabela de usuários (opcional, mas bom para garantir)
+        // B. Busca os Itens
+        const { data: items, error: itemsError } = await supabaseClient
+            .from('order_items')
+            .select('name_at_purchase, quantity, price_at_purchase')
+            .eq('order_id', payload.order_id);
+
+        if (itemsError) {
+            console.error("Erro ao buscar itens:", itemsError);
+            // Não trava, envia array vazio se falhar
+        }
+
+        // C. Busca o Perfil do Cliente
+        const { data: profile, error: profileError } = await supabaseClient
+            .from('profiles')
+            .select('first_name, last_name, phone, cpf_cnpj')
+            .eq('id', order.user_id)
+            .single();
+
+        // D. Busca Email do Auth (Admin)
         const { data: userData } = await supabaseClient.auth.admin.getUserById(order.user_id);
         const userEmail = userData.user?.email || 'email@nao.encontrado';
 
-        // 3. Monta o JSON EXATAMENTE como no seu exemplo CURL
-        const formattedItems = order.order_items.map((item: any) => ({
+        // E. Monta o Payload Final
+        const formattedItems = (items || []).map((item: any) => ({
             name: item.name_at_purchase,
             quantity: item.quantity,
             price: item.price_at_purchase
@@ -88,28 +91,28 @@ serve(async (req) => {
                 payment_method: order.payment_method,
                 created_at: order.created_at,
                 shipping_cost: order.shipping_cost,
-                shipping_address: order.shipping_address, // Já está em JSONB no banco
+                shipping_address: order.shipping_address,
                 customer: {
                     id: order.user_id,
-                    full_name: `${order.profiles?.first_name || ''} ${order.profiles?.last_name || ''}`.trim(),
-                    phone: order.profiles?.phone || '',
+                    full_name: profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : 'Cliente',
+                    phone: profile?.phone || '',
                     email: userEmail,
-                    cpf: order.profiles?.cpf_cnpj || ''
+                    cpf: profile?.cpf_cnpj || ''
                 },
-                items: formattedItems // AQUI ESTÁ A LISTA DE ITENS!
+                items: formattedItems
             }
         };
     }
 
-    // 4. Envia para o N8N
-    console.log(`[trigger-integration] Enviando payload para: ${config.target_url}`);
+    // 3. Envia para o N8N
+    console.log(`[trigger-integration] Enviando para: ${config.target_url}`);
     
-    // Log no banco antes de enviar
+    // Log Tentativa
     await supabaseClient.from('integration_logs').insert({
         event_type: event_type,
         status: 'sending',
         payload: finalPayload,
-        details: `Disparando via Edge Function para ${config.target_url}`
+        details: `Disparando para ${config.target_url}`
     });
 
     const response = await fetch(config.target_url, {
@@ -120,8 +123,23 @@ serve(async (req) => {
 
     if (!response.ok) {
         const errText = await response.text();
-        throw new Error(`N8N Erro ${response.status}: ${errText}`);
+        // Log Erro do N8N
+        await supabaseClient.from('integration_logs').insert({
+            event_type: event_type,
+            status: 'error',
+            payload: finalPayload,
+            details: `N8N respondeu com erro ${response.status}: ${errText}`
+        });
+        throw new Error(`N8N Error ${response.status}: ${errText}`);
     }
+
+    // Log Sucesso
+    await supabaseClient.from('integration_logs').insert({
+        event_type: event_type,
+        status: 'success',
+        payload: finalPayload,
+        details: `Sucesso 200 OK`
+    });
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -129,10 +147,14 @@ serve(async (req) => {
     })
 
   } catch (error: any) {
-    console.error("[trigger-integration] Erro:", error)
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error("[trigger-integration] ERRO FATAL:", error);
+    
+    return new Response(JSON.stringify({ 
+        error: error.message,
+        stack: error.stack 
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
+      status: 500, // Retorna 500 para aparecer vermelho no dashboard, mas com mensagem clara no body
     })
   }
 })

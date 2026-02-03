@@ -70,7 +70,16 @@ serve(async (req) => {
                 .eq('id', order.user_id)
                 .single();
 
-            // D. Buscar Email
+            // D. Buscar Nome do Cupom (Novo)
+            const { data: userCoupon } = await supabaseClient
+                .from('user_coupons')
+                .select('coupons(name)')
+                .eq('order_id', payload.order_id)
+                .maybeSingle();
+
+            const couponName = userCoupon?.coupons?.name || null;
+
+            // E. Buscar Email
             let userEmail = 'nao_identificado@loja.com';
             try {
                 const { data: userData, error: userError } = await supabaseClient.auth.admin.getUserById(order.user_id);
@@ -87,26 +96,38 @@ serve(async (req) => {
                 price: item.price_at_purchase
             }));
 
-            // CÁLCULO CORRIGIDO DO TOTAL
-            // order.total_price no banco = Produtos - Descontos
-            // order.shipping_cost no banco = Frete
-            // Total Real = (Produtos - Descontos) + Frete
-            const productsSubtotal = Number(order.total_price || 0);
-            const shippingCost = Number(order.shipping_cost || 0);
-            const grandTotal = productsSubtotal + shippingCost;
+            // CÁLCULO FINANCEIRO DETALHADO
+            // order.total_price (Banco) = Valor dos Produtos JÁ com desconto aplicado
+            const netProductsValue = Number(order.total_price || 0); 
+            const discountValue = Number(order.coupon_discount || 0);
+            const shippingValue = Number(order.shipping_cost || 0);
+            
+            // Valor original dos produtos (antes do desconto)
+            const originalProductsValue = netProductsValue + discountValue;
+            
+            // Valor final que o cliente paga (Produtos com desconto + Frete)
+            const finalTotalToPay = netProductsValue + shippingValue;
 
             finalPayload = {
                 event: "order_created",
                 timestamp: new Date().toISOString(),
                 data: {
                     id: order.id,
-                    total_price: grandTotal, // Soma final (O que o cliente paga)
-                    subtotal: productsSubtotal, // Valor apenas dos produtos (com desconto aplicado)
+                    // Campos Financeiros Principais
+                    total_price: finalTotalToPay, // Valor final do PIX/Cartão
+                    subtotal: netProductsValue,   // Valor dos produtos COM desconto
+                    shipping_cost: shippingValue,
+                    
+                    // Detalhes do Desconto/Cupom
+                    coupon_discount: discountValue,
+                    coupon_name: couponName,
+                    original_subtotal: originalProductsValue, // Valor dos produtos SEM desconto
+                    
                     status: order.status,
                     payment_method: order.payment_method,
                     created_at: order.created_at,
-                    shipping_cost: shippingCost,
-                    coupon_discount: Number(order.coupon_discount || 0), // Informa o desconto separadamente também
+                    benefits_used: order.benefits_used, // Benefícios do Clube
+                    
                     shipping_address: order.shipping_address,
                     customer: {
                         id: order.user_id,

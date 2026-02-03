@@ -144,7 +144,9 @@ const Login = () => {
                   label: { textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700', fontSize: '11px' }
                 }
               }}
-              providers={[]}
+              // ADICIONADO: Provedor Google
+              providers={['google']} 
+              redirectTo={window.location.origin} // Garante o redirecionamento correto após o OAuth
               theme="default"
               view={initialView}
               localization={{
@@ -156,6 +158,7 @@ const Login = () => {
                     password_input_placeholder: '••••••••',
                     button_label: 'Entrar',
                     link_text: 'Não tem uma conta? Cadastre-se',
+                    social_provider_text: 'Entrar com {{provider}}',
                   },
                   sign_up: {
                     email_label: 'E-mail',
@@ -164,6 +167,7 @@ const Login = () => {
                     password_input_placeholder: 'Crie uma senha segura',
                     button_label: 'Criar Conta',
                     link_text: 'Já tem conta? Entre',
+                    social_provider_text: 'Cadastrar com {{provider}}',
                   },
                   forgotten_password: {
                     email_label: 'E-mail',

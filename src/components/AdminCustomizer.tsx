@@ -16,13 +16,18 @@ import {
   Webhook,
   Activity,
   CheckCircle2,
-  XCircle
+  XCircle,
+  Copy,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  Key
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import {
   Sheet,
   SheetContent,
@@ -43,6 +48,9 @@ const AdminCustomizer = () => {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState("global");
   const [testStatus, setTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+
+  // Constantes de URL (Projeto)
+  const PROJECT_URL = "https://jrlozhhvwqfmjtkmvukf.supabase.co";
 
   // Estado para Webhooks
   const [webhooks, setWebhooks] = useState({
@@ -165,6 +173,11 @@ const AdminCustomizer = () => {
     }
   };
 
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    showSuccess("URL copiada!");
+  };
+
   const handleTabChange = (value: string) => {
     setActiveTab(value);
     switch (value) {
@@ -245,17 +258,18 @@ const AdminCustomizer = () => {
                 </div>
               </TabsContent>
 
-              <TabsContent value="integrations" className="space-y-6 mt-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="bg-purple-50 border border-purple-100 p-4 rounded-xl mb-6">
+              <TabsContent value="integrations" className="space-y-8 mt-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                {/* 1. STATUS E TESTE */}
+                <div className="bg-purple-50 border border-purple-100 p-4 rounded-xl">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <div className="bg-purple-500/10 p-2 rounded-lg"><Webhook className="h-5 w-5 text-purple-600" /></div>
-                            <h3 className="font-bold text-purple-900 text-sm">Configuração N8N</h3>
+                            <h3 className="font-bold text-purple-900 text-sm">Status N8N</h3>
                         </div>
                         {testStatus === 'success' && <div className="flex items-center gap-1 text-[10px] font-black text-green-600 bg-green-100 px-2 py-1 rounded-md uppercase tracking-wider"><CheckCircle2 className="h-3 w-3" /> Online</div>}
                         {testStatus === 'error' && <div className="flex items-center gap-1 text-[10px] font-black text-red-600 bg-red-100 px-2 py-1 rounded-md uppercase tracking-wider"><XCircle className="h-3 w-3" /> Erro</div>}
                     </div>
-                    <p className="text-xs text-purple-700 leading-relaxed mt-2 mb-4">Cole aqui os links dos seus Webhooks. O sistema já está configurado para o domínio: <strong>n8n-ws.dkcwb.cloud</strong>.</p>
+                    <p className="text-xs text-purple-700 leading-relaxed mt-2 mb-4">Verifique se o seu servidor de automação (N8N) está respondendo corretamente.</p>
                     
                     <Button 
                         onClick={handleTestConnection} 
@@ -271,22 +285,60 @@ const AdminCustomizer = () => {
                     </Button>
                 </div>
 
+                {/* 2. WEBHOOKS DE SAÍDA (O que o Site envia para o N8N) */}
                 <div className="space-y-4">
+                    <div className="flex items-center gap-2 mb-2 px-1">
+                        <ArrowUpCircle className="h-4 w-4 text-sky-500" />
+                        <h3 className="font-black text-xs uppercase tracking-widest text-slate-500">Webhooks de Saída (Events)</h3>
+                    </div>
+                    
                     <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-3">
                         <div className="flex items-center justify-between"><Label className="text-xs font-bold uppercase tracking-wider text-slate-600">Novo Pedido</Label><span className={cn("text-[9px] font-black uppercase px-2 py-0.5 rounded", webhooks.order_created ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-400")}>{webhooks.order_created ? 'Ativo' : 'Inativo'}</span></div>
-                        <Input value={webhooks.order_created} onChange={(e) => updateWebhook('order_created', e.target.value)} placeholder="https://seu-n8n.com/webhook/..." className="bg-slate-50 font-mono text-xs"/>
-                    </div>
-                    <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-3">
-                        <div className="flex items-center justify-between"><Label className="text-xs font-bold uppercase tracking-wider text-slate-600">Atualização de Pedido</Label><span className={cn("text-[9px] font-black uppercase px-2 py-0.5 rounded", webhooks.order_updated ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-400")}>{webhooks.order_updated ? 'Ativo' : 'Inativo'}</span></div>
-                        <Input value={webhooks.order_updated} onChange={(e) => updateWebhook('order_updated', e.target.value)} placeholder="https://seu-n8n.com/webhook/..." className="bg-slate-50 font-mono text-xs"/>
+                        <Input value={webhooks.order_created} onChange={(e) => updateWebhook('order_created', e.target.value)} placeholder="https://seu-n8n.com/webhook/..." className="bg-slate-50 font-mono text-[10px] h-8"/>
                     </div>
                     <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-3">
                         <div className="flex items-center justify-between"><Label className="text-xs font-bold uppercase tracking-wider text-slate-600">Novo Cliente</Label><span className={cn("text-[9px] font-black uppercase px-2 py-0.5 rounded", webhooks.customer_created ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-400")}>{webhooks.customer_created ? 'Ativo' : 'Inativo'}</span></div>
-                        <Input value={webhooks.customer_created} onChange={(e) => updateWebhook('customer_created', e.target.value)} placeholder="https://seu-n8n.com/webhook/..." className="bg-slate-50 font-mono text-xs"/>
+                        <Input value={webhooks.customer_created} onChange={(e) => updateWebhook('customer_created', e.target.value)} placeholder="https://seu-n8n.com/webhook/..." className="bg-slate-50 font-mono text-[10px] h-8"/>
                     </div>
                     <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-3 border-l-4 border-l-emerald-500">
-                        <div className="flex items-center justify-between"><Label className="text-xs font-bold uppercase tracking-wider text-emerald-600">Chat Bot (Mensagem)</Label><span className={cn("text-[9px] font-black uppercase px-2 py-0.5 rounded", webhooks.chat_message_sent ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-400")}>{webhooks.chat_message_sent ? 'Ativo' : 'Inativo'}</span></div>
-                        <Input value={webhooks.chat_message_sent} onChange={(e) => updateWebhook('chat_message_sent', e.target.value)} placeholder="https://seu-n8n.com/webhook/..." className="bg-slate-50 font-mono text-xs"/>
+                        <div className="flex items-center justify-between"><Label className="text-xs font-bold uppercase tracking-wider text-emerald-600">Chat Bot (Msg Enviada)</Label><span className={cn("text-[9px] font-black uppercase px-2 py-0.5 rounded", webhooks.chat_message_sent ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-400")}>{webhooks.chat_message_sent ? 'Ativo' : 'Inativo'}</span></div>
+                        <Input value={webhooks.chat_message_sent} onChange={(e) => updateWebhook('chat_message_sent', e.target.value)} placeholder="https://seu-n8n.com/webhook/..." className="bg-slate-50 font-mono text-[10px] h-8"/>
+                    </div>
+                </div>
+
+                {/* 3. WEBHOOKS DE ENTRADA (O que o N8N deve chamar) */}
+                <div className="space-y-4">
+                    <div className="flex items-center gap-2 mb-2 px-1">
+                        <ArrowDownCircle className="h-4 w-4 text-orange-500" />
+                        <h3 className="font-black text-xs uppercase tracking-widest text-slate-500">Webhooks de Entrada (API)</h3>
+                    </div>
+                    
+                    <div className="space-y-3">
+                        <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-sm">
+                            <div className="flex justify-between items-center mb-2">
+                                <Label className="text-xs font-bold uppercase tracking-wider text-white">Atualizar Pedido</Label>
+                                <Badge className="text-[9px] bg-orange-500 text-white hover:bg-orange-600 border-none">Requires Auth</Badge>
+                            </div>
+                            <div className="flex gap-2">
+                                <Input readOnly value={`${PROJECT_URL}/functions/v1/update-order-status`} className="bg-slate-800 border-slate-700 text-slate-300 font-mono text-[10px] h-8" />
+                                <Button size="icon" className="h-8 w-8 bg-slate-700 hover:bg-slate-600 shrink-0" onClick={() => copyToClipboard(`${PROJECT_URL}/functions/v1/update-order-status`)}>
+                                    <Copy className="h-3.5 w-3.5 text-white" />
+                                </Button>
+                            </div>
+                            <p className="text-[10px] text-slate-500 mt-2 flex items-center gap-1">
+                                <Key className="h-3 w-3" /> Header: <code>Authorization: Bearer [SERVICE_KEY]</code>
+                            </p>
+                        </div>
+
+                        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                            <Label className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2 block">Mercado Pago (Webhook)</Label>
+                            <div className="flex gap-2">
+                                <Input readOnly value={`${PROJECT_URL}/functions/v1/mercadopago-webhook`} className="bg-slate-50 font-mono text-[10px] h-8" />
+                                <Button size="icon" variant="outline" className="h-8 w-8 shrink-0" onClick={() => copyToClipboard(`${PROJECT_URL}/functions/v1/mercadopago-webhook`)}>
+                                    <Copy className="h-3.5 w-3.5" />
+                                </Button>
+                            </div>
+                        </div>
                     </div>
                 </div>
               </TabsContent>

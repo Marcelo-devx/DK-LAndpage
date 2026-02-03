@@ -11,7 +11,10 @@ import {
   Plus, 
   TrendingUp,
   ChevronRight,
-  ShieldCheck
+  Shield,   // Bronze
+  Award,    // Prata
+  Crown,    // Ouro
+  Trophy    // Black
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import ScrollAnimationWrapper from '@/components/ScrollAnimationWrapper';
@@ -63,6 +66,15 @@ const TierVisuals: Record<string, { bg: string, border: string, text: string, sh
     shadow: 'shadow-black',
     iconColor: 'text-slate-200'
   },
+};
+
+// Mapeamento dos Ícones Grandes de Fundo
+const TierIcons: Record<string, any> = {
+  'Bronze': Shield,
+  'Prata': Award,
+  'Ouro': Crown,
+  'Diamante': Gem,
+  'Black': Trophy,
 };
 
 const HowItWorksPage = () => {
@@ -199,19 +211,21 @@ const HowItWorksPage = () => {
             {loading ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-48 w-full bg-white/5 rounded-3xl" />) : 
               tiers.map((tier) => {
                 const visual = TierVisuals[tier.name] || TierVisuals['Bronze'];
+                const TierIcon = TierIcons[tier.name] || Shield;
+
                 return (
                   <ScrollAnimationWrapper key={tier.id}>
                     <div className={cn(
                       "group relative h-full flex flex-col md:flex-row overflow-hidden rounded-[2rem] border transition-all duration-500 hover:-translate-y-2",
                       visual.bg, visual.border, visual.shadow, "shadow-2xl"
                     )}>
-                      <div className="md:w-20 bg-black/40 flex items-center justify-center py-6 md:py-0 border-b md:border-b-0 md:border-r border-white/5 shrink-0">
+                      <div className="md:w-20 bg-black/40 flex items-center justify-center py-6 md:py-0 border-b md:border-b-0 md:border-r border-white/5 shrink-0 relative z-20">
                         <h3 className={cn("text-2xl font-black uppercase tracking-[0.3em] md:-rotate-90 whitespace-nowrap", visual.text)}>
                           {tier.name}
                         </h3>
                       </div>
 
-                      <div className="flex-1 p-8 md:p-10 flex flex-col justify-between">
+                      <div className="flex-1 p-8 md:p-10 flex flex-col justify-between relative z-20">
                         <div>
                           <div className="flex flex-col sm:flex-row sm:items-baseline gap-2 mb-6">
                             <span className="text-white/60 text-[10px] font-black uppercase tracking-widest">Investimento Semestral</span>
@@ -242,8 +256,9 @@ const HowItWorksPage = () => {
                         </div>
                       </div>
 
-                      <div className="absolute top-1/2 -right-12 -translate-y-1/2 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity duration-700 pointer-events-none">
-                         <ShieldCheck className="h-64 w-64 text-white" />
+                      {/* Ícone de Marca d'Água no Fundo */}
+                      <div className="absolute top-1/2 -right-4 -translate-y-1/2 opacity-[0.05] group-hover:opacity-[0.12] transition-all duration-700 pointer-events-none transform rotate-12 scale-110 group-hover:scale-125 group-hover:rotate-6">
+                         <TierIcon strokeWidth={1} className={cn("h-64 w-64", visual.text)} />
                       </div>
                     </div>
                   </ScrollAnimationWrapper>

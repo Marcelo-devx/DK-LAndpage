@@ -31,7 +31,7 @@ serve(async (req) => {
       .from('webhook_configs')
       .select('target_url, is_active')
       .eq('trigger_event', event_type)
-      .maybeSingle(); // Usa maybeSingle para não estourar erro se não encontrar
+      .maybeSingle(); 
 
     if (configError) {
         console.error("Erro ao buscar config do webhook:", configError);
@@ -57,7 +57,7 @@ serve(async (req) => {
 
             if (orderError || !order) throw new Error(`Pedido ${payload.order_id} não encontrado.`);
 
-            // B. Buscar Itens (Não falha o processo se der erro, apenas loga)
+            // B. Buscar Itens
             const { data: items } = await supabaseClient
                 .from('order_items')
                 .select('name_at_purchase, quantity, price_at_purchase')
@@ -70,7 +70,7 @@ serve(async (req) => {
                 .eq('id', order.user_id)
                 .single();
 
-            // D. Buscar Email (Admin Auth) - Tratamento defensivo
+            // D. Buscar Email
             let userEmail = 'nao_identificado@loja.com';
             try {
                 const { data: userData, error: userError } = await supabaseClient.auth.admin.getUserById(order.user_id);
@@ -87,16 +87,26 @@ serve(async (req) => {
                 price: item.price_at_purchase
             }));
 
+            // CÁLCULO CORRIGIDO DO TOTAL
+            // order.total_price no banco = Produtos - Descontos
+            // order.shipping_cost no banco = Frete
+            // Total Real = (Produtos - Descontos) + Frete
+            const productsSubtotal = Number(order.total_price || 0);
+            const shippingCost = Number(order.shipping_cost || 0);
+            const grandTotal = productsSubtotal + shippingCost;
+
             finalPayload = {
                 event: "order_created",
                 timestamp: new Date().toISOString(),
                 data: {
                     id: order.id,
-                    total_price: order.total_price,
+                    total_price: grandTotal, // Soma final (O que o cliente paga)
+                    subtotal: productsSubtotal, // Valor apenas dos produtos (com desconto aplicado)
                     status: order.status,
                     payment_method: order.payment_method,
                     created_at: order.created_at,
-                    shipping_cost: order.shipping_cost,
+                    shipping_cost: shippingCost,
+                    coupon_discount: Number(order.coupon_discount || 0), // Informa o desconto separadamente também
                     shipping_address: order.shipping_address,
                     customer: {
                         id: order.user_id,
@@ -110,22 +120,19 @@ serve(async (req) => {
             };
         } catch (enrichError) {
             console.error("Erro ao enriquecer dados do pedido:", enrichError);
-            // Se falhar o enriquecimento, enviamos pelo menos o payload original + erro
             finalPayload.error = "Falha parcial ao buscar detalhes do pedido";
         }
     }
 
-    // 3. Registrar Log de Tentativa
+    // 3. Registrar Log
     await supabaseClient.from('integration_logs').insert({
         event_type: event_type,
         status: 'sending',
-        payload: finalPayload, // Salva o que vamos enviar
+        payload: finalPayload,
         details: `Enviando para ${config.target_url}`
     });
 
     // 4. Enviar para N8N
-    console.log(`Enviando POST para: ${config.target_url}`);
-    
     const response = await fetch(config.target_url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -144,7 +151,6 @@ serve(async (req) => {
         throw new Error(`O N8N retornou erro ${response.status}: ${responseText}`);
     }
 
-    // Sucesso
     await supabaseClient.from('integration_logs').insert({
         event_type: event_type,
         status: 'success',
@@ -159,14 +165,13 @@ serve(async (req) => {
 
   } catch (error: any) {
     console.error("ERRO CRÍTICO NA EDGE FUNCTION:", error);
-    
     return new Response(JSON.stringify({ 
         success: false, 
         error: error.message || 'Erro desconhecido',
         stack: error.stack
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500, // Retorna 500 para o frontend saber que falhou
+      status: 500,
     })
   }
 })

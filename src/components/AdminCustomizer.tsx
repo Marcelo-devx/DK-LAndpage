@@ -9,9 +9,7 @@ import {
   LogIn, 
   User, 
   LayoutTemplate,
-  Layers,
   Palette,
-  Link as LinkIcon,
   Network,
   Webhook,
   Activity,
@@ -20,13 +18,14 @@ import {
   Copy,
   ArrowDownCircle,
   ArrowUpCircle,
-  Key
+  FileJson,
+  Truck,
+  CreditCard
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import {
   Sheet,
@@ -173,9 +172,9 @@ const AdminCustomizer = () => {
     }
   };
 
-  const copyToClipboard = (text: string) => {
+  const copyToClipboard = (text: string, msg = "Copiado!") => {
     navigator.clipboard.writeText(text);
-    showSuccess("URL copiada!");
+    showSuccess(msg);
   };
 
   const handleTabChange = (value: string) => {
@@ -216,10 +215,10 @@ const AdminCustomizer = () => {
               <div className="p-2 bg-slate-900 rounded-lg">
                 <LayoutTemplate className="h-5 w-5 text-sky-400" />
               </div>
-              Editor Visual
+              Gestão DKCWB
             </SheetTitle>
             <SheetDescription className="text-xs font-medium text-slate-500">
-              Selecione uma camada para editar e visualizar em tempo real.
+              Controle de integrações e aparência da loja.
             </SheetDescription>
           </SheetHeader>
         </div>
@@ -230,7 +229,7 @@ const AdminCustomizer = () => {
             <div className="px-6 py-4 bg-slate-50/50 border-b border-slate-100 overflow-x-auto no-scrollbar">
               <TabsList className="bg-transparent p-0 gap-2 h-auto flex w-max">
                 <TabsTrigger value="global" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-slate-900 data-[state=active]:text-white data-[state=active]:border-slate-900 data-[state=active]:shadow-lg hover:bg-white hover:border-slate-300 bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><Globe className="h-3.5 w-3.5" /> Global</TabsTrigger>
-                <TabsTrigger value="integrations" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-purple-600 data-[state=active]:text-white data-[state=active]:border-purple-600 data-[state=active]:shadow-lg hover:bg-white hover:border-purple-200 bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><Network className="h-3.5 w-3.5" /> Integrações</TabsTrigger>
+                <TabsTrigger value="integrations" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-purple-600 data-[state=active]:text-white data-[state=active]:border-purple-600 data-[state=active]:shadow-lg hover:bg-white hover:border-purple-200 bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><Network className="h-3.5 w-3.5" /> API & N8N</TabsTrigger>
                 <TabsTrigger value="home" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-sky-500 data-[state=active]:text-white data-[state=active]:border-sky-500 data-[state=active]:shadow-lg hover:bg-white hover:border-sky-200 bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><Home className="h-3.5 w-3.5" /> Home</TabsTrigger>
                 <TabsTrigger value="login" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-indigo-500 data-[state=active]:text-white data-[state=active]:border-indigo-500 data-[state=active]:shadow-lg hover:bg-white hover:border-indigo-200 bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><LogIn className="h-3.5 w-3.5" /> Login</TabsTrigger>
                 <TabsTrigger value="dashboard" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-emerald-500 data-[state=active]:text-white data-[state=active]:border-emerald-500 data-[state=active]:shadow-lg hover:bg-white hover:border-emerald-200 bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><User className="h-3.5 w-3.5" /> Conta</TabsTrigger>
@@ -285,6 +284,121 @@ const AdminCustomizer = () => {
                     </Button>
                 </div>
 
+                {/* 3. WEBHOOKS DE ENTRADA (O que o N8N deve chamar) */}
+                <div className="space-y-4">
+                    <div className="flex items-center gap-2 mb-2 px-1">
+                        <ArrowDownCircle className="h-4 w-4 text-orange-500" />
+                        <h3 className="font-black text-xs uppercase tracking-widest text-slate-500">APIs de Entrada (Para N8N)</h3>
+                    </div>
+                    
+                    <div className="space-y-4">
+                        {/* UPDATE ORDER (FINALIZAR PIX) */}
+                        <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-sm">
+                            <div className="flex justify-between items-center mb-2">
+                                <Label className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
+                                    <CheckCircle2 className="h-4 w-4 text-green-400" /> Confirmar Pagamento PIX
+                                </Label>
+                                <Badge className="text-[9px] bg-orange-500 text-white hover:bg-orange-600 border-none">Auth Required</Badge>
+                            </div>
+                            <div className="flex gap-2 mb-3">
+                                <Input readOnly value={`${PROJECT_URL}/functions/v1/update-order-status`} className="bg-slate-800 border-slate-700 text-slate-300 font-mono text-[10px] h-8" />
+                                <Button size="icon" className="h-8 w-8 bg-slate-700 hover:bg-slate-600 shrink-0" onClick={() => copyToClipboard(`${PROJECT_URL}/functions/v1/update-order-status`, "URL Copiada!")}>
+                                    <Copy className="h-3.5 w-3.5 text-white" />
+                                </Button>
+                            </div>
+                            
+                            {/* JSON HELPER */}
+                            <div className="bg-black/50 p-2 rounded-lg border border-white/5">
+                                <div className="flex justify-between items-center mb-1">
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase">Exemplo JSON (Finalizar)</span>
+                                    <Button 
+                                        size="sm" 
+                                        variant="ghost" 
+                                        className="h-5 text-[9px] text-sky-400 hover:text-white p-0 hover:bg-transparent"
+                                        onClick={() => copyToClipboard(JSON.stringify({
+                                            order_id: 12345,
+                                            status: "Finalizada",
+                                            delivery_status: "Em Preparação",
+                                            delivery_info: "PIX Confirmado"
+                                        }, null, 2), "JSON Copiado!")}
+                                    >
+                                        <FileJson className="h-3 w-3 mr-1" /> Copiar Payload
+                                    </Button>
+                                </div>
+                                <pre className="text-[9px] text-green-400 font-mono overflow-x-auto whitespace-pre-wrap">
+{`{
+  "order_id": 12345,
+  "status": "Finalizada",
+  "delivery_status": "Em Preparação"
+}`}
+                                </pre>
+                            </div>
+                        </div>
+
+                        {/* UPDATE ORDER (RASTREIO) */}
+                        <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-sm">
+                            <div className="flex justify-between items-center mb-2">
+                                <Label className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
+                                    <Truck className="h-4 w-4 text-sky-400" /> Atualizar Rastreio
+                                </Label>
+                            </div>
+                            <div className="bg-black/50 p-2 rounded-lg border border-white/5 mt-2">
+                                <div className="flex justify-between items-center mb-1">
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase">Exemplo JSON</span>
+                                    <Button 
+                                        size="sm" 
+                                        variant="ghost" 
+                                        className="h-5 text-[9px] text-sky-400 hover:text-white p-0 hover:bg-transparent"
+                                        onClick={() => copyToClipboard(JSON.stringify({
+                                            order_id: 12345,
+                                            status: "Em Trânsito",
+                                            delivery_status: "Enviado",
+                                            tracking_code: "BR123456789"
+                                        }, null, 2), "JSON Copiado!")}
+                                    >
+                                        <FileJson className="h-3 w-3 mr-1" /> Copiar Payload
+                                    </Button>
+                                </div>
+                                <pre className="text-[9px] text-blue-300 font-mono overflow-x-auto whitespace-pre-wrap">
+{`{
+  "order_id": 12345,
+  "status": "Em Trânsito",
+  "delivery_status": "Enviado",
+  "tracking_code": "BR123456789"
+}`}
+                                </pre>
+                            </div>
+                        </div>
+
+                        {/* GET ORDER DETAILS (NOVO) */}
+                        <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-sm">
+                            <div className="flex justify-between items-center mb-2">
+                                <Label className="text-xs font-bold uppercase tracking-wider text-white">Consultar Pedido Completo</Label>
+                                <Badge className="text-[9px] bg-sky-500 text-white hover:bg-sky-600 border-none">GET</Badge>
+                            </div>
+                            <div className="flex gap-2">
+                                <Input readOnly value={`${PROJECT_URL}/functions/v1/get-order-details?id={ORDER_ID}`} className="bg-slate-800 border-slate-700 text-slate-300 font-mono text-[10px] h-8" />
+                                <Button size="icon" className="h-8 w-8 bg-slate-700 hover:bg-slate-600 shrink-0" onClick={() => copyToClipboard(`${PROJECT_URL}/functions/v1/get-order-details`)}>
+                                    <Copy className="h-3.5 w-3.5 text-white" />
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* MERCADO PAGO */}
+                        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                            <Label className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2 flex items-center gap-2">
+                                <CreditCard className="h-3.5 w-3.5" /> Mercado Pago (Webhook)
+                            </Label>
+                            <div className="flex gap-2">
+                                <Input readOnly value={`${PROJECT_URL}/functions/v1/mercadopago-webhook`} className="bg-slate-50 font-mono text-[10px] h-8" />
+                                <Button size="icon" variant="outline" className="h-8 w-8 shrink-0" onClick={() => copyToClipboard(`${PROJECT_URL}/functions/v1/mercadopago-webhook`)}>
+                                    <Copy className="h-3.5 w-3.5" />
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 {/* 2. WEBHOOKS DE SAÍDA (O que o Site envia para o N8N) */}
                 <div className="space-y-4">
                     <div className="flex items-center gap-2 mb-2 px-1">
@@ -303,55 +417,6 @@ const AdminCustomizer = () => {
                     <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-3 border-l-4 border-l-emerald-500">
                         <div className="flex items-center justify-between"><Label className="text-xs font-bold uppercase tracking-wider text-emerald-600">Chat Bot (Msg Enviada)</Label><span className={cn("text-[9px] font-black uppercase px-2 py-0.5 rounded", webhooks.chat_message_sent ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-400")}>{webhooks.chat_message_sent ? 'Ativo' : 'Inativo'}</span></div>
                         <Input value={webhooks.chat_message_sent} onChange={(e) => updateWebhook('chat_message_sent', e.target.value)} placeholder="https://seu-n8n.com/webhook/..." className="bg-slate-50 font-mono text-[10px] h-8"/>
-                    </div>
-                </div>
-
-                {/* 3. WEBHOOKS DE ENTRADA (O que o N8N deve chamar) */}
-                <div className="space-y-4">
-                    <div className="flex items-center gap-2 mb-2 px-1">
-                        <ArrowDownCircle className="h-4 w-4 text-orange-500" />
-                        <h3 className="font-black text-xs uppercase tracking-widest text-slate-500">Webhooks de Entrada (API)</h3>
-                    </div>
-                    
-                    <div className="space-y-3">
-                        {/* UPDATE ORDER */}
-                        <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-sm">
-                            <div className="flex justify-between items-center mb-2">
-                                <Label className="text-xs font-bold uppercase tracking-wider text-white">Atualizar Pedido</Label>
-                                <Badge className="text-[9px] bg-orange-500 text-white hover:bg-orange-600 border-none">Auth Required</Badge>
-                            </div>
-                            <div className="flex gap-2">
-                                <Input readOnly value={`${PROJECT_URL}/functions/v1/update-order-status`} className="bg-slate-800 border-slate-700 text-slate-300 font-mono text-[10px] h-8" />
-                                <Button size="icon" className="h-8 w-8 bg-slate-700 hover:bg-slate-600 shrink-0" onClick={() => copyToClipboard(`${PROJECT_URL}/functions/v1/update-order-status`)}>
-                                    <Copy className="h-3.5 w-3.5 text-white" />
-                                </Button>
-                            </div>
-                        </div>
-
-                        {/* GET ORDER DETAILS (NOVO) */}
-                        <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-sm">
-                            <div className="flex justify-between items-center mb-2">
-                                <Label className="text-xs font-bold uppercase tracking-wider text-white">Consultar Pedido</Label>
-                                <Badge className="text-[9px] bg-sky-500 text-white hover:bg-sky-600 border-none">Public / Safe</Badge>
-                            </div>
-                            <div className="flex gap-2">
-                                <Input readOnly value={`${PROJECT_URL}/functions/v1/get-order-details?id={ORDER_ID}`} className="bg-slate-800 border-slate-700 text-slate-300 font-mono text-[10px] h-8" />
-                                <Button size="icon" className="h-8 w-8 bg-slate-700 hover:bg-slate-600 shrink-0" onClick={() => copyToClipboard(`${PROJECT_URL}/functions/v1/get-order-details`)}>
-                                    <Copy className="h-3.5 w-3.5 text-white" />
-                                </Button>
-                            </div>
-                        </div>
-
-                        {/* MERCADO PAGO */}
-                        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
-                            <Label className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2 block">Mercado Pago (Webhook)</Label>
-                            <div className="flex gap-2">
-                                <Input readOnly value={`${PROJECT_URL}/functions/v1/mercadopago-webhook`} className="bg-slate-50 font-mono text-[10px] h-8" />
-                                <Button size="icon" variant="outline" className="h-8 w-8 shrink-0" onClick={() => copyToClipboard(`${PROJECT_URL}/functions/v1/mercadopago-webhook`)}>
-                                    <Copy className="h-3.5 w-3.5" />
-                                </Button>
-                            </div>
-                        </div>
                     </div>
                 </div>
               </TabsContent>

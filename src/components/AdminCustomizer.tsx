@@ -314,10 +314,11 @@ const AdminCustomizer = () => {
                     </div>
                     
                     <div className="space-y-3">
+                        {/* UPDATE ORDER */}
                         <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-sm">
                             <div className="flex justify-between items-center mb-2">
                                 <Label className="text-xs font-bold uppercase tracking-wider text-white">Atualizar Pedido</Label>
-                                <Badge className="text-[9px] bg-orange-500 text-white hover:bg-orange-600 border-none">Requires Auth</Badge>
+                                <Badge className="text-[9px] bg-orange-500 text-white hover:bg-orange-600 border-none">Auth Required</Badge>
                             </div>
                             <div className="flex gap-2">
                                 <Input readOnly value={`${PROJECT_URL}/functions/v1/update-order-status`} className="bg-slate-800 border-slate-700 text-slate-300 font-mono text-[10px] h-8" />
@@ -325,11 +326,23 @@ const AdminCustomizer = () => {
                                     <Copy className="h-3.5 w-3.5 text-white" />
                                 </Button>
                             </div>
-                            <p className="text-[10px] text-slate-500 mt-2 flex items-center gap-1">
-                                <Key className="h-3 w-3" /> Header: <code>Authorization: Bearer [SERVICE_KEY]</code>
-                            </p>
                         </div>
 
+                        {/* GET ORDER DETAILS (NOVO) */}
+                        <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-sm">
+                            <div className="flex justify-between items-center mb-2">
+                                <Label className="text-xs font-bold uppercase tracking-wider text-white">Consultar Pedido</Label>
+                                <Badge className="text-[9px] bg-sky-500 text-white hover:bg-sky-600 border-none">Public / Safe</Badge>
+                            </div>
+                            <div className="flex gap-2">
+                                <Input readOnly value={`${PROJECT_URL}/functions/v1/get-order-details?id={ORDER_ID}`} className="bg-slate-800 border-slate-700 text-slate-300 font-mono text-[10px] h-8" />
+                                <Button size="icon" className="h-8 w-8 bg-slate-700 hover:bg-slate-600 shrink-0" onClick={() => copyToClipboard(`${PROJECT_URL}/functions/v1/get-order-details`)}>
+                                    <Copy className="h-3.5 w-3.5 text-white" />
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* MERCADO PAGO */}
                         <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
                             <Label className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2 block">Mercado Pago (Webhook)</Label>
                             <div className="flex gap-2">

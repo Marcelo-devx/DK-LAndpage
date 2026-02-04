@@ -21,8 +21,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Segurança: Verificar se a requisição tem a chave secreta (Service Role)
-    // O N8N deve enviar no Header: Authorization: Bearer SUA_SERVICE_ROLE_KEY
+    // Segurança: Verificar Header
     const authHeader = req.headers.get('Authorization')
     if (!authHeader || !authHeader.includes('Bearer')) {
         return new Response(JSON.stringify({ error: 'Acesso negado. Requer Service Role Key.' }), {
@@ -40,43 +39,74 @@ serve(async (req) => {
         })
     }
 
-    // Montar objeto de atualização dinâmico
-    const updates: any = {}
-    if (status) updates.status = status
-    if (delivery_status) updates.delivery_status = delivery_status
-    
-    // Se enviar tracking_code ou delivery_info, atualizamos o campo delivery_info no banco
-    // Assumindo que delivery_info no banco é um texto ou JSON. No seu schema é TEXT.
-    if (tracking_code) {
-        updates.delivery_info = `Rastreio: ${tracking_code}`
-    } else if (delivery_info) {
-        updates.delivery_info = delivery_info
+    let responseData;
+
+    // LÓGICA INTELIGENTE:
+    // Se o status for "Finalizada", usamos a função RPC do banco que dá os pontos e libera o cartão.
+    if (status === 'Finalizada' || status === 'Pago') {
+        
+        // 1. Atualiza dados de entrega primeiro se fornecidos
+        if (delivery_status || tracking_code || delivery_info) {
+            const updates: any = {};
+            if (delivery_status) updates.delivery_status = delivery_status;
+            if (tracking_code) updates.delivery_info = `Rastreio: ${tracking_code}`;
+            else if (delivery_info) updates.delivery_info = delivery_info;
+            
+            await supabaseClient.from('orders').update(updates).eq('id', order_id);
+        }
+
+        // 2. Executa a finalização robusta (Pontos + Cartão + Status)
+        const { data, error } = await supabaseClient.rpc('finalize_order_payment', { 
+            p_order_id: order_id 
+        });
+
+        if (error) throw error;
+        
+        // Retorna o pedido atualizado
+        const { data: updatedOrder } = await supabaseClient.from('orders').select('*').eq('id', order_id).single();
+        responseData = updatedOrder;
+
+        await supabaseClient.from('integration_logs').insert({
+            event_type: 'api_payment_confirmed',
+            status: 'success',
+            payload: { order_id, method: 'pix_manual' },
+            details: `Pedido #${order_id} finalizado via API.`
+        });
+
+    } else {
+        // ATUALIZAÇÃO PADRÃO (Apenas muda os campos de texto)
+        const updates: any = {}
+        if (status) updates.status = status
+        if (delivery_status) updates.delivery_status = delivery_status
+        
+        if (tracking_code) {
+            updates.delivery_info = `Rastreio: ${tracking_code}`
+        } else if (delivery_info) {
+            updates.delivery_info = delivery_info
+        }
+
+        const { data, error } = await supabaseClient
+            .from('orders')
+            .update(updates)
+            .eq('id', order_id)
+            .select()
+            .single()
+
+        if (error) throw error;
+        responseData = data;
+
+        await supabaseClient.from('integration_logs').insert({
+            event_type: 'api_update_order',
+            status: 'success',
+            payload: { order_id, updates },
+            details: `Pedido #${order_id} atualizado via API.`
+        })
     }
-
-    // Executar atualização
-    const { data, error } = await supabaseClient
-        .from('orders')
-        .update(updates)
-        .eq('id', order_id)
-        .select()
-        .single()
-
-    if (error) {
-        throw error
-    }
-
-    // Registrar no Log de Integração (Opcional, mas bom para debug)
-    await supabaseClient.from('integration_logs').insert({
-        event_type: 'api_update_order',
-        status: 'success',
-        payload: { order_id, updates },
-        details: `Pedido #${order_id} atualizado via API externa.`
-    })
 
     return new Response(JSON.stringify({ 
         success: true, 
         message: 'Pedido atualizado com sucesso.',
-        data 
+        data: responseData 
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,

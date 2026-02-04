@@ -40,12 +40,14 @@ serve(async (req) => {
     }
 
     let responseData;
+    const s = status ? status.toLowerCase() : '';
 
-    // LÓGICA INTELIGENTE:
-    // Se o status for "Finalizada", usamos a função RPC do banco que dá os pontos e libera o cartão.
-    if (status === 'Finalizada' || status === 'Pago') {
+    // LÓGICA INTELIGENTE (ATUALIZADA):
+    // Aceita Finalizada, Pago, Confirmado, Approved ou Paid para disparar a finalização.
+    // Isso garante flexibilidade na integração com N8N/IA.
+    if (status === 'Finalizada' || status === 'Pago' || s === 'confirmado' || s === 'approved' || s === 'paid') {
         
-        // 1. Atualiza dados de entrega primeiro se fornecidos
+        // 1. Atualiza dados de entrega/rastreio se fornecidos (antes de finalizar)
         if (delivery_status || tracking_code || delivery_info) {
             const updates: any = {};
             if (delivery_status) updates.delivery_status = delivery_status;
@@ -55,26 +57,29 @@ serve(async (req) => {
             await supabaseClient.from('orders').update(updates).eq('id', order_id);
         }
 
-        // 2. Executa a finalização robusta (Pontos + Cartão + Status)
+        // 2. Executa a finalização robusta (Pontos + Cartão + Status muda para 'Finalizada')
+        // A função RPC 'finalize_order_payment' força o status para 'Finalizada' no banco.
         const { data, error } = await supabaseClient.rpc('finalize_order_payment', { 
             p_order_id: order_id 
         });
 
         if (error) throw error;
         
-        // Retorna o pedido atualizado
+        // Retorna o pedido atualizado para confirmação
         const { data: updatedOrder } = await supabaseClient.from('orders').select('*').eq('id', order_id).single();
         responseData = updatedOrder;
 
+        // Log de sucesso
         await supabaseClient.from('integration_logs').insert({
             event_type: 'api_payment_confirmed',
             status: 'success',
-            payload: { order_id, method: 'pix_manual' },
-            details: `Pedido #${order_id} finalizado via API.`
+            payload: { order_id, input_status: status, method: 'api_manual' },
+            details: `Pedido #${order_id} finalizado e pontos concedidos.`
         });
 
     } else {
-        // ATUALIZAÇÃO PADRÃO (Apenas muda os campos de texto)
+        // ATUALIZAÇÃO PADRÃO (Apenas muda os campos de texto, sem lógica de pontos)
+        // Usado para atualizações intermediárias como "Em Trânsito"
         const updates: any = {}
         if (status) updates.status = status
         if (delivery_status) updates.delivery_status = delivery_status
@@ -99,7 +104,7 @@ serve(async (req) => {
             event_type: 'api_update_order',
             status: 'success',
             payload: { order_id, updates },
-            details: `Pedido #${order_id} atualizado via API.`
+            details: `Pedido #${order_id} atualizado (campos simples).`
         })
     }
 
@@ -113,6 +118,7 @@ serve(async (req) => {
     })
 
   } catch (error) {
+    console.error("Erro na API update-order-status:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,

@@ -13,14 +13,15 @@ const PixIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const ProductCard = ({ product }: ProductCardProps) => {
+const ProductCard = ({ product }: ProductCardProps & { product: { variantId?: string } }) => {
   const [isAdding, setIsAdding] = useState(false);
 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsAdding(true);
-    await addToCart(product.id, 1, 'product');
+    // @ts-ignore
+    await addToCart(product.id, 1, 'product', product.variantId);
     setIsAdding(false);
   };
 
@@ -32,8 +33,12 @@ const ProductCard = ({ product }: ProductCardProps) => {
   const installmentValue = (fullPrice / 3).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const formattedPixPrice = pixPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+  // Constrói a URL correta: se for variação, adiciona query param
+  // @ts-ignore
+  const linkUrl = product.variantId ? `/produto/${product.id}?variant=${product.variantId}` : `/produto/${product.id}`;
+
   return (
-    <Link to={`/produto/${product.id}`} className="group block h-full">
+    <Link to={linkUrl} className="group block h-full">
       <Card className="h-full bg-white border border-stone-100 hover:border-sky-500/30 transition-all duration-500 rounded-2xl overflow-hidden flex flex-col group-hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)]">
         <div className="overflow-hidden aspect-[4/5] relative bg-white shrink-0">
           <img 

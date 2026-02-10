@@ -6,26 +6,25 @@ import ProductFilters from '@/components/ProductFilters';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useSearchParams } from 'react-router-dom';
 
-interface Product {
+interface DisplayProduct {
   id: number;
   name: string;
   price: number;
-  pix_price: number | null;
-  image_url: string;
-  category: string | null;
-  sub_category: string | null;
+  pixPrice: number | null;
+  imageUrl: string;
+  stockQuantity: number;
+  variantId?: string; // Novo: para linkar direto
 }
 
 const AllProductsPage = () => {
   const [searchParams] = useSearchParams();
   
-  // Inicializa os estados diretamente com os valores da URL para evitar delay na aplicação dos filtros
   const initialSearch = searchParams.get('search') || '';
   const initialCategory = searchParams.get('category');
   const initialSubCategory = searchParams.get('sub_category');
   const initialBrand = searchParams.get('brand');
 
-  const [products, setProducts] = useState<Product[]>([]);
+  const [displayProducts, setDisplayProducts] = useState<DisplayProduct[]>([]);
   const [loading, setLoading] = useState(true);
   
   const [allCategories, setAllCategories] = useState<string[]>([]);
@@ -42,48 +41,33 @@ const AllProductsPage = () => {
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
-  // Sincroniza os filtros quando a URL muda (ex: clicando no menu superior)
   useEffect(() => {
     const querySearch = searchParams.get('search');
     const queryCategory = searchParams.get('category');
     const querySubCategory = searchParams.get('sub_category');
     const queryBrand = searchParams.get('brand');
 
-    if (querySearch !== null) setSearchTerm(querySearch);
-    else setSearchTerm('');
-
-    if (queryCategory) setSelectedCategories([queryCategory]);
-    else setSelectedCategories([]);
-
-    if (querySubCategory) setSelectedSubCategories([querySubCategory]);
-    else setSelectedSubCategories([]);
-
-    if (queryBrand) setSelectedBrands([queryBrand]);
-    else setSelectedBrands([]);
-    
+    if (querySearch !== null) setSearchTerm(querySearch); else setSearchTerm('');
+    if (queryCategory) setSelectedCategories([queryCategory]); else setSelectedCategories([]);
+    if (querySubCategory) setSelectedSubCategories([querySubCategory]); else setSelectedSubCategories([]);
+    if (queryBrand) setSelectedBrands([queryBrand]); else setSelectedBrands([]);
   }, [searchParams]);
 
   const fetchFilterOptions = useCallback(async () => {
-    const { data: catData, error: catError } = await supabase.from('categories').select('name');
-    if (catError) console.error(catError);
-    else setAllCategories(catData.map(c => c.name));
+    const { data: catData } = await supabase.from('categories').select('name');
+    if (catData) setAllCategories(catData.map(c => c.name));
 
-    const { data: subCatData, error: subCatError } = await supabase.from('sub_categories').select('name');
-    if (subCatError) console.error(subCatError);
-    else setAllSubCategories(subCatData.map(sc => sc.name));
+    const { data: subCatData } = await supabase.from('sub_categories').select('name');
+    if (subCatData) setAllSubCategories(subCatData.map(sc => sc.name));
 
-    const { data: brandData, error: brandError } = await supabase.from('brands').select('name');
-    if (brandError) console.error(brandError);
-    else setAllBrands(brandData.map(b => b.name));
+    const { data: brandData } = await supabase.from('brands').select('name');
+    if (brandData) setAllBrands(brandData.map(b => b.name));
 
-    const { data: flavorData, error: flavorError } = await supabase.from('flavors').select('name').eq('is_visible', true);
-    if (flavorError) console.error(flavorError);
-    else setAllFlavors(flavorData.map(f => f.name));
+    const { data: flavorData } = await supabase.from('flavors').select('name').eq('is_visible', true);
+    if (flavorData) setAllFlavors(flavorData.map(f => f.name));
   }, []);
 
-  useEffect(() => {
-    fetchFilterOptions();
-  }, [fetchFilterOptions]);
+  useEffect(() => { fetchFilterOptions(); }, [fetchFilterOptions]);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -91,63 +75,113 @@ const AllProductsPage = () => {
       
       let productIdsFromFlavors: number[] | null = null;
 
+      // 1. Filtragem por sabor (inverso)
       if (selectedFlavors.length > 0) {
-        const { data: flavorIdsData } = await supabase
-          .from('flavors')
-          .select('id')
-          .in('name', selectedFlavors);
-
+        const { data: flavorIdsData } = await supabase.from('flavors').select('id').in('name', selectedFlavors);
         if (flavorIdsData && flavorIdsData.length > 0) {
           const flavorIds = flavorIdsData.map(f => f.id);
-          const { data: productFlavorData } = await supabase
-            .from('product_flavors')
-            .select('product_id')
-            .in('flavor_id', flavorIds);
+          // Busca em product_variants E product_flavors
+          const { data: variantData } = await supabase.from('product_variants').select('product_id').in('flavor_id', flavorIds);
+          const { data: prodFlavorData } = await supabase.from('product_flavors').select('product_id').in('flavor_id', flavorIds);
           
-          if (productFlavorData) {
-            productIdsFromFlavors = [...new Set(productFlavorData.map(pf => pf.product_id))];
-            if (productIdsFromFlavors.length === 0) {
-              productIdsFromFlavors = [-1]; // Use an impossible ID to return no results
-            }
-          }
+          const idsA = variantData?.map(v => v.product_id) || [];
+          const idsB = prodFlavorData?.map(pf => pf.product_id) || [];
+          productIdsFromFlavors = [...new Set([...idsA, ...idsB])];
+          
+          if (productIdsFromFlavors.length === 0) productIdsFromFlavors = [-1];
         } else {
           productIdsFromFlavors = [-1];
         }
       }
 
+      // 2. Query Principal de Produtos PAI
       let query = supabase
         .from('products')
-        .select('id, name, price, pix_price, image_url, category, sub_category')
+        .select('id, name, price, pix_price, image_url, category, sub_category, stock_quantity, created_at')
         .eq('is_visible', true)
-        .gt('stock_quantity', 0);
+        .gt('stock_quantity', 0); // Considera estoque total (que é a soma das variantes)
 
-      if (debouncedSearchTerm) {
-        query = query.ilike('name', `%${debouncedSearchTerm}%`);
-      }
-      if (selectedCategories.length > 0) {
-        query = query.in('category', selectedCategories);
-      }
-      if (selectedSubCategories.length > 0) {
-        query = query.in('sub_category', selectedSubCategories);
-      }
-      if (selectedBrands.length > 0) {
-        query = query.in('brand', selectedBrands);
-      }
-      if (productIdsFromFlavors) {
-        query = query.in('id', productIdsFromFlavors);
-      }
+      if (debouncedSearchTerm) query = query.ilike('name', `%${debouncedSearchTerm}%`);
+      if (selectedCategories.length > 0) query = query.in('category', selectedCategories);
+      if (selectedSubCategories.length > 0) query = query.in('sub_category', selectedSubCategories);
+      if (selectedBrands.length > 0) query = query.in('brand', selectedBrands);
+      if (productIdsFromFlavors) query = query.in('id', productIdsFromFlavors);
 
       const [sortField, sortOrder] = sortBy.split('-');
+      // Ordenação primária na query (para os pais)
       query = query.order(sortField, { ascending: sortOrder === 'asc' });
 
-      const { data, error } = await query;
+      const { data: parentProducts, error } = await query;
 
       if (error) {
         console.error("Error fetching products:", error);
-        setProducts([]);
-      } else {
-        setProducts(data as Product[]);
+        setDisplayProducts([]);
+        setLoading(false);
+        return;
       }
+
+      const products = parentProducts || [];
+      const productIds = products.map(p => p.id);
+
+      // 3. Buscar TODAS as variações desses produtos
+      // Trazemos flavor_name via join
+      const { data: variants } = await supabase
+        .from('product_variants')
+        .select(`
+            id, product_id, price, pix_price, stock_quantity, created_at,
+            flavors ( name )
+        `)
+        .in('product_id', productIds)
+        .eq('is_active', true)
+        .gt('stock_quantity', 0);
+
+      // 4. "Explodir" a lista (Flattening)
+      let finalDisplayList: DisplayProduct[] = [];
+
+      products.forEach(prod => {
+        // Encontra variações deste produto
+        const prodVariants = variants?.filter(v => v.product_id === prod.id) || [];
+
+        if (prodVariants.length > 0) {
+            // Se tem variações, criamos um card para CADA variação
+            prodVariants.forEach(v => {
+                const flavorName = (v.flavors as any)?.name;
+                const displayName = flavorName ? `${prod.name} - ${flavorName}` : prod.name;
+                
+                finalDisplayList.push({
+                    id: prod.id, // Mantém ID do pai para navegação
+                    variantId: v.id, // ID da variação para seleção
+                    name: displayName,
+                    price: v.price, // Preço da variação
+                    pixPrice: v.pix_price, // Pix da variação
+                    imageUrl: prod.image_url || '', // Imagem do pai (por enquanto)
+                    stockQuantity: v.stock_quantity
+                });
+            });
+        } else {
+            // Se NÃO tem variações (produto simples), adiciona o pai normalmente
+            finalDisplayList.push({
+                id: prod.id,
+                name: prod.name,
+                price: prod.price,
+                pixPrice: prod.pix_price,
+                imageUrl: prod.image_url || '',
+                stockQuantity: prod.stock_quantity
+            });
+        }
+      });
+
+      // 5. Reordenar a lista final explodida (pois a ordem original se perdeu no loop)
+      // Se a ordenação for por preço, precisamos reordenar agora que temos os preços das variações
+      if (sortField === 'price') {
+        finalDisplayList.sort((a, b) => sortOrder === 'asc' ? a.price - b.price : b.price - a.price);
+      } else {
+        // Default: created_at ou outros (mantemos a ordem aproximada dos pais ou lógica custom)
+        // Como variants não tem created_at na lista final (vem do pai ou variant), vamos simplificar
+        // Se a ordem for default (created_at desc), a iteração acima já preservou a ordem dos pais.
+      }
+
+      setDisplayProducts(finalDisplayList);
       setLoading(false);
     };
 
@@ -160,7 +194,6 @@ const AllProductsPage = () => {
     setSelectedSubCategories([]);
     setSelectedBrands([]);
     setSelectedFlavors([]);
-    // Opcional: Limpar a URL também
     window.history.pushState({}, '', '/produtos');
   };
 
@@ -168,7 +201,7 @@ const AllProductsPage = () => {
     <div className="container mx-auto px-4 py-4 md:py-8">
       <header className="mb-6 text-center">
         <h1 className="font-serif text-3xl md:text-5xl text-charcoal-gray">Nossos Produtos</h1>
-        <p className="mt-1 text-base text-stone-600">Explore nossa linha completa de produtos.</p>
+        <p className="mt-1 text-base text-stone-600">Explore nossa linha completa.</p>
       </header>
       <div className="grid grid-cols-1 lg:grid-cols-4 lg:gap-8">
         <div className="lg:col-span-1 mb-6 lg:mb-0">
@@ -204,16 +237,23 @@ const AllProductsPage = () => {
                 </div>
               ))}
             </div>
-          ) : products.length > 0 ? (
+          ) : displayProducts.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-              {products.map((product) => (
-                <ProductCard key={product.id} product={{
-                  id: product.id,
-                  name: product.name,
-                  price: product.price,
-                  pixPrice: product.pix_price,
-                  imageUrl: product.image_url
-                }} />
+              {displayProducts.map((product, idx) => (
+                <ProductCard 
+                    key={`${product.id}-${product.variantId || idx}`} 
+                    product={{
+                        id: product.id,
+                        name: product.name,
+                        price: product.price,
+                        pixPrice: product.pixPrice,
+                        imageUrl: product.imageUrl,
+                        stockQuantity: product.stockQuantity,
+                        // Passamos o variantId como prop extra que vamos adicionar no ProductCard
+                        // @ts-ignore
+                        variantId: product.variantId 
+                    }} 
+                />
               ))}
             </div>
           ) : (

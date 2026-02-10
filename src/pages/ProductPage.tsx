@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -38,6 +38,9 @@ const PixIcon = ({ className }: { className?: string }) => (
 
 const ProductPage = () => {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const preSelectedVariantId = searchParams.get('variant');
+  
   const navigate = useNavigate();
   const [product, setProduct] = useState<Product | null>(null);
   const [variants, setVariants] = useState<Variant[]>([]);
@@ -70,10 +73,23 @@ const ProductPage = () => {
       if (variantsData && variantsData.length > 0) {
         const flavorIds = variantsData.filter(v => v.flavor_id).map(v => v.flavor_id);
         const { data: flavorsData } = await supabase.from('flavors').select('id, name').in('id', flavorIds);
-        setVariants(variantsData.map(v => ({ ...v, flavor_name: flavorsData?.find(f => f.id === v.flavor_id)?.name })));
+        const mappedVariants = variantsData.map(v => ({ ...v, flavor_name: flavorsData?.find(f => f.id === v.flavor_id)?.name }));
+        setVariants(mappedVariants as any);
         
-        const firstAvailable = variantsData.find(v => v.stock_quantity > 0);
-        if (firstAvailable) setSelectedVariant(firstAvailable as any);
+        // Lógica de Seleção Automática
+        if (preSelectedVariantId) {
+            const found = mappedVariants.find(v => v.id === preSelectedVariantId);
+            if (found && found.stock_quantity > 0) {
+                setSelectedVariant(found as any);
+            } else {
+                // Fallback se o link vier quebrado ou sem estoque
+                const firstAvailable = mappedVariants.find(v => v.stock_quantity > 0);
+                if (firstAvailable) setSelectedVariant(firstAvailable as any);
+            }
+        } else {
+            const firstAvailable = mappedVariants.find(v => v.stock_quantity > 0);
+            if (firstAvailable) setSelectedVariant(firstAvailable as any);
+        }
       }
 
       setLoading(false);
@@ -81,7 +97,7 @@ const ProductPage = () => {
 
     fetchProductData();
     window.scrollTo(0, 0);
-  }, [id]);
+  }, [id, preSelectedVariantId]);
 
   const handleAddToCart = async () => {
     if (product && variants.length > 0 && !selectedVariant) {
@@ -122,7 +138,10 @@ const ProductPage = () => {
           <div className="space-y-8 md:space-y-12">
             <div>
               <p className="text-sky-500 text-xs font-black uppercase tracking-[0.4em] mb-3">{product.category}</p>
-              <h1 className="text-4xl md:text-7xl font-black tracking-tighter leading-[0.9] mb-8 text-charcoal-gray" translate="no">{product.name}</h1>
+              <h1 className="text-4xl md:text-7xl font-black tracking-tighter leading-[0.9] mb-8 text-charcoal-gray" translate="no">
+                {product.name} 
+                {selectedVariant?.flavor_name && <span className="block text-2xl md:text-4xl text-slate-400 mt-2 italic">{selectedVariant.flavor_name}</span>}
+              </h1>
               
               <div className="space-y-6 bg-white/50 backdrop-blur-sm p-8 rounded-[2rem] border border-white">
                 <div className="space-y-1 border-b border-slate-100 pb-6">

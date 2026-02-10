@@ -13,7 +13,7 @@ interface DisplayProduct {
   pixPrice: number | null;
   imageUrl: string;
   stockQuantity: number;
-  variantId?: string; // Novo: para linkar direto
+  variantId?: string;
 }
 
 const AllProductsPage = () => {
@@ -75,12 +75,10 @@ const AllProductsPage = () => {
       
       let productIdsFromFlavors: number[] | null = null;
 
-      // 1. Filtragem por sabor (inverso)
       if (selectedFlavors.length > 0) {
         const { data: flavorIdsData } = await supabase.from('flavors').select('id').in('name', selectedFlavors);
         if (flavorIdsData && flavorIdsData.length > 0) {
           const flavorIds = flavorIdsData.map(f => f.id);
-          // Busca em product_variants E product_flavors
           const { data: variantData } = await supabase.from('product_variants').select('product_id').in('flavor_id', flavorIds);
           const { data: prodFlavorData } = await supabase.from('product_flavors').select('product_id').in('flavor_id', flavorIds);
           
@@ -94,12 +92,11 @@ const AllProductsPage = () => {
         }
       }
 
-      // 2. Query Principal de Produtos PAI
+      // CORREÇÃO: Removido .gt('stock_quantity', 0) para mostrar produtos ativos mas sem estoque
       let query = supabase
         .from('products')
         .select('id, name, price, pix_price, image_url, category, sub_category, stock_quantity, created_at')
-        .eq('is_visible', true)
-        .gt('stock_quantity', 0); // Considera estoque total (que é a soma das variantes)
+        .eq('is_visible', true);
 
       if (debouncedSearchTerm) query = query.ilike('name', `%${debouncedSearchTerm}%`);
       if (selectedCategories.length > 0) query = query.in('category', selectedCategories);
@@ -108,7 +105,6 @@ const AllProductsPage = () => {
       if (productIdsFromFlavors) query = query.in('id', productIdsFromFlavors);
 
       const [sortField, sortOrder] = sortBy.split('-');
-      // Ordenação primária na query (para os pais)
       query = query.order(sortField, { ascending: sortOrder === 'asc' });
 
       const { data: parentProducts, error } = await query;
@@ -123,8 +119,7 @@ const AllProductsPage = () => {
       const products = parentProducts || [];
       const productIds = products.map(p => p.id);
 
-      // 3. Buscar TODAS as variações desses produtos
-      // Trazemos flavor_name via join
+      // CORREÇÃO: Buscar variantes mesmo sem estoque, se o produto estiver ativo
       const { data: variants } = await supabase
         .from('product_variants')
         .select(`
@@ -132,14 +127,12 @@ const AllProductsPage = () => {
             flavors ( name )
         `)
         .in('product_id', productIds)
-        .eq('is_active', true)
-        .gt('stock_quantity', 0);
+        .eq('is_active', true);
 
-      // 4. Montar lista de exibição (Pai + Variações)
       let finalDisplayList: DisplayProduct[] = [];
 
       products.forEach(prod => {
-        // A. Adiciona o Produto Pai (Genérico)
+        // Sempre adiciona o produto pai (agora mesmo se estoque for 0)
         finalDisplayList.push({
             id: prod.id,
             name: prod.name,
@@ -149,7 +142,6 @@ const AllProductsPage = () => {
             stockQuantity: prod.stock_quantity
         });
 
-        // B. Adiciona as Variações como produtos individuais
         const prodVariants = variants?.filter(v => v.product_id === prod.id) || [];
 
         prodVariants.forEach(v => {
@@ -157,23 +149,19 @@ const AllProductsPage = () => {
             const displayName = flavorName ? `${prod.name} - ${flavorName}` : prod.name;
             
             finalDisplayList.push({
-                id: prod.id, // Mantém ID do pai para navegação
-                variantId: v.id, // ID da variação para seleção
+                id: prod.id,
+                variantId: v.id,
                 name: displayName,
-                price: v.price, // Preço da variação
-                pixPrice: v.pix_price, // Pix da variação
-                imageUrl: prod.image_url || '', // Imagem do pai (por enquanto)
+                price: v.price,
+                pixPrice: v.pix_price,
+                imageUrl: prod.image_url || '',
                 stockQuantity: v.stock_quantity
             });
         });
       });
 
-      // 5. Reordenar a lista final explodida
       if (sortField === 'price') {
         finalDisplayList.sort((a, b) => sortOrder === 'asc' ? a.price - b.price : b.price - a.price);
-      } else if (sortField === 'created_at') {
-        // Se a ordenação for por data (ID implícito ou created_at se tivéssemos na variante), mantemos a ordem do banco
-        // Como o array foi construído sequencialmente (Pai, Filhos, Pai, Filhos), ele já respeita a ordem dos pais.
       }
 
       setDisplayProducts(finalDisplayList);
@@ -244,7 +232,6 @@ const AllProductsPage = () => {
                         pixPrice: product.pixPrice,
                         imageUrl: product.imageUrl,
                         stockQuantity: product.stockQuantity,
-                        // Passamos o variantId como prop extra
                         // @ts-ignore
                         variantId: product.variantId 
                     }} 

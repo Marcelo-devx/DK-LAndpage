@@ -5,6 +5,7 @@ import { addToCart } from "@/utils/cart";
 import { ShoppingCart, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { ProductCardProps } from "./ProductCard.types";
+import { cn } from "@/lib/utils";
 
 const PixIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
@@ -33,22 +34,30 @@ const ProductCard = ({ product }: ProductCardProps & { product: { variantId?: st
   const installmentValue = (fullPrice / 3).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const formattedPixPrice = pixPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-  // Constrói a URL correta: se for variação, adiciona query param
   // @ts-ignore
   const linkUrl = product.variantId ? `/produto/${product.id}?variant=${product.variantId}` : `/produto/${product.id}`;
+  
+  const isOutOfStock = product.stockQuantity !== undefined && product.stockQuantity <= 0;
 
   return (
     <Link to={linkUrl} className="group block h-full">
-      <Card className="h-full bg-white border border-stone-100 hover:border-sky-500/30 transition-all duration-500 rounded-2xl overflow-hidden flex flex-col group-hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)]">
+      <Card className={cn("h-full bg-white border border-stone-100 hover:border-sky-500/30 transition-all duration-500 rounded-2xl overflow-hidden flex flex-col group-hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)]", isOutOfStock && "opacity-80")}>
         <div className="overflow-hidden aspect-[4/5] relative bg-white shrink-0">
           <img 
             src={product.imageUrl} 
             alt={product.name} 
-            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 ease-out" 
+            className={cn("w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 ease-out", isOutOfStock && "grayscale")} 
           />
           <div className="absolute inset-x-0 bottom-0 bg-black/80 backdrop-blur-sm py-1.5 px-2 text-[8px] font-black text-white uppercase text-center tracking-[0.2em] z-10">
             Apenas Maiores de 18 Anos
           </div>
+          {isOutOfStock && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/30 z-20">
+                <span className="bg-slate-900 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-lg transform -rotate-12 border border-white/20">
+                    Esgotado
+                </span>
+            </div>
+          )}
         </div>
         
         <CardContent className="p-4 md:p-5 flex-grow flex flex-col">
@@ -58,17 +67,14 @@ const ProductCard = ({ product }: ProductCardProps & { product: { variantId?: st
             </h3>
             
             <div className="space-y-0.5 pt-1">
-                {/* Preço cheio agora em preto intenso */}
                 <p className="text-[13px] md:text-[14px] font-black text-slate-900 leading-none">
                     {formattedFullPrice}
                 </p>
                 
-                {/* Parcelamento agora em preto/escuro para maior contraste */}
                 <p className="text-[10px] md:text-[11px] text-slate-900 font-medium tracking-tight">
                     até <span className="font-black uppercase">3x</span> de <span className="font-black">{installmentValue}</span> <span className="text-[9px] font-black uppercase text-sky-600">no cartão</span>
                 </p>
                 
-                {/* Destaque PIX */}
                 <div className="flex flex-col gap-1 pt-3">
                     <div className="flex items-center gap-1.5">
                         <div className="flex items-center justify-center p-1 bg-emerald-50 text-emerald-600 rounded-md border border-emerald-100">
@@ -88,14 +94,17 @@ const ProductCard = ({ product }: ProductCardProps & { product: { variantId?: st
           </div>
           
           <Button 
-            className="w-full bg-slate-950 hover:bg-sky-500 text-white font-black uppercase text-[10px] tracking-[0.2em] mt-6 h-11 rounded-xl transition-all duration-300 shadow-md group-hover:translate-y-[-2px]"
+            className={cn(
+                "w-full font-black uppercase text-[10px] tracking-[0.2em] mt-6 h-11 rounded-xl transition-all duration-300 shadow-md group-hover:translate-y-[-2px]",
+                isOutOfStock ? "bg-stone-200 text-stone-500 cursor-not-allowed hover:bg-stone-200" : "bg-slate-950 hover:bg-sky-500 text-white"
+            )}
             onClick={handleAddToCart}
-            disabled={isAdding}
+            disabled={isAdding || isOutOfStock}
           >
             {isAdding ? <Loader2 className="animate-spin h-4 w-4" /> : (
               <>
                 <ShoppingCart className="mr-2 h-4 w-4" />
-                Adicionar
+                {isOutOfStock ? 'Esgotado' : 'Adicionar'}
               </>
             )}
           </Button>

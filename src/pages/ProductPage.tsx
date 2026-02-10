@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, Minus, ChevronLeft, Loader2, FileText, ShoppingCart, CreditCard } from "lucide-react";
+import { Plus, Minus, ChevronLeft, Loader2, FileText, ShoppingCart } from "lucide-react";
 import { addToCart } from '@/utils/cart';
 import { cn } from '@/lib/utils';
 import { showError } from '@/utils/toast';
@@ -17,6 +17,7 @@ interface Product {
   pix_price: number | null;
   description: string | null;
   image_url: string | null;
+  stock_quantity: number;
 }
 
 interface Variant {
@@ -79,10 +80,9 @@ const ProductPage = () => {
         // Lógica de Seleção Automática
         if (preSelectedVariantId) {
             const found = mappedVariants.find(v => v.id === preSelectedVariantId);
-            if (found && found.stock_quantity > 0) {
+            if (found) { // Removida restrição de estoque > 0 para permitir visualização
                 setSelectedVariant(found as any);
             } else {
-                // Fallback se o link vier quebrado ou sem estoque
                 const firstAvailable = mappedVariants.find(v => v.stock_quantity > 0);
                 if (firstAvailable) setSelectedVariant(firstAvailable as any);
             }
@@ -100,10 +100,19 @@ const ProductPage = () => {
   }, [id, preSelectedVariantId]);
 
   const handleAddToCart = async () => {
+    // Validação de Variação
     if (product && variants.length > 0 && !selectedVariant) {
       showError("Selecione uma opção (sabor/volume)");
       return;
     }
+    
+    // Validação de Estoque
+    const currentStock = selectedVariant ? selectedVariant.stock_quantity : (product?.stock_quantity || 0);
+    if (currentStock <= 0) {
+        showError("Produto esgotado.");
+        return;
+    }
+
     if (!product) return;
     
     setIsAdding(true);
@@ -117,6 +126,9 @@ const ProductPage = () => {
   const currentFullPrice = selectedVariant ? selectedVariant.price : product.price;
   const currentPixPrice = (selectedVariant ? selectedVariant.pix_price : product.pix_price) || currentFullPrice;
   const installmentValue = (currentFullPrice / 3).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  
+  const currentStock = selectedVariant ? selectedVariant.stock_quantity : product.stock_quantity;
+  const isOutOfStock = currentStock <= 0;
 
   return (
     <div className="bg-off-white min-h-screen text-charcoal-gray pb-20">
@@ -131,8 +143,16 @@ const ProductPage = () => {
             <img 
               src={product.image_url || ''} 
               alt={product.name} 
-              className="w-full h-auto object-cover rounded-[2.5rem] border border-stone-100 shadow-2xl relative bg-white"
+              className={cn(
+                "w-full h-auto object-cover rounded-[2.5rem] border border-stone-100 shadow-2xl relative bg-white transition-all",
+                isOutOfStock && "grayscale opacity-80"
+              )}
             />
+            {isOutOfStock && (
+                <div className="absolute top-6 left-6 bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest z-10 shadow-lg">
+                    Esgotado
+                </div>
+            )}
           </div>
 
           <div className="space-y-8 md:space-y-12">
@@ -179,17 +199,17 @@ const ProductPage = () => {
                     <button
                       key={v.id}
                       onClick={() => setSelectedVariant(v)}
-                      disabled={v.stock_quantity <= 0}
                       className={cn(
                         "p-5 border-2 rounded-[1.5rem] transition-all text-left relative overflow-hidden",
                         selectedVariant?.id === v.id 
                           ? "border-sky-500 bg-sky-50/50 shadow-lg ring-4 ring-sky-500/10" 
                           : "border-stone-100 bg-white hover:border-sky-200",
-                        v.stock_quantity <= 0 && "opacity-40 grayscale cursor-not-allowed"
+                        v.stock_quantity <= 0 && "opacity-60 grayscale bg-stone-50"
                       )}
                     >
                       <p className="font-black text-sm text-charcoal-gray uppercase tracking-tight" translate="no">{v.flavor_name || 'Original'}</p>
                       {v.volume_ml && <p className="text-[10px] text-slate-500 font-bold mt-1 uppercase tracking-widest">{v.volume_ml}ml</p>}
+                      {v.stock_quantity <= 0 && <span className="absolute top-2 right-2 h-2 w-2 bg-red-500 rounded-full" />}
                     </button>
                   ))}
                 </div>
@@ -202,22 +222,25 @@ const ProductPage = () => {
               <div className="flex items-center justify-between relative z-10">
                 <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Quantidade</p>
                 <div className="flex items-center bg-white/5 rounded-2xl p-1.5 border border-white/10">
-                  <Button variant="ghost" size="icon" onClick={() => setQuantity(q => Math.max(1, q - 1))} className="h-12 w-12 text-white hover:bg-white/10 rounded-xl"><Minus className="h-5 w-5" /></Button>
+                  <Button variant="ghost" size="icon" onClick={() => setQuantity(q => Math.max(1, q - 1))} className="h-12 w-12 text-white hover:bg-white/10 rounded-xl" disabled={isOutOfStock}><Minus className="h-5 w-5" /></Button>
                   <span className="w-14 text-center font-black text-2xl text-white tracking-tighter">{quantity}</span>
-                  <Button variant="ghost" size="icon" onClick={() => setQuantity(q => q + 1)} className="h-12 w-12 text-white hover:bg-white/10 rounded-xl"><Plus className="h-5 w-5" /></Button>
+                  <Button variant="ghost" size="icon" onClick={() => setQuantity(q => q + 1)} className="h-12 w-12 text-white hover:bg-white/10 rounded-xl" disabled={isOutOfStock}><Plus className="h-5 w-5" /></Button>
                 </div>
               </div>
 
               <Button 
                 size="lg" 
-                className="w-full bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-[0.2em] h-18 text-lg rounded-[1.5rem] shadow-[0_20px_40px_-10px_rgba(14,165,233,0.5)] transition-all active:scale-95 py-8" 
+                className={cn(
+                    "w-full font-black uppercase tracking-[0.2em] h-18 text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95 py-8",
+                    isOutOfStock ? "bg-stone-800 text-stone-500 cursor-not-allowed" : "bg-sky-500 hover:bg-sky-400 text-white shadow-[0_20px_40px_-10px_rgba(14,165,233,0.5)]"
+                )}
                 onClick={handleAddToCart}
-                disabled={isAdding}
+                disabled={isAdding || isOutOfStock}
               >
                 {isAdding ? <Loader2 className="animate-spin h-6 w-6" /> : (
                     <span className="flex items-center gap-3">
                         <ShoppingCart className="h-6 w-6" />
-                        ADICIONAR AO CARRINHO
+                        {isOutOfStock ? 'ESGOTADO' : 'ADICIONAR AO CARRINHO'}
                     </span>
                 )}
               </Button>
@@ -237,10 +260,9 @@ const ProductPage = () => {
                 </h2>
               </div>
               
-              <div className="prose prose-stone prose-xl max-w-none">
-                <p className="text-slate-600 leading-relaxed whitespace-pre-line font-medium italic">
-                  {product.description || 'Sem descrição disponível para este produto.'}
-                </p>
+              {/* CORREÇÃO AQUI: Usando dangerouslySetInnerHTML para renderizar o HTML importado */}
+              <div className="prose prose-stone prose-lg max-w-none text-slate-600 leading-relaxed font-medium">
+                <div dangerouslySetInnerHTML={{ __html: product.description || 'Sem descrição disponível.' }} />
               </div>
             </CardContent>
           </Card>

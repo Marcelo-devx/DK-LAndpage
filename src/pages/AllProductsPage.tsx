@@ -92,11 +92,12 @@ const AllProductsPage = () => {
         }
       }
 
-      // CORREÇÃO: Removido .gt('stock_quantity', 0) para mostrar produtos ativos mas sem estoque
+      // Filtro .gt('stock_quantity', 0) ADICIONADO para esconder produtos sem estoque
       let query = supabase
         .from('products')
         .select('id, name, price, pix_price, image_url, category, sub_category, stock_quantity, created_at')
-        .eq('is_visible', true);
+        .eq('is_visible', true)
+        .gt('stock_quantity', 0);
 
       if (debouncedSearchTerm) query = query.ilike('name', `%${debouncedSearchTerm}%`);
       if (selectedCategories.length > 0) query = query.in('category', selectedCategories);
@@ -119,7 +120,7 @@ const AllProductsPage = () => {
       const products = parentProducts || [];
       const productIds = products.map(p => p.id);
 
-      // CORREÇÃO: Buscar variantes mesmo sem estoque, se o produto estiver ativo
+      // Busca variantes apenas dos produtos que passaram no filtro de estoque principal
       const { data: variants } = await supabase
         .from('product_variants')
         .select(`
@@ -127,12 +128,15 @@ const AllProductsPage = () => {
             flavors ( name )
         `)
         .in('product_id', productIds)
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .gt('stock_quantity', 0); // Também filtra variantes sem estoque
 
       let finalDisplayList: DisplayProduct[] = [];
 
       products.forEach(prod => {
-        // Sempre adiciona o produto pai (agora mesmo se estoque for 0)
+        // Se o produto pai tem estoque (verificado na query principal), adicionamos
+        // Porém, se ele tem variantes, a query principal já garantiu que a SOMA das variantes > 0
+        // Vamos adicionar o card principal
         finalDisplayList.push({
             id: prod.id,
             name: prod.name,

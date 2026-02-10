@@ -18,6 +18,7 @@ interface Product {
   image_url: string;
   category: string | null;
   sub_category: string | null;
+  stock_quantity: number;
 }
 
 interface BrandProductsModalProps {
@@ -39,10 +40,10 @@ const BrandProductsModal = ({ brandName, isOpen, onOpenChange }: BrandProductsMo
       setLoading(true);
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, price, pix_price, image_url, category, sub_category')
+        .select('id, name, price, pix_price, image_url, category, sub_category, stock_quantity')
         .eq('brand', brandName)
         .eq('is_visible', true)
-        .gt('stock_quantity', 0);
+        .gt('stock_quantity', 0); // Filtra estoque > 0
 
       if (error) {
         console.error("Error fetching products for brand:", error);
@@ -58,14 +59,14 @@ const BrandProductsModal = ({ brandName, isOpen, onOpenChange }: BrandProductsMo
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[80vw] md:max-w-[70vw] lg:max-w-[60vw] bg-off-white">
+      <DialogContent className="sm:max-w-[80vw] md:max-w-[70vw] lg:max-w-[60vw] bg-off-white max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="font-serif text-3xl text-charcoal-gray">{brandName}</DialogTitle>
           <DialogDescription>
             Confira nossa seleção de produtos desta marca.
           </DialogDescription>
         </DialogHeader>
-        <div className="py-4 max-h-[70vh] overflow-y-auto">
+        <div className="py-4 overflow-y-auto flex-1 custom-scrollbar px-1">
           {loading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {Array.from({ length: 3 }).map((_, index) => (
@@ -87,12 +88,13 @@ const BrandProductsModal = ({ brandName, isOpen, onOpenChange }: BrandProductsMo
                   name: product.name,
                   price: product.price,
                   pixPrice: product.pix_price,
-                  imageUrl: product.image_url
+                  imageUrl: product.image_url,
+                  stockQuantity: product.stock_quantity
                 }} />
               ))}
             </div>
           ) : (
-            <p className="text-center text-stone-600 py-8">Nenhum produto encontrado para esta marca.</p>
+            <p className="text-center text-stone-600 py-8">Nenhum produto encontrado ou disponível para esta marca.</p>
           )}
         </div>
       </DialogContent>

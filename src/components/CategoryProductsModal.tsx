@@ -18,6 +18,7 @@ interface Product {
   image_url: string;
   category: string | null;
   sub_category: string | null;
+  stock_quantity: number;
 }
 
 interface CategoryProductsModalProps {
@@ -39,10 +40,10 @@ const CategoryProductsModal = ({ categoryName, isOpen, onOpenChange }: CategoryP
       setLoading(true);
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, price, pix_price, image_url, category, sub_category')
+        .select('id, name, price, pix_price, image_url, category, sub_category, stock_quantity')
         .eq('category', categoryName)
         .eq('is_visible', true)
-        .gt('stock_quantity', 0);
+        .gt('stock_quantity', 0); // Filtro de estoque adicionado
 
       if (error) {
         console.error("Error fetching products for category:", error);
@@ -58,14 +59,14 @@ const CategoryProductsModal = ({ categoryName, isOpen, onOpenChange }: CategoryP
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[80vw] md:max-w-[70vw] lg:max-w-[60vw] bg-off-white">
+      <DialogContent className="sm:max-w-[80vw] md:max-w-[70vw] lg:max-w-[60vw] bg-off-white max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="font-serif text-3xl text-charcoal-gray">{categoryName}</DialogTitle>
           <DialogDescription>
             Confira nossa seleção de produtos para esta categoria.
           </DialogDescription>
         </DialogHeader>
-        <div className="py-4 max-h-[70vh] overflow-y-auto">
+        <div className="py-4 overflow-y-auto flex-1 custom-scrollbar px-1">
           {loading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {Array.from({ length: 3 }).map((_, index) => (
@@ -87,12 +88,13 @@ const CategoryProductsModal = ({ categoryName, isOpen, onOpenChange }: CategoryP
                   name: product.name,
                   price: product.price,
                   pixPrice: product.pix_price,
-                  imageUrl: product.image_url
+                  imageUrl: product.image_url,
+                  stockQuantity: product.stock_quantity
                 }} />
               ))}
             </div>
           ) : (
-            <p className="text-center text-stone-600 py-8">Nenhum produto encontrado nesta categoria.</p>
+            <p className="text-center text-stone-600 py-8">Nenhum produto disponível nesta categoria.</p>
           )}
         </div>
       </DialogContent>

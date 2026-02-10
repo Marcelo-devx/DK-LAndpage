@@ -135,50 +135,45 @@ const AllProductsPage = () => {
         .eq('is_active', true)
         .gt('stock_quantity', 0);
 
-      // 4. "Explodir" a lista (Flattening)
+      // 4. Montar lista de exibição (Pai + Variações)
       let finalDisplayList: DisplayProduct[] = [];
 
       products.forEach(prod => {
-        // Encontra variações deste produto
+        // A. Adiciona o Produto Pai (Genérico)
+        finalDisplayList.push({
+            id: prod.id,
+            name: prod.name,
+            price: prod.price,
+            pixPrice: prod.pix_price,
+            imageUrl: prod.image_url || '',
+            stockQuantity: prod.stock_quantity
+        });
+
+        // B. Adiciona as Variações como produtos individuais
         const prodVariants = variants?.filter(v => v.product_id === prod.id) || [];
 
-        if (prodVariants.length > 0) {
-            // Se tem variações, criamos um card para CADA variação
-            prodVariants.forEach(v => {
-                const flavorName = (v.flavors as any)?.name;
-                const displayName = flavorName ? `${prod.name} - ${flavorName}` : prod.name;
-                
-                finalDisplayList.push({
-                    id: prod.id, // Mantém ID do pai para navegação
-                    variantId: v.id, // ID da variação para seleção
-                    name: displayName,
-                    price: v.price, // Preço da variação
-                    pixPrice: v.pix_price, // Pix da variação
-                    imageUrl: prod.image_url || '', // Imagem do pai (por enquanto)
-                    stockQuantity: v.stock_quantity
-                });
-            });
-        } else {
-            // Se NÃO tem variações (produto simples), adiciona o pai normalmente
+        prodVariants.forEach(v => {
+            const flavorName = (v.flavors as any)?.name;
+            const displayName = flavorName ? `${prod.name} - ${flavorName}` : prod.name;
+            
             finalDisplayList.push({
-                id: prod.id,
-                name: prod.name,
-                price: prod.price,
-                pixPrice: prod.pix_price,
-                imageUrl: prod.image_url || '',
-                stockQuantity: prod.stock_quantity
+                id: prod.id, // Mantém ID do pai para navegação
+                variantId: v.id, // ID da variação para seleção
+                name: displayName,
+                price: v.price, // Preço da variação
+                pixPrice: v.pix_price, // Pix da variação
+                imageUrl: prod.image_url || '', // Imagem do pai (por enquanto)
+                stockQuantity: v.stock_quantity
             });
-        }
+        });
       });
 
-      // 5. Reordenar a lista final explodida (pois a ordem original se perdeu no loop)
-      // Se a ordenação for por preço, precisamos reordenar agora que temos os preços das variações
+      // 5. Reordenar a lista final explodida
       if (sortField === 'price') {
         finalDisplayList.sort((a, b) => sortOrder === 'asc' ? a.price - b.price : b.price - a.price);
-      } else {
-        // Default: created_at ou outros (mantemos a ordem aproximada dos pais ou lógica custom)
-        // Como variants não tem created_at na lista final (vem do pai ou variant), vamos simplificar
-        // Se a ordem for default (created_at desc), a iteração acima já preservou a ordem dos pais.
+      } else if (sortField === 'created_at') {
+        // Se a ordenação for por data (ID implícito ou created_at se tivéssemos na variante), mantemos a ordem do banco
+        // Como o array foi construído sequencialmente (Pai, Filhos, Pai, Filhos), ele já respeita a ordem dos pais.
       }
 
       setDisplayProducts(finalDisplayList);
@@ -241,7 +236,7 @@ const AllProductsPage = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
               {displayProducts.map((product, idx) => (
                 <ProductCard 
-                    key={`${product.id}-${product.variantId || idx}`} 
+                    key={`${product.id}-${product.variantId || 'main'}-${idx}`} 
                     product={{
                         id: product.id,
                         name: product.name,
@@ -249,7 +244,7 @@ const AllProductsPage = () => {
                         pixPrice: product.pixPrice,
                         imageUrl: product.imageUrl,
                         stockQuantity: product.stockQuantity,
-                        // Passamos o variantId como prop extra que vamos adicionar no ProductCard
+                        // Passamos o variantId como prop extra
                         // @ts-ignore
                         variantId: product.variantId 
                     }} 

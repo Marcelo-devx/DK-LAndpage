@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, Minus, ChevronLeft, Loader2, FileText, ShoppingCart } from "lucide-react";
+import { Plus, Minus, ChevronLeft, Loader2, FileText, ShoppingCart, Zap, Palette, Droplets } from "lucide-react";
 import { addToCart } from '@/utils/cart';
 import { cn } from '@/lib/utils';
 import { showError } from '@/utils/toast';
@@ -67,7 +67,6 @@ const ProductPage = () => {
       if (error) { setLoading(false); return; }
       setProduct(productData);
 
-      // CORREÇÃO: Buscando ohms e color também
       const { data: variantsData } = await supabase
         .from('product_variants')
         .select(`id, flavor_id, volume_ml, price, pix_price, stock_quantity, ohms, color`)
@@ -92,7 +91,6 @@ const ProductPage = () => {
 
         setVariants(mappedVariants as any);
         
-        // Lógica de Seleção Automática
         if (preSelectedVariantId) {
             const found = mappedVariants.find(v => v.id === preSelectedVariantId);
             if (found) { 
@@ -115,13 +113,11 @@ const ProductPage = () => {
   }, [id, preSelectedVariantId]);
 
   const handleAddToCart = async () => {
-    // Validação de Variação
     if (product && variants.length > 0 && !selectedVariant) {
       showError("Selecione uma opção (sabor/volume)");
       return;
     }
     
-    // Validação de Estoque
     const currentStock = selectedVariant ? selectedVariant.stock_quantity : (product?.stock_quantity || 0);
     if (currentStock <= 0) {
         showError("Produto esgotado.");
@@ -135,18 +131,34 @@ const ProductPage = () => {
     setIsAdding(false);
   };
 
-  // Helper para exibir o nome da variação corretamente
+  // Helper aprimorado para o rótulo principal
   const getVariantLabel = (v: Variant) => {
     if (v.flavor_name) return v.flavor_name;
-    if (v.ohms) return `${v.ohms}`; // Exibe Ohm se for coil
-    if (v.color) return v.color;    // Exibe Cor se for device
+    
+    // Tratamento específico para Resistência (Ohms)
+    if (v.ohms) {
+      const cleanOhm = v.ohms.replace(/[^\d.,]/g, ''); // Remove caracteres não numéricos
+      return `${cleanOhm}Ω (Ohm)`;
+    }
+    
+    if (v.color) return v.color;
+    if (v.volume_ml) return `${v.volume_ml}ml`;
     return 'Padrão';
   };
 
-  // Helper para subtítulo (ex: volume)
+  // Helper para o tipo de variação (ícone e texto pequeno)
+  const getVariantTypeInfo = (v: Variant) => {
+    if (v.flavor_name) return { icon: Droplets, label: 'Sabor' };
+    if (v.ohms) return { icon: Zap, label: 'Resistência' };
+    if (v.color) return { icon: Palette, label: 'Cor' };
+    if (v.volume_ml) return { icon: FileText, label: 'Volume' };
+    return null;
+  };
+
+  // Helper para subtítulo
   const getVariantSubLabel = (v: Variant) => {
     const parts = [];
-    if (v.volume_ml) parts.push(`${v.volume_ml}ml`);
+    if (v.volume_ml && v.flavor_name) parts.push(`${v.volume_ml}ml`);
     // Se tiver sabor E ohm/cor, mostramos o secundário aqui
     if (v.flavor_name && (v.ohms || v.color)) parts.push(v.ohms || v.color);
     return parts.join(' - ');
@@ -192,10 +204,9 @@ const ProductPage = () => {
               <p className="text-sky-500 text-xs font-black uppercase tracking-[0.4em] mb-3">{product.category}</p>
               <h1 className="text-4xl md:text-7xl font-black tracking-tighter leading-[0.9] mb-8 text-charcoal-gray" translate="no">
                 {product.name} 
-                {/* Mostra detalhes da seleção no título dinamicamente */}
                 {selectedVariant && (
                     <span className="block text-2xl md:text-4xl text-slate-400 mt-2 italic">
-                        {getVariantLabel(selectedVariant)} {selectedVariant.volume_ml ? `${selectedVariant.volume_ml}ml` : ''}
+                        {getVariantLabel(selectedVariant)} {selectedVariant.volume_ml && selectedVariant.flavor_name ? `${selectedVariant.volume_ml}ml` : ''}
                     </span>
                 )}
               </h1>
@@ -232,32 +243,48 @@ const ProductPage = () => {
               <div className="space-y-4">
                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Escolha sua Opção</p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {variants.map((v) => (
-                    <button
-                      key={v.id}
-                      onClick={() => setSelectedVariant(v)}
-                      className={cn(
-                        "p-5 border-2 rounded-[1.5rem] transition-all text-left relative overflow-hidden flex flex-col justify-center min-h-[80px]",
-                        selectedVariant?.id === v.id 
-                          ? "border-sky-500 bg-sky-50/50 shadow-lg ring-4 ring-sky-500/10" 
-                          : "border-stone-100 bg-white hover:border-sky-200",
-                        v.stock_quantity <= 0 && "opacity-60 grayscale bg-stone-50"
-                      )}
-                    >
-                      {/* CORREÇÃO: Usando a função getVariantLabel para exibir Ohms/Cor */}
-                      <p className="font-black text-sm text-charcoal-gray uppercase tracking-tight leading-tight" translate="no">
-                        {getVariantLabel(v)}
-                      </p>
-                      
-                      {getVariantSubLabel(v) && (
-                        <p className="text-[10px] text-slate-500 font-bold mt-1 uppercase tracking-widest">
-                            {getVariantSubLabel(v)}
+                  {variants.map((v) => {
+                    const typeInfo = getVariantTypeInfo(v);
+                    const TypeIcon = typeInfo?.icon || FileText;
+                    
+                    return (
+                      <button
+                        key={v.id}
+                        onClick={() => setSelectedVariant(v)}
+                        className={cn(
+                          "p-4 border-2 rounded-[1.5rem] transition-all text-left relative overflow-hidden flex flex-col justify-center min-h-[90px] group",
+                          selectedVariant?.id === v.id 
+                            ? "border-sky-500 bg-sky-50/50 shadow-lg ring-4 ring-sky-500/10" 
+                            : "border-stone-100 bg-white hover:border-sky-200 hover:shadow-md",
+                          v.stock_quantity <= 0 && "opacity-60 grayscale bg-stone-50 hover:border-stone-200 hover:shadow-none"
+                        )}
+                      >
+                        {/* Rótulo do Tipo (Pequeno acima) */}
+                        {typeInfo && (
+                          <div className="flex items-center gap-1.5 mb-1.5 opacity-50 group-hover:opacity-100 transition-opacity">
+                            <TypeIcon className="h-3 w-3" />
+                            <span className="text-[9px] font-bold uppercase tracking-wider">{typeInfo.label}</span>
+                          </div>
+                        )}
+
+                        <p className="font-black text-sm text-charcoal-gray uppercase tracking-tight leading-tight" translate="no">
+                          {getVariantLabel(v)}
                         </p>
-                      )}
-                      
-                      {v.stock_quantity <= 0 && <span className="absolute top-2 right-2 h-2 w-2 bg-red-500 rounded-full" title="Esgotado" />}
-                    </button>
-                  ))}
+                        
+                        {getVariantSubLabel(v) && (
+                          <p className="text-[10px] text-slate-500 font-bold mt-1 uppercase tracking-widest">
+                              {getVariantSubLabel(v)}
+                          </p>
+                        )}
+                        
+                        {v.stock_quantity <= 0 && (
+                          <span className="absolute bottom-2 right-3 text-[9px] font-black text-red-500 uppercase tracking-wider">
+                            Esgotado
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}

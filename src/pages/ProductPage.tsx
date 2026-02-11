@@ -27,6 +27,8 @@ interface Variant {
   price: number;
   pix_price: number | null;
   stock_quantity: number;
+  ohms: string | null;
+  color: string | null;
   flavor_name?: string;
 }
 
@@ -65,22 +67,35 @@ const ProductPage = () => {
       if (error) { setLoading(false); return; }
       setProduct(productData);
 
+      // CORREÇÃO: Buscando ohms e color também
       const { data: variantsData } = await supabase
         .from('product_variants')
-        .select(`id, flavor_id, volume_ml, price, pix_price, stock_quantity`)
+        .select(`id, flavor_id, volume_ml, price, pix_price, stock_quantity, ohms, color`)
         .eq('product_id', id)
         .eq('is_active', true);
 
       if (variantsData && variantsData.length > 0) {
         const flavorIds = variantsData.filter(v => v.flavor_id).map(v => v.flavor_id);
         const { data: flavorsData } = await supabase.from('flavors').select('id, name').in('id', flavorIds);
-        const mappedVariants = variantsData.map(v => ({ ...v, flavor_name: flavorsData?.find(f => f.id === v.flavor_id)?.name }));
+        
+        const mappedVariants = variantsData.map(v => ({ 
+            ...v, 
+            flavor_name: flavorsData?.find(f => f.id === v.flavor_id)?.name 
+        }));
+        
+        // Ordenação inteligente: Primeiro estoque > 0, depois por preço
+        mappedVariants.sort((a, b) => {
+            if (a.stock_quantity > 0 && b.stock_quantity <= 0) return -1;
+            if (a.stock_quantity <= 0 && b.stock_quantity > 0) return 1;
+            return a.price - b.price;
+        });
+
         setVariants(mappedVariants as any);
         
         // Lógica de Seleção Automática
         if (preSelectedVariantId) {
             const found = mappedVariants.find(v => v.id === preSelectedVariantId);
-            if (found) { // Removida restrição de estoque > 0 para permitir visualização
+            if (found) { 
                 setSelectedVariant(found as any);
             } else {
                 const firstAvailable = mappedVariants.find(v => v.stock_quantity > 0);
@@ -118,6 +133,23 @@ const ProductPage = () => {
     setIsAdding(true);
     await addToCart(product.id, quantity, 'product', selectedVariant?.id);
     setIsAdding(false);
+  };
+
+  // Helper para exibir o nome da variação corretamente
+  const getVariantLabel = (v: Variant) => {
+    if (v.flavor_name) return v.flavor_name;
+    if (v.ohms) return `${v.ohms}`; // Exibe Ohm se for coil
+    if (v.color) return v.color;    // Exibe Cor se for device
+    return 'Padrão';
+  };
+
+  // Helper para subtítulo (ex: volume)
+  const getVariantSubLabel = (v: Variant) => {
+    const parts = [];
+    if (v.volume_ml) parts.push(`${v.volume_ml}ml`);
+    // Se tiver sabor E ohm/cor, mostramos o secundário aqui
+    if (v.flavor_name && (v.ohms || v.color)) parts.push(v.ohms || v.color);
+    return parts.join(' - ');
   };
 
   if (loading) return <div className="container mx-auto px-6 py-10"><Skeleton className="w-full h-[500px] rounded-3xl bg-gray-200" /></div>;
@@ -160,7 +192,12 @@ const ProductPage = () => {
               <p className="text-sky-500 text-xs font-black uppercase tracking-[0.4em] mb-3">{product.category}</p>
               <h1 className="text-4xl md:text-7xl font-black tracking-tighter leading-[0.9] mb-8 text-charcoal-gray" translate="no">
                 {product.name} 
-                {selectedVariant?.flavor_name && <span className="block text-2xl md:text-4xl text-slate-400 mt-2 italic">{selectedVariant.flavor_name}</span>}
+                {/* Mostra detalhes da seleção no título dinamicamente */}
+                {selectedVariant && (
+                    <span className="block text-2xl md:text-4xl text-slate-400 mt-2 italic">
+                        {getVariantLabel(selectedVariant)} {selectedVariant.volume_ml ? `${selectedVariant.volume_ml}ml` : ''}
+                    </span>
+                )}
               </h1>
               
               <div className="space-y-6 bg-white/50 backdrop-blur-sm p-8 rounded-[2rem] border border-white">
@@ -200,16 +237,25 @@ const ProductPage = () => {
                       key={v.id}
                       onClick={() => setSelectedVariant(v)}
                       className={cn(
-                        "p-5 border-2 rounded-[1.5rem] transition-all text-left relative overflow-hidden",
+                        "p-5 border-2 rounded-[1.5rem] transition-all text-left relative overflow-hidden flex flex-col justify-center min-h-[80px]",
                         selectedVariant?.id === v.id 
                           ? "border-sky-500 bg-sky-50/50 shadow-lg ring-4 ring-sky-500/10" 
                           : "border-stone-100 bg-white hover:border-sky-200",
                         v.stock_quantity <= 0 && "opacity-60 grayscale bg-stone-50"
                       )}
                     >
-                      <p className="font-black text-sm text-charcoal-gray uppercase tracking-tight" translate="no">{v.flavor_name || 'Original'}</p>
-                      {v.volume_ml && <p className="text-[10px] text-slate-500 font-bold mt-1 uppercase tracking-widest">{v.volume_ml}ml</p>}
-                      {v.stock_quantity <= 0 && <span className="absolute top-2 right-2 h-2 w-2 bg-red-500 rounded-full" />}
+                      {/* CORREÇÃO: Usando a função getVariantLabel para exibir Ohms/Cor */}
+                      <p className="font-black text-sm text-charcoal-gray uppercase tracking-tight leading-tight" translate="no">
+                        {getVariantLabel(v)}
+                      </p>
+                      
+                      {getVariantSubLabel(v) && (
+                        <p className="text-[10px] text-slate-500 font-bold mt-1 uppercase tracking-widest">
+                            {getVariantSubLabel(v)}
+                        </p>
+                      )}
+                      
+                      {v.stock_quantity <= 0 && <span className="absolute top-2 right-2 h-2 w-2 bg-red-500 rounded-full" title="Esgotado" />}
                     </button>
                   ))}
                 </div>
@@ -260,7 +306,6 @@ const ProductPage = () => {
                 </h2>
               </div>
               
-              {/* CORREÇÃO AQUI: Usando dangerouslySetInnerHTML para renderizar o HTML importado */}
               <div className="prose prose-stone prose-lg max-w-none text-slate-600 leading-relaxed font-medium">
                 <div dangerouslySetInnerHTML={{ __html: product.description || 'Sem descrição disponível.' }} />
               </div>

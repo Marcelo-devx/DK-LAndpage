@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, CheckCircle, CreditCard, MessageSquare, AlertTriangle, Smartphone } from 'lucide-react';
+import { Loader2, CheckCircle, CreditCard, MessageSquare, AlertTriangle, Smartphone, Heart } from 'lucide-react';
 import OrderTimer from '@/components/OrderTimer';
 import { cn } from '@/lib/utils';
 
@@ -13,6 +13,7 @@ interface Order {
   created_at: string;
   total_price: number;
   shipping_cost: number;
+  donation_amount: number;
   status: string;
   payment_method: string | null;
   shipping_address: {
@@ -93,6 +94,9 @@ const ConfirmacaoPedido = () => {
   const isPix = order.payment_method?.toLowerCase().includes('pix');
   const { shipping_address: addr } = order;
 
+  // Cálculo total: Preço dos Produtos + Frete + Doação
+  const finalTotal = Number(order.total_price) + Number(order.shipping_cost) + Number(order.donation_amount || 0);
+
   return (
     <div className="bg-off-white min-h-screen py-12 md:py-20 text-charcoal-gray">
       <div className="container mx-auto px-4">
@@ -115,7 +119,6 @@ const ConfirmacaoPedido = () => {
           </CardHeader>
           
           <CardContent className="p-8 md:p-12 space-y-10">
-            {/* Seção de Aviso do Robô (PIX) */}
             {isPending && isPix && (
               <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-[1.5rem] flex flex-col items-center text-center space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
                  <div className="p-4 bg-emerald-100 rounded-full mb-1">
@@ -130,21 +133,11 @@ const ConfirmacaoPedido = () => {
               </div>
             )}
 
-            {/* Seção de Alerta de Reserva */}
             {isPending && !isPix && (
               <OrderTimer 
                 createdAt={order.created_at} 
                 onExpire={() => fetchOrderDetails()} 
               />
-            )}
-
-            {isCancelled && (
-              <div className="bg-red-50 border border-red-200 p-6 rounded-2xl text-center">
-                <p className="text-red-500 font-bold">Infelizmente o tempo de pagamento expirou e os itens voltaram para o estoque. Por favor, realize um novo pedido.</p>
-                <Button asChild variant="outline" className="mt-4 border-red-200 text-red-500 hover:bg-red-50">
-                  <Link to="/produtos">Voltar à Loja</Link>
-                </Button>
-              </div>
             )}
 
             <div className="grid md:grid-cols-2 gap-8">
@@ -205,9 +198,18 @@ const ConfirmacaoPedido = () => {
                 <p>Frete Especial</p>
                 <p className="text-green-600 font-black uppercase text-[10px] tracking-widest">Grátis</p>
               </div>
+              {Number(order.donation_amount) > 0 && (
+                <div className="flex justify-between text-rose-500 text-sm font-medium">
+                  <div className="flex items-center gap-1.5">
+                    <Heart className="h-3.5 w-3.5 fill-current" />
+                    <span>Doação Solidária</span>
+                  </div>
+                  <p>+ R$ {Number(order.donation_amount).toFixed(2).replace('.', ',')}</p>
+                </div>
+              )}
               <div className="flex justify-between font-black text-3xl pt-4 border-t border-stone-200 mt-2 text-charcoal-gray tracking-tighter italic uppercase">
                 <p>Total</p>
-                <p className="text-sky-600">R$ {(order.total_price + order.shipping_cost).toFixed(2).replace('.', ',')}</p>
+                <p className="text-sky-600">R$ {finalTotal.toFixed(2).replace('.', ',')}</p>
               </div>
             </div>
 

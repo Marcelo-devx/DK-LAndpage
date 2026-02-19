@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, Package, ChevronRight, CreditCard, MessageSquare, Clock, CheckCircle2, Truck, AlertCircle, Calendar } from 'lucide-react';
+import { Loader2, Package, ChevronRight, CreditCard, MessageSquare, Clock, CheckCircle2, Truck, AlertCircle, Calendar, Heart } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -24,6 +24,7 @@ interface Order {
   created_at: string;
   total_price: number;
   shipping_cost: number;
+  donation_amount: number;
   status: string;
   delivery_status: string;
   payment_method: string | null;
@@ -64,7 +65,7 @@ const OrdersPage = () => {
 
     const { data: ordersData, error: ordersError } = await supabase
       .from('orders')
-      .select('id, created_at, total_price, shipping_cost, status, delivery_status, payment_method, shipping_address')
+      .select('id, created_at, total_price, shipping_cost, donation_amount, status, delivery_status, payment_method, shipping_address')
       .eq('user_id', session.user.id)
       .order('created_at', { ascending: false });
 
@@ -132,6 +133,8 @@ const OrdersPage = () => {
               const isCancelled = order.status === 'Cancelado';
               const isPix = order.payment_method?.toLowerCase().includes('pix');
               
+              const finalTotal = Number(order.total_price) + Number(order.shipping_cost) + Number(order.donation_amount || 0);
+
               return (
                 <AccordionItem value={`order-${order.id}`} key={order.id} className="bg-white border border-stone-200 rounded-[1.5rem] overflow-hidden transition-all duration-300 hover:border-sky-500/40 shadow-md">
                   <AccordionTrigger className="p-6 hover:no-underline data-[state=open]:bg-stone-50">
@@ -147,7 +150,7 @@ const OrdersPage = () => {
 
                       <div>
                         <p className="text-[10px] text-stone-400 font-extrabold uppercase tracking-widest mb-1">Total</p>
-                        <p className="text-xl font-bold text-sky-600 tracking-tight">R$ {(order.total_price + order.shipping_cost).toFixed(2).replace('.', ',')}</p>
+                        <p className="text-xl font-bold text-sky-600 tracking-tight">R$ {finalTotal.toFixed(2).replace('.', ',')}</p>
                       </div>
 
                       <div className="hidden md:block">
@@ -184,15 +187,6 @@ const OrdersPage = () => {
                                 <p className="text-charcoal-gray font-bold text-sm tracking-tight">{item.name_at_purchase}</p>
                                 <p className="text-xs text-stone-500 mt-1 font-semibold">{item.quantity}x R$ {item.price_at_purchase.toFixed(2).replace('.', ',')}</p>
                               </div>
-                              {order.status.toLowerCase().includes('finalizada') && item.item_type === 'product' && (
-                                order.reviewed_products.includes(item.item_id) ? (
-                                  <Badge variant="outline" className="text-stone-400 border-stone-200 uppercase text-[10px] font-bold">Avaliado</Badge>
-                                ) : (
-                                  <Button variant="outline" size="sm" className="h-9 px-4 text-[10px] font-bold uppercase tracking-widest border-sky-500/50 text-sky-500 hover:bg-sky-500 hover:text-white" onClick={() => setReviewingItem({ productId: item.item_id, orderId: order.id, productName: item.name_at_purchase })}>
-                                    Avaliar
-                                  </Button>
-                                )
-                              )}
                             </div>
                           ))}
                         </div>
@@ -204,7 +198,16 @@ const OrdersPage = () => {
                           <div className="bg-white p-6 rounded-2xl border border-stone-200 space-y-3">
                             <div className="flex justify-between text-sm text-stone-600 font-medium"><span>Subtotal</span><span>R$ {order.total_price.toFixed(2).replace('.', ',')}</span></div>
                             <div className="flex justify-between text-sm text-stone-600 font-medium"><span>Frete Especial</span><span className="text-emerald-600">Grátis</span></div>
-                            <div className="flex justify-between text-xl font-bold pt-4 border-t border-stone-100 mt-2 text-charcoal-gray"><span>Total</span><span className="text-sky-600">R$ {(order.total_price + order.shipping_cost).toFixed(2).replace('.', ',')}</span></div>
+                            {Number(order.donation_amount) > 0 && (
+                                <div className="flex justify-between text-sm text-rose-500 font-bold">
+                                    <div className="flex items-center gap-1.5">
+                                        <Heart className="h-3.5 w-3.5 fill-current" />
+                                        <span>Doação Solidária</span>
+                                    </div>
+                                    <span>+ R$ {Number(order.donation_amount).toFixed(2).replace('.', ',')}</span>
+                                </div>
+                            )}
+                            <div className="flex justify-between text-xl font-bold pt-4 border-t border-stone-100 mt-2 text-charcoal-gray"><span>Total</span><span className="text-sky-600">R$ {finalTotal.toFixed(2).replace('.', ',')}</span></div>
                           </div>
                         </div>
 
@@ -238,19 +241,6 @@ const OrdersPage = () => {
                             </div>
                           </div>
                         )}
-
-                        {isCancelled && (
-                          <div className="bg-red-50 border border-red-200 p-6 rounded-2xl flex items-center space-x-3 text-red-600">
-                             <AlertCircle className="h-5 w-5 shrink-0" />
-                             <p className="text-xs font-bold uppercase tracking-wider">A reserva expirou. Por favor, faça um novo pedido para garantir os itens.</p>
-                          </div>
-                        )}
-
-                        <div className="pt-4 text-right">
-                          <Link to={`/confirmacao-pedido/${order.id}`} className="inline-flex items-center text-[10px] font-bold text-sky-500 hover:text-sky-400 uppercase tracking-widest group">
-                            Ver detalhes do endereço <ChevronRight className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform" />
-                          </Link>
-                        </div>
                       </div>
                     </div>
                   </AccordionContent>
@@ -260,7 +250,6 @@ const OrdersPage = () => {
           </Accordion>
         )}
       </div>
-      {reviewingItem && <ReviewModal isOpen={!!reviewingItem} onOpenChange={() => setReviewingItem(null)} productId={reviewingItem.productId} orderId={reviewingItem.orderId} productName={reviewingItem.productName} onReviewSubmitted={() => { setReviewingItem(null); fetchOrders(); }} />}
     </div>
   );
 };

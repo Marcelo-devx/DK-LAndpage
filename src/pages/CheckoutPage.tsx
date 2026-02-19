@@ -12,7 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { showError, showSuccess, showLoading, dismissToast } from '@/utils/toast';
-import { Loader2, Search, AlertTriangle, CreditCard, MessageSquare, MapPin, ShoppingBag, Truck, Gift, CheckCircle2 } from 'lucide-react';
+import { Loader2, Search, AlertTriangle, CreditCard, MessageSquare, MapPin, ShoppingBag, Truck, Gift, CheckCircle2, Heart } from 'lucide-react';
 import { getLocalCart, ItemType, clearLocalCart } from '@/utils/localCart';
 import { maskCep, maskPhone } from '@/utils/masks';
 import CouponsModal from '@/components/CouponsModal';
@@ -82,9 +82,10 @@ const CheckoutPage = () => {
   const [isCreditCardEnabled, setIsCreditCardEnabled] = useState(false);
   const [deliveryType, setDeliveryType] = useState<'local' | 'correios' | null>(null);
   
-  // State de Frete
+  // State de Frete e Doação
   const [shippingCost, setShippingCost] = useState<number>(0);
   const [isFreeShippingApplied, setIsFreeShippingApplied] = useState(false);
+  const [donationAmount, setDonationAmount] = useState<number>(0);
   
   // Loyalty Benefits
   const [tierName, setTierName] = useState<string>('');
@@ -109,6 +110,11 @@ const CheckoutPage = () => {
 
   // Cálculo do Subtotal Dinâmico
   const subtotal = items.reduce((acc, item) => acc + getItemPrice(item) * item.quantity, 0);
+  const discount = selectedCoupon?.discount_value ?? 0;
+  
+  // Total FINAL: (Produtos - Desconto) + Frete + Doação
+  // Doação é somada por fora, não sofre desconto
+  const total = Math.max(0, subtotal - discount + shippingCost) + donationAmount;
 
   // Lógica de Cálculo de Frete (Observa mudanças no endereço e nos benefícios)
   useEffect(() => {
@@ -321,9 +327,6 @@ const CheckoutPage = () => {
 
   useEffect(() => { if (!loading && !isLoggedIn) { navigate('/login', { state: { from: location }, replace: true }); } }, [loading, isLoggedIn, navigate, location]);
 
-  const discount = selectedCoupon?.discount_value ?? 0;
-  const total = Math.max(0, subtotal - discount + shippingCost);
-
   const handleBenefitToggle = (benefit: string) => {
       setSelectedBenefits(prev => 
           prev.includes(benefit) ? prev.filter(b => b !== benefit) : [...prev, benefit]
@@ -368,11 +371,12 @@ const CheckoutPage = () => {
         cart_items_input: getLocalCart(),
         user_coupon_id_input: selectedCoupon?.user_coupon_id,
         benefits_input: benefitsString,
-        payment_method_input: data.payment_method
+        payment_method_input: data.payment_method,
+        donation_amount_input: donationAmount // Passa a doação para a procedure
       });
 
       if (orderError) throw new Error(orderError.message);
-      const { new_order_id, final_price } = orderData;
+      const { new_order_id, final_price } = orderData; // final_price aqui JÁ VEM com a doação somada da procedure
 
       // 3. Atualiza status inicial
       const statusUpdate = data.payment_method === 'pix' ? 'Em Preparação' : 'Aguardando Pagamento';
@@ -382,9 +386,7 @@ const CheckoutPage = () => {
         delivery_status: deliveryType === 'correios' ? 'Aguardando Envio Correios' : 'Pendente'
       }).eq('id', new_order_id);
 
-      // 4. DISPARO DO WEBHOOK VIA EDGE FUNCTION (COM AWAIT)
-      // Agora aguardamos explicitamente o envio para garantir que o navegador não cancele.
-      // Usamos um Promise.race para não travar por mais de 3 segundos.
+      // 4. DISPARO DO WEBHOOK
       try {
         const triggerPromise = supabase.functions.invoke('trigger-integration', {
             body: { 
@@ -392,10 +394,7 @@ const CheckoutPage = () => {
                 payload: { order_id: new_order_id } 
             }
         });
-        
-        // Timeout de segurança de 3 segundos
         const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 3000));
-        
         await Promise.race([triggerPromise, timeoutPromise]);
       } catch (webhookError) {
         console.error("Erro ao disparar webhook (ignorado para não travar o fluxo):", webhookError);
@@ -419,7 +418,7 @@ const CheckoutPage = () => {
           clearLocalCart();
           window.dispatchEvent(new CustomEvent('cartUpdated'));
           navigate(`/confirmacao-pedido/${new_order_id}`);
-        }, 500); // Pequeno delay visual
+        }, 500);
       } else {
         const { data: preferenceData, error: preferenceError } = await supabase.functions.invoke('create-mercadopago-preference', {
           body: { shipping_address: shippingAddress, order_id: new_order_id, total_price: final_price },
@@ -513,7 +512,6 @@ const CheckoutPage = () => {
             </CardContent>
           </Card>
 
-          {/* Seção de Benefícios do Clube */}
           {tierBenefits.length > 0 && (
               <Card className="bg-white border-stone-200 shadow-xl rounded-[2rem] overflow-hidden border-2 border-sky-500/20">
                 <CardHeader className="bg-sky-50 border-b border-sky-100 p-8">
@@ -638,6 +636,42 @@ const CheckoutPage = () => {
                 )}
               </div>
 
+              {/* SEÇÃO DE DOAÇÃO AGORA DENTRO DO RESUMO */}
+              <div className="bg-rose-50 border border-rose-100 p-4 rounded-xl space-y-3">
+                <div className="flex items-center gap-2">
+                    <Heart className="h-4 w-4 text-rose-500 fill-current" />
+                    <Label className="text-xs font-black uppercase tracking-widest text-rose-600 m-0">Doação Solidária (ONG)</Label>
+                </div>
+                <div className="flex gap-2">
+                    {[2, 5, 10].map(val => (
+                        <Button
+                            key={val}
+                            type="button"
+                            variant="outline"
+                            className={cn(
+                                "flex-1 h-10 text-xs font-black transition-all",
+                                donationAmount === val 
+                                    ? "bg-rose-500 hover:bg-rose-600 text-white border-rose-500 shadow-sm" 
+                                    : "bg-white border-rose-200 text-rose-500 hover:bg-rose-100 hover:text-rose-600"
+                            )}
+                            onClick={() => setDonationAmount(donationAmount === val ? 0 : val)}
+                        >
+                            R$ {val}
+                        </Button>
+                    ))}
+                    <div className="relative w-1/3">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-rose-300 text-[10px] font-bold">R$</span>
+                        <Input
+                            type="number"
+                            placeholder="Outro"
+                            className="pl-6 h-10 text-xs font-bold bg-white border-rose-200 focus:border-rose-500 text-rose-600 placeholder:text-rose-300"
+                            value={donationAmount > 0 && ![2,5,10].includes(donationAmount) ? donationAmount : ''}
+                            onChange={(e) => setDonationAmount(Number(e.target.value))}
+                        />
+                    </div>
+                </div>
+              </div>
+
               <div className="space-y-3 bg-stone-50 p-6 rounded-2xl border border-stone-100">
                 <div className="flex justify-between text-xs text-slate-500 font-bold uppercase tracking-widest"><span>Subtotal</span><span>R$ {subtotal.toFixed(2).replace('.', ',')}</span></div>
                 {selectedCoupon && <div className="flex justify-between text-xs text-green-600 font-bold uppercase tracking-widest"><span>Desconto</span><span>- R$ {discount.toFixed(2).replace('.', ',')}</span></div>}
@@ -654,6 +688,13 @@ const CheckoutPage = () => {
                         <span className="text-green-600">Grátis / A Combinar</span>
                     )}
                 </div>
+
+                {donationAmount > 0 && (
+                    <div className="flex justify-between text-xs text-rose-600 font-bold uppercase tracking-widest animate-in fade-in slide-in-from-left-2">
+                        <span className="flex items-center gap-1"><Heart className="h-3 w-3 fill-current" /> Doação</span>
+                        <span>+ R$ {donationAmount.toFixed(2).replace('.', ',')}</span>
+                    </div>
+                )}
 
                 <Separator className="my-2 bg-stone-200" />
                 <div className="flex justify-between font-black text-3xl text-charcoal-gray tracking-tighter italic uppercase"><span>Total</span><span className="text-sky-600">R$ {total.toFixed(2).replace('.', ',')}</span></div>

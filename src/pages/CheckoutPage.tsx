@@ -636,7 +636,7 @@ const CheckoutPage = () => {
                 )}
               </div>
 
-              {/* SEÇÃO DE DOAÇÃO AGORA DENTRO DO RESUMO */}
+              {/* Seção de Doação Solidária - Explicitamente Adicionada */}
               <div className="bg-rose-50 border border-rose-100 p-4 rounded-xl space-y-3">
                 <div className="flex items-center gap-2">
                     <Heart className="h-4 w-4 text-rose-500 fill-current" />

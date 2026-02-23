@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Truck, MapPin, Package, RefreshCw, Gift } from 'lucide-react';
+import { Truck, MapPin, Package, RefreshCw, Gift, Heart } from 'lucide-react';
 import { format, isToday, isTomorrow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
@@ -13,6 +13,7 @@ interface OrderRoute {
   scheduled_delivery_date: string;
   status: string;
   benefits_used: string | null;
+  donation_amount: number;
   shipping_address: any;
   profiles: {
     first_name: string;
@@ -27,7 +28,6 @@ const AdminLogistics = () => {
 
   const fetchRoutes = async () => {
     setLoading(true);
-    // Verificar permissão de admin
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { navigate('/login'); return; }
 
@@ -37,7 +37,6 @@ const AdminLogistics = () => {
       return; 
     }
 
-    // Buscar pedidos que não estão cancelados nem entregues
     const { data, error } = await supabase
       .from('orders')
       .select(`
@@ -45,12 +44,13 @@ const AdminLogistics = () => {
         scheduled_delivery_date,
         status,
         benefits_used,
+        donation_amount,
         shipping_address,
         profiles (first_name, last_name)
       `)
       .neq('status', 'Cancelado')
       .neq('delivery_status', 'Entregue')
-      .order('created_at', { ascending: false }); // Ordenar por mais recente
+      .order('created_at', { ascending: false });
 
     if (error) console.error(error);
     else setOrders(data as any[] || []);
@@ -62,7 +62,6 @@ const AdminLogistics = () => {
     fetchRoutes();
   }, []);
 
-  // Agrupar pedidos por data (se não tiver data, agrupa como 'Indefinido')
   const groupedOrders = orders.reduce((acc, order) => {
     const date = order.scheduled_delivery_date || 'undefined';
     if (!acc[date]) acc[date] = [];
@@ -80,7 +79,6 @@ const AdminLogistics = () => {
     if (dateStr === 'undefined') return 'Aguardando Roteirização';
     const [year, month, day] = dateStr.split('-').map(Number);
     const date = new Date(year, month - 1, day);
-    
     if (isToday(date)) return 'Rota de HOJE';
     if (isTomorrow(date)) return 'Rota de AMANHÃ';
     return `Rota de ${format(date, 'EEEE, dd/MM', { locale: ptBR })}`;
@@ -120,7 +118,6 @@ const AdminLogistics = () => {
                   {groupedOrders[date].map((order) => (
                     <div key={order.id} className="p-4 hover:bg-white/[0.02] transition-colors flex flex-col gap-4">
                       
-                      {/* Linha Superior: Info Principal */}
                       <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-1">
@@ -131,12 +128,17 @@ const AdminLogistics = () => {
                             <Badge className={`text-[10px] font-bold border ${getStatusColor(order.status)}`}>
                               {order.status}
                             </Badge>
+                            {Number(order.donation_amount) > 0 && (
+                                <Badge className="bg-rose-500/20 text-rose-400 border-rose-500/50 flex items-center gap-1">
+                                    <Heart className="h-3 w-3 fill-current" />
+                                    R$ {Number(order.donation_amount).toFixed(2)}
+                                </Badge>
+                            )}
                           </div>
                           <div className="flex items-start gap-2 text-sm text-slate-400">
                             <MapPin className="h-4 w-4 mt-0.5 shrink-0" />
                             <p>
                               {order.shipping_address?.street}, {order.shipping_address?.number}
-                              {order.shipping_address?.complement && ` - ${order.shipping_address?.complement}`}
                               <br />
                               {order.shipping_address?.neighborhood} - {order.shipping_address?.city}
                             </p>
@@ -147,13 +149,9 @@ const AdminLogistics = () => {
                           <Button size="sm" variant="outline" className="border-white/10 text-slate-300 hover:text-white text-xs uppercase font-bold" onClick={() => window.open(`https://wa.me/55${order.shipping_address?.phone?.replace(/\D/g,'')}`, '_blank')}>
                             WhatsApp
                           </Button>
-                          <Button size="sm" className="bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs uppercase">
-                            Ver Detalhes
-                          </Button>
                         </div>
                       </div>
 
-                      {/* Linha Inferior: Benefícios Usados (OBSERVAÇÃO) */}
                       {order.benefits_used && (
                         <div className="bg-indigo-500/10 border border-indigo-500/20 p-3 rounded-lg flex items-start gap-3">
                             <Gift className="h-5 w-5 text-indigo-400 shrink-0 mt-0.5" />
@@ -163,21 +161,12 @@ const AdminLogistics = () => {
                             </div>
                         </div>
                       )}
-
                     </div>
                   ))}
                 </div>
               </CardContent>
             </Card>
           ))}
-
-          {Object.keys(groupedOrders).length === 0 && (
-            <div className="text-center py-20 bg-white/5 rounded-3xl border border-dashed border-white/10">
-              <Package className="h-16 w-16 text-slate-600 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-slate-400">Nenhuma entrega pendente</h3>
-              <p className="text-slate-500">Todos os pedidos foram entregues ou cancelados.</p>
-            </div>
-          )}
         </div>
       </div>
     </div>

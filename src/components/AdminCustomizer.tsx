@@ -196,7 +196,8 @@ const AdminCustomizer = () => {
       if (data?.success) {
         showSuccess("Teste enviado! Verifique seu N8N.");
       } else {
-        showError("O N8N rejeitou o teste ou não respondeu.");
+        // CORREÇÃO: Mostrar a mensagem de erro real retornada pela API
+        showError(data?.error || "O N8N rejeitou o teste (sem detalhes).");
       }
     } catch (error: any) {
       console.error(error);

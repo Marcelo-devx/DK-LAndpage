@@ -20,7 +20,9 @@ import {
   ArrowUpCircle,
   FileJson,
   Truck,
-  CreditCard
+  CreditCard,
+  Send,
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,7 +39,7 @@ import {
 } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTheme } from '@/context/ThemeContext';
-import { showSuccess, showError } from '@/utils/toast';
+import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { cn } from '@/lib/utils';
 
 const AdminCustomizer = () => {
@@ -47,6 +49,7 @@ const AdminCustomizer = () => {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState("global");
   const [testStatus, setTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [isSimulating, setIsSimulating] = useState(false);
 
   // Constantes de URL (Projeto)
   const PROJECT_URL = "https://jrlozhhvwqfmjtkmvukf.supabase.co";
@@ -148,17 +151,14 @@ const AdminCustomizer = () => {
   const handleTestConnection = async () => {
     setTestStatus('loading');
     try {
-      // Fazendo a requisição GET para a URL de teste fornecida
       const response = await fetch("https://n8n-ws.dkcwb.cloud/webhook/testar-conexão", {
         method: 'GET',
         headers: { 'Accept': 'application/json' }
       });
       
-      const data = await response.json();
-      
-      if (response.ok && (data.status_code === 200 || data.mensagem)) {
+      if (response.ok) {
         setTestStatus('success');
-        showSuccess(data.mensagem || "Conexão estabelecida com sucesso!");
+        showSuccess("Conexão estabelecida com sucesso!");
       } else {
         setTestStatus('error');
         showError("O N8N respondeu, mas com erro.");
@@ -166,9 +166,44 @@ const AdminCustomizer = () => {
     } catch (error) {
       console.error("Erro no teste de conexão:", error);
       setTestStatus('error');
-      showError("Não foi possível conectar ao N8N. Verifique se o serviço está online.");
+      showError("Não foi possível conectar ao N8N.");
     } finally {
       setTimeout(() => setTestStatus('idle'), 3000);
+    }
+  };
+
+  const handleSimulateOrder = async () => {
+    if (!webhooks.order_created) {
+      showError("Configure uma URL primeiro.");
+      return;
+    }
+    
+    setIsSimulating(true);
+    const toastId = showLoading("Disparando teste para o N8N...");
+
+    try {
+      const { data, error } = await supabase.functions.invoke('trigger-integration', {
+        body: { 
+            event_type: 'order_created', 
+            simulate: true // Modo Simulação
+        }
+      });
+
+      dismissToast(toastId);
+
+      if (error) throw error;
+      
+      if (data?.success) {
+        showSuccess("Teste enviado! Verifique seu N8N.");
+      } else {
+        showError("O N8N rejeitou o teste ou não respondeu.");
+      }
+    } catch (error: any) {
+      console.error(error);
+      dismissToast(toastId);
+      showError(error.message || "Erro ao disparar simulação.");
+    } finally {
+      setIsSimulating(false);
     }
   };
 
@@ -186,7 +221,6 @@ const AdminCustomizer = () => {
     }
   };
 
-  // Sincroniza a aba com a rota atual
   useEffect(() => {
     const path = location.pathname;
     if (path === '/') setActiveTab('home');
@@ -239,7 +273,6 @@ const AdminCustomizer = () => {
             <div className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-slate-50/30">
               
               <TabsContent value="global" className="space-y-8 mt-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                {/* Global Content */}
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 text-slate-400 mb-2"><Palette className="h-4 w-4" /><h3 className="font-bold text-xs uppercase tracking-widest">Identidade Visual</h3></div>
                   <div className="grid gap-3">
@@ -258,7 +291,6 @@ const AdminCustomizer = () => {
               </TabsContent>
 
               <TabsContent value="integrations" className="space-y-8 mt-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                {/* 1. STATUS E TESTE */}
                 <div className="bg-purple-50 border border-purple-100 p-4 rounded-xl">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -284,7 +316,42 @@ const AdminCustomizer = () => {
                     </Button>
                 </div>
 
-                {/* 3. WEBHOOKS DE ENTRADA (O que o N8N deve chamar) */}
+                {/* WEBHOOKS DE SAÍDA */}
+                <div className="space-y-4">
+                    <div className="flex items-center gap-2 mb-2 px-1">
+                        <ArrowUpCircle className="h-4 w-4 text-sky-500" />
+                        <h3 className="font-black text-xs uppercase tracking-widest text-slate-500">Webhooks de Saída (Events)</h3>
+                    </div>
+                    
+                    <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-3">
+                        <div className="flex items-center justify-between"><Label className="text-xs font-bold uppercase tracking-wider text-slate-600">Novo Pedido</Label><span className={cn("text-[9px] font-black uppercase px-2 py-0.5 rounded", webhooks.order_created ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-400")}>{webhooks.order_created ? 'Ativo' : 'Inativo'}</span></div>
+                        
+                        <div className="flex gap-2">
+                            <Input value={webhooks.order_created} onChange={(e) => updateWebhook('order_created', e.target.value)} placeholder="https://seu-n8n.com/webhook/..." className="bg-slate-50 font-mono text-[10px] h-8"/>
+                            
+                            <Button 
+                                size="icon" 
+                                className="h-8 w-10 bg-sky-500 hover:bg-sky-400 text-white shrink-0 shadow-sm"
+                                onClick={handleSimulateOrder}
+                                disabled={!webhooks.order_created || isSimulating}
+                                title="Enviar Pedido de Teste"
+                            >
+                                {isSimulating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                            </Button>
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-3">
+                        <div className="flex items-center justify-between"><Label className="text-xs font-bold uppercase tracking-wider text-slate-600">Novo Cliente</Label><span className={cn("text-[9px] font-black uppercase px-2 py-0.5 rounded", webhooks.customer_created ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-400")}>{webhooks.customer_created ? 'Ativo' : 'Inativo'}</span></div>
+                        <Input value={webhooks.customer_created} onChange={(e) => updateWebhook('customer_created', e.target.value)} placeholder="https://seu-n8n.com/webhook/..." className="bg-slate-50 font-mono text-[10px] h-8"/>
+                    </div>
+                    <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-3 border-l-4 border-l-emerald-500">
+                        <div className="flex items-center justify-between"><Label className="text-xs font-bold uppercase tracking-wider text-emerald-600">Chat Bot (Msg Enviada)</Label><span className={cn("text-[9px] font-black uppercase px-2 py-0.5 rounded", webhooks.chat_message_sent ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-400")}>{webhooks.chat_message_sent ? 'Ativo' : 'Inativo'}</span></div>
+                        <Input value={webhooks.chat_message_sent} onChange={(e) => updateWebhook('chat_message_sent', e.target.value)} placeholder="https://seu-n8n.com/webhook/..." className="bg-slate-50 font-mono text-[10px] h-8"/>
+                    </div>
+                </div>
+
+                {/* APIs de Entrada */}
                 <div className="space-y-4">
                     <div className="flex items-center gap-2 mb-2 px-1">
                         <ArrowDownCircle className="h-4 w-4 text-orange-500" />
@@ -292,7 +359,6 @@ const AdminCustomizer = () => {
                     </div>
                     
                     <div className="space-y-4">
-                        {/* UPDATE ORDER (FINALIZAR PIX) */}
                         <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-sm">
                             <div className="flex justify-between items-center mb-2">
                                 <Label className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
@@ -306,8 +372,6 @@ const AdminCustomizer = () => {
                                     <Copy className="h-3.5 w-3.5 text-white" />
                                 </Button>
                             </div>
-                            
-                            {/* JSON HELPER */}
                             <div className="bg-black/50 p-2 rounded-lg border border-white/5">
                                 <div className="flex justify-between items-center mb-1">
                                     <span className="text-[9px] font-bold text-slate-400 uppercase">Exemplo JSON (Finalizar)</span>
@@ -335,42 +399,6 @@ const AdminCustomizer = () => {
                             </div>
                         </div>
 
-                        {/* UPDATE ORDER (RASTREIO) */}
-                        <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-sm">
-                            <div className="flex justify-between items-center mb-2">
-                                <Label className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
-                                    <Truck className="h-4 w-4 text-sky-400" /> Atualizar Rastreio
-                                </Label>
-                            </div>
-                            <div className="bg-black/50 p-2 rounded-lg border border-white/5 mt-2">
-                                <div className="flex justify-between items-center mb-1">
-                                    <span className="text-[9px] font-bold text-slate-400 uppercase">Exemplo JSON</span>
-                                    <Button 
-                                        size="sm" 
-                                        variant="ghost" 
-                                        className="h-5 text-[9px] text-sky-400 hover:text-white p-0 hover:bg-transparent"
-                                        onClick={() => copyToClipboard(JSON.stringify({
-                                            order_id: 12345,
-                                            status: "Em Trânsito",
-                                            delivery_status: "Enviado",
-                                            tracking_code: "BR123456789"
-                                        }, null, 2), "JSON Copiado!")}
-                                    >
-                                        <FileJson className="h-3 w-3 mr-1" /> Copiar Payload
-                                    </Button>
-                                </div>
-                                <pre className="text-[9px] text-blue-300 font-mono overflow-x-auto whitespace-pre-wrap">
-{`{
-  "order_id": 12345,
-  "status": "Em Trânsito",
-  "delivery_status": "Enviado",
-  "tracking_code": "BR123456789"
-}`}
-                                </pre>
-                            </div>
-                        </div>
-
-                        {/* GET ORDER DETAILS (NOVO) */}
                         <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-sm">
                             <div className="flex justify-between items-center mb-2">
                                 <Label className="text-xs font-bold uppercase tracking-wider text-white">Consultar Pedido Completo</Label>
@@ -383,46 +411,11 @@ const AdminCustomizer = () => {
                                 </Button>
                             </div>
                         </div>
-
-                        {/* MERCADO PAGO */}
-                        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
-                            <Label className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2 flex items-center gap-2">
-                                <CreditCard className="h-3.5 w-3.5" /> Mercado Pago (Webhook)
-                            </Label>
-                            <div className="flex gap-2">
-                                <Input readOnly value={`${PROJECT_URL}/functions/v1/mercadopago-webhook`} className="bg-slate-50 font-mono text-[10px] h-8" />
-                                <Button size="icon" variant="outline" className="h-8 w-8 shrink-0" onClick={() => copyToClipboard(`${PROJECT_URL}/functions/v1/mercadopago-webhook`)}>
-                                    <Copy className="h-3.5 w-3.5" />
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* 2. WEBHOOKS DE SAÍDA (O que o Site envia para o N8N) */}
-                <div className="space-y-4">
-                    <div className="flex items-center gap-2 mb-2 px-1">
-                        <ArrowUpCircle className="h-4 w-4 text-sky-500" />
-                        <h3 className="font-black text-xs uppercase tracking-widest text-slate-500">Webhooks de Saída (Events)</h3>
-                    </div>
-                    
-                    <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-3">
-                        <div className="flex items-center justify-between"><Label className="text-xs font-bold uppercase tracking-wider text-slate-600">Novo Pedido</Label><span className={cn("text-[9px] font-black uppercase px-2 py-0.5 rounded", webhooks.order_created ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-400")}>{webhooks.order_created ? 'Ativo' : 'Inativo'}</span></div>
-                        <Input value={webhooks.order_created} onChange={(e) => updateWebhook('order_created', e.target.value)} placeholder="https://seu-n8n.com/webhook/..." className="bg-slate-50 font-mono text-[10px] h-8"/>
-                    </div>
-                    <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-3">
-                        <div className="flex items-center justify-between"><Label className="text-xs font-bold uppercase tracking-wider text-slate-600">Novo Cliente</Label><span className={cn("text-[9px] font-black uppercase px-2 py-0.5 rounded", webhooks.customer_created ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-400")}>{webhooks.customer_created ? 'Ativo' : 'Inativo'}</span></div>
-                        <Input value={webhooks.customer_created} onChange={(e) => updateWebhook('customer_created', e.target.value)} placeholder="https://seu-n8n.com/webhook/..." className="bg-slate-50 font-mono text-[10px] h-8"/>
-                    </div>
-                    <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-3 border-l-4 border-l-emerald-500">
-                        <div className="flex items-center justify-between"><Label className="text-xs font-bold uppercase tracking-wider text-emerald-600">Chat Bot (Msg Enviada)</Label><span className={cn("text-[9px] font-black uppercase px-2 py-0.5 rounded", webhooks.chat_message_sent ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-400")}>{webhooks.chat_message_sent ? 'Ativo' : 'Inativo'}</span></div>
-                        <Input value={webhooks.chat_message_sent} onChange={(e) => updateWebhook('chat_message_sent', e.target.value)} placeholder="https://seu-n8n.com/webhook/..." className="bg-slate-50 font-mono text-[10px] h-8"/>
                     </div>
                 </div>
               </TabsContent>
 
               <TabsContent value="home" className="space-y-6 mt-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                {/* Home Content */}
                 <div className="space-y-3">
                   {[
                     { id: 'hero', label: 'Banner Principal', sub: 'Carrossel grande no topo', key: 'show_hero_banner', checked: settings.showHero },

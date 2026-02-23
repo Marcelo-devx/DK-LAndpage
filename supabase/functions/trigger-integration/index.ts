@@ -9,13 +9,11 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    // Inicializa cliente com Service Role (Admin) para ignorar RLS e acessar configurações
     const supabaseClient = createClient(
       // @ts-ignore
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -24,179 +22,133 @@ serve(async (req) => {
     )
 
     const { event_type, payload } = await req.json()
-    console.log(`[trigger-integration] Processando evento: ${event_type}`, JSON.stringify(payload));
+    console.log(`[trigger-integration] Iniciando processamento: ${event_type}`);
 
-    // 1. Validar Configuração do Webhook no Banco
+    // 1. Buscar URL do N8N no Banco
     const { data: config, error: configError } = await supabaseClient
       .from('webhook_configs')
       .select('target_url, is_active')
       .eq('trigger_event', event_type)
-      .maybeSingle(); 
+      .maybeSingle();
 
     if (configError) {
-        console.error("Erro ao buscar config do webhook:", configError);
-        return new Response(JSON.stringify({ error: 'Erro de configuração no banco de dados.' }), { headers: corsHeaders, status: 500 });
+        console.error("[trigger-integration] Erro ao buscar configuração:", configError);
+        return new Response(JSON.stringify({ error: 'Configuração não encontrada.' }), { headers: corsHeaders, status: 500 });
     }
 
     if (!config || !config.is_active || !config.target_url) {
-      console.warn(`Webhook ignorado: Nenhuma URL ativa para '${event_type}'.`);
-      return new Response(JSON.stringify({ message: 'Webhook inativo ou não configurado.' }), { headers: corsHeaders, status: 200 });
+      console.warn(`[trigger-integration] Webhook inativo ou não configurado para: ${event_type}`);
+      return new Response(JSON.stringify({ message: 'Webhook inativo.' }), { headers: corsHeaders, status: 200 });
     }
+
+    console.log(`[trigger-integration] Enviando para: ${config.target_url}`);
 
     let finalPayload = { ...payload, event: event_type, timestamp: new Date().toISOString() };
 
-    // 2. ENRIQUECIMENTO DE DADOS (Apenas para Pedidos)
+    // 2. ENRIQUECIMENTO DE DADOS (Pedido Completo)
     if (event_type === 'order_created' && payload.order_id) {
         try {
-            // A. Buscar Pedido
-            const { data: order, error: orderError } = await supabaseClient
-                .from('orders')
-                .select('*')
-                .eq('id', payload.order_id)
-                .single();
+            const { data: order } = await supabaseClient.from('orders').select('*').eq('id', payload.order_id).single();
+            if (!order) throw new Error("Pedido não encontrado");
 
-            if (orderError || !order) throw new Error(`Pedido ${payload.order_id} não encontrado.`);
+            const { data: items } = await supabaseClient.from('order_items').select('*').eq('order_id', payload.order_id);
+            const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', order.user_id).single();
+            
+            // Tentar obter email
+            let userEmail = 'nao_informado@sistema.com';
+            const { data: authUser } = await supabaseClient.auth.admin.getUserById(order.user_id);
+            if (authUser?.user?.email) userEmail = authUser.user.email;
 
-            // B. Buscar Itens
-            const { data: items } = await supabaseClient
-                .from('order_items')
-                .select('name_at_purchase, quantity, price_at_purchase, image_url_at_purchase')
-                .eq('order_id', payload.order_id);
-
-            // C. Buscar Perfil do Cliente
-            const { data: profile } = await supabaseClient
-                .from('profiles')
-                .select('first_name, last_name, phone, cpf_cnpj, email:id') // email might not be directly here if auth managed differently, trying ID fallback
-                .eq('id', order.user_id)
-                .single();
-
-            // Tenta pegar email real do Auth Admin se possível (mais confiável)
-            let userEmail = 'pendente@sistema.com';
-            try {
-                const { data: userData } = await supabaseClient.auth.admin.getUserById(order.user_id);
-                if (userData?.user?.email) userEmail = userData.user.email;
-            } catch (e) {
-                console.log("Não foi possível buscar email via Auth Admin (usando fallback).");
-            }
-
-            // D. Buscar Nome do Cupom
-            const { data: userCoupon } = await supabaseClient
-                .from('user_coupons')
-                .select('coupons(name)')
-                .eq('order_id', payload.order_id)
-                .maybeSingle();
-
-            const couponName = userCoupon?.coupons?.name || null;
-
-            // Formatação dos Itens
+            // Formatar Itens
             const formattedItems = (items || []).map((item: any) => ({
                 name: item.name_at_purchase,
                 quantity: item.quantity,
                 price: item.price_at_purchase,
-                image: item.image_url_at_purchase
+                total: item.price_at_purchase * item.quantity,
+                image: item.image_url_at_purchase,
+                type: item.item_type
             }));
 
-            // CÁLCULO FINANCEIRO COMPLETO
-            // order.total_price (Banco) = Subtotal dos Produtos - Desconto
-            const dbTotalPrice = Number(order.total_price || 0); 
-            const discountValue = Number(order.coupon_discount || 0);
-            const shippingValue = Number(order.shipping_cost || 0);
-            const donationValue = Number(order.donation_amount || 0); // NOVO CAMPO
+            // Cálculos
+            const dbTotalPrice = Number(order.total_price || 0); // Produtos - Desconto
+            const discount = Number(order.coupon_discount || 0);
+            const shipping = Number(order.shipping_cost || 0);
+            const donation = Number(order.donation_amount || 0);
             
-            // Valor original dos produtos (sem desconto)
-            const productsSubtotal = dbTotalPrice + discountValue;
-            
-            // Valor FINAL que o cliente paga (Produtos c/ desconto + Frete + Doação)
-            const finalTotalToPay = dbTotalPrice + shippingValue + donationValue;
+            const subtotal = dbTotalPrice + discount;
+            const finalTotal = dbTotalPrice + shipping + donation;
 
             finalPayload = {
                 event: "order_created",
                 timestamp: new Date().toISOString(),
-                data: {
-                    id: order.id,
-                    // Dados Financeiros
-                    total_price: finalTotalToPay,
-                    subtotal_products: productsSubtotal,
-                    discount: discountValue,
-                    shipping_cost: shippingValue,
-                    donation_amount: donationValue,
-                    
-                    // Metadados
-                    status: order.status,
+                order_id: order.id,
+                
+                // Dados Financeiros
+                financial: {
+                    total_paid: finalTotal,
+                    subtotal_products: subtotal,
+                    discount_applied: discount,
+                    shipping_cost: shipping,
+                    donation_amount: donation,
                     payment_method: order.payment_method,
-                    created_at: order.created_at,
-                    coupon_name: couponName,
-                    benefits_used: order.benefits_used,
-                    
-                    // Cliente
-                    customer: {
-                        id: order.user_id,
-                        full_name: profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : 'Cliente',
-                        phone: profile?.phone || order.shipping_address?.phone || '',
-                        email: userEmail,
-                        cpf: profile?.cpf_cnpj || ''
-                    },
-                    
-                    // Endereço
-                    shipping_address: order.shipping_address,
-                    
-                    // Itens
-                    items: formattedItems
-                }
+                    status: order.status
+                },
+
+                // Cliente
+                customer: {
+                    id: order.user_id,
+                    name: profile ? `${profile.first_name} ${profile.last_name}`.trim() : 'Cliente',
+                    email: userEmail,
+                    phone: profile?.phone || order.shipping_address?.phone || '',
+                    cpf: profile?.cpf_cnpj || ''
+                },
+
+                // Entrega
+                shipping: order.shipping_address,
+
+                // Metadados
+                meta: {
+                    coupon_used: order.coupon_discount > 0,
+                    benefits_used: order.benefits_used || 'Nenhum',
+                    created_at: order.created_at
+                },
+
+                // Itens
+                items: formattedItems
             };
-        } catch (enrichError) {
-            console.error("Erro ao enriquecer dados do pedido:", enrichError);
-            finalPayload.error = "Falha ao coletar detalhes completos do pedido.";
+
+        } catch (e) {
+            console.error("[trigger-integration] Erro ao enriquecer dados:", e);
+            finalPayload.enrichment_error = e.message;
         }
     }
 
-    // 3. Registrar Log de Envio
-    await supabaseClient.from('integration_logs').insert({
-        event_type: event_type,
-        status: 'sending',
-        payload: finalPayload,
-        details: `Enviando para ${config.target_url}`
-    });
-
-    // 4. Disparar para N8N
+    // 3. Disparo para N8N
     const response = await fetch(config.target_url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(finalPayload)
     });
 
-    if (!response.ok) {
-        const responseText = await response.text();
-        await supabaseClient.from('integration_logs').insert({
-            event_type: event_type,
-            status: 'error',
-            payload: finalPayload,
-            details: `Erro N8N (${response.status}): ${responseText.slice(0, 200)}`
-        });
-        throw new Error(`N8N Error ${response.status}: ${responseText}`);
-    }
+    const responseText = await response.text();
+    console.log(`[trigger-integration] Resposta N8N (${response.status}):`, responseText.slice(0, 100));
 
-    // Log de Sucesso
+    // Log no Banco
     await supabaseClient.from('integration_logs').insert({
         event_type: event_type,
-        status: 'success',
-        payload: { success: true, n8n_status: response.status },
-        details: 'Enviado com sucesso para N8N'
+        status: response.ok ? 'success' : 'error',
+        payload: finalPayload,
+        response_code: response.status,
+        details: response.ok ? 'Sucesso' : `Erro N8N: ${responseText.slice(0, 200)}`
     });
 
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ success: response.ok, n8n_status: response.status }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     })
 
-  } catch (error: any) {
-    console.error("Edge Function Error:", error);
-    return new Response(JSON.stringify({ 
-        success: false, 
-        error: error.message 
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
-    })
+  } catch (error) {
+    console.error("[trigger-integration] Erro Fatal:", error);
+    return new Response(JSON.stringify({ error: error.message }), { headers: corsHeaders, status: 500 });
   }
 })

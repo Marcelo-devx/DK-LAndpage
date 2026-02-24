@@ -19,10 +19,10 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   FileJson,
-  Truck,
-  CreditCard,
   Send,
-  Loader2
+  Loader2,
+  Zap,
+  Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,35 +49,31 @@ const AdminCustomizer = () => {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState("global");
   const [testStatus, setTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [isSimulating, setIsSimulating] = useState(false);
+  const [isSimulating, setIsSimulating] = useState<string | null>(null);
 
   // Constantes de URL (Projeto)
   const PROJECT_URL = "https://jrlozhhvwqfmjtkmvukf.supabase.co";
 
-  // Estado para Webhooks
-  const [webhooks, setWebhooks] = useState({
-    order_created: '',
-    order_updated: '',
-    customer_created: '',
-    chat_message_sent: ''
-  });
+  // Configuração dos Webhooks a serem exibidos
+  const webhookDefinitions = [
+    { key: 'order_created', label: 'Pedido Criado', color: 'text-green-600 bg-green-50 border-green-200' },
+    { key: 'order_updated', label: 'Pedido Atualizado', color: 'text-blue-600 bg-blue-50 border-blue-200' },
+    { key: 'customer_created', label: 'Novo Cliente', color: 'text-purple-600 bg-purple-50 border-purple-200' },
+    { key: 'chat_message_sent', label: 'Mensagem de Chat', color: 'text-pink-600 bg-pink-50 border-pink-200' },
+    { key: 'support_contact_clicked', label: 'Botão WhatsApp', color: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
+    { key: 'product_updated', label: 'Produto Alterado', color: 'text-orange-600 bg-orange-50 border-orange-200' },
+  ];
+
+  // Estado Dinâmico para Webhooks
+  const [webhooks, setWebhooks] = useState<Record<string, string>>({});
   const webhookTimeouts = useRef<Record<string, NodeJS.Timeout>>({});
 
   useEffect(() => {
     const checkAdmin = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        setIsAdmin(false);
-        return;
-      }
+      if (!user) { setIsAdmin(false); return; }
 
-      const { data } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-      
+      const { data } = await supabase.from('profiles').select('role').eq('id', user.id).single();
       if (data?.role === 'adm') {
         setIsAdmin(true);
         fetchWebhooks();
@@ -89,38 +85,22 @@ const AdminCustomizer = () => {
     const fetchWebhooks = async () => {
       const { data } = await supabase.from('webhook_configs').select('trigger_event, target_url');
       if (data) {
-        const currentHooks = {
-          order_created: '',
-          order_updated: '',
-          customer_created: '',
-          chat_message_sent: ''
-        };
+        const currentHooks: Record<string, string> = {};
         data.forEach(config => {
-          if (config.trigger_event === 'order_created') currentHooks.order_created = config.target_url;
-          if (config.trigger_event === 'order_updated') currentHooks.order_updated = config.target_url;
-          if (config.trigger_event === 'customer_created') currentHooks.customer_created = config.target_url;
-          if (config.trigger_event === 'chat_message_sent') currentHooks.chat_message_sent = config.target_url;
+          currentHooks[config.trigger_event] = config.target_url;
         });
         setWebhooks(currentHooks);
       }
     };
 
     checkAdmin();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      checkAdmin();
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => checkAdmin());
+    return () => subscription.unsubscribe();
   }, []);
 
   const updateWebhook = (event: string, url: string) => {
-    // Atualização Otimista
-    setWebhooks(prev => ({ ...prev, [event as keyof typeof prev]: url }));
+    setWebhooks(prev => ({ ...prev, [event]: url }));
 
-    // Debounce para salvar no banco
     if (webhookTimeouts.current[event]) clearTimeout(webhookTimeouts.current[event]);
     
     webhookTimeouts.current[event] = setTimeout(async () => {
@@ -143,7 +123,7 @@ const AdminCustomizer = () => {
 
       if (error) {
         console.error('Erro ao salvar webhook:', error);
-        showError('Erro ao salvar configuração de integração.');
+        showError('Erro ao salvar configuração.');
       }
     }, 1000);
   };
@@ -155,56 +135,33 @@ const AdminCustomizer = () => {
         method: 'GET',
         headers: { 'Accept': 'application/json' }
       });
-      
-      if (response.ok) {
-        setTestStatus('success');
-        showSuccess("Conexão estabelecida com sucesso!");
-      } else {
-        setTestStatus('error');
-        showError("O N8N respondeu, mas com erro.");
-      }
-    } catch (error) {
-      console.error("Erro no teste de conexão:", error);
-      setTestStatus('error');
-      showError("Não foi possível conectar ao N8N.");
-    } finally {
-      setTimeout(() => setTestStatus('idle'), 3000);
-    }
+      if (response.ok) { setTestStatus('success'); showSuccess("Conexão OK!"); } 
+      else { setTestStatus('error'); showError("Erro no N8N."); }
+    } catch { setTestStatus('error'); showError("Sem conexão."); } 
+    finally { setTimeout(() => setTestStatus('idle'), 3000); }
   };
 
-  const handleSimulateOrder = async () => {
-    if (!webhooks.order_created) {
-      showError("Configure uma URL primeiro.");
-      return;
-    }
+  const handleSimulateWebhook = async (eventType: string) => {
+    if (!webhooks[eventType]) { showError("Configure uma URL primeiro."); return; }
     
-    setIsSimulating(true);
-    const toastId = showLoading("Disparando teste para o N8N...");
+    setIsSimulating(eventType);
+    const toastId = showLoading(`Testando ${eventType}...`);
 
     try {
       const { data, error } = await supabase.functions.invoke('trigger-integration', {
-        body: { 
-            event_type: 'order_created', 
-            simulate: true // Modo Simulação
-        }
+        body: { event_type: eventType, simulate: true }
       });
 
       dismissToast(toastId);
-
       if (error) throw error;
       
-      if (data?.success) {
-        showSuccess("Teste enviado! Verifique seu N8N.");
-      } else {
-        // CORREÇÃO: Mostrar a mensagem de erro real retornada pela API
-        showError(data?.error || "O N8N rejeitou o teste (sem detalhes).");
-      }
+      if (data?.success) showSuccess("Teste enviado com sucesso!");
+      else showError(data?.error || "Erro no teste.");
     } catch (error: any) {
-      console.error(error);
       dismissToast(toastId);
-      showError(error.message || "Erro ao disparar simulação.");
+      showError(error.message || "Falha na simulação.");
     } finally {
-      setIsSimulating(false);
+      setIsSimulating(null);
     }
   };
 
@@ -242,7 +199,7 @@ const AdminCustomizer = () => {
           <Settings className="h-6 w-6 animate-spin-slow group-hover:text-sky-400 transition-colors" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-[400px] p-0 gap-0 overflow-hidden bg-white/95 backdrop-blur-md z-[99999] flex flex-col">
+      <SheetContent side="left" className="w-[450px] p-0 gap-0 overflow-hidden bg-white/95 backdrop-blur-md z-[99999] flex flex-col">
         
         <div className="p-6 border-b border-slate-100 bg-white/50">
           <SheetHeader>
@@ -253,7 +210,7 @@ const AdminCustomizer = () => {
               Gestão DKCWB
             </SheetTitle>
             <SheetDescription className="text-xs font-medium text-slate-500">
-              Controle de integrações e aparência da loja.
+              Painel de controle e integrações.
             </SheetDescription>
           </SheetHeader>
         </div>
@@ -263,191 +220,146 @@ const AdminCustomizer = () => {
             
             <div className="px-6 py-4 bg-slate-50/50 border-b border-slate-100 overflow-x-auto no-scrollbar">
               <TabsList className="bg-transparent p-0 gap-2 h-auto flex w-max">
-                <TabsTrigger value="global" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-slate-900 data-[state=active]:text-white data-[state=active]:border-slate-900 data-[state=active]:shadow-lg hover:bg-white hover:border-slate-300 bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><Globe className="h-3.5 w-3.5" /> Global</TabsTrigger>
-                <TabsTrigger value="integrations" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-purple-600 data-[state=active]:text-white data-[state=active]:border-purple-600 data-[state=active]:shadow-lg hover:bg-white hover:border-purple-200 bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><Network className="h-3.5 w-3.5" /> API & N8N</TabsTrigger>
-                <TabsTrigger value="home" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-sky-500 data-[state=active]:text-white data-[state=active]:border-sky-500 data-[state=active]:shadow-lg hover:bg-white hover:border-sky-200 bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><Home className="h-3.5 w-3.5" /> Home</TabsTrigger>
-                <TabsTrigger value="login" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-indigo-500 data-[state=active]:text-white data-[state=active]:border-indigo-500 data-[state=active]:shadow-lg hover:bg-white hover:border-indigo-200 bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><LogIn className="h-3.5 w-3.5" /> Login</TabsTrigger>
-                <TabsTrigger value="dashboard" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-emerald-500 data-[state=active]:text-white data-[state=active]:border-emerald-500 data-[state=active]:shadow-lg hover:bg-white hover:border-emerald-200 bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><User className="h-3.5 w-3.5" /> Conta</TabsTrigger>
+                <TabsTrigger value="global" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-slate-900 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><Globe className="h-3.5 w-3.5" /> Global</TabsTrigger>
+                <TabsTrigger value="integrations" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-purple-600 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><Network className="h-3.5 w-3.5" /> Webhooks</TabsTrigger>
+                <TabsTrigger value="home" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-sky-500 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><Home className="h-3.5 w-3.5" /> Home</TabsTrigger>
+                <TabsTrigger value="login" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-indigo-500 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><LogIn className="h-3.5 w-3.5" /> Login</TabsTrigger>
               </TabsList>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-slate-50/30">
               
-              <TabsContent value="global" className="space-y-8 mt-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-slate-400 mb-2"><Palette className="h-4 w-4" /><h3 className="font-bold text-xs uppercase tracking-widest">Identidade Visual</h3></div>
-                  <div className="grid gap-3">
-                    <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm"><Label className="text-xs text-slate-500 mb-1.5 block">Cor de Fundo</Label><div className="flex gap-2"><Input type="color" value={settings.backgroundColor} onChange={(e) => updateSetting('site_background_color', e.target.value)} className="w-10 h-10 p-1 rounded-lg cursor-pointer shrink-0" /><Input type="text" value={settings.backgroundColor} onChange={(e) => updateSetting('site_background_color', e.target.value)} className="flex-1 font-mono text-xs bg-slate-50" /></div></div>
-                    <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm"><Label className="text-xs text-slate-500 mb-1.5 block">Cor de Destaque</Label><div className="flex gap-2"><Input type="color" value={settings.primaryColor} onChange={(e) => updateSetting('site_primary_color', e.target.value)} className="w-10 h-10 p-1 rounded-lg cursor-pointer shrink-0" /><Input type="text" value={settings.primaryColor} onChange={(e) => updateSetting('site_primary_color', e.target.value)} className="flex-1 font-mono text-xs bg-slate-50" /></div></div>
-                    <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm"><Label className="text-xs text-slate-500 mb-1.5 block">Cor do Texto</Label><div className="flex gap-2"><Input type="color" value={settings.textColor} onChange={(e) => updateSetting('site_text_color', e.target.value)} className="w-10 h-10 p-1 rounded-lg cursor-pointer shrink-0" /><Input type="text" value={settings.textColor} onChange={(e) => updateSetting('site_text_color', e.target.value)} className="flex-1 font-mono text-xs bg-slate-50" /></div></div>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-slate-400 mb-2"><Globe className="h-4 w-4" /><h3 className="font-bold text-xs uppercase tracking-widest">Informações Gerais</h3></div>
-                  <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-4">
-                    <div className="space-y-2"><Label className="text-xs">URL do Logo</Label><Input value={settings.logoUrl || ''} onChange={(e) => updateSetting('logo_url', e.target.value)} placeholder="https://..." className="bg-slate-50" /></div>
-                    <div className="space-y-2"><Label className="text-xs">Barra de Topo (Anúncio)</Label><Input value={settings.headerAnnouncement} onChange={(e) => updateSetting('header_announcement_text', e.target.value)} placeholder="Ex: Frete Grátis..." className="bg-slate-50" /></div>
-                  </div>
-                </div>
-              </TabsContent>
-
+              {/* --- ABA INTEGRAÇÕES (WEBHOOKS) --- */}
               <TabsContent value="integrations" className="space-y-8 mt-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="bg-purple-50 border border-purple-100 p-4 rounded-xl">
+                <div className="bg-purple-50 border border-purple-100 p-4 rounded-xl mb-6">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <div className="bg-purple-500/10 p-2 rounded-lg"><Webhook className="h-5 w-5 text-purple-600" /></div>
-                            <h3 className="font-bold text-purple-900 text-sm">Status N8N</h3>
+                            <h3 className="font-bold text-purple-900 text-sm">Conexão N8N</h3>
                         </div>
                         {testStatus === 'success' && <div className="flex items-center gap-1 text-[10px] font-black text-green-600 bg-green-100 px-2 py-1 rounded-md uppercase tracking-wider"><CheckCircle2 className="h-3 w-3" /> Online</div>}
                         {testStatus === 'error' && <div className="flex items-center gap-1 text-[10px] font-black text-red-600 bg-red-100 px-2 py-1 rounded-md uppercase tracking-wider"><XCircle className="h-3 w-3" /> Erro</div>}
                     </div>
-                    <p className="text-xs text-purple-700 leading-relaxed mt-2 mb-4">Verifique se o seu servidor de automação (N8N) está respondendo corretamente.</p>
                     
                     <Button 
                         onClick={handleTestConnection} 
                         disabled={testStatus === 'loading'}
                         variant="outline" 
-                        className={cn(
-                            "w-full border-purple-200 text-purple-700 hover:bg-white hover:text-purple-900 h-9 text-xs font-bold uppercase tracking-wider transition-all",
-                            testStatus === 'success' && "border-green-300 text-green-700 bg-green-50",
-                            testStatus === 'error' && "border-red-300 text-red-700 bg-red-50"
-                        )}
+                        className="w-full mt-4 border-purple-200 text-purple-700 hover:bg-white h-8 text-[10px] font-bold uppercase tracking-wider"
                     >
-                        {testStatus === 'loading' ? 'Testando...' : 'Testar Conexão (Ping)'} <Activity className="ml-2 h-3.5 w-3.5" />
+                        {testStatus === 'loading' ? 'Testando...' : 'Testar Ping'} <Activity className="ml-2 h-3 w-3" />
                     </Button>
                 </div>
 
-                {/* WEBHOOKS DE SAÍDA */}
                 <div className="space-y-4">
                     <div className="flex items-center gap-2 mb-2 px-1">
                         <ArrowUpCircle className="h-4 w-4 text-sky-500" />
-                        <h3 className="font-black text-xs uppercase tracking-widest text-slate-500">Webhooks de Saída (Events)</h3>
+                        <h3 className="font-black text-xs uppercase tracking-widest text-slate-500">Eventos de Saída (Outbound)</h3>
                     </div>
                     
-                    <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-3">
-                        <div className="flex items-center justify-between"><Label className="text-xs font-bold uppercase tracking-wider text-slate-600">Novo Pedido</Label><span className={cn("text-[9px] font-black uppercase px-2 py-0.5 rounded", webhooks.order_created ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-400")}>{webhooks.order_created ? 'Ativo' : 'Inativo'}</span></div>
-                        
-                        <div className="flex gap-2">
-                            <Input value={webhooks.order_created} onChange={(e) => updateWebhook('order_created', e.target.value)} placeholder="https://seu-n8n.com/webhook/..." className="bg-slate-50 font-mono text-[10px] h-8"/>
-                            
-                            <Button 
-                                size="icon" 
-                                className="h-8 w-10 bg-sky-500 hover:bg-sky-400 text-white shrink-0 shadow-sm"
-                                onClick={handleSimulateOrder}
-                                disabled={!webhooks.order_created || isSimulating}
-                                title="Enviar Pedido de Teste"
-                            >
-                                {isSimulating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                            </Button>
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-3">
-                        <div className="flex items-center justify-between"><Label className="text-xs font-bold uppercase tracking-wider text-slate-600">Novo Cliente</Label><span className={cn("text-[9px] font-black uppercase px-2 py-0.5 rounded", webhooks.customer_created ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-400")}>{webhooks.customer_created ? 'Ativo' : 'Inativo'}</span></div>
-                        <Input value={webhooks.customer_created} onChange={(e) => updateWebhook('customer_created', e.target.value)} placeholder="https://seu-n8n.com/webhook/..." className="bg-slate-50 font-mono text-[10px] h-8"/>
-                    </div>
-                    <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-3 border-l-4 border-l-emerald-500">
-                        <div className="flex items-center justify-between"><Label className="text-xs font-bold uppercase tracking-wider text-emerald-600">Chat Bot (Msg Enviada)</Label><span className={cn("text-[9px] font-black uppercase px-2 py-0.5 rounded", webhooks.chat_message_sent ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-400")}>{webhooks.chat_message_sent ? 'Ativo' : 'Inativo'}</span></div>
-                        <Input value={webhooks.chat_message_sent} onChange={(e) => updateWebhook('chat_message_sent', e.target.value)} placeholder="https://seu-n8n.com/webhook/..." className="bg-slate-50 font-mono text-[10px] h-8"/>
+                    {/* Lista Dinâmica de Webhooks */}
+                    <div className="grid gap-3">
+                        {webhookDefinitions.map((hook) => (
+                            <div key={hook.key} className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm transition-all hover:border-slate-300">
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className={cn("text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-md border", hook.color)}>
+                                        {hook.label}
+                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        <Button 
+                                            size="icon" 
+                                            variant="ghost"
+                                            className="h-6 w-6 text-slate-300 hover:text-red-500"
+                                            onClick={() => updateWebhook(hook.key, '')}
+                                            title="Limpar URL"
+                                        >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                        <Button 
+                                            size="sm"
+                                            variant="secondary"
+                                            className="h-6 w-8 bg-slate-100 hover:bg-orange-100 text-orange-600 p-0"
+                                            onClick={() => handleSimulateWebhook(hook.key)}
+                                            disabled={!webhooks[hook.key] || isSimulating === hook.key}
+                                            title="Testar Disparo"
+                                        >
+                                            {isSimulating === hook.key ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3.5 w-3.5 fill-current" />}
+                                        </Button>
+                                    </div>
+                                </div>
+                                <div className="relative">
+                                    <Input 
+                                        value={webhooks[hook.key] || ''} 
+                                        onChange={(e) => updateWebhook(hook.key, e.target.value)} 
+                                        placeholder={`https://n8n.../${hook.key}`} 
+                                        className="bg-slate-50 font-mono text-[10px] h-9 pr-2 text-slate-600 focus:bg-white transition-colors"
+                                    />
+                                    {webhooks[hook.key] && (
+                                        <div className="absolute right-2 top-1/2 -translate-y-1/2 w-2 h-2 bg-green-500 rounded-full animate-pulse" title="Ativo" />
+                                    )}
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
 
-                {/* APIs de Entrada */}
-                <div className="space-y-4">
+                <div className="space-y-4 pt-4 border-t border-slate-100">
                     <div className="flex items-center gap-2 mb-2 px-1">
                         <ArrowDownCircle className="h-4 w-4 text-orange-500" />
-                        <h3 className="font-black text-xs uppercase tracking-widest text-slate-500">APIs de Entrada (Para N8N)</h3>
+                        <h3 className="font-black text-xs uppercase tracking-widest text-slate-500">APIs de Entrada (Inbound)</h3>
                     </div>
                     
-                    <div className="space-y-4">
-                        <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-sm">
-                            <div className="flex justify-between items-center mb-2">
-                                <Label className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
-                                    <CheckCircle2 className="h-4 w-4 text-green-400" /> Confirmar Pagamento PIX
-                                </Label>
-                                <Badge className="text-[9px] bg-orange-500 text-white hover:bg-orange-600 border-none">Auth Required</Badge>
-                            </div>
-                            <div className="flex gap-2 mb-3">
-                                <Input readOnly value={`${PROJECT_URL}/functions/v1/update-order-status`} className="bg-slate-800 border-slate-700 text-slate-300 font-mono text-[10px] h-8" />
-                                <Button size="icon" className="h-8 w-8 bg-slate-700 hover:bg-slate-600 shrink-0" onClick={() => copyToClipboard(`${PROJECT_URL}/functions/v1/update-order-status`, "URL Copiada!")}>
-                                    <Copy className="h-3.5 w-3.5 text-white" />
-                                </Button>
-                            </div>
-                            <div className="bg-black/50 p-2 rounded-lg border border-white/5">
-                                <div className="flex justify-between items-center mb-1">
-                                    <span className="text-[9px] font-bold text-slate-400 uppercase">Exemplo JSON (Finalizar)</span>
-                                    <Button 
-                                        size="sm" 
-                                        variant="ghost" 
-                                        className="h-5 text-[9px] text-sky-400 hover:text-white p-0 hover:bg-transparent"
-                                        onClick={() => copyToClipboard(JSON.stringify({
-                                            order_id: 12345,
-                                            status: "Finalizada",
-                                            delivery_status: "Em Preparação",
-                                            delivery_info: "PIX Confirmado"
-                                        }, null, 2), "JSON Copiado!")}
-                                    >
-                                        <FileJson className="h-3 w-3 mr-1" /> Copiar Payload
-                                    </Button>
-                                </div>
-                                <pre className="text-[9px] text-green-400 font-mono overflow-x-auto whitespace-pre-wrap">
+                    <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-sm">
+                        <div className="flex justify-between items-center mb-2">
+                            <Label className="text-[10px] font-bold uppercase tracking-wider text-white">Atualizar Pedido (PIX/Status)</Label>
+                            <Badge className="text-[9px] bg-orange-500 border-none">POST</Badge>
+                        </div>
+                        <div className="flex gap-2">
+                            <Input readOnly value={`${PROJECT_URL}/functions/v1/update-order-status`} className="bg-slate-800 border-slate-700 text-slate-300 font-mono text-[10px] h-8" />
+                            <Button size="icon" className="h-8 w-8 bg-slate-700 hover:bg-slate-600 shrink-0" onClick={() => copyToClipboard(`${PROJECT_URL}/functions/v1/update-order-status`)}>
+                                <Copy className="h-3.5 w-3.5 text-white" />
+                            </Button>
+                        </div>
+                        <div className="mt-3 bg-black/50 p-3 rounded-lg border border-white/5">
+                            <pre className="text-[9px] text-green-400 font-mono overflow-x-auto whitespace-pre-wrap">
 {`{
-  "order_id": 12345,
-  "status": "Finalizada",
-  "delivery_status": "Em Preparação"
+  "order_id": 123,
+  "status": "Finalizada", 
+  "delivery_status": "Em Trânsito"
 }`}
-                                </pre>
-                            </div>
-                        </div>
-
-                        <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-sm">
-                            <div className="flex justify-between items-center mb-2">
-                                <Label className="text-xs font-bold uppercase tracking-wider text-white">Consultar Pedido Completo</Label>
-                                <Badge className="text-[9px] bg-sky-500 text-white hover:bg-sky-600 border-none">GET</Badge>
-                            </div>
-                            <div className="flex gap-2">
-                                <Input readOnly value={`${PROJECT_URL}/functions/v1/get-order-details?id={ORDER_ID}`} className="bg-slate-800 border-slate-700 text-slate-300 font-mono text-[10px] h-8" />
-                                <Button size="icon" className="h-8 w-8 bg-slate-700 hover:bg-slate-600 shrink-0" onClick={() => copyToClipboard(`${PROJECT_URL}/functions/v1/get-order-details`)}>
-                                    <Copy className="h-3.5 w-3.5 text-white" />
-                                </Button>
-                            </div>
+                            </pre>
                         </div>
                     </div>
                 </div>
               </TabsContent>
 
-              <TabsContent value="home" className="space-y-6 mt-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="space-y-3">
-                  {[
-                    { id: 'hero', label: 'Banner Principal', sub: 'Carrossel grande no topo', key: 'show_hero_banner', checked: settings.showHero },
-                    { id: 'info', label: 'Faixa Informativa', sub: 'Ícones de frete e pagamento', key: 'show_info_section', checked: settings.showInfo },
-                    { id: 'brands', label: 'Carrossel de Marcas', sub: 'Logos dos parceiros', key: 'show_brands', checked: settings.showBrands },
-                    { id: 'promo', label: 'Promoções', sub: 'Destaques de ofertas', key: 'show_promotions', checked: settings.showPromotions },
-                  ].map((item) => (
-                    <div key={item.id} className="flex items-center justify-between p-4 border border-slate-100 rounded-xl bg-white shadow-sm hover:border-sky-200 transition-colors">
-                      <div className="space-y-0.5"><Label htmlFor={`${item.id}-toggle`} className="text-sm font-bold cursor-pointer text-slate-800">{item.label}</Label><p className="text-[10px] text-slate-500 font-medium">{item.sub}</p></div>
-                      <Switch id={`${item.id}-toggle`} checked={item.checked} onCheckedChange={(checked) => updateSetting(item.key, String(checked))} />
+              {/* --- OUTRAS ABAS (Mantidas Simplificadas) --- */}
+              <TabsContent value="global" className="space-y-6 mt-0">
+                <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-4">
+                    <div><Label className="text-xs text-slate-500 mb-1">Cor de Fundo</Label><div className="flex gap-2"><Input type="color" value={settings.backgroundColor} onChange={(e) => updateSetting('site_background_color', e.target.value)} className="w-10 h-10 p-1" /><Input value={settings.backgroundColor} onChange={(e) => updateSetting('site_background_color', e.target.value)} className="flex-1 text-xs" /></div></div>
+                    <div><Label className="text-xs text-slate-500 mb-1">Cor de Destaque</Label><div className="flex gap-2"><Input type="color" value={settings.primaryColor} onChange={(e) => updateSetting('site_primary_color', e.target.value)} className="w-10 h-10 p-1" /><Input value={settings.primaryColor} onChange={(e) => updateSetting('site_primary_color', e.target.value)} className="flex-1 text-xs" /></div></div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="home" className="space-y-4 mt-0">
+                 <div className="bg-white p-4 rounded-xl border border-slate-100">
+                    <Label className="text-xs font-bold text-slate-700 mb-4 block">Seções da Home</Label>
+                    <div className="space-y-3">
+                        {['show_hero_banner', 'show_info_section', 'show_brands', 'show_promotions'].map(key => (
+                            <div key={key} className="flex items-center justify-between">
+                                <span className="text-xs text-slate-500 uppercase tracking-wide">{key.replace('show_', '').replace('_', ' ')}</span>
+                                <Switch checked={(settings as any)[key.replace('site_', '').replace(/_(\w)/g, (_:any, c:string) => c === 't' ? 'Text' : c === 'b' ? 'Background' : c.toUpperCase()).replace('show','show')]} onCheckedChange={(c) => updateSetting(key, String(c))} />
+                            </div>
+                        ))}
                     </div>
-                  ))}
-                </div>
+                 </div>
               </TabsContent>
 
-              <TabsContent value="login" className="space-y-6 mt-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
-                  <div className="space-y-2"><Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Título Principal</Label><Input value={settings.loginTitle} onChange={(e) => updateSetting('login_title', e.target.value)} placeholder="Nome da Marca" className="font-black text-lg h-12" /></div>
-                  <div className="space-y-2"><Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Subtítulo</Label><Input value={settings.loginSubtitle} onChange={(e) => updateSetting('login_subtitle', e.target.value)} placeholder="Frase de efeito" /></div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="dashboard" className="space-y-6 mt-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-5">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2"><Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Saudação</Label><Input value={settings.dashboardGreeting} onChange={(e) => updateSetting('dashboard_greeting', e.target.value)} /></div>
-                    <div className="space-y-2"><Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Rótulo Pontos</Label><Input value={settings.dashboardPointsLabel} onChange={(e) => updateSetting('dashboard_points_label', e.target.value)} /></div>
-                  </div>
-                  <div className="space-y-2"><Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Mensagem de Boas-vindas</Label><Input value={settings.dashboardSubtitle} onChange={(e) => updateSetting('dashboard_subtitle', e.target.value)} /></div>
-                  <div className="space-y-2"><Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Botão Principal</Label><div className="flex gap-2"><Input value={settings.dashboardButtonText} onChange={(e) => updateSetting('dashboard_button_text', e.target.value)} className="font-bold text-sky-600" /><div className="bg-sky-500 text-white rounded-md px-3 flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">Preview</div></div></div>
-                </div>
+              <TabsContent value="login" className="space-y-4 mt-0">
+                 <div className="bg-white p-4 rounded-xl border border-slate-100 space-y-3">
+                    <div><Label className="text-xs">Título</Label><Input value={settings.loginTitle} onChange={(e) => updateSetting('login_title', e.target.value)} /></div>
+                    <div><Label className="text-xs">Subtítulo</Label><Input value={settings.loginSubtitle} onChange={(e) => updateSetting('login_subtitle', e.target.value)} /></div>
+                 </div>
               </TabsContent>
 
             </div>
@@ -455,7 +367,7 @@ const AdminCustomizer = () => {
         </div>
 
         <div className="p-6 border-t border-slate-100 bg-white/80 backdrop-blur-md">
-            <Button className="w-full bg-slate-900 hover:bg-black text-white font-bold h-12 rounded-xl shadow-lg transition-all active:scale-95 group" onClick={() => showSuccess('Todas as alterações foram salvas!')}>
+            <Button className="w-full bg-slate-900 hover:bg-black text-white font-bold h-12 rounded-xl shadow-lg transition-all active:scale-95 group" onClick={() => showSuccess('Salvo!')}>
                 <Save className="mr-2 h-4 w-4 group-hover:text-green-400 transition-colors" /> Salvar Alterações
             </Button>
         </div>

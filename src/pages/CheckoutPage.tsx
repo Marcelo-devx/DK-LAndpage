@@ -213,20 +213,53 @@ const CheckoutPage = () => {
       const addr = { ...data, phone: data.phone.replace(/\D/g, ''), cep: data.cep.replace(/\D/g, '') };
       await supabase.from('profiles').update(addr).eq('id', user.id);
       const bStrings = [...tierBenefits.filter(isPassiveBenefit), ...selectedBenefits];
+      
       const { data: o, error: err } = await supabase.rpc('create_pending_order_from_local_cart', {
         shipping_cost_input: shippingCost, shipping_address_input: addr, cart_items_input: getLocalCart(),
         user_coupon_id_input: selectedCoupon?.user_coupon_id, benefits_input: bStrings.length ? `Nível ${tierName}: ${bStrings.join(', ')}` : null,
         payment_method_input: data.payment_method, donation_amount_input: donationAmount
       });
+      
       if (err) throw err;
+      
       await supabase.from('orders').update({ payment_method: data.payment_method === 'pix' ? 'PIX via WhatsApp' : 'Cartão de Crédito', status: data.payment_method === 'pix' ? 'Em Preparação' : 'Aguardando Pagamento' }).eq('id', o.new_order_id);
-      dismissToast(toastId);
-      if (data.payment_method === 'pix') { clearLocalCart(); navigate(`/confirmacao-pedido/${o.new_order_id}`); }
-      else {
-        const { data: mp } = await supabase.functions.invoke('create-mercadopago-preference', { body: { shipping_address: addr, order_id: o.new_order_id, total_price: o.final_price } });
-        clearLocalCart(); window.location.href = mp.init_point;
+      
+      if (data.payment_method === 'pix') { 
+        dismissToast(toastId);
+        clearLocalCart(); 
+        navigate(`/confirmacao-pedido/${o.new_order_id}`); 
+      } else {
+        const { data: mp, error: mpError } = await supabase.functions.invoke('create-mercadopago-preference', { 
+            body: { shipping_address: addr, order_id: o.new_order_id, total_price: o.final_price } 
+        });
+        
+        if (mpError || !mp || !mp.init_point) {
+            console.error("Erro MP:", mpError || mp);
+            let errorMessage = "Erro ao conectar com o sistema de pagamento.";
+            
+            if (mp && mp.error) errorMessage = mp.error;
+            else if (mpError && mpError.message) {
+                try {
+                    const parsed = JSON.parse(mpError.message);
+                    if (parsed.error) errorMessage = parsed.error;
+                } catch {
+                    errorMessage = mpError.message;
+                }
+            }
+            
+            throw new Error(errorMessage);
+        }
+
+        clearLocalCart(); 
+        dismissToast(toastId);
+        window.location.href = mp.init_point;
       }
-    } catch (e: any) { dismissToast(toastId); showError(e.message || "Erro no checkout."); } finally { setIsSubmitting(false); }
+    } catch (e: any) { 
+      dismissToast(toastId); 
+      showError(e.message || "Erro no checkout."); 
+    } finally { 
+      setIsSubmitting(false); 
+    }
   };
 
   if (loading) return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-sky-400" /></div>;

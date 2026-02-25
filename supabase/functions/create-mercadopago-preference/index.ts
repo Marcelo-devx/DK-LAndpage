@@ -20,7 +20,7 @@ serve(async (req) => {
     // @ts-ignore
     const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') as string;
     
-    // Token de TESTE (Produção deve usar variável de ambiente)
+    // Token de TESTE
     const MERCADOPAGO_ACCESS_TOKEN = "TEST-1799281998002801-080117-9c18349cb20217961ce8deb967dddb93-1096282589";
 
     if (!MERCADOPAGO_ACCESS_TOKEN) {
@@ -35,7 +35,6 @@ serve(async (req) => {
 
     const { data: { user } } = await supabaseClient.auth.getUser()
     if (!user) {
-      // Retorna 200 com erro para o front tratar
       return new Response(JSON.stringify({ error: 'Sessão expirada. Faça login novamente.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200, 
@@ -44,7 +43,6 @@ serve(async (req) => {
 
     const { shipping_address, order_id, total_price, origin } = await req.json()
     
-    // Validação básica
     if (!total_price || total_price <= 0) {
         return new Response(JSON.stringify({ error: 'Valor do pedido inválido.' }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -52,27 +50,21 @@ serve(async (req) => {
         })
     }
 
-    // URL de retorno (Frontend)
     const frontUrl = origin || 'https://dkcwb.com';
 
-    // --- FORMATAÇÃO DE DADOS PARA O MP ---
-
-    // 1. E-mail: Evita erro de "payer email equals collector email" no modo sandbox
+    // 1. E-mail de Teste Dinâmico
     const isTestMode = MERCADOPAGO_ACCESS_TOKEN.startsWith('TEST-');
-    // Se for teste, geramos um email aleatório para simular um comprador diferente do vendedor
     const payerEmail = isTestMode 
         ? `test_user_${order_id}_${Math.floor(Math.random() * 1000)}@test.com` 
         : (user.email || 'cliente@dkcwb.com');
 
-    // 2. Payload da Preferência SIMPLIFICADO
-    // Removemos address e phone do payer para evitar erros de validação estrita do MP
-    // O Checkout Pro pedirá os dados necessários ao usuário se faltar algo crítico para o pagamento
+    // 2. Payload da Preferência (SEM BINARY MODE)
     const preferencePayload = {
         items: [{
             title: `Pedido #${order_id}`,
             quantity: 1,
             currency_id: "BRL",
-            unit_price: Number(Number(total_price).toFixed(2)), // Garante 2 casas decimais
+            unit_price: Number(Number(total_price).toFixed(2)),
         }],
         external_reference: order_id.toString(),
         payer: {
@@ -88,10 +80,10 @@ serve(async (req) => {
         auto_return: "approved",
         notification_url: `${SUPABASE_URL}/functions/v1/mercadopago-webhook`,
         statement_descriptor: "DKCWB",
-        binary_mode: true // Força aprovação instantânea ou rejeição (sem status pendente prolongado)
+        // binary_mode REMOVIDO para evitar erros em cartões de teste que retornam pendente
     };
 
-    console.log("[MP] Criando preferência (Payload Limpo):", JSON.stringify(preferencePayload));
+    console.log("[MP] Criando preferência:", JSON.stringify(preferencePayload));
 
     const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
         method: 'POST',

@@ -25,36 +25,33 @@ serve(async (req) => {
   const orderId = url.searchParams.get('order_id');
   const statusParam = url.searchParams.get('status');
   
-  // Determine if this is a webhook notification or a user redirect (back_urls)
   const isRedirect = !!statusParam;
 
   // @ts-ignore
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL') as string;
 
   try {
-    // --- 1. Handle Webhook Notification (POST request from Mercado Pago) ---
     if (req.method === 'POST') {
       const body = await req.json();
       const topic = body.topic || body.type;
       const resourceId = body.data?.id || body.id;
 
       if (topic === 'payment' && resourceId) {
-        // @ts-ignore
-        const MERCADOPAGO_ACCESS_TOKEN = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN');
+        // --- AJUSTE TEMPORÁRIO ---
+        // Chave de TESTE hardcoded para validar o pagamento fictício
+        const MERCADOPAGO_ACCESS_TOKEN = "TEST-1799281998002801-080117-9c18349cb20217961ce8deb967dddb93-1096282589";
         
         const paymentResponse = await fetch(`https://api.mercadopago.com/v1/payments/${resourceId}`, {
             headers: { 'Authorization': `Bearer ${MERCADOPAGO_ACCESS_TOKEN}` },
         });
         
         const paymentData = await paymentResponse.json();
-        const externalReference = paymentData.external_reference; // Nosso order_id
+        const externalReference = paymentData.external_reference;
         const paymentStatus = paymentData.status; 
 
         if (externalReference && paymentStatus === 'approved') {
             const order_id_int = parseInt(externalReference);
             
-            // SEGURANÇA: Verificar se o pedido ainda está "Aguardando Pagamento"
-            // Se já estiver "Cancelado", significa que o estoque já foi devolvido!
             const { data: order } = await supabaseAdmin
                 .from('orders')
                 .select('status')
@@ -67,7 +64,6 @@ serve(async (req) => {
                 else console.log(`[mercadopago-webhook] Order ${order_id_int} finalized successfully.`);
             } else {
                 console.warn(`[mercadopago-webhook] Payment received for order ${order_id_int} but status is ${order?.status}. Manual review needed.`);
-                // Opcional: Notificar o admin aqui, pois o dinheiro entrou mas o estoque pode ter sido vendido para outro.
             }
         }
       }
@@ -78,7 +74,6 @@ serve(async (req) => {
       })
     }
 
-    // --- 2. Handle User Redirect ---
     if (isRedirect && orderId) {
         const clientRedirectUrl = `${SUPABASE_URL}/confirmacao-pedido/${orderId}`;
         return Response.redirect(clientRedirectUrl, 303);

@@ -18,11 +18,13 @@ serve(async (req) => {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL') as string;
     // @ts-ignore
     const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') as string;
-    // @ts-ignore
-    const MERCADOPAGO_ACCESS_TOKEN = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') as string;
+    
+    // --- AJUSTE TEMPORÁRIO ---
+    // Usando a chave de TESTE enviada para garantir que funcione com cartões fictícios.
+    // Em produção real, reverta para: Deno.env.get('MERCADOPAGO_ACCESS_TOKEN')
+    const MERCADOPAGO_ACCESS_TOKEN = "TEST-1799281998002801-080117-9c18349cb20217961ce8deb967dddb93-1096282589";
 
     if (!MERCADOPAGO_ACCESS_TOKEN) {
-        console.error("[create-mercadopago-preference] ERRO: MERCADOPAGO_ACCESS_TOKEN está vazio.");
         return new Response(JSON.stringify({ error: 'Configuração de pagamento incompleta (Token ausente).' }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 500,
@@ -58,10 +60,7 @@ serve(async (req) => {
 
     // Validação e formatação de telefone mais robusta
     let cleanedPhone = shipping_address.phone ? shipping_address.phone.replace(/\D/g, '') : '';
-    // Garante que tenha pelo menos DDD + numero (10 ou 11 digitos)
     if (cleanedPhone.length < 10) {
-       // Fallback para um número dummy válido se o do usuário estiver quebrado, para não travar a venda
-       // O ideal seria validar no front, mas aqui garantimos que passa na API
        console.warn(`[create-mercadopago-preference] Telefone inválido (${cleanedPhone}), usando fallback.`);
        cleanedPhone = '41999999999'; 
     }
@@ -69,7 +68,6 @@ serve(async (req) => {
     const areaCode = cleanedPhone.substring(0, 2);
     const phoneNumber = cleanedPhone.substring(2);
 
-    // Validação de Email
     const payerEmail = user.email || 'cliente@dkcwb.com';
 
     const preferencePayload = {
@@ -91,7 +89,7 @@ serve(async (req) => {
             address: {
                 zip_code: shipping_address.cep ? shipping_address.cep.replace(/\D/g, '') : '80000000',
                 street_name: shipping_address.street || 'Rua',
-                street_number: Number(shipping_address.number) || 0, // MP prefere número, mas aceita string em alguns casos. Melhor garantir.
+                street_number: Number(shipping_address.number) || 0,
             },
         },
         back_urls: {
@@ -120,8 +118,6 @@ serve(async (req) => {
         console.error("[create-mercadopago-preference] MP API Error Full:", JSON.stringify(mpData));
         
         let errorMessage = mpData.message || 'Erro na API do Mercado Pago';
-        
-        // Tenta extrair detalhes específicos do erro (causa)
         if (mpData.cause && Array.isArray(mpData.cause) && mpData.cause.length > 0) {
             const causes = mpData.cause.map((c: any) => `${c.description} (${c.code})`).join('; ');
             errorMessage = `MP Recusou: ${causes}`;

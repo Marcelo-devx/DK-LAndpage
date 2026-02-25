@@ -21,10 +21,9 @@ serve(async (req) => {
     // @ts-ignore
     const MERCADOPAGO_ACCESS_TOKEN = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') as string;
 
-    // Log para depuração (NÃO use console.log em produção com dados sensíveis, mas aqui ajuda a achar o erro)
     if (!MERCADOPAGO_ACCESS_TOKEN) {
-        console.error("[create-mercadopago-preference] ERRO: MERCADOPAGO_ACCESS_TOKEN está vazio ou não configurado.");
-        return new Response(JSON.stringify({ error: 'Configuração de pagamento incompleta (Secret missing).' }), {
+        console.error("[create-mercadopago-preference] ERRO: MERCADOPAGO_ACCESS_TOKEN está vazio.");
+        return new Response(JSON.stringify({ error: 'Configuração de pagamento incompleta (Token ausente).' }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 500,
         })
@@ -57,30 +56,42 @@ serve(async (req) => {
         })
     }
 
-    const cleanedPhone = shipping_address.phone.replace(/\D/g, '');
+    // Validação e formatação de telefone mais robusta
+    let cleanedPhone = shipping_address.phone ? shipping_address.phone.replace(/\D/g, '') : '';
+    // Garante que tenha pelo menos DDD + numero (10 ou 11 digitos)
+    if (cleanedPhone.length < 10) {
+       // Fallback para um número dummy válido se o do usuário estiver quebrado, para não travar a venda
+       // O ideal seria validar no front, mas aqui garantimos que passa na API
+       console.warn(`[create-mercadopago-preference] Telefone inválido (${cleanedPhone}), usando fallback.`);
+       cleanedPhone = '41999999999'; 
+    }
+
     const areaCode = cleanedPhone.substring(0, 2);
     const phoneNumber = cleanedPhone.substring(2);
+
+    // Validação de Email
+    const payerEmail = user.email || 'cliente@dkcwb.com';
 
     const preferencePayload = {
         items: [{
             title: `Pedido #${order_id} - DKCWB`,
             quantity: 1,
             currency_id: "BRL",
-            unit_price: total_price,
+            unit_price: Number(total_price),
         }],
         external_reference: order_id.toString(),
         payer: {
-            name: shipping_address.first_name,
-            surname: shipping_address.last_name,
-            email: user.email,
+            name: shipping_address.first_name || 'Cliente',
+            surname: shipping_address.last_name || 'DK',
+            email: payerEmail,
             phone: {
                 area_code: areaCode,
                 number: phoneNumber,
             },
             address: {
-                zip_code: shipping_address.cep.replace(/\D/g, ''),
-                street_name: shipping_address.street,
-                street_number: shipping_address.number,
+                zip_code: shipping_address.cep ? shipping_address.cep.replace(/\D/g, '') : '80000000',
+                street_name: shipping_address.street || 'Rua',
+                street_number: Number(shipping_address.number) || 0, // MP prefere número, mas aceita string em alguns casos. Melhor garantir.
             },
         },
         back_urls: {
@@ -91,6 +102,8 @@ serve(async (req) => {
         auto_return: "approved",
         notification_url: `${SUPABASE_URL}/functions/v1/mercadopago-webhook`,
     };
+
+    console.log("[create-mercadopago-preference] Payload:", JSON.stringify(preferencePayload));
 
     const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
         method: 'POST',
@@ -104,8 +117,17 @@ serve(async (req) => {
     const mpData = await mpResponse.json();
 
     if (!mpResponse.ok) {
-        console.error("[create-mercadopago-preference] MP API Error:", mpData);
-        return new Response(JSON.stringify({ error: mpData.message || 'Erro na API do Mercado Pago' }), {
+        console.error("[create-mercadopago-preference] MP API Error Full:", JSON.stringify(mpData));
+        
+        let errorMessage = mpData.message || 'Erro na API do Mercado Pago';
+        
+        // Tenta extrair detalhes específicos do erro (causa)
+        if (mpData.cause && Array.isArray(mpData.cause) && mpData.cause.length > 0) {
+            const causes = mpData.cause.map((c: any) => `${c.description} (${c.code})`).join('; ');
+            errorMessage = `MP Recusou: ${causes}`;
+        }
+
+        return new Response(JSON.stringify({ error: errorMessage }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 400,
         })

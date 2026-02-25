@@ -6,7 +6,7 @@ import { Separator } from "@/components/ui/separator";
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from './ui/skeleton';
 import { Plus, Minus, Trash2, ShoppingCart, Loader2 } from 'lucide-react';
-import { showError, showSuccess } from '@/utils/toast';
+import { showError } from '@/utils/toast';
 import { getLocalCart, updateLocalCartItemQuantity, removeFromLocalCart, ItemType, getCartCreatedAt } from '@/utils/localCart';
 import OrderTimer from './OrderTimer';
 
@@ -152,27 +152,9 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
     fetchCartItems();
   };
 
-  const handleCheckout = async () => {
-    if (items.length === 0) { 
-      showError("Seu carrinho está vazio."); 
-      return; 
-    }
-
-    // Verifica autenticação
-    const { data: { session } } = await supabase.auth.getSession();
-
-    if (!session) {
-      // Se não estiver logado, redireciona para Login/Cadastro, 
-      // MAS passa o estado 'from' para voltar pro checkout depois.
-      showSuccess("Identifique-se para finalizar seu pedido.");
-      navigate('/login?view=sign_up', { 
-        state: { from: { pathname: '/checkout' } } 
-      });
-    } else {
-      // Se já estiver logado, vai direto
-      navigate('/checkout');
-    }
-    
+  const handleCheckout = () => {
+    if (items.length === 0) { showError("Seu carrinho está vazio."); return; }
+    navigate('/checkout');
     onOpenChange(false);
   };
 

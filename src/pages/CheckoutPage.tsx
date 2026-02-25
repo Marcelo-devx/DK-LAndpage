@@ -158,22 +158,11 @@ const CheckoutPage = () => {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        // Redireciona para login se não houver sessão, salvando o estado para retorno
-        navigate('/login?view=sign_up', { 
-            state: { from: location } 
-        });
-        return;
-      }
-      
-      const u = session.user; 
-      setUser(u); 
-      setIsLoggedIn(true);
-      fetchUserData(u); 
-      fetchCartItems(); 
-      setLoading(false);
+      const u = session?.user; setUser(u); setIsLoggedIn(!!u);
+      if (u) { fetchUserData(u); fetchCartItems(); setLoading(false); }
+      else setLoading(false);
     });
-  }, [fetchUserData, fetchCartItems, navigate, location]);
+  }, [fetchUserData, fetchCartItems]);
 
   const handleCouponChange = (val: string) => {
     if (val === 'none') { setSelectedCoupon(null); return; }

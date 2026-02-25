@@ -12,7 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { showError, showSuccess, showLoading, dismissToast } from '@/utils/toast';
-import { Loader2, Search, CreditCard, MessageSquare, MapPin, Truck, CheckCircle2, Heart } from 'lucide-react';
+import { Loader2, Search, AlertTriangle, CreditCard, MessageSquare, MapPin, ShoppingBag, Truck, Gift, CheckCircle2, Heart } from 'lucide-react';
 import { getLocalCart, ItemType, clearLocalCart } from '@/utils/localCart';
 import { maskCep, maskPhone } from '@/utils/masks';
 import CouponsModal from '@/components/CouponsModal';
@@ -65,6 +65,7 @@ const CheckoutPage = () => {
   const [items, setItems] = useState<DisplayItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
@@ -158,6 +159,7 @@ const CheckoutPage = () => {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) {
+        // Redireciona para login se não houver sessão, salvando o estado para retorno
         navigate('/login?view=sign_up', { 
             state: { from: location } 
         });
@@ -166,6 +168,7 @@ const CheckoutPage = () => {
       
       const u = session.user; 
       setUser(u); 
+      setIsLoggedIn(true);
       fetchUserData(u); 
       fetchCartItems(); 
       setLoading(false);
@@ -242,13 +245,14 @@ const CheckoutPage = () => {
                 shipping_address: addr, 
                 order_id: o.new_order_id, 
                 total_price: o.final_price,
-                origin: window.location.origin 
+                origin: window.location.origin // IMPORTANTE: Passando a URL do site
             } 
         });
         
         if (mpError || !mp || !mp.init_point) {
             console.error("Erro MP:", mpError || mp);
             let errorMessage = "Erro ao conectar com o sistema de pagamento.";
+            
             if (mp && mp.error) errorMessage = mp.error;
             else if (mpError && mpError.message) {
                 try {
@@ -258,6 +262,7 @@ const CheckoutPage = () => {
                     errorMessage = mpError.message;
                 }
             }
+            
             throw new Error(errorMessage);
         }
 
@@ -282,7 +287,7 @@ const CheckoutPage = () => {
           <Card className="bg-white border-stone-200 shadow-xl rounded-[2rem] overflow-hidden">
             <CardHeader className="bg-stone-50 border-b border-stone-100 p-8"><div className="flex items-center space-x-4"><div className="p-3 bg-sky-100 rounded-2xl"><MapPin className="h-6 w-6 text-sky-600" /></div><CardTitle className="font-black text-2xl uppercase tracking-tighter italic">Dados de Entrega.</CardTitle></div></CardHeader>
             <CardContent className="p-8 space-y-6">
-              {deliveryType === 'correios' && <Alert className="bg-yellow-50"><Truck className="h-4 w-4" /><AlertTitle className="font-bold text-xs uppercase">Entrega via Correios</AlertTitle><AlertDescription className="text-xs">Para sua região, o frete é calculado nos Correios.</AlertDescription></Alert>}
+              {deliveryType === 'correios' && <Alert className="bg-yellow-50"><Truck className="h-4 w-4" /><AlertTitle className="font-bold text-xs uppercase">Entrega via Correios</AlertTitle></Alert>}
               <div className="grid grid-cols-2 gap-4"><div><Label className="text-[10px] uppercase text-slate-500">Nome</Label><Input {...register('first_name')} /></div><div><Label className="text-[10px] uppercase text-slate-500">Sobrenome</Label><Input {...register('last_name')} /></div></div>
               <div><Label className="text-[10px] uppercase text-slate-500">CEP</Label><div className="flex gap-2"><Input {...register('cep')} onChange={e => e.target.value = maskCep(e.target.value)} /><Button type="button" size="icon" onClick={handleCepLookup} className="bg-sky-500 h-10 w-12 shrink-0">{isFetchingCep ? <Loader2 className="animate-spin h-4 w-4" /> : <Search className="h-4 w-4" />}</Button></div></div>
               <div className="grid grid-cols-3 gap-4"><div className="col-span-2"><Label className="text-[10px] uppercase text-slate-500">Rua</Label><Input {...register('street')} /></div><div><Label className="text-[10px] uppercase text-slate-500">Número</Label><Input {...register('number')} /></div></div>

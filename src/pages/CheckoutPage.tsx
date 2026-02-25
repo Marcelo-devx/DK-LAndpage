@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -61,11 +61,9 @@ const isPassiveBenefit = (benefit: string) => {
 
 const CheckoutPage = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const [items, setItems] = useState<DisplayItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
@@ -151,18 +149,16 @@ const CheckoutPage = () => {
   }, [setValue]);
 
   const handleRedemption = useCallback(() => {
-    if (user) {
-      fetchUserData(user);
-    }
+    if (user) { fetchUserData(user); }
   }, [user, fetchUserData]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      const u = session?.user; setUser(u); setIsLoggedIn(!!u);
+      const u = session?.user; setUser(u);
       if (u) { fetchUserData(u); fetchCartItems(); setLoading(false); }
-      else setLoading(false);
+      else { navigate('/login'); setLoading(false); }
     });
-  }, [fetchUserData, fetchCartItems]);
+  }, [fetchUserData, fetchCartItems, navigate]);
 
   const handleCouponChange = (val: string) => {
     if (val === 'none') { setSelectedCoupon(null); return; }
@@ -215,50 +211,58 @@ const CheckoutPage = () => {
       const bStrings = [...tierBenefits.filter(isPassiveBenefit), ...selectedBenefits];
       
       const { data: o, error: err } = await supabase.rpc('create_pending_order_from_local_cart', {
-        shipping_cost_input: shippingCost, shipping_address_input: addr, cart_items_input: getLocalCart(),
-        user_coupon_id_input: selectedCoupon?.user_coupon_id, benefits_input: bStrings.length ? `Nível ${tierName}: ${bStrings.join(', ')}` : null,
-        payment_method_input: data.payment_method, donation_amount_input: donationAmount
+        shipping_cost_input: shippingCost, 
+        shipping_address_input: addr, 
+        cart_items_input: getLocalCart(),
+        user_coupon_id_input: selectedCoupon?.user_coupon_id, 
+        benefits_input: bStrings.length ? `Nível ${tierName}: ${bStrings.join(', ')}` : null,
+        payment_method_input: data.payment_method, 
+        donation_amount_input: donationAmount
       });
       
       if (err) throw err;
       
-      await supabase.from('orders').update({ payment_method: data.payment_method === 'pix' ? 'PIX via WhatsApp' : 'Cartão de Crédito', status: data.payment_method === 'pix' ? 'Em Preparação' : 'Aguardando Pagamento' }).eq('id', o.new_order_id);
-      
+      const finalPrice = Number(o.final_price);
+
+      // 1. Se for PIX, finaliza normalmente
       if (data.payment_method === 'pix') { 
+        await supabase.from('orders').update({ payment_method: 'PIX via WhatsApp', status: 'Em Preparação' }).eq('id', o.new_order_id);
         dismissToast(toastId);
         clearLocalCart(); 
         navigate(`/confirmacao-pedido/${o.new_order_id}`); 
-      } else {
-        const { data: mp, error: mpError } = await supabase.functions.invoke('create-mercadopago-preference', { 
-            body: { 
-                shipping_address: addr, 
-                order_id: o.new_order_id, 
-                total_price: o.final_price,
-                origin: window.location.origin // IMPORTANTE: Passando a URL do site
-            } 
-        });
-        
-        if (mpError || !mp || !mp.init_point) {
-            console.error("Erro MP:", mpError || mp);
-            let errorMessage = "Erro ao conectar com o sistema de pagamento.";
-            
-            if (mp && mp.error) errorMessage = mp.error;
-            else if (mpError && mpError.message) {
-                try {
-                    const parsed = JSON.parse(mpError.message);
-                    if (parsed.error) errorMessage = parsed.error;
-                } catch {
-                    errorMessage = mpError.message;
-                }
-            }
-            
-            throw new Error(errorMessage);
-        }
-
-        clearLocalCart(); 
-        dismissToast(toastId);
-        window.location.href = mp.init_point;
+        return;
       }
+
+      // 2. Se for Cartão mas o valor for 0 (por causa de cupom), finaliza como pago
+      if (finalPrice <= 0) {
+        await supabase.from('orders').update({ payment_method: 'Cupom de Desconto (100%)' }).eq('id', o.new_order_id);
+        await supabase.rpc('finalize_order_payment', { p_order_id: o.new_order_id });
+        dismissToast(toastId);
+        clearLocalCart();
+        navigate(`/confirmacao-pedido/${o.new_order_id}`);
+        return;
+      }
+
+      // 3. Se for Cartão com valor > 0, chama o Mercado Pago
+      await supabase.from('orders').update({ payment_method: 'Cartão de Crédito', status: 'Aguardando Pagamento' }).eq('id', o.new_order_id);
+      
+      const { data: mp, error: mpError } = await supabase.functions.invoke('create-mercadopago-preference', { 
+          body: { 
+              shipping_address: addr, 
+              order_id: o.new_order_id, 
+              total_price: finalPrice,
+              origin: window.location.origin
+          } 
+      });
+      
+      if (mpError || !mp || !mp.init_point) {
+          throw new Error(mp?.error || "Erro ao conectar com o sistema de pagamento.");
+      }
+
+      clearLocalCart(); 
+      dismissToast(toastId);
+      window.location.href = mp.init_point;
+
     } catch (e: any) { 
       dismissToast(toastId); 
       showError(e.message || "Erro no checkout."); 

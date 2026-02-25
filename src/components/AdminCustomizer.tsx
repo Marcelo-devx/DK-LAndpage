@@ -7,9 +7,7 @@ import {
   Globe, 
   Home, 
   LogIn, 
-  User, 
   LayoutTemplate,
-  Palette,
   Network,
   Webhook,
   Activity,
@@ -18,8 +16,6 @@ import {
   Copy,
   ArrowDownCircle,
   ArrowUpCircle,
-  FileJson,
-  Send,
   Loader2,
   Zap,
   Trash2
@@ -41,6 +37,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTheme } from '@/context/ThemeContext';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { cn } from '@/lib/utils';
+
+// Mapeamento explícito para evitar erros de regex
+const settingKeysMap: Record<string, string> = {
+  'show_hero_banner': 'showHero',
+  'show_info_section': 'showInfo',
+  'show_brands': 'showBrands',
+  'show_promotions': 'showPromotions'
+};
 
 const AdminCustomizer = () => {
   const [isAdmin, setIsAdmin] = useState(false);
@@ -333,7 +337,7 @@ const AdminCustomizer = () => {
                 </div>
               </TabsContent>
 
-              {/* --- OUTRAS ABAS (Mantidas Simplificadas) --- */}
+              {/* --- OUTRAS ABAS --- */}
               <TabsContent value="global" className="space-y-6 mt-0">
                 <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-4">
                     <div><Label className="text-xs text-slate-500 mb-1">Cor de Fundo</Label><div className="flex gap-2"><Input type="color" value={settings.backgroundColor} onChange={(e) => updateSetting('site_background_color', e.target.value)} className="w-10 h-10 p-1" /><Input value={settings.backgroundColor} onChange={(e) => updateSetting('site_background_color', e.target.value)} className="flex-1 text-xs" /></div></div>
@@ -345,12 +349,20 @@ const AdminCustomizer = () => {
                  <div className="bg-white p-4 rounded-xl border border-slate-100">
                     <Label className="text-xs font-bold text-slate-700 mb-4 block">Seções da Home</Label>
                     <div className="space-y-3">
-                        {['show_hero_banner', 'show_info_section', 'show_brands', 'show_promotions'].map(key => (
-                            <div key={key} className="flex items-center justify-between">
-                                <span className="text-xs text-slate-500 uppercase tracking-wide">{key.replace('show_', '').replace('_', ' ')}</span>
-                                <Switch checked={(settings as any)[key.replace('site_', '').replace(/_(\w)/g, (_:any, c:string) => c === 't' ? 'Text' : c === 'b' ? 'Background' : c.toUpperCase()).replace('show','show')]} onCheckedChange={(c) => updateSetting(key, String(c))} />
-                            </div>
-                        ))}
+                        {['show_hero_banner', 'show_info_section', 'show_brands', 'show_promotions'].map(key => {
+                            // Uso do mapeamento seguro
+                            const settingKey = settingKeysMap[key];
+                            return (
+                                <div key={key} className="flex items-center justify-between">
+                                    <span className="text-xs text-slate-500 uppercase tracking-wide">{key.replace('show_', '').replace('_', ' ')}</span>
+                                    <Switch 
+                                        // @ts-ignore
+                                        checked={settingKey ? settings[settingKey] : false} 
+                                        onCheckedChange={(c) => updateSetting(key, String(c))} 
+                                    />
+                                </div>
+                            );
+                        })}
                     </div>
                  </div>
               </TabsContent>

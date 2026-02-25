@@ -68,7 +68,12 @@ serve(async (req) => {
     const areaCode = cleanedPhone.substring(0, 2);
     const phoneNumber = cleanedPhone.substring(2);
 
-    const payerEmail = user.email || 'cliente@dkcwb.com';
+    // FIX: Usar e-mail diferente para evitar erro de auto-pagamento no Sandbox
+    // Se estivermos usando token de teste, geramos um e-mail aleatório para o payer
+    const isTestMode = MERCADOPAGO_ACCESS_TOKEN.startsWith('TEST-');
+    const payerEmail = isTestMode 
+        ? `test_user_${Math.floor(Math.random() * 100000)}@test.com` 
+        : (user.email || 'cliente@dkcwb.com');
 
     const preferencePayload = {
         items: [{

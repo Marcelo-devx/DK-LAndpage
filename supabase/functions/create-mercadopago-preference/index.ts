@@ -49,7 +49,7 @@ serve(async (req) => {
       })
     }
 
-    const { shipping_address, order_id, total_price } = await req.json()
+    const { shipping_address, order_id, total_price, origin } = await req.json()
     
     if (total_price <= 0) {
         return new Response(JSON.stringify({ error: 'O valor total do pedido deve ser maior que zero.' }), {
@@ -57,6 +57,11 @@ serve(async (req) => {
             status: 400,
         })
     }
+
+    // URL de retorno (Frontend)
+    // Se a origin vier na requisição (do browser), usamos ela.
+    // Caso contrário, usamos um fallback (mas o ideal é sempre vir).
+    const frontUrl = origin || 'https://dkcwb.com';
 
     // Validação e formatação de telefone mais robusta
     let cleanedPhone = shipping_address.phone ? shipping_address.phone.replace(/\D/g, '') : '';
@@ -98,12 +103,13 @@ serve(async (req) => {
             },
         },
         back_urls: {
-            success: `${SUPABASE_URL}/functions/v1/mercadopago-webhook?order_id=${order_id}&status=success`,
-            failure: `${SUPABASE_URL}/functions/v1/mercadopago-webhook?order_id=${order_id}&status=failure`,
-            pending: `${SUPABASE_URL}/functions/v1/mercadopago-webhook?order_id=${order_id}&status=pending`,
+            // AGORA APONTANDO DIRETO PARA O FRONTEND
+            success: `${frontUrl}/confirmacao-pedido/${order_id}`,
+            failure: `${frontUrl}/confirmacao-pedido/${order_id}`,
+            pending: `${frontUrl}/confirmacao-pedido/${order_id}`,
         },
         auto_return: "approved",
-        notification_url: `${SUPABASE_URL}/functions/v1/mercadopago-webhook`,
+        notification_url: `${SUPABASE_URL}/functions/v1/mercadopago-webhook`, // Webhook continua indo para o backend
     };
 
     console.log("[create-mercadopago-preference] Payload:", JSON.stringify(preferencePayload));

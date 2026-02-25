@@ -230,7 +230,12 @@ const CheckoutPage = () => {
         navigate(`/confirmacao-pedido/${o.new_order_id}`); 
       } else {
         const { data: mp, error: mpError } = await supabase.functions.invoke('create-mercadopago-preference', { 
-            body: { shipping_address: addr, order_id: o.new_order_id, total_price: o.final_price } 
+            body: { 
+                shipping_address: addr, 
+                order_id: o.new_order_id, 
+                total_price: o.final_price,
+                origin: window.location.origin // IMPORTANTE: Passando a URL do site
+            } 
         });
         
         if (mpError || !mp || !mp.init_point) {

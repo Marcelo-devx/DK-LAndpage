@@ -96,7 +96,12 @@ const OrdersPage = () => {
     const toastId = showLoading("Iniciando pagamento...");
     try {
       const { data, error } = await supabase.functions.invoke('create-mercadopago-preference', {
-        body: { shipping_address: order.shipping_address, order_id: order.id, total_price: order.total_price },
+        body: { 
+            shipping_address: order.shipping_address, 
+            order_id: order.id, 
+            total_price: order.total_price,
+            origin: window.location.origin // IMPORTANTE: Passando a URL do site
+        },
       });
       if (error) throw error;
       window.location.href = data.init_point;

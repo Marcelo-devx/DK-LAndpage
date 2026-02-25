@@ -9,6 +9,7 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -19,67 +20,66 @@ serve(async (req) => {
     // @ts-ignore
     const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') as string;
     
-    // --- AJUSTE TEMPORÁRIO ---
-    // Usando a chave de TESTE enviada para garantir que funcione com cartões fictícios.
-    // Em produção real, reverta para: Deno.env.get('MERCADOPAGO_ACCESS_TOKEN')
+    // Token de TESTE (Produção deve usar variável de ambiente)
     const MERCADOPAGO_ACCESS_TOKEN = "TEST-1799281998002801-080117-9c18349cb20217961ce8deb967dddb93-1096282589";
 
     if (!MERCADOPAGO_ACCESS_TOKEN) {
-        return new Response(JSON.stringify({ error: 'Configuração de pagamento incompleta (Token ausente).' }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 500,
-        })
+        throw new Error('Token do Mercado Pago não configurado.');
     }
     
     const supabaseClient = createClient(
       SUPABASE_URL,
       SUPABASE_ANON_KEY,
-      {
-        global: {
-          headers: { 'Authorization': req.headers.get('Authorization')! },
-        },
-      }
+      { global: { headers: { 'Authorization': req.headers.get('Authorization')! } } }
     )
 
     const { data: { user } } = await supabaseClient.auth.getUser()
     if (!user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      // Retorna 200 com erro para o front tratar
+      return new Response(JSON.stringify({ error: 'Sessão expirada. Faça login novamente.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 401,
+        status: 200, 
       })
     }
 
     const { shipping_address, order_id, total_price, origin } = await req.json()
     
-    if (total_price <= 0) {
-        return new Response(JSON.stringify({ error: 'O valor total do pedido deve ser maior que zero.' }), {
+    // Validação básica
+    if (!total_price || total_price <= 0) {
+        return new Response(JSON.stringify({ error: 'Valor do pedido inválido.' }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 400,
+            status: 200,
         })
     }
 
     // URL de retorno (Frontend)
-    // Se a origin vier na requisição (do browser), usamos ela.
-    // Caso contrário, usamos um fallback (mas o ideal é sempre vir).
     const frontUrl = origin || 'https://dkcwb.com';
 
-    // Validação e formatação de telefone mais robusta
+    // --- FORMATAÇÃO DE DADOS PARA O MP ---
+
+    // 1. Telefone: Garante formato limpo
     let cleanedPhone = shipping_address.phone ? shipping_address.phone.replace(/\D/g, '') : '';
     if (cleanedPhone.length < 10) {
-       console.warn(`[create-mercadopago-preference] Telefone inválido (${cleanedPhone}), usando fallback.`);
+       console.warn(`[MP] Telefone inválido (${cleanedPhone}), usando fallback.`);
        cleanedPhone = '41999999999'; 
     }
-
     const areaCode = cleanedPhone.substring(0, 2);
     const phoneNumber = cleanedPhone.substring(2);
 
-    // FIX: Usar e-mail diferente para evitar erro de auto-pagamento no Sandbox
-    // Se estivermos usando token de teste, geramos um e-mail aleatório para o payer
+    // 2. Número da Rua: Mercado Pago exige Inteiro. 
+    // Se o usuário digitou "123B" ou "S/N", extraímos apenas os números ou usamos 0.
+    let streetNumberRaw = shipping_address.number ? shipping_address.number.replace(/\D/g, '') : '';
+    let streetNumber = parseInt(streetNumberRaw);
+    if (isNaN(streetNumber)) streetNumber = 0;
+
+    // 3. E-mail: Evita erro de "payer email equals collector email" no modo sandbox
     const isTestMode = MERCADOPAGO_ACCESS_TOKEN.startsWith('TEST-');
+    // Se for teste, geramos um email aleatório. Se for produção, usamos o email real.
     const payerEmail = isTestMode 
-        ? `test_user_${Math.floor(Math.random() * 100000)}@test.com` 
+        ? `test_user_${order_id}_${Math.floor(Math.random() * 1000)}@test.com` 
         : (user.email || 'cliente@dkcwb.com');
 
+    // 4. Payload da Preferência
     const preferencePayload = {
         items: [{
             title: `Pedido #${order_id} - DKCWB`,
@@ -99,20 +99,20 @@ serve(async (req) => {
             address: {
                 zip_code: shipping_address.cep ? shipping_address.cep.replace(/\D/g, '') : '80000000',
                 street_name: shipping_address.street || 'Rua',
-                street_number: Number(shipping_address.number) || 0,
+                street_number: streetNumber,
             },
         },
         back_urls: {
-            // AGORA APONTANDO DIRETO PARA O FRONTEND
-            success: `${frontUrl}/confirmacao-pedido/${order_id}`,
-            failure: `${frontUrl}/confirmacao-pedido/${order_id}`,
-            pending: `${frontUrl}/confirmacao-pedido/${order_id}`,
+            success: `${frontUrl}/confirmacao-pedido/${order_id}?collection_status=approved`,
+            failure: `${frontUrl}/confirmacao-pedido/${order_id}?collection_status=failure`,
+            pending: `${frontUrl}/confirmacao-pedido/${order_id}?collection_status=pending`,
         },
         auto_return: "approved",
-        notification_url: `${SUPABASE_URL}/functions/v1/mercadopago-webhook`, // Webhook continua indo para o backend
+        notification_url: `${SUPABASE_URL}/functions/v1/mercadopago-webhook`,
+        statement_descriptor: "DKCWB STORE",
     };
 
-    console.log("[create-mercadopago-preference] Payload:", JSON.stringify(preferencePayload));
+    console.log("[MP] Criando preferência:", JSON.stringify(preferencePayload));
 
     const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
         method: 'POST',
@@ -126,33 +126,42 @@ serve(async (req) => {
     const mpData = await mpResponse.json();
 
     if (!mpResponse.ok) {
-        console.error("[create-mercadopago-preference] MP API Error Full:", JSON.stringify(mpData));
+        console.error("[MP] API Error:", JSON.stringify(mpData));
         
-        let errorMessage = mpData.message || 'Erro na API do Mercado Pago';
+        let errorMessage = mpData.message || 'Erro no Mercado Pago';
+        
+        // Tenta extrair a causa específica para ajudar no debug
         if (mpData.cause && Array.isArray(mpData.cause) && mpData.cause.length > 0) {
-            const causes = mpData.cause.map((c: any) => `${c.description} (${c.code})`).join('; ');
-            errorMessage = `MP Recusou: ${causes}`;
+            // Traduz erros comuns
+            const cause = mpData.cause[0];
+            if (cause.code === 120) errorMessage = "Aguarde um momento e tente novamente (Erro de Sessão MP).";
+            else if (cause.description.includes("zip_code")) errorMessage = "CEP inválido para o Mercado Pago.";
+            else if (cause.description.includes("street_number")) errorMessage = "Número do endereço inválido.";
+            else errorMessage = `MP: ${cause.description}`;
         }
 
+        // Retorna 200 mas com campo error, para o frontend exibir o toast bonito
         return new Response(JSON.stringify({ error: errorMessage }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 400,
+            status: 200,
         })
     }
 
     return new Response(JSON.stringify({
         order_id: order_id,
-        init_point: mpData.init_point,
+        init_point: mpData.init_point, // Link para pagamento
+        sandbox_init_point: mpData.sandbox_init_point
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     })
 
   } catch (error) {
-    console.error("[create-mercadopago-preference] Global Error:", error)
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error("[MP] Erro Interno:", error);
+    // Retorna 200 com erro
+    return new Response(JSON.stringify({ error: `Erro interno: ${error.message}` }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
+      status: 200,
     })
   }
 })

@@ -16,7 +16,7 @@ import InformationalPopup from '@/components/InformationalPopup';
 import { useTheme } from '@/context/ThemeContext';
 
 const Index = () => {
-  const { settings } = useTheme(); // Hook do tema
+  const { settings } = useTheme();
   const [displayedProducts, setDisplayedProducts] = useState<any[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [heroSlides, setHeroSlides] = useState<any[]>([]);
@@ -33,43 +33,52 @@ const Index = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const [products, hero, promos, brandsData, categoriesData, featured, popups] = await Promise.all([
-        supabase.from('products').select('*').eq('is_visible', true).gt('stock_quantity', 0).order('created_at', { ascending: false }).limit(12),
-        supabase.from('hero_slides').select('*').eq('is_active', true).order('sort_order'),
-        supabase.from('promotions').select('*').eq('is_active', true).gt('stock_quantity', 0).order('created_at', { ascending: false }),
-        supabase.from('brands').select('*').eq('is_visible', true).order('name'),
-        supabase.from('categories').select('name').eq('is_visible', true).order('name'),
-        supabase.from('products').select('*').eq('is_featured', true).eq('is_visible', true).gt('stock_quantity', 0).limit(8),
-        supabase.from('informational_popups').select('title, content').eq('is_active', true).limit(1).single()
-      ]);
+      try {
+        setLoadingProducts(true);
+        
+        // Buscas em paralelo com tratamento de erro individual ou preventivo
+        const [products, hero, promos, brandsData, categoriesData, featured, popups] = await Promise.all([
+          supabase.from('products').select('*').eq('is_visible', true).gt('stock_quantity', 0).order('created_at', { ascending: false }).limit(12),
+          supabase.from('hero_slides').select('*').eq('is_active', true).order('sort_order'),
+          supabase.from('promotions').select('*').eq('is_active', true).gt('stock_quantity', 0).order('created_at', { ascending: false }),
+          supabase.from('brands').select('*').eq('is_visible', true).order('name'),
+          supabase.from('categories').select('name').eq('is_visible', true).order('name'),
+          supabase.from('products').select('*').eq('is_featured', true).eq('is_visible', true).gt('stock_quantity', 0).limit(8),
+          // Usamos maybeSingle() para evitar erro caso não haja popup ativo
+          supabase.from('informational_popups').select('title, content').eq('is_active', true).limit(1).maybeSingle()
+        ]);
 
-      setDisplayedProducts(products.data || []);
-      setHeroSlides(hero.data || []);
-      setPromotions(promos.data || []);
-      setBrands(brandsData.data || []);
-      setCategories(categoriesData.data || []);
-      setFeaturedProducts(featured.data || []);
-      
-      const triggerInfoPopup = () => {
-        if (popups.data && !sessionStorage.getItem('info_popup_seen')) {
-          setInfoPopup(popups.data);
-          setIsPopupOpen(true);
-        }
-      };
-
-      const isAgeVerified = sessionStorage.getItem('age-verified-v2');
-      if (isAgeVerified) {
-        triggerInfoPopup();
-      } else {
-        const handleVerification = () => {
-          triggerInfoPopup();
-          window.removeEventListener('ageVerified', handleVerification);
+        setDisplayedProducts(products.data || []);
+        setHeroSlides(hero.data || []);
+        setPromotions(promos.data || []);
+        setBrands(brandsData.data || []);
+        setCategories(categoriesData.data || []);
+        setFeaturedProducts(featured.data || []);
+        
+        const triggerInfoPopup = () => {
+          if (popups.data && !sessionStorage.getItem('info_popup_seen')) {
+            setInfoPopup(popups.data);
+            setIsPopupOpen(true);
+          }
         };
-        window.addEventListener('ageVerified', handleVerification);
+
+        const isAgeVerified = sessionStorage.getItem('age-verified-v2');
+        if (isAgeVerified) {
+          triggerInfoPopup();
+        } else {
+          const handleVerification = () => {
+            triggerInfoPopup();
+            window.removeEventListener('ageVerified', handleVerification);
+          };
+          window.addEventListener('ageVerified', handleVerification);
+        }
+      } catch (error) {
+        console.error("Erro ao carregar dados da Home:", error);
+      } finally {
+        setLoadingProducts(false);
       }
-      
-      setLoadingProducts(false);
     };
+    
     fetchData();
   }, []);
 
@@ -89,7 +98,7 @@ const Index = () => {
         />
       )}
 
-      {settings.showHero && (
+      {settings.showHero && heroSlides.length > 0 && (
         <section className="relative w-full overflow-hidden">
           <Carousel plugins={[Autoplay({ delay: 5000 })]} className="w-full">
             <CarouselContent>
@@ -121,7 +130,7 @@ const Index = () => {
           </ScrollAnimationWrapper>
         )}
 
-        {settings.showBrands && (
+        {settings.showBrands && brands.length > 0 && (
           <ScrollAnimationWrapper>
             <BrandSection brands={brands} loading={false} onBrandClick={handleBrandClick} />
           </ScrollAnimationWrapper>
@@ -153,18 +162,20 @@ const Index = () => {
                 <Link to="/produtos" className="text-[10px] font-bold uppercase tracking-widest hover:text-sky-500 transition-colors text-slate-600">Ver todos →</Link>
             </div>
             
-            <Carousel opts={{ align: "start", loop: true }} className="w-full">
+            <Carousel opts={{ align: "start", loop: displayedProducts.length > 4 }} className="w-full">
               <CarouselContent className="-ml-3 md:-ml-4">
                 {loadingProducts ? Array.from({ length: 4 }).map((_, i) => (
                   <CarouselItem key={i} className="pl-3 md:pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4">
                     <Skeleton className="aspect-square bg-slate-200 rounded-2xl md:rounded-3xl" />
                   </CarouselItem>
-                )) :
+                )) : displayedProducts.length > 0 ?
                   displayedProducts.map((p) => (
                     <CarouselItem key={p.id} className="pl-3 md:pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4">
                       <ProductCard product={{ id: p.id, name: p.name, price: p.price, pixPrice: p.pix_price, imageUrl: p.image_url, stockQuantity: p.stock_quantity }} />
                     </CarouselItem>
-                  ))
+                  )) : (
+                    <div className="px-4 py-10 text-center w-full text-stone-400 italic">Nenhum produto em destaque no momento.</div>
+                  )
                 }
               </CarouselContent>
             </Carousel>

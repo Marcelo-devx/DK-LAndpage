@@ -12,9 +12,11 @@ import {
   LogOut, 
   Gem,
   ChevronRight,
-  Loader2
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
+import { showError } from '@/utils/toast';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -22,41 +24,65 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const fetchDashboardData = useCallback(async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      navigate('/login');
-      return;
+    setLoading(true);
+    try {
+        const { data: { session }, error: authError } = await supabase.auth.getSession();
+        
+        if (authError) throw authError;
+        
+        if (!session) {
+          navigate('/login');
+          return;
+        }
+
+        const [profileRes, ordersRes] = await Promise.all([
+          supabase.from('profiles').select('*').eq('id', session.user.id).single(),
+          supabase.from('orders')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', session.user.id)
+            .or('status.ilike.%aguardando%,status.ilike.%pendente%,status.ilike.%preparação%')
+        ]);
+
+        if (profileRes.data) {
+            setProfile(profileRes.data);
+        } else if (profileRes.error && profileRes.error.code !== 'PGRST116') {
+            console.error("Erro ao buscar perfil:", profileRes.error);
+        }
+
+        if (ordersRes.count !== null) {
+            setPendingOrdersCount(ordersRes.count);
+        }
+        
+    } catch (error: any) {
+        console.error("Erro ao carregar dashboard:", error);
+        // Não mostramos erro visual intrusivo para não assustar o usuário, 
+        // mas logamos e garantimos que a tela carregue o que der.
+    } finally {
+        setLoading(false);
     }
-
-    const [profileRes, ordersRes] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', session.user.id).single(),
-      supabase.from('orders')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', session.user.id)
-        .or('status.ilike.%aguardando%,status.ilike.%pendente%')
-    ]);
-
-    if (profileRes.data) setProfile(profileRes.data);
-    if (ordersRes.count !== null) setPendingOrdersCount(ordersRes.count);
-    
-    setLoading(false);
   }, [navigate]);
 
   useEffect(() => {
     fetchDashboardData();
-  }, [fetchDashboardData]);
+  }, [fetchDashboardData, refreshTrigger]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate('/');
   };
 
+  const handleRefresh = () => {
+    setRefreshTrigger(prev => prev + 1);
+  };
+
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-[60vh]">
+      <div className="flex flex-col justify-center items-center h-[60vh] gap-4">
         <Loader2 className="h-8 w-8 animate-spin text-sky-400" />
+        <p className="text-stone-400 text-xs font-bold uppercase tracking-widest animate-pulse">Carregando seus dados...</p>
       </div>
     );
   }
@@ -106,11 +132,18 @@ const Dashboard = () => {
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-4xl text-charcoal-gray">
-      <header className="mb-12">
-        <h1 className="text-4xl font-black tracking-tighter mb-2 italic uppercase text-charcoal-gray">
-          {settings.dashboardGreeting}, {profile?.first_name || 'Membro'}!
-        </h1>
-        <p className="text-stone-500 font-medium">{settings.dashboardSubtitle}</p>
+      <header className="mb-12 relative">
+        <div className="flex justify-between items-start">
+            <div>
+                <h1 className="text-4xl font-black tracking-tighter mb-2 italic uppercase text-charcoal-gray">
+                {settings.dashboardGreeting}, {profile?.first_name || 'Membro'}!
+                </h1>
+                <p className="text-stone-500 font-medium">{settings.dashboardSubtitle}</p>
+            </div>
+            <Button variant="ghost" size="icon" onClick={handleRefresh} className="text-stone-400 hover:text-sky-500">
+                <RefreshCw className="h-5 w-5" />
+            </Button>
+        </div>
         
         <div className="mt-8 bg-white border border-stone-200 rounded-[2rem] p-8 flex flex-col md:flex-row items-center justify-between shadow-xl">
           <div className="flex items-center space-x-6 mb-6 md:mb-0">

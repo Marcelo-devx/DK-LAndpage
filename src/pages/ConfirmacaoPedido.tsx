@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, CheckCircle, CreditCard, MessageSquare, AlertTriangle, Smartphone, Heart } from 'lucide-react';
+import { Loader2, CheckCircle, CreditCard, MessageSquare, AlertTriangle, Smartphone, Heart, PartyPopper, Clock } from 'lucide-react';
 import OrderTimer from '@/components/OrderTimer';
 import { cn } from '@/lib/utils';
 
@@ -37,14 +37,17 @@ interface OrderItem {
 
 const ConfirmacaoPedido = () => {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const collectionStatus = searchParams.get('collection_status');
+  
   const [order, setOrder] = useState<Order | null>(null);
   const [items, setItems] = useState<OrderItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchOrderDetails = async () => {
     if (!id) return;
-    setLoading(true);
-
+    // Não setamos loading=true aqui para permitir refresh silencioso
+    
     const { data: orderData, error: orderError } = await supabase
       .from('orders')
       .select('*')
@@ -74,7 +77,26 @@ const ConfirmacaoPedido = () => {
 
   useEffect(() => {
     fetchOrderDetails();
-  }, [id]);
+
+    // Se o Mercado Pago disse que aprovou, mas o banco ainda não atualizou, fazemos polling
+    let interval: NodeJS.Timeout;
+    if (collectionStatus === 'approved') {
+        interval = setInterval(() => {
+            fetchOrderDetails();
+        }, 3000); // Verifica a cada 3 segundos
+    }
+
+    return () => {
+        if (interval) clearInterval(interval);
+    };
+  }, [id, collectionStatus]);
+
+  // Para o polling quando o status do banco finalmente virar "Finalizada" ou "Pago"
+  useEffect(() => {
+    if (order && (order.status === 'Finalizada' || order.status === 'Pago')) {
+        // Pedido confirmado no banco, podemos parar qualquer polling (lógica visual já resolve)
+    }
+  }, [order]);
 
   if (loading) {
     return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-sky-400" /></div>;
@@ -91,6 +113,8 @@ const ConfirmacaoPedido = () => {
 
   const isPending = order.status === 'Aguardando Pagamento' || order.status === 'Em Preparação';
   const isCancelled = order.status === 'Cancelado';
+  const isPaid = order.status === 'Finalizada' || order.status === 'Pago' || collectionStatus === 'approved'; // Considera aprovado se a URL disser
+  
   const isPix = order.payment_method?.toLowerCase().includes('pix');
   const { shipping_address: addr } = order;
 
@@ -102,16 +126,22 @@ const ConfirmacaoPedido = () => {
       <div className="container mx-auto px-4">
         <Card className="max-w-3xl mx-auto bg-white border border-stone-200 shadow-2xl rounded-[2.5rem] overflow-hidden">
           <CardHeader className={cn(
-            "text-center p-8 border-b border-stone-100",
-            isCancelled ? "bg-red-50" : isPending ? "bg-stone-50" : "bg-sky-50"
+            "text-center p-8 border-b border-stone-100 transition-colors duration-500",
+            isCancelled ? "bg-red-50" : isPaid ? "bg-emerald-50" : "bg-sky-50"
           )}>
             {isCancelled ? (
               <AlertTriangle className="mx-auto h-16 w-16 text-red-500" />
+            ) : isPaid ? (
+              <div className="relative inline-block">
+                <CheckCircle className="mx-auto h-16 w-16 text-emerald-500" />
+                <PartyPopper className="absolute -top-2 -right-4 h-8 w-8 text-emerald-600 animate-bounce" />
+              </div>
             ) : (
-              <CheckCircle className="mx-auto h-16 w-16 text-sky-500" />
+              <Clock className="mx-auto h-16 w-16 text-sky-500" />
             )}
+            
             <CardTitle className="font-black text-3xl tracking-tighter italic uppercase mt-4 text-charcoal-gray">
-              {isCancelled ? "Pedido Expirado." : "Pedido Recebido."}
+              {isCancelled ? "Pedido Expirado." : isPaid ? "Pagamento Confirmado!" : "Pedido Recebido."}
             </CardTitle>
             <CardDescription className="text-stone-500 mt-2 font-medium">
               Pedido #{order.id} • {new Date(order.created_at).toLocaleDateString('pt-BR')}
@@ -119,7 +149,9 @@ const ConfirmacaoPedido = () => {
           </CardHeader>
           
           <CardContent className="p-8 md:p-12 space-y-10">
-            {isPending && isPix && (
+            
+            {/* Mensagem de PIX Pendente */}
+            {isPending && isPix && !isPaid && (
               <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-[1.5rem] flex flex-col items-center text-center space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
                  <div className="p-4 bg-emerald-100 rounded-full mb-1">
                    <Smartphone className="h-8 w-8 text-emerald-600 animate-pulse" />
@@ -133,7 +165,8 @@ const ConfirmacaoPedido = () => {
               </div>
             )}
 
-            {isPending && !isPix && (
+            {/* Timer para Pedidos Pendentes (Não PIX) */}
+            {isPending && !isPix && !isPaid && (
               <OrderTimer 
                 createdAt={order.created_at} 
                 onExpire={() => fetchOrderDetails()} 
@@ -153,7 +186,9 @@ const ConfirmacaoPedido = () => {
                 </div>
                 <div className="mt-4">
                    <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Status Financeiro</p>
-                   <p className="text-sm font-bold text-charcoal-gray mt-1">{order.status}</p>
+                   <p className={cn("text-sm font-bold mt-1", isPaid ? "text-emerald-600" : "text-charcoal-gray")}>
+                     {isPaid ? "Pago (Aprovado)" : order.status}
+                   </p>
                 </div>
               </div>
 

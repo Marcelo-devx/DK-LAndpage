@@ -32,8 +32,6 @@ serve(async (req) => {
         throw new Error("Chave de acesso do Mercado Pago não configurada.");
     }
     
-    // --- PAYER PADRÃO (PRODUÇÃO) ---
-    // Começamos com os dados reais...
     const authHeader = req.headers.get('Authorization');
     const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { global: { headers: { 'Authorization': authHeader || '' } } });
     
@@ -70,24 +68,21 @@ serve(async (req) => {
     };
 
     // --- MODO BLINDADO (TESTE) ---
-    // Se for teste, ignoramos os dados do usuário e enviamos o "Boneco de Teste" perfeito do MP
-    // Isso evita rejeição por telefone inválido, CEP incorreto, etc no Sandbox.
     if (isTestMode) {
-        console.log(`[create-mercadopago-preference] MODO TESTE ATIVO: Usando Payer Fictício.`);
         payerInfo = {
             first_name: 'APRO',
             last_name: 'TESTE',
-            email: 'test_user_123456@testuser.com', // Email que o Sandbox adora
+            email: 'test_user_123456@testuser.com', 
             phone: {
                 area_code: '11',
-                number: '988888888' // Telefone válido fictício
+                number: '988888888'
             },
             identification: {
                 type: 'CPF',
-                number: '12345678909' // O CPF Mágico Obrigatório
+                number: '12345678909'
             },
             address: {
-                zip_code: '01001000', // CEP da Praça da Sé (sem erro de logradouro)
+                zip_code: '01001000',
                 street_name: 'Rua de Teste Sandbox',
                 street_number: 123
             }
@@ -108,11 +103,9 @@ serve(async (req) => {
             failure: `${origin}/confirmacao-pedido/${order_id}`,
             pending: `${origin}/confirmacao-pedido/${order_id}`,
         },
-        auto_return: "approved",
-        notification_url: `${SUPABASE_URL}/functions/v1/mercadopago-webhook`,
-        payment_methods: {
-            excluded_payment_types: [{ id: "ticket" }] // Remove boleto para focar em cartão/pix
-        }
+        // REMOVIDO: auto_return (deixa o usuário clicar para voltar, evita race conditions)
+        // REMOVIDO: payment_methods (deixa o MP decidir o que mostrar)
+        notification_url: `${SUPABASE_URL}/functions/v1/mercadopago-webhook`
     };
 
     const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {

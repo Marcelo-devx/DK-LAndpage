@@ -263,11 +263,14 @@ const CheckoutPage = () => {
         clearLocalCart(); 
         dismissToast(toastId);
         
-        const redirectUrl = import.meta.env.DEV ? mpData.sandbox_init_point : mpData.init_point;
+        const isDev = import.meta.env.MODE === 'development';
+        const redirectUrl = isDev ? mpData.sandbox_init_point : mpData.init_point;
+
         if (redirectUrl) {
           window.location.href = redirectUrl;
         } else {
-          throw new Error("Link de pagamento não gerado para este ambiente.");
+          const missingUrlType = isDev ? 'sandbox' : 'production';
+          throw new Error(`Link de pagamento (${missingUrlType}) não foi gerado pelo Mercado Pago.`);
         }
       }
     } catch (e: any) { 

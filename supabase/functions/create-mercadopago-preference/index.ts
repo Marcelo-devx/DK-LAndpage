@@ -55,7 +55,7 @@ serve(async (req) => {
     const streetNumberStr = rawNumber.replace(/\D/g, ''); 
     const streetNumber = streetNumberStr ? parseInt(streetNumberStr) : 123;
 
-    const payerEmail = user.email || `test_user_${Math.floor(Math.random() * 1000000)}@test.com`;
+    const payerEmail = "test_user_12345678@testuser.com";
 
     let identification = { type: 'CPF', number: '19119119100' };
     if (shipping_address.cpf_cnpj) {

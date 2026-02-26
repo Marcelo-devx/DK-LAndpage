@@ -57,8 +57,15 @@ serve(async (req) => {
     const area_code = phone.substring(0, 2);
     const phone_number = phone.substring(2);
 
-    const identification_number = (shipping_address.cpf_cnpj || '').replace(/\D/g, '');
-    const identification_type = identification_number.length === 11 ? 'CPF' : 'CNPJ';
+    let identification_number = (shipping_address.cpf_cnpj || '').replace(/\D/g, '');
+    let identification_type = identification_number.length === 11 ? 'CPF' : 'CNPJ';
+
+    // Fallback para CPF de teste se não houver um (comum em sandbox)
+    if (!identification_number) {
+        console.log('[create-mercadopago-preference] CPF/CNPJ não encontrado, usando valor de teste para sandbox.');
+        identification_number = '19119119100'; // CPF de teste válido
+        identification_type = 'CPF';
+    }
 
     const preferencePayload = {
         items: [{
@@ -97,6 +104,8 @@ serve(async (req) => {
             excluded_payment_types: [{ id: "ticket" }]
         }
     };
+
+    console.log('[create-mercadopago-preference] Enviando payload para Mercado Pago:', JSON.stringify(preferencePayload, null, 2));
 
     const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
         method: 'POST',

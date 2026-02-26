@@ -52,40 +52,25 @@ serve(async (req) => {
         });
     }
 
-    // Parsing dos dados do cliente
-    const phone = (shipping_address.phone || '').replace(/\D/g, '');
-    const area_code = phone.substring(0, 2);
-    const phone_number = phone.substring(2);
-
-    let identification_number = (shipping_address.cpf_cnpj || '').replace(/\D/g, '');
-    let identification_type = identification_number.length === 11 ? 'CPF' : 'CNPJ';
-
-    // Fallback para CPF de teste se não houver um (comum em sandbox)
-    if (!identification_number) {
-        console.log('[create-mercadopago-preference] CPF/CNPJ não encontrado, usando valor de teste para sandbox.');
-        identification_number = '19119119100'; // CPF de teste válido
-        identification_type = 'CPF';
-    }
-
     const preferencePayload = {
         items: [{
-            title: `Pedido #${order_id} - DKCWB`,
+            title: `Pedido #${order_id} - DKCWB (TESTE)`,
             quantity: 1,
             currency_id: "BRL",
             unit_price: Number(total_price),
         }],
         external_reference: order_id.toString(),
         payer: {
-            name: shipping_address.first_name,
-            surname: shipping_address.last_name,
-            email: user.email,
+            name: 'Test',
+            surname: 'User',
+            email: 'test_user_12345678@testuser.com', // E-mail de teste oficial do MP
             phone: {
-                area_code: area_code,
-                number: phone_number
+                area_code: '41',
+                number: '999999999'
             },
             identification: {
-                type: identification_type,
-                number: identification_number
+                type: 'CPF',
+                number: '19119119100' // CPF de teste válido
             },
             address: {
                 zip_code: (shipping_address.cep || '').replace(/\D/g, ''),
@@ -105,7 +90,7 @@ serve(async (req) => {
         }
     };
 
-    console.log('[create-mercadopago-preference] Enviando payload para Mercado Pago:', JSON.stringify(preferencePayload, null, 2));
+    console.log('[create-mercadopago-preference] Enviando payload de TESTE para Mercado Pago:', JSON.stringify(preferencePayload, null, 2));
 
     const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
         method: 'POST',

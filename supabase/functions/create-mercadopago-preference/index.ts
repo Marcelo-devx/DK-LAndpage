@@ -89,9 +89,9 @@ serve(async (req) => {
         }
     };
 
-    // If in test mode, ONLY override the email to a valid test user email.
+    // If in test mode, override the email to force an approved status.
     if (isTestMode) {
-        payerInfo.email = 'test_user_12345678@testuser.com';
+        payerInfo.email = 'test_user_123456_APRO@testuser.com';
     }
     // --- FIM PAYER ---
 

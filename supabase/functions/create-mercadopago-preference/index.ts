@@ -9,6 +9,7 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -19,15 +20,24 @@ serve(async (req) => {
     // @ts-ignore
     const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') as string;
     
-    // --- MODO SANDBOX ATIVO ---
+    // Token de Teste do Mercado Pago
     const MERCADOPAGO_ACCESS_TOKEN = "TEST-1799281998002801-080117-9c18349cb20217961ce8deb967dddb93-1096282589";
+
+    // Verificar se o Header Authorization existe
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+        return new Response(JSON.stringify({ error: 'Missing Authorization header' }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 401,
+        })
+    }
 
     const supabaseClient = createClient(
       SUPABASE_URL,
       SUPABASE_ANON_KEY,
       {
         global: {
-          headers: { 'Authorization': req.headers.get('Authorization')! },
+          headers: { 'Authorization': authHeader },
         },
       }
     )
@@ -42,20 +52,30 @@ serve(async (req) => {
 
     const { shipping_address, order_id, total_price, origin } = await req.json()
     
-    // URL de retorno (Frontend)
-    const frontUrl = origin || 'https://dkcwb.com';
-
-    // Telefone
+    // Tratamento Robusto de Dados para o Mercado Pago
+    
+    // 1. Telefone: Mercado Pago exige area_code e number separados
     let cleanedPhone = shipping_address.phone ? shipping_address.phone.replace(/\D/g, '') : '';
+    // Fallback se o telefone for inválido
     if (cleanedPhone.length < 10) cleanedPhone = '41999999999'; 
+    
+    // Pega o DDD (2 dígitos) e o resto
     const areaCode = cleanedPhone.substring(0, 2);
     const phoneNumber = cleanedPhone.substring(2);
 
-    // --- CRUCIAL PARA SANDBOX ---
-    // Mercado Pago proíbe que o Vendedor e o Comprador tenham o mesmo e-mail.
-    // Como estamos usando a chave TEST, geramos um e-mail aleatório para o "pagador"
-    // para garantir que a tela de cartão abra sem erro.
+    // 2. Número do Endereço: Deve ser um INTEIRO válido
+    const rawNumber = String(shipping_address.number || '');
+    // Extrai apenas dígitos. Se não tiver dígitos (ex: "S/N"), usa 0.
+    const streetNumberStr = rawNumber.replace(/\D/g, ''); 
+    const streetNumber = streetNumberStr ? parseInt(streetNumberStr) : 0;
+
+    // 3. E-mail do Pagador:
+    // Em Sandbox, o e-mail do pagador NÃO pode ser o mesmo do vendedor.
+    // Usamos um e-mail aleatório para garantir que a tela de pagamento abra.
     const payerEmail = `test_user_${Math.floor(Math.random() * 1000000)}@test.com`;
+
+    // 4. URL de Retorno
+    const frontUrl = origin || 'https://dkcwb.com';
 
     const preferencePayload = {
         items: [{
@@ -76,7 +96,7 @@ serve(async (req) => {
             address: {
                 zip_code: shipping_address.cep ? shipping_address.cep.replace(/\D/g, '') : '80000000',
                 street_name: shipping_address.street || 'Rua',
-                street_number: Number(shipping_address.number) || 0,
+                street_number: streetNumber,
             },
         },
         back_urls: {
@@ -87,11 +107,11 @@ serve(async (req) => {
         auto_return: "approved",
         notification_url: `${SUPABASE_URL}/functions/v1/mercadopago-webhook`,
         payment_methods: {
-            excluded_payment_types: [{ id: "ticket" }]
+            excluded_payment_types: [{ id: "ticket" }] // Desabilita boleto para focar em cartão/pix
         }
     };
 
-    console.log("[create-mercadopago-preference] Payload:", JSON.stringify(preferencePayload));
+    console.log("[create-mercadopago-preference] Payload enviado:", JSON.stringify(preferencePayload));
 
     const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
         method: 'POST',
@@ -105,16 +125,20 @@ serve(async (req) => {
     const mpData = await mpResponse.json();
 
     if (!mpResponse.ok) {
-        console.error("[create-mercadopago-preference] MP Error:", mpData);
-        return new Response(JSON.stringify({ error: mpData.message || 'Erro ao criar preferência MP' }), {
+        console.error("[create-mercadopago-preference] MP Error Response:", mpData);
+        return new Response(JSON.stringify({ 
+            error: mpData.message || 'Erro ao criar preferência no Mercado Pago',
+            details: mpData 
+        }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 400,
+            status: 400, // Retorna 400 para o cliente tratar
         })
     }
 
     return new Response(JSON.stringify({
         order_id: order_id,
         init_point: mpData.init_point, 
+        sandbox_init_point: mpData.sandbox_init_point // Útil se quiser forçar sandbox
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,

@@ -19,19 +19,25 @@ serve(async (req) => {
     // @ts-ignore
     const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') as string;
     
-    // --- AMBIENTE DINÂMICO ---
+    // 1. Tenta pegar o token de teste explícito
     // @ts-ignore
-    const PROD_TOKEN = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') as string;
-    // @ts-ignore
-    const TEST_TOKEN = Deno.env.get('mercadopago_test_access_token') as string;
+    let token = Deno.env.get('mercadopago_test_access_token') as string;
+    
+    // 2. Se não tiver, pega o token principal
+    if (!token) {
+        // @ts-ignore
+        token = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') as string;
+    }
 
-    const isTestMode = !!TEST_TOKEN;
-    const MERCADOPAGO_ACCESS_TOKEN = isTestMode ? TEST_TOKEN : PROD_TOKEN;
-
-    if (!MERCADOPAGO_ACCESS_TOKEN) {
+    if (!token) {
         throw new Error("Chave de acesso do Mercado Pago não configurada.");
     }
+
+    // 3. DETECÇÃO INTELIGENTE: Verifica se o token é de teste pelo prefixo
+    const isTestToken = token.startsWith('TEST-');
     
+    console.log(`[MercadoPago] Token usado inicia com: ${token.substring(0, 5)}... Modo Teste: ${isTestToken}`);
+
     const authHeader = req.headers.get('Authorization');
     const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { global: { headers: { 'Authorization': authHeader || '' } } });
     
@@ -45,8 +51,11 @@ serve(async (req) => {
         throw new Error('Dados do pedido incompletos.');
     }
 
+    // Preparação dos dados reais (para Produção)
     const phone = (shipping_address.phone || '').replace(/\D/g, '');
     const cpfCnpj = (shipping_address.cpf_cnpj || '').replace(/\D/g, '');
+    const cep = (shipping_address.cep || '').replace(/\D/g, '');
+    const streetNum = parseInt(shipping_address.number) || 0;
 
     let payerInfo = {
         first_name: shipping_address.first_name,
@@ -61,17 +70,18 @@ serve(async (req) => {
             number: cpfCnpj
         },
         address: {
-            zip_code: (shipping_address.cep || '').replace(/\D/g, ''),
+            zip_code: cep,
             street_name: shipping_address.street,
-            street_number: parseInt(shipping_address.number) || 0
+            street_number: streetNum
         }
     };
 
-    // --- MODO BLINDADO (TESTE) ---
-    if (isTestMode) {
+    // --- LÓGICA DE MODO TESTE ---
+    // Se o token for TEST-, FORÇAMOS os dados que o Sandbox exige para não dar erro.
+    if (isTestToken) {
         payerInfo = {
             first_name: 'APRO',
-            last_name: 'TESTE',
+            last_name: 'TESTE', // Sobrenome obrigatório para aprovação automática
             email: 'test_user_123456@testuser.com', 
             phone: {
                 area_code: '11',
@@ -79,7 +89,7 @@ serve(async (req) => {
             },
             identification: {
                 type: 'CPF',
-                number: '12345678909'
+                number: '12345678909' // CPF válido apenas no sandbox
             },
             address: {
                 zip_code: '01001000',
@@ -103,15 +113,15 @@ serve(async (req) => {
             failure: `${origin}/confirmacao-pedido/${order_id}`,
             pending: `${origin}/confirmacao-pedido/${order_id}`,
         },
-        // REMOVIDO: auto_return (deixa o usuário clicar para voltar, evita race conditions)
-        // REMOVIDO: payment_methods (deixa o MP decidir o que mostrar)
-        notification_url: `${SUPABASE_URL}/functions/v1/mercadopago-webhook`
+        notification_url: `${SUPABASE_URL}/functions/v1/mercadopago-webhook`,
+        binary_mode: true, // Força aprovação ou rejeição instantânea (sem pendente)
+        statement_descriptor: "DKCWB"
     };
 
     const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${MERCADOPAGO_ACCESS_TOKEN}`,
+            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
         },
         body: JSON.stringify(preferencePayload),
@@ -120,8 +130,8 @@ serve(async (req) => {
     const mpData = await mpResponse.json();
 
     if (!mpResponse.ok) {
-        const errorMsg = mpData.message || 'Erro desconhecido no Mercado Pago';
-        console.error("Mercado Pago Error:", mpData);
+        console.error("Mercado Pago Error Payload:", JSON.stringify(mpData));
+        const errorMsg = mpData.message || 'Erro na criação da preferência';
         return new Response(JSON.stringify({ error: `Mercado Pago recusou: ${errorMsg}` }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: mpResponse.status,

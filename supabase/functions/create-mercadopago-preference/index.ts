@@ -9,11 +9,14 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  // Tratamento de CORS (Preflight)
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
+    console.log("[MercadoPago] Iniciando função create-mercadopago-preference...");
+
     // 1. Recuperação Segura das Variáveis de Ambiente
     // @ts-ignore
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL') as string;
@@ -25,14 +28,13 @@ serve(async (req) => {
     // 2. Validação e Limpeza do Token
     if (!RAW_MP_TOKEN) {
         console.error("Erro Crítico: Variável MERCADOPAGO_ACCESS_TOKEN não encontrada nos Secrets.");
-        throw new Error("Configuração de pagamento ausente no servidor.");
+        throw new Error("Configuração de pagamento ausente no servidor (Secret não definida).");
     }
 
     const MP_TOKEN = RAW_MP_TOKEN.trim(); // Remove espaços acidentais
     const IS_SANDBOX = MP_TOKEN.startsWith('TEST-');
 
-    console.log(`[MercadoPago] Inicializando preferência.`);
-    console.log(`[MercadoPago] Ambiente: ${IS_SANDBOX ? 'SANDBOX (TESTE)' : 'PRODUÇÃO (REAL)'}`);
+    console.log(`[MercadoPago] Ambiente Detectado: ${IS_SANDBOX ? 'SANDBOX (TESTE)' : 'PRODUÇÃO (REAL)'}`);
 
     // 3. Inicialização do Cliente Supabase
     const authHeader = req.headers.get('Authorization');
@@ -59,7 +61,7 @@ serve(async (req) => {
         // --- MODO SANDBOX ---
         // O Mercado Pago REJEITA transações em Sandbox se usarmos e-mails reais ou dados inválidos para teste.
         // Usamos um "Comprador de Teste" padronizado para garantir que a tela de pagamento abra.
-        console.log("[MercadoPago] Usando dados de Payer Mock (Sandbox Requirement)");
+        console.log("[MercadoPago] Usando dados de Payer Mock (Requisito Sandbox)");
         payerInfo = {
             name: "Test",
             surname: "User",
@@ -130,6 +132,7 @@ serve(async (req) => {
     };
 
     // 7. Chamada à API do Mercado Pago
+    console.log("[MercadoPago] Enviando requisição para API...");
     const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
         method: 'POST',
         headers: {
@@ -146,9 +149,11 @@ serve(async (req) => {
         const errorMsg = mpData.message || 'Erro desconhecido ao criar preferência';
         return new Response(JSON.stringify({ error: `Mercado Pago recusou: ${errorMsg}` }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: mpResponse.status, // Repassa o status real (400, 401, etc)
+            status: mpResponse.status,
         })
     }
+
+    console.log("[MercadoPago] Preferência criada com sucesso!");
 
     // 8. Sucesso
     return new Response(JSON.stringify({

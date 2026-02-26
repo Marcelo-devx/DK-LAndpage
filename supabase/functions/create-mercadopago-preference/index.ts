@@ -77,6 +77,18 @@ serve(async (req) => {
     // 4. URL de Retorno
     const frontUrl = origin || 'https://dkcwb.com';
 
+    // 5. CPF/CNPJ (Se enviado)
+    let identification = undefined;
+    if (shipping_address.cpf_cnpj) {
+        const cleanDoc = shipping_address.cpf_cnpj.replace(/\D/g, '');
+        if (cleanDoc) {
+            identification = {
+                type: cleanDoc.length > 11 ? 'CNPJ' : 'CPF',
+                number: cleanDoc
+            };
+        }
+    }
+
     const preferencePayload = {
         items: [{
             title: `Pedido #${order_id} - DKCWB`,
@@ -98,6 +110,7 @@ serve(async (req) => {
                 street_name: shipping_address.street || 'Rua',
                 street_number: streetNumber,
             },
+            identification: identification
         },
         back_urls: {
             success: `${frontUrl}/confirmacao-pedido/${order_id}`,
@@ -107,7 +120,7 @@ serve(async (req) => {
         auto_return: "approved",
         notification_url: `${SUPABASE_URL}/functions/v1/mercadopago-webhook`,
         payment_methods: {
-            excluded_payment_types: [{ id: "ticket" }] // Desabilita boleto para focar em cartão/pix
+            excluded_payment_types: [{ id: "ticket" }] // Desabilita boleto
         }
     };
 

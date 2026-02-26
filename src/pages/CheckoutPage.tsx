@@ -12,11 +12,11 @@ import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { showError, showSuccess, showLoading, dismissToast } from '@/utils/toast';
-import { Loader2, Search, AlertTriangle, CreditCard, MessageSquare, MapPin, ShoppingBag, Truck, Gift, CheckCircle2, Heart } from 'lucide-react';
+import { Loader2, Search, CreditCard, MessageSquare, MapPin, Truck, Heart, CheckCircle2 } from 'lucide-react';
 import { getLocalCart, ItemType, clearLocalCart } from '@/utils/localCart';
 import { maskCep, maskPhone } from '@/utils/masks';
 import CouponsModal from '@/components/CouponsModal';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Alert, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 
 interface DisplayItem {
@@ -65,7 +65,6 @@ const CheckoutPage = () => {
   const [items, setItems] = useState<DisplayItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null);
@@ -74,14 +73,13 @@ const CheckoutPage = () => {
   const [isFetchingCep, setIsFetchingCep] = useState(false);
   const [isCreditCardEnabled, setIsCreditCardEnabled] = useState(false);
   const [deliveryType, setDeliveryType] = useState<'local' | 'correios' | null>(null);
-  
   const [shippingCost, setShippingCost] = useState<number>(0);
   const [isFreeShippingApplied, setIsFreeShippingApplied] = useState(false);
   const [donationAmount, setDonationAmount] = useState<number>(0);
-  
   const [tierName, setTierName] = useState<string>('');
   const [tierBenefits, setTierBenefits] = useState<string[]>([]);
   const [selectedBenefits, setSelectedBenefits] = useState<string[]>([]);
+  const [userCpfCnpj, setUserCpfCnpj] = useState<string>('');
 
   const { register, handleSubmit, setValue, getValues, watch, formState: { errors } } = useForm<CheckoutFormData>({
     resolver: zodResolver(checkoutSchema),
@@ -145,6 +143,7 @@ const CheckoutPage = () => {
           setValue(f, val);
       });
       setUserPoints(profile.points);
+      if (profile.cpf_cnpj) setUserCpfCnpj(profile.cpf_cnpj);
     }
     const { data: c } = await supabase.from('user_coupons').select('id, expires_at, coupons ( name, discount_value, minimum_order_value )').eq('user_id', currentUser.id).eq('is_used', false).gt('expires_at', new Date().toISOString());
     if (c) setCoupons(c.map((x: any) => ({ user_coupon_id: x.id, name: x.coupons.name, discount_value: x.coupons.discount_value, minimum_order_value: x.coupons.minimum_order_value, expires_at: x.expires_at })));
@@ -158,7 +157,7 @@ const CheckoutPage = () => {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      const u = session?.user; setUser(u); setIsLoggedIn(!!u);
+      const u = session?.user; setUser(u);
       if (u) { fetchUserData(u); fetchCartItems(); setLoading(false); }
       else setLoading(false);
     });
@@ -210,12 +209,26 @@ const CheckoutPage = () => {
     setIsSubmitting(true);
     const toastId = showLoading("Processando...");
     try {
-      const addr = { ...data, phone: data.phone.replace(/\D/g, ''), cep: data.cep.replace(/\D/g, '') };
-      await supabase.from('profiles').update(addr).eq('id', user.id);
-      const bStrings = [...tierBenefits.filter(isPassiveBenefit), ...selectedBenefits];
+      // 1. Atualizar Perfil (Limpar dados antes)
+      // REMOVIDO payment_method do objeto enviado ao perfil
+      const { payment_method, ...profileData } = data;
+      const addrForProfile = { 
+        ...profileData, 
+        phone: data.phone.replace(/\D/g, ''), 
+        cep: data.cep.replace(/\D/g, '') 
+      };
       
+      const { error: profileError } = await supabase.from('profiles').update(addrForProfile).eq('id', user.id);
+      
+      if (profileError) {
+        console.error("Erro ao atualizar perfil:", profileError);
+        // Não lançar erro aqui para não travar o fluxo se for algo menor, mas idealmente deveria tratar.
+      }
+
+      // 2. Criar Pedido
+      const bStrings = [...tierBenefits.filter(isPassiveBenefit), ...selectedBenefits];
       const { data: o, error: err } = await supabase.rpc('create_pending_order_from_local_cart', {
-        shipping_cost_input: shippingCost, shipping_address_input: addr, cart_items_input: getLocalCart(),
+        shipping_cost_input: shippingCost, shipping_address_input: { ...data, phone: addrForProfile.phone, cep: addrForProfile.cep }, cart_items_input: getLocalCart(),
         user_coupon_id_input: selectedCoupon?.user_coupon_id, benefits_input: bStrings.length ? `Nível ${tierName}: ${bStrings.join(', ')}` : null,
         payment_method_input: data.payment_method, donation_amount_input: donationAmount
       });
@@ -229,12 +242,13 @@ const CheckoutPage = () => {
         clearLocalCart(); 
         navigate(`/confirmacao-pedido/${o.new_order_id}`); 
       } else {
+        // 3. Criar Preferência MP
         const { data: mp, error: mpError } = await supabase.functions.invoke('create-mercadopago-preference', { 
             body: { 
-                shipping_address: addr, 
+                shipping_address: { ...addrForProfile, cpf_cnpj: userCpfCnpj }, // Adicionado CPF
                 order_id: o.new_order_id, 
                 total_price: o.final_price,
-                origin: window.location.origin // IMPORTANTE: Passando a URL do site
+                origin: window.location.origin
             } 
         });
         
@@ -251,7 +265,6 @@ const CheckoutPage = () => {
                     errorMessage = mpError.message;
                 }
             }
-            
             throw new Error(errorMessage);
         }
 

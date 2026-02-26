@@ -9,7 +9,6 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -26,7 +25,7 @@ serve(async (req) => {
     if (!authHeader) {
         return new Response(JSON.stringify({ error: 'Missing Authorization header' }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200,
+            status: 401,
         })
     }
 
@@ -40,11 +39,26 @@ serve(async (req) => {
     if (!user) {
       return new Response(JSON.stringify({ error: 'Sessão expirada. Faça login novamente.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
+        status: 401,
       })
     }
 
-    const { order_id, total_price, origin } = await req.json()
+    const { order_id, total_price, origin, shipping_address } = await req.json();
+
+    if (!shipping_address || !order_id || !total_price) {
+        return new Response(JSON.stringify({ error: 'Dados do pedido incompletos.' }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 400,
+        });
+    }
+
+    // Parsing dos dados do cliente
+    const phone = (shipping_address.phone || '').replace(/\D/g, '');
+    const area_code = phone.substring(0, 2);
+    const phone_number = phone.substring(2);
+
+    const identification_number = (shipping_address.cpf_cnpj || '').replace(/\D/g, '');
+    const identification_type = identification_number.length === 11 ? 'CPF' : 'CNPJ';
 
     const preferencePayload = {
         items: [{
@@ -55,21 +69,21 @@ serve(async (req) => {
         }],
         external_reference: order_id.toString(),
         payer: {
-            name: "Test",
-            surname: "User",
-            email: "test_user_12345678@testuser.com",
+            name: shipping_address.first_name,
+            surname: shipping_address.last_name,
+            email: user.email,
             phone: {
-                area_code: "11",
-                number: "987654321"
+                area_code: area_code,
+                number: phone_number
             },
             identification: {
-                type: "CPF",
-                number: "19119119100"
+                type: identification_type,
+                number: identification_number
             },
             address: {
-                zip_code: "01001000",
-                street_name: "Avenida Brasil",
-                street_number: 123
+                zip_code: (shipping_address.cep || '').replace(/\D/g, ''),
+                street_name: shipping_address.street,
+                street_number: parseInt(shipping_address.number) || 0
             }
         },
         back_urls: {
@@ -97,9 +111,10 @@ serve(async (req) => {
 
     if (!mpResponse.ok) {
         const errorMsg = mpData.message || (mpData.cause && mpData.cause[0] && mpData.cause[0].description) || 'Erro desconhecido no Mercado Pago';
-        return new Response(JSON.stringify({ error: `Mercado Pago recusou: ${errorMsg}`, details: mpData }), {
+        console.error("Mercado Pago Error:", mpData);
+        return new Response(JSON.stringify({ error: `Mercado Pago recusou: ${errorMsg}` }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200,
+            status: mpResponse.status,
         })
     }
 
@@ -114,9 +129,10 @@ serve(async (req) => {
     })
 
   } catch (error) {
+    console.error("Internal Function Error:", error);
     return new Response(JSON.stringify({ error: `Erro Interno: ${error.message}` }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200,
+      status: 500,
     })
   }
 })

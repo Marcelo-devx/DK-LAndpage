@@ -25,55 +25,35 @@ serve(async (req) => {
     // @ts-ignore
     const TEST_TOKEN = Deno.env.get('mercadopago_test_access_token') as string;
 
-    // Se o token de teste existir, estamos em modo de teste.
     const isTestMode = !!TEST_TOKEN;
     const MERCADOPAGO_ACCESS_TOKEN = isTestMode ? TEST_TOKEN : PROD_TOKEN;
 
     if (!MERCADOPAGO_ACCESS_TOKEN) {
         throw new Error("Chave de acesso do Mercado Pago não configurada.");
     }
-    console.log(`[create-mercadopago-preference] Rodando em modo: ${isTestMode ? 'TESTE' : 'PRODUÇÃO'}`);
-    // --- FIM AMBIENTE ---
-
+    
+    // --- PAYER PADRÃO (PRODUÇÃO) ---
+    // Começamos com os dados reais...
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-        return new Response(JSON.stringify({ error: 'Missing Authorization header' }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 401,
-        })
-    }
-
-    const supabaseClient = createClient(
-      SUPABASE_URL,
-      SUPABASE_ANON_KEY,
-      { global: { headers: { 'Authorization': authHeader } } }
-    )
-
-    const { data: { user } } = await supabaseClient.auth.getUser()
-    if (!user) {
-      return new Response(JSON.stringify({ error: 'Sessão expirada. Faça login novamente.' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 401,
-      })
-    }
+    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { global: { headers: { 'Authorization': authHeader || '' } } });
+    
+    let userEmail = 'cliente@email.com';
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    if (user) userEmail = user.email || userEmail;
 
     const { order_id, total_price, origin, shipping_address } = await req.json();
 
     if (!shipping_address || !order_id || !total_price) {
-        return new Response(JSON.stringify({ error: 'Dados do pedido incompletos.' }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 400,
-        });
+        throw new Error('Dados do pedido incompletos.');
     }
 
-    // --- PAYER DINÂMICO ---
     const phone = (shipping_address.phone || '').replace(/\D/g, '');
     const cpfCnpj = (shipping_address.cpf_cnpj || '').replace(/\D/g, '');
 
     let payerInfo = {
         first_name: shipping_address.first_name,
         last_name: shipping_address.last_name,
-        email: user.email, // Default to user's real email
+        email: userEmail,
         phone: {
             area_code: phone.substring(0, 2),
             number: phone.substring(2)
@@ -89,22 +69,34 @@ serve(async (req) => {
         }
     };
 
-    // If in test mode, override specific fields required by Sandbox docs
+    // --- MODO BLINDADO (TESTE) ---
+    // Se for teste, ignoramos os dados do usuário e enviamos o "Boneco de Teste" perfeito do MP
+    // Isso evita rejeição por telefone inválido, CEP incorreto, etc no Sandbox.
     if (isTestMode) {
-        payerInfo.first_name = 'APRO';
-        payerInfo.last_name = 'TESTE'; 
-        // Força o CPF mágico da documentação
-        payerInfo.identification = {
-            type: 'CPF',
-            number: '12345678909'
+        console.log(`[create-mercadopago-preference] MODO TESTE ATIVO: Usando Payer Fictício.`);
+        payerInfo = {
+            first_name: 'APRO',
+            last_name: 'TESTE',
+            email: 'test_user_123456@testuser.com', // Email que o Sandbox adora
+            phone: {
+                area_code: '11',
+                number: '988888888' // Telefone válido fictício
+            },
+            identification: {
+                type: 'CPF',
+                number: '12345678909' // O CPF Mágico Obrigatório
+            },
+            address: {
+                zip_code: '01001000', // CEP da Praça da Sé (sem erro de logradouro)
+                street_name: 'Rua de Teste Sandbox',
+                street_number: 123
+            }
         };
-        // O email continua sendo o real para você receber a notificação se o sistema disparar
     }
-    // --- FIM PAYER ---
 
     const preferencePayload = {
         items: [{
-            title: `Pedido #${order_id} - DKCWB ${isTestMode ? '(TESTE)' : ''}`,
+            title: `Pedido #${order_id} - DKCWB`,
             quantity: 1,
             currency_id: "BRL",
             unit_price: Number(total_price),
@@ -119,11 +111,9 @@ serve(async (req) => {
         auto_return: "approved",
         notification_url: `${SUPABASE_URL}/functions/v1/mercadopago-webhook`,
         payment_methods: {
-            excluded_payment_types: [{ id: "ticket" }]
+            excluded_payment_types: [{ id: "ticket" }] // Remove boleto para focar em cartão/pix
         }
     };
-
-    console.log(`[create-mercadopago-preference] Enviando payload para Mercado Pago:`, JSON.stringify(preferencePayload, null, 2));
 
     const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
         method: 'POST',
@@ -137,7 +127,7 @@ serve(async (req) => {
     const mpData = await mpResponse.json();
 
     if (!mpResponse.ok) {
-        const errorMsg = mpData.message || (mpData.cause && mpData.cause[0] && mpData.cause[0].description) || 'Erro desconhecido no Mercado Pago';
+        const errorMsg = mpData.message || 'Erro desconhecido no Mercado Pago';
         console.error("Mercado Pago Error:", mpData);
         return new Response(JSON.stringify({ error: `Mercado Pago recusou: ${errorMsg}` }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },

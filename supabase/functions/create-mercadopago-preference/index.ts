@@ -19,24 +19,31 @@ serve(async (req) => {
     // @ts-ignore
     const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') as string;
     
-    // 1. Tenta pegar o token de teste explícito
+    // 1. Tenta pegar token específico de teste
     // @ts-ignore
-    let token = Deno.env.get('mercadopago_test_access_token') as string;
+    let rawTestToken = Deno.env.get('mercadopago_test_access_token') as string;
+    // @ts-ignore
+    let rawProdToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') as string;
+
+    // 2. Limpeza de Espaços (A "Bobeira Gigante" corrigida aqui)
+    let token = '';
     
-    // 2. Se não tiver, pega o token principal
-    if (!token) {
-        // @ts-ignore
-        token = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') as string;
+    if (rawTestToken && rawTestToken.trim() !== '') {
+        token = rawTestToken.trim();
+    } else if (rawProdToken && rawProdToken.trim() !== '') {
+        token = rawProdToken.trim();
     }
 
     if (!token) {
-        throw new Error("Chave de acesso do Mercado Pago não configurada.");
+        throw new Error("Nenhuma chave do Mercado Pago encontrada (Verifique MERCADOPAGO_ACCESS_TOKEN).");
     }
 
-    // 3. DETECÇÃO INTELIGENTE: Verifica se o token é de teste pelo prefixo
+    // 3. DETECÇÃO ROBUSTA
     const isTestToken = token.startsWith('TEST-');
     
-    console.log(`[MercadoPago] Token usado inicia com: ${token.substring(0, 5)}... Modo Teste: ${isTestToken}`);
+    console.log(`[MercadoPago] Inicializando...`);
+    console.log(`[MercadoPago] Token: ${token.substring(0, 10)}...`);
+    console.log(`[MercadoPago] Modo Detectado: ${isTestToken ? 'SANDBOX (TESTE)' : 'PRODUÇÃO (REAL)'}`);
 
     const authHeader = req.headers.get('Authorization');
     const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { global: { headers: { 'Authorization': authHeader || '' } } });
@@ -51,12 +58,10 @@ serve(async (req) => {
         throw new Error('Dados do pedido incompletos.');
     }
 
-    // Preparação dos dados reais (para Produção)
     const phone = (shipping_address.phone || '').replace(/\D/g, '');
     const cpfCnpj = (shipping_address.cpf_cnpj || '').replace(/\D/g, '');
-    const cep = (shipping_address.cep || '').replace(/\D/g, '');
-    const streetNum = parseInt(shipping_address.number) || 0;
 
+    // Dados Padrão (Produção)
     let payerInfo = {
         first_name: shipping_address.first_name,
         last_name: shipping_address.last_name,
@@ -70,18 +75,18 @@ serve(async (req) => {
             number: cpfCnpj
         },
         address: {
-            zip_code: cep,
+            zip_code: (shipping_address.cep || '').replace(/\D/g, ''),
             street_name: shipping_address.street,
-            street_number: streetNum
+            street_number: parseInt(shipping_address.number) || 0
         }
     };
 
-    // --- LÓGICA DE MODO TESTE ---
-    // Se o token for TEST-, FORÇAMOS os dados que o Sandbox exige para não dar erro.
+    // Dados Forçados (Teste)
+    // Se for TEST-, ignoramos completamente os dados do usuário para evitar erro de validação
     if (isTestToken) {
         payerInfo = {
             first_name: 'APRO',
-            last_name: 'TESTE', // Sobrenome obrigatório para aprovação automática
+            last_name: 'TESTE',
             email: 'test_user_123456@testuser.com', 
             phone: {
                 area_code: '11',
@@ -89,7 +94,7 @@ serve(async (req) => {
             },
             identification: {
                 type: 'CPF',
-                number: '12345678909' // CPF válido apenas no sandbox
+                number: '12345678909'
             },
             address: {
                 zip_code: '01001000',
@@ -114,7 +119,6 @@ serve(async (req) => {
             pending: `${origin}/confirmacao-pedido/${order_id}`,
         },
         notification_url: `${SUPABASE_URL}/functions/v1/mercadopago-webhook`,
-        binary_mode: true, // Força aprovação ou rejeição instantânea (sem pendente)
         statement_descriptor: "DKCWB"
     };
 

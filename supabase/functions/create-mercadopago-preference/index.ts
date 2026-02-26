@@ -18,8 +18,22 @@ serve(async (req) => {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL') as string;
     // @ts-ignore
     const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') as string;
+    
+    // --- AMBIENTE DINÂMICO ---
     // @ts-ignore
-    const MERCADOPAGO_ACCESS_TOKEN = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') as string;
+    const PROD_TOKEN = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') as string;
+    // @ts-ignore
+    const TEST_TOKEN = Deno.env.get('mercadopago_test_access_token') as string;
+
+    // Se o token de teste existir, estamos em modo de teste.
+    const isTestMode = !!TEST_TOKEN;
+    const MERCADOPAGO_ACCESS_TOKEN = isTestMode ? TEST_TOKEN : PROD_TOKEN;
+
+    if (!MERCADOPAGO_ACCESS_TOKEN) {
+        throw new Error("Chave de acesso do Mercado Pago não configurada.");
+    }
+    console.log(`[create-mercadopago-preference] Rodando em modo: ${isTestMode ? 'TESTE' : 'PRODUÇÃO'}`);
+    // --- FIM AMBIENTE ---
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
@@ -52,32 +66,54 @@ serve(async (req) => {
         });
     }
 
-    const preferencePayload = {
-        items: [{
-            title: `Pedido #${order_id} - DKCWB (TESTE)`,
-            quantity: 1,
-            currency_id: "BRL",
-            unit_price: Number(total_price),
-        }],
-        external_reference: order_id.toString(),
-        payer: {
+    // --- PAYER DINÂMICO ---
+    let payerInfo;
+    if (isTestMode) {
+        payerInfo = {
             name: 'Test',
             surname: 'User',
-            email: 'test_user_12345678@testuser.com', // E-mail de teste oficial do MP
+            email: 'test_user_12345678@testuser.com',
+            phone: { area_code: '41', number: '999999999' },
+            identification: { type: 'CPF', number: '19119119100' },
+            address: {
+                zip_code: (shipping_address.cep || '').replace(/\D/g, ''),
+                street_name: shipping_address.street,
+                street_number: parseInt(shipping_address.number) || 0
+            }
+        };
+    } else {
+        const phone = (shipping_address.phone || '').replace(/\D/g, '');
+        const cpfCnpj = (shipping_address.cpf_cnpj || '').replace(/\D/g, '');
+        payerInfo = {
+            first_name: shipping_address.first_name,
+            last_name: shipping_address.last_name,
+            email: user.email,
             phone: {
-                area_code: '41',
-                number: '999999999'
+                area_code: phone.substring(0, 2),
+                number: phone.substring(2)
             },
             identification: {
-                type: 'CPF',
-                number: '19119119100' // CPF de teste válido
+                type: cpfCnpj.length > 11 ? 'CNPJ' : 'CPF',
+                number: cpfCnpj
             },
             address: {
                 zip_code: (shipping_address.cep || '').replace(/\D/g, ''),
                 street_name: shipping_address.street,
                 street_number: parseInt(shipping_address.number) || 0
             }
-        },
+        };
+    }
+    // --- FIM PAYER ---
+
+    const preferencePayload = {
+        items: [{
+            title: `Pedido #${order_id} - DKCWB ${isTestMode ? '(TESTE)' : ''}`,
+            quantity: 1,
+            currency_id: "BRL",
+            unit_price: Number(total_price),
+        }],
+        external_reference: order_id.toString(),
+        payer: payerInfo,
         back_urls: {
             success: `${origin}/confirmacao-pedido/${order_id}`,
             failure: `${origin}/confirmacao-pedido/${order_id}`,
@@ -90,7 +126,7 @@ serve(async (req) => {
         }
     };
 
-    console.log('[create-mercadopago-preference] Enviando payload de TESTE para Mercado Pago:', JSON.stringify(preferencePayload, null, 2));
+    console.log(`[create-mercadopago-preference] Enviando payload para Mercado Pago:`, JSON.stringify(preferencePayload, null, 2));
 
     const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
         method: 'POST',

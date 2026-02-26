@@ -263,14 +263,12 @@ const CheckoutPage = () => {
         clearLocalCart(); 
         dismissToast(toastId);
         
-        const isDev = import.meta.env.MODE === 'development';
-        const redirectUrl = isDev ? mpData.sandbox_init_point : mpData.init_point;
+        const redirectUrl = mpData.sandbox_init_point || mpData.init_point;
 
         if (redirectUrl) {
           window.location.href = redirectUrl;
         } else {
-          const missingUrlType = isDev ? 'sandbox' : 'production';
-          throw new Error(`Link de pagamento (${missingUrlType}) não foi gerado pelo Mercado Pago.`);
+          throw new Error(`Link de pagamento não foi gerado pelo Mercado Pago.`);
         }
       }
     } catch (e: any) { 

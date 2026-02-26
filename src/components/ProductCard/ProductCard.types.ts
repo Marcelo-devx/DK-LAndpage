@@ -6,6 +6,7 @@ export interface ProductCardProps {
     pixPrice?: number | null; // Preço com desconto à vista
     imageUrl: string;
     stockQuantity?: number; // Adicionado para exibir aviso de estoque
+    variantId?: string;
   };
   className?: string;
 }

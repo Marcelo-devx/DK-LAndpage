@@ -236,7 +236,6 @@ const AllProductsPage = () => {
                         pixPrice: product.pixPrice,
                         imageUrl: product.imageUrl,
                         stockQuantity: product.stockQuantity,
-                        // @ts-ignore
                         variantId: product.variantId 
                     }} 
                 />

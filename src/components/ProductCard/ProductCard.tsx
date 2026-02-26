@@ -14,14 +14,13 @@ const PixIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const ProductCard = ({ product }: ProductCardProps & { product: { variantId?: string } }) => {
+const ProductCard = ({ product }: ProductCardProps) => {
   const [isAdding, setIsAdding] = useState(false);
 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsAdding(true);
-    // @ts-ignore
     await addToCart(product.id, 1, 'product', product.variantId);
     setIsAdding(false);
   };
@@ -34,7 +33,6 @@ const ProductCard = ({ product }: ProductCardProps & { product: { variantId?: st
   const installmentValue = (fullPrice / 3).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const formattedPixPrice = pixPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-  // @ts-ignore
   const linkUrl = product.variantId ? `/produto/${product.id}?variant=${product.variantId}` : `/produto/${product.id}`;
   
   const isOutOfStock = product.stockQuantity !== undefined && product.stockQuantity <= 0;

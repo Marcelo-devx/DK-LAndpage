@@ -67,41 +67,31 @@ serve(async (req) => {
     }
 
     // --- PAYER DINÂMICO ---
-    let payerInfo;
+    const phone = (shipping_address.phone || '').replace(/\D/g, '');
+    const cpfCnpj = (shipping_address.cpf_cnpj || '').replace(/\D/g, '');
+
+    let payerInfo = {
+        first_name: shipping_address.first_name,
+        last_name: shipping_address.last_name,
+        email: user.email, // Default to user's real email
+        phone: {
+            area_code: phone.substring(0, 2),
+            number: phone.substring(2)
+        },
+        identification: {
+            type: cpfCnpj.length > 11 ? 'CNPJ' : 'CPF',
+            number: cpfCnpj
+        },
+        address: {
+            zip_code: (shipping_address.cep || '').replace(/\D/g, ''),
+            street_name: shipping_address.street,
+            street_number: parseInt(shipping_address.number) || 0
+        }
+    };
+
+    // If in test mode, ONLY override the email to a valid test user email.
     if (isTestMode) {
-        payerInfo = {
-            name: 'Test',
-            surname: 'User',
-            email: 'test_user_12345678@testuser.com',
-            phone: { area_code: '41', number: '999999999' },
-            identification: { type: 'CPF', number: '19119119100' },
-            address: {
-                zip_code: (shipping_address.cep || '').replace(/\D/g, ''),
-                street_name: shipping_address.street,
-                street_number: parseInt(shipping_address.number) || 0
-            }
-        };
-    } else {
-        const phone = (shipping_address.phone || '').replace(/\D/g, '');
-        const cpfCnpj = (shipping_address.cpf_cnpj || '').replace(/\D/g, '');
-        payerInfo = {
-            first_name: shipping_address.first_name,
-            last_name: shipping_address.last_name,
-            email: user.email,
-            phone: {
-                area_code: phone.substring(0, 2),
-                number: phone.substring(2)
-            },
-            identification: {
-                type: cpfCnpj.length > 11 ? 'CNPJ' : 'CPF',
-                number: cpfCnpj
-            },
-            address: {
-                zip_code: (shipping_address.cep || '').replace(/\D/g, ''),
-                street_name: shipping_address.street,
-                street_number: parseInt(shipping_address.number) || 0
-            }
-        };
+        payerInfo.email = 'test_user_12345678@testuser.com';
     }
     // --- FIM PAYER ---
 

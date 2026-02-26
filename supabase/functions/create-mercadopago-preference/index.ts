@@ -89,11 +89,16 @@ serve(async (req) => {
         }
     };
 
-    // If in test mode, override the name to force an approved status.
+    // If in test mode, override specific fields required by Sandbox docs
     if (isTestMode) {
         payerInfo.first_name = 'APRO';
-        payerInfo.last_name = 'TESTE'; // Keep a last name to avoid validation issues
-        // The email remains the user's real email as requested.
+        payerInfo.last_name = 'TESTE'; 
+        // Força o CPF mágico da documentação
+        payerInfo.identification = {
+            type: 'CPF',
+            number: '12345678909'
+        };
+        // O email continua sendo o real para você receber a notificação se o sistema disparar
     }
     // --- FIM PAYER ---
 

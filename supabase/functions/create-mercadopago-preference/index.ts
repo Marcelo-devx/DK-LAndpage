@@ -44,29 +44,7 @@ serve(async (req) => {
       })
     }
 
-    const { shipping_address, order_id, total_price, origin } = await req.json()
-    
-    let cleanedPhone = shipping_address.phone ? shipping_address.phone.replace(/\D/g, '') : '';
-    if (cleanedPhone.length < 10) cleanedPhone = '41999999999'; 
-    const areaCode = cleanedPhone.substring(0, 2);
-    const phoneNumber = cleanedPhone.substring(2);
-
-    const rawNumber = String(shipping_address.number || '');
-    const streetNumberStr = rawNumber.replace(/\D/g, ''); 
-    const streetNumber = streetNumberStr ? parseInt(streetNumberStr) : 123;
-
-    const payerEmail = "test_user_12345678@testuser.com";
-
-    let identification = { type: 'CPF', number: '19119119100' };
-    if (shipping_address.cpf_cnpj) {
-        const cleanDoc = shipping_address.cpf_cnpj.replace(/\D/g, '');
-        if (cleanDoc.length >= 11) {
-            identification = {
-                type: cleanDoc.length > 11 ? 'CNPJ' : 'CPF',
-                number: cleanDoc
-            };
-        }
-    }
+    const { order_id, total_price, origin } = await req.json()
 
     const preferencePayload = {
         items: [{
@@ -77,19 +55,22 @@ serve(async (req) => {
         }],
         external_reference: order_id.toString(),
         payer: {
-            name: shipping_address.first_name || 'Cliente',
-            surname: shipping_address.last_name || 'Teste',
-            email: payerEmail, 
+            name: "Test",
+            surname: "User",
+            email: "test_user_12345678@testuser.com",
             phone: {
-                area_code: areaCode,
-                number: phoneNumber,
+                area_code: "11",
+                number: "987654321"
+            },
+            identification: {
+                type: "CPF",
+                number: "19119119100"
             },
             address: {
-                zip_code: shipping_address.cep ? shipping_address.cep.replace(/\D/g, '') : '80000000',
-                street_name: shipping_address.street || 'Rua',
-                street_number: streetNumber,
-            },
-            identification: identification
+                zip_code: "01001000",
+                street_name: "Avenida Brasil",
+                street_number: 123
+            }
         },
         back_urls: {
             success: `${origin}/confirmacao-pedido/${order_id}`,

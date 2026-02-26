@@ -246,7 +246,6 @@ const CheckoutPage = () => {
             } 
         });
         
-        // Agora verificamos a propriedade 'error' dentro do corpo da resposta (porque status é 200)
         if (mpError || (mpData && mpData.error)) {
             console.error("Erro MP:", mpError || mpData);
             let errorMessage = "Erro ao conectar com o sistema de pagamento.";
@@ -257,13 +256,19 @@ const CheckoutPage = () => {
             throw new Error(errorMessage);
         }
 
-        if (!mpData || !mpData.init_point) {
+        if (!mpData || (!mpData.init_point && !mpData.sandbox_init_point)) {
             throw new Error("O Mercado Pago não retornou o link de pagamento.");
         }
 
         clearLocalCart(); 
         dismissToast(toastId);
-        window.location.href = mpData.init_point;
+        
+        const redirectUrl = import.meta.env.DEV ? mpData.sandbox_init_point : mpData.init_point;
+        if (redirectUrl) {
+          window.location.href = redirectUrl;
+        } else {
+          throw new Error("Link de pagamento não gerado para este ambiente.");
+        }
       }
     } catch (e: any) { 
       dismissToast(toastId); 

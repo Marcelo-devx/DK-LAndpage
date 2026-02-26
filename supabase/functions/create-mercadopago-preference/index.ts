@@ -19,8 +19,8 @@ serve(async (req) => {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL') as string;
     // @ts-ignore
     const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') as string;
-    
-    const MERCADOPAGO_ACCESS_TOKEN = "TEST-1799281998002801-080117-9c18349cb20217961ce8deb967dddb93-1096282589";
+    // @ts-ignore
+    const MERCADOPAGO_ACCESS_TOKEN = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') as string;
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
@@ -55,7 +55,7 @@ serve(async (req) => {
     const streetNumberStr = rawNumber.replace(/\D/g, ''); 
     const streetNumber = streetNumberStr ? parseInt(streetNumberStr) : 123;
 
-    const payerEmail = `test_user_${Math.floor(Math.random() * 1000000)}@test.com`;
+    const payerEmail = user.email || `test_user_${Math.floor(Math.random() * 1000000)}@test.com`;
 
     let identification = { type: 'CPF', number: '19119119100' };
     if (shipping_address.cpf_cnpj) {

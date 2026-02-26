@@ -29,6 +29,8 @@ serve(async (req) => {
 
   // @ts-ignore
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL') as string;
+  // @ts-ignore
+  const MERCADOPAGO_ACCESS_TOKEN = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') as string;
 
   try {
     if (req.method === 'POST') {
@@ -37,10 +39,6 @@ serve(async (req) => {
       const resourceId = body.data?.id || body.id;
 
       if (topic === 'payment' && resourceId) {
-        // --- AJUSTE TEMPORÁRIO ---
-        // Chave de TESTE hardcoded para validar o pagamento fictício
-        const MERCADOPAGO_ACCESS_TOKEN = "TEST-1799281998002801-080117-9c18349cb20217961ce8deb967dddb93-1096282589";
-        
         const paymentResponse = await fetch(`https://api.mercadopago.com/v1/payments/${resourceId}`, {
             headers: { 'Authorization': `Bearer ${MERCADOPAGO_ACCESS_TOKEN}` },
         });

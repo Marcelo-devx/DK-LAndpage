@@ -94,8 +94,7 @@ const ConfirmacaoPedido = () => {
   const isPix = order.payment_method?.toLowerCase().includes('pix');
   const { shipping_address: addr } = order;
 
-  // Cálculo total: Preço dos Produtos + Frete + Doação
-  const finalTotal = Number(order.total_price) + Number(order.shipping_cost) + Number(order.donation_amount || 0);
+  const finalTotal = (Number(order.total_price) || 0) + (Number(order.shipping_cost) || 0) + (Number(order.donation_amount) || 0);
 
   return (
     <div className="bg-off-white min-h-screen py-12 md:py-20 text-charcoal-gray">
@@ -181,7 +180,7 @@ const ConfirmacaoPedido = () => {
                         <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest">Qtd: {item.quantity}</p>
                       </div>
                     </div>
-                    <p className="text-sky-600 font-black tracking-tighter">R$ {(item.price_at_purchase * item.quantity).toFixed(2).replace('.', ',')}</p>
+                    <p className="text-sky-600 font-black tracking-tighter">R$ {((item.price_at_purchase || 0) * (item.quantity || 1)).toFixed(2).replace('.', ',')}</p>
                   </div>
                 ))}
               </div>
@@ -192,7 +191,7 @@ const ConfirmacaoPedido = () => {
             <div className="space-y-3 bg-stone-50 p-6 rounded-2xl border border-stone-100">
               <div className="flex justify-between text-stone-500 text-sm font-medium">
                 <p>Subtotal</p>
-                <p>R$ {order.total_price.toFixed(2).replace('.', ',')}</p>
+                <p>R$ {(order.total_price || 0).toFixed(2).replace('.', ',')}</p>
               </div>
               <div className="flex justify-between text-stone-500 text-sm font-medium">
                 <p>Frete Especial</p>
@@ -204,12 +203,12 @@ const ConfirmacaoPedido = () => {
                     <Heart className="h-3.5 w-3.5 fill-current" />
                     <span>Doação Solidária</span>
                   </div>
-                  <p>+ R$ {Number(order.donation_amount).toFixed(2).replace('.', ',')}</p>
+                  <p>+ R$ {(Number(order.donation_amount) || 0).toFixed(2).replace('.', ',')}</p>
                 </div>
               )}
               <div className="flex justify-between font-black text-3xl pt-4 border-t border-stone-200 mt-2 text-charcoal-gray tracking-tighter italic uppercase">
                 <p>Total</p>
-                <p className="text-sky-600">R$ {finalTotal.toFixed(2).replace('.', ',')}</p>
+                <p className="text-sky-600">R$ {(finalTotal || 0).toFixed(2).replace('.', ',')}</p>
               </div>
             </div>
 

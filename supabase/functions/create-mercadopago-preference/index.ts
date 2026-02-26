@@ -9,14 +9,11 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // Tratamento de CORS (Preflight)
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    console.log("[MercadoPago] Iniciando função create-mercadopago-preference...");
-
     // 1. Recuperação Segura das Variáveis de Ambiente
     // @ts-ignore
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL') as string;
@@ -25,66 +22,42 @@ serve(async (req) => {
     // @ts-ignore
     const RAW_MP_TOKEN = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') as string;
 
-    // 2. Validação e Limpeza do Token
     if (!RAW_MP_TOKEN) {
-        console.error("Erro Crítico: Variável MERCADOPAGO_ACCESS_TOKEN não encontrada nos Secrets.");
-        throw new Error("Configuração de pagamento ausente no servidor (Secret não definida).");
+        throw new Error("Configuração de pagamento ausente no servidor.");
     }
 
-    const MP_TOKEN = RAW_MP_TOKEN.trim(); // Remove espaços acidentais
+    const MP_TOKEN = RAW_MP_TOKEN.trim(); 
     const IS_SANDBOX = MP_TOKEN.startsWith('TEST-');
 
-    console.log(`[MercadoPago] Ambiente Detectado: ${IS_SANDBOX ? 'SANDBOX (TESTE)' : 'PRODUÇÃO (REAL)'}`);
+    console.log(`[MercadoPago] Ambiente: ${IS_SANDBOX ? 'SANDBOX' : 'PRODUÇÃO'}. Redirecionamento automático DESATIVADO.`);
 
-    // 3. Inicialização do Cliente Supabase
     const authHeader = req.headers.get('Authorization');
     const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { 
         global: { headers: { 'Authorization': authHeader || '' } } 
     });
     
-    // Recupera e-mail do usuário logado para segurança
     let userEmail = 'cliente@email.com';
     const { data: { user } } = await supabaseClient.auth.getUser();
     if (user && user.email) userEmail = user.email;
 
-    // 4. Parse do Payload do Frontend
     const { order_id, total_price, origin, shipping_address } = await req.json();
 
     if (!shipping_address || !order_id || !total_price) {
-        throw new Error('Dados do pedido incompletos para processamento.');
+        throw new Error('Dados do pedido incompletos.');
     }
 
-    // 5. Configuração do Payer (Pagador)
     let payerInfo;
 
     if (IS_SANDBOX) {
-        // --- MODO SANDBOX ---
-        // O Mercado Pago REJEITA transações em Sandbox se usarmos e-mails reais ou dados inválidos para teste.
-        // Usamos um "Comprador de Teste" padronizado para garantir que a tela de pagamento abra.
-        console.log("[MercadoPago] Usando dados de Payer Mock (Requisito Sandbox)");
         payerInfo = {
             name: "Test",
             surname: "User",
-            email: "test_user_123456@testuser.com", // Email mágico que o MP aceita sempre
-            phone: {
-                area_code: "11",
-                number: "988888888"
-            },
-            identification: {
-                type: "CPF",
-                number: "19119119100" // CPF válido de teste
-            },
-            address: {
-                zip_code: "01001000",
-                street_name: "Rua de Teste Sandbox",
-                street_number: 123
-            }
+            email: "test_user_123456@testuser.com",
+            phone: { area_code: "11", number: "988888888" },
+            identification: { type: "CPF", number: "19119119100" },
+            address: { zip_code: "01001000", street_name: "Rua de Teste", street_number: 123 }
         };
     } else {
-        // --- MODO PRODUÇÃO ---
-        // Usamos os dados REAIS preenchidos pelo cliente no checkout.
-        console.log("[MercadoPago] Usando dados Reais do Cliente");
-        
         const cleanPhone = (shipping_address.phone || '').replace(/\D/g, '');
         const cleanCpf = (shipping_address.cpf_cnpj || '').replace(/\D/g, '');
         const cleanCep = (shipping_address.cep || '').replace(/\D/g, '');
@@ -109,7 +82,7 @@ serve(async (req) => {
         };
     }
 
-    // 6. Montagem da Preferência
+    // 6. Montagem da Preferência SIMPLIFICADA (Sem Redirect)
     const preferencePayload = {
         items: [{
             id: order_id.toString(),
@@ -120,19 +93,14 @@ serve(async (req) => {
         }],
         external_reference: order_id.toString(),
         payer: payerInfo,
-        back_urls: {
-            success: `${origin}/confirmacao-pedido/${order_id}`,
-            failure: `${origin}/confirmacao-pedido/${order_id}`,
-            pending: `${origin}/confirmacao-pedido/${order_id}`,
-        },
-        auto_return: "approved",
-        notification_url: `${SUPABASE_URL}/functions/v1/mercadopago-webhook`, // Webhook para atualização de status
+        // REDIRECIONAMENTO REMOVIDO PARA TESTE DE ESTABILIDADE
+        // back_urls: { ... },
+        // auto_return: "approved",
+        notification_url: `${SUPABASE_URL}/functions/v1/mercadopago-webhook`, 
         statement_descriptor: "DKCWB",
-        binary_mode: IS_SANDBOX // Em Sandbox, forçamos aprovação binária para facilitar testes
+        binary_mode: IS_SANDBOX
     };
 
-    // 7. Chamada à API do Mercado Pago
-    console.log("[MercadoPago] Enviando requisição para API...");
     const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
         method: 'POST',
         headers: {
@@ -153,9 +121,6 @@ serve(async (req) => {
         })
     }
 
-    console.log("[MercadoPago] Preferência criada com sucesso!");
-
-    // 8. Sucesso
     return new Response(JSON.stringify({
         success: true,
         order_id: order_id,

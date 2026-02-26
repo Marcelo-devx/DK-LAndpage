@@ -14,54 +14,56 @@ serve(async (req) => {
   }
 
   try {
+    // 1. Recuperação Segura das Variáveis de Ambiente
     // @ts-ignore
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL') as string;
     // @ts-ignore
     const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') as string;
-    
-    // --- CHAVE FORÇADA PARA DEBUG (Remova isso ao ir para produção) ---
-    const HARDCODED_TOKEN = "TEST-1799281998002801-080117-9c18349cb20217961ce8deb967dddb93-1096282589";
-    
     // @ts-ignore
-    const envToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN');
-    
-    // Prioridade: Hardcoded > Env Var
-    const token = HARDCODED_TOKEN || envToken;
+    const RAW_MP_TOKEN = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') as string;
 
-    if (!token) {
-        throw new Error("Nenhuma chave do Mercado Pago encontrada.");
+    // 2. Validação e Limpeza do Token
+    if (!RAW_MP_TOKEN) {
+        console.error("Erro Crítico: Variável MERCADOPAGO_ACCESS_TOKEN não encontrada nos Secrets.");
+        throw new Error("Configuração de pagamento ausente no servidor.");
     }
 
-    // Limpeza e Detecção
-    const cleanToken = token.trim();
-    const isTestToken = cleanToken.startsWith('TEST-');
-    
-    console.log(`[MercadoPago] Usando token (final): ${cleanToken.substring(0, 10)}...`);
-    console.log(`[MercadoPago] Modo Sandbox Ativo: ${isTestToken}`);
+    const MP_TOKEN = RAW_MP_TOKEN.trim(); // Remove espaços acidentais
+    const IS_SANDBOX = MP_TOKEN.startsWith('TEST-');
 
+    console.log(`[MercadoPago] Inicializando preferência.`);
+    console.log(`[MercadoPago] Ambiente: ${IS_SANDBOX ? 'SANDBOX (TESTE)' : 'PRODUÇÃO (REAL)'}`);
+
+    // 3. Inicialização do Cliente Supabase
     const authHeader = req.headers.get('Authorization');
-    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { global: { headers: { 'Authorization': authHeader || '' } } });
+    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { 
+        global: { headers: { 'Authorization': authHeader || '' } } 
+    });
     
+    // Recupera e-mail do usuário logado para segurança
     let userEmail = 'cliente@email.com';
     const { data: { user } } = await supabaseClient.auth.getUser();
-    if (user) userEmail = user.email || userEmail;
+    if (user && user.email) userEmail = user.email;
 
+    // 4. Parse do Payload do Frontend
     const { order_id, total_price, origin, shipping_address } = await req.json();
 
     if (!shipping_address || !order_id || !total_price) {
-        throw new Error('Dados do pedido incompletos.');
+        throw new Error('Dados do pedido incompletos para processamento.');
     }
 
-    // Configuração do Payer (Pagador)
+    // 5. Configuração do Payer (Pagador)
     let payerInfo;
 
-    if (isTestToken) {
-        // MODO SANDBOX: Usamos dados fictícios aceitos pelo MP para evitar rejeição de validação
-        console.log("[MercadoPago] Configurando Payer com dados de TESTE (Mock)");
+    if (IS_SANDBOX) {
+        // --- MODO SANDBOX ---
+        // O Mercado Pago REJEITA transações em Sandbox se usarmos e-mails reais ou dados inválidos para teste.
+        // Usamos um "Comprador de Teste" padronizado para garantir que a tela de pagamento abra.
+        console.log("[MercadoPago] Usando dados de Payer Mock (Sandbox Requirement)");
         payerInfo = {
             name: "Test",
             surname: "User",
-            email: "test_user_123456@testuser.com", // Email especial que o MP aceita sempre
+            email: "test_user_123456@testuser.com", // Email mágico que o MP aceita sempre
             phone: {
                 area_code: "11",
                 number: "988888888"
@@ -72,36 +74,40 @@ serve(async (req) => {
             },
             address: {
                 zip_code: "01001000",
-                street_name: "Rua de Teste",
+                street_name: "Rua de Teste Sandbox",
                 street_number: 123
             }
         };
     } else {
-        // MODO PRODUÇÃO: Usamos os dados reais do formulário
-        console.log("[MercadoPago] Configurando Payer com dados REAIS");
-        const phone = (shipping_address.phone || '').replace(/\D/g, '');
-        const cpfCnpj = (shipping_address.cpf_cnpj || '').replace(/\D/g, '');
+        // --- MODO PRODUÇÃO ---
+        // Usamos os dados REAIS preenchidos pelo cliente no checkout.
+        console.log("[MercadoPago] Usando dados Reais do Cliente");
+        
+        const cleanPhone = (shipping_address.phone || '').replace(/\D/g, '');
+        const cleanCpf = (shipping_address.cpf_cnpj || '').replace(/\D/g, '');
+        const cleanCep = (shipping_address.cep || '').replace(/\D/g, '');
         
         payerInfo = {
             name: shipping_address.first_name,
             surname: shipping_address.last_name,
             email: userEmail,
             phone: {
-                area_code: phone.substring(0, 2),
-                number: phone.substring(2)
+                area_code: cleanPhone.substring(0, 2),
+                number: cleanPhone.substring(2)
             },
             identification: {
-                type: cpfCnpj.length > 11 ? 'CNPJ' : 'CPF',
-                number: cpfCnpj
+                type: cleanCpf.length > 11 ? 'CNPJ' : 'CPF',
+                number: cleanCpf
             },
             address: {
-                zip_code: (shipping_address.cep || '').replace(/\D/g, ''),
+                zip_code: cleanCep,
                 street_name: shipping_address.street,
                 street_number: parseInt(shipping_address.number) || 0
             }
         };
     }
 
+    // 6. Montagem da Preferência
     const preferencePayload = {
         items: [{
             id: order_id.toString(),
@@ -118,16 +124,16 @@ serve(async (req) => {
             pending: `${origin}/confirmacao-pedido/${order_id}`,
         },
         auto_return: "approved",
-        notification_url: `${SUPABASE_URL}/functions/v1/mercadopago-webhook`,
-        statement_descriptor: "DKCWB"
+        notification_url: `${SUPABASE_URL}/functions/v1/mercadopago-webhook`, // Webhook para atualização de status
+        statement_descriptor: "DKCWB",
+        binary_mode: IS_SANDBOX // Em Sandbox, forçamos aprovação binária para facilitar testes
     };
 
-    console.log("[MercadoPago] Enviando Payload de Preferência...");
-
+    // 7. Chamada à API do Mercado Pago
     const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${cleanToken}`,
+            'Authorization': `Bearer ${MP_TOKEN}`,
             'Content-Type': 'application/json',
         },
         body: JSON.stringify(preferencePayload),
@@ -136,16 +142,15 @@ serve(async (req) => {
     const mpData = await mpResponse.json();
 
     if (!mpResponse.ok) {
-        console.error("Mercado Pago Response ERROR:", JSON.stringify(mpData));
-        const errorMsg = mpData.message || 'Erro desconhecido do Mercado Pago';
+        console.error("Mercado Pago API Error:", JSON.stringify(mpData));
+        const errorMsg = mpData.message || 'Erro desconhecido ao criar preferência';
         return new Response(JSON.stringify({ error: `Mercado Pago recusou: ${errorMsg}` }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: mpResponse.status, // Retorna o status real (400, 401, etc)
+            status: mpResponse.status, // Repassa o status real (400, 401, etc)
         })
     }
 
-    console.log("[MercadoPago] Sucesso! Init Point:", mpData.init_point);
-
+    // 8. Sucesso
     return new Response(JSON.stringify({
         success: true,
         order_id: order_id,

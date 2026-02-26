@@ -209,8 +209,7 @@ const CheckoutPage = () => {
     setIsSubmitting(true);
     const toastId = showLoading("Processando...");
     try {
-      // 1. Atualizar Perfil (Limpar dados antes)
-      // REMOVIDO payment_method do objeto enviado ao perfil
+      // 1. Atualizar Perfil
       const { payment_method, ...profileData } = data;
       const addrForProfile = { 
         ...profileData, 
@@ -218,12 +217,7 @@ const CheckoutPage = () => {
         cep: data.cep.replace(/\D/g, '') 
       };
       
-      const { error: profileError } = await supabase.from('profiles').update(addrForProfile).eq('id', user.id);
-      
-      if (profileError) {
-        console.error("Erro ao atualizar perfil:", profileError);
-        // Não lançar erro aqui para não travar o fluxo se for algo menor, mas idealmente deveria tratar.
-      }
+      await supabase.from('profiles').update(addrForProfile).eq('id', user.id);
 
       // 2. Criar Pedido
       const bStrings = [...tierBenefits.filter(isPassiveBenefit), ...selectedBenefits];
@@ -243,37 +237,37 @@ const CheckoutPage = () => {
         navigate(`/confirmacao-pedido/${o.new_order_id}`); 
       } else {
         // 3. Criar Preferência MP
-        const { data: mp, error: mpError } = await supabase.functions.invoke('create-mercadopago-preference', { 
+        const { data: mpData, error: mpError } = await supabase.functions.invoke('create-mercadopago-preference', { 
             body: { 
-                shipping_address: { ...addrForProfile, cpf_cnpj: userCpfCnpj }, // Adicionado CPF
+                shipping_address: { ...addrForProfile, cpf_cnpj: userCpfCnpj },
                 order_id: o.new_order_id, 
                 total_price: o.final_price,
                 origin: window.location.origin
             } 
         });
         
-        if (mpError || !mp || !mp.init_point) {
-            console.error("Erro MP:", mpError || mp);
+        // Agora verificamos a propriedade 'error' dentro do corpo da resposta (porque status é 200)
+        if (mpError || (mpData && mpData.error)) {
+            console.error("Erro MP:", mpError || mpData);
             let errorMessage = "Erro ao conectar com o sistema de pagamento.";
             
-            if (mp && mp.error) errorMessage = mp.error;
-            else if (mpError && mpError.message) {
-                try {
-                    const parsed = JSON.parse(mpError.message);
-                    if (parsed.error) errorMessage = parsed.error;
-                } catch {
-                    errorMessage = mpError.message;
-                }
-            }
+            if (mpData && mpData.error) errorMessage = mpData.error;
+            else if (mpError) errorMessage = mpError.message;
+
             throw new Error(errorMessage);
+        }
+
+        if (!mpData || !mpData.init_point) {
+            throw new Error("O Mercado Pago não retornou o link de pagamento.");
         }
 
         clearLocalCart(); 
         dismissToast(toastId);
-        window.location.href = mp.init_point;
+        window.location.href = mpData.init_point;
       }
     } catch (e: any) { 
       dismissToast(toastId); 
+      console.error("Erro Checkout:", e);
       showError(e.message || "Erro no checkout."); 
     } finally { 
       setIsSubmitting(false); 

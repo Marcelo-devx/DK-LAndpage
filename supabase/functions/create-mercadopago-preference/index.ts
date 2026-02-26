@@ -20,68 +20,53 @@ serve(async (req) => {
     // @ts-ignore
     const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') as string;
     
-    // Token de Teste do Mercado Pago
     const MERCADOPAGO_ACCESS_TOKEN = "TEST-1799281998002801-080117-9c18349cb20217961ce8deb967dddb93-1096282589";
 
-    // Verificar se o Header Authorization existe
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
         return new Response(JSON.stringify({ error: 'Missing Authorization header' }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 401,
+            status: 200, // Retorna 200 para evitar quebra no cliente, mas com erro no corpo
         })
     }
 
     const supabaseClient = createClient(
       SUPABASE_URL,
       SUPABASE_ANON_KEY,
-      {
-        global: {
-          headers: { 'Authorization': authHeader },
-        },
-      }
+      { global: { headers: { 'Authorization': authHeader } } }
     )
 
     const { data: { user } } = await supabaseClient.auth.getUser()
     if (!user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      return new Response(JSON.stringify({ error: 'Sessão expirada. Faça login novamente.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 401,
+        status: 200,
       })
     }
 
     const { shipping_address, order_id, total_price, origin } = await req.json()
     
-    // Tratamento Robusto de Dados para o Mercado Pago
+    // --- Tratamento de Dados ---
     
-    // 1. Telefone: Mercado Pago exige area_code e number separados
+    // Telefone
     let cleanedPhone = shipping_address.phone ? shipping_address.phone.replace(/\D/g, '') : '';
-    // Fallback se o telefone for inválido
     if (cleanedPhone.length < 10) cleanedPhone = '41999999999'; 
-    
-    // Pega o DDD (2 dígitos) e o resto
     const areaCode = cleanedPhone.substring(0, 2);
     const phoneNumber = cleanedPhone.substring(2);
 
-    // 2. Número do Endereço: Deve ser um INTEIRO válido
+    // Endereço
     const rawNumber = String(shipping_address.number || '');
-    // Extrai apenas dígitos. Se não tiver dígitos (ex: "S/N"), usa 0.
     const streetNumberStr = rawNumber.replace(/\D/g, ''); 
-    const streetNumber = streetNumberStr ? parseInt(streetNumberStr) : 0;
+    const streetNumber = streetNumberStr ? parseInt(streetNumberStr) : 123; // Fallback para 123 se não tiver número
 
-    // 3. E-mail do Pagador:
-    // Em Sandbox, o e-mail do pagador NÃO pode ser o mesmo do vendedor.
-    // Usamos um e-mail aleatório para garantir que a tela de pagamento abra.
+    // E-mail Sandbox
     const payerEmail = `test_user_${Math.floor(Math.random() * 1000000)}@test.com`;
 
-    // 4. URL de Retorno
-    const frontUrl = origin || 'https://dkcwb.com';
-
-    // 5. CPF/CNPJ (Se enviado)
-    let identification = undefined;
+    // CPF/CNPJ (Com Fallback para Sandbox)
+    let identification = { type: 'CPF', number: '19119119100' }; // CPF Genérico de Teste
     if (shipping_address.cpf_cnpj) {
         const cleanDoc = shipping_address.cpf_cnpj.replace(/\D/g, '');
-        if (cleanDoc) {
+        if (cleanDoc.length >= 11) {
             identification = {
                 type: cleanDoc.length > 11 ? 'CNPJ' : 'CPF',
                 number: cleanDoc
@@ -113,18 +98,18 @@ serve(async (req) => {
             identification: identification
         },
         back_urls: {
-            success: `${frontUrl}/confirmacao-pedido/${order_id}`,
-            failure: `${frontUrl}/confirmacao-pedido/${order_id}`,
-            pending: `${frontUrl}/confirmacao-pedido/${order_id}`,
+            success: `${origin}/confirmacao-pedido/${order_id}`,
+            failure: `${origin}/confirmacao-pedido/${order_id}`,
+            pending: `${origin}/confirmacao-pedido/${order_id}`,
         },
         auto_return: "approved",
         notification_url: `${SUPABASE_URL}/functions/v1/mercadopago-webhook`,
         payment_methods: {
-            excluded_payment_types: [{ id: "ticket" }] // Desabilita boleto
+            excluded_payment_types: [{ id: "ticket" }]
         }
     };
 
-    console.log("[create-mercadopago-preference] Payload enviado:", JSON.stringify(preferencePayload));
+    console.log("[create-mercadopago-preference] Enviando:", JSON.stringify(preferencePayload));
 
     const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
         method: 'POST',
@@ -138,30 +123,30 @@ serve(async (req) => {
     const mpData = await mpResponse.json();
 
     if (!mpResponse.ok) {
-        console.error("[create-mercadopago-preference] MP Error Response:", mpData);
-        return new Response(JSON.stringify({ 
-            error: mpData.message || 'Erro ao criar preferência no Mercado Pago',
-            details: mpData 
-        }), {
+        console.error("[create-mercadopago-preference] Erro MP:", mpData);
+        // Retorna o erro detalhado do MP
+        const errorMsg = mpData.message || (mpData.cause && mpData.cause[0] && mpData.cause[0].description) || 'Erro desconhecido no Mercado Pago';
+        return new Response(JSON.stringify({ error: `Mercado Pago recusou: ${errorMsg}`, details: mpData }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 400, // Retorna 400 para o cliente tratar
+            status: 200,
         })
     }
 
     return new Response(JSON.stringify({
+        success: true,
         order_id: order_id,
         init_point: mpData.init_point, 
-        sandbox_init_point: mpData.sandbox_init_point // Útil se quiser forçar sandbox
+        sandbox_init_point: mpData.sandbox_init_point
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     })
 
   } catch (error) {
-    console.error("[create-mercadopago-preference] Global Error:", error)
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error("[create-mercadopago-preference] Erro Fatal:", error)
+    return new Response(JSON.stringify({ error: `Erro Interno: ${error.message}` }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
+      status: 200, // Retorna 200 para o cliente tratar
     })
   }
 })

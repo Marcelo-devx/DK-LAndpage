@@ -89,9 +89,11 @@ serve(async (req) => {
         }
     };
 
-    // If in test mode, override the email to force an approved status.
+    // If in test mode, override email AND name to force an approved status.
     if (isTestMode) {
         payerInfo.email = 'test_user_123456_APRO@testuser.com';
+        payerInfo.first_name = 'TESTE';
+        payerInfo.last_name = 'TESTE';
     }
     // --- FIM PAYER ---
 

@@ -26,7 +26,7 @@ serve(async (req) => {
     if (!authHeader) {
         return new Response(JSON.stringify({ error: 'Missing Authorization header' }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200, // Retorna 200 para evitar quebra no cliente, mas com erro no corpo
+            status: 200,
         })
     }
 
@@ -46,24 +46,18 @@ serve(async (req) => {
 
     const { shipping_address, order_id, total_price, origin } = await req.json()
     
-    // --- Tratamento de Dados ---
-    
-    // Telefone
     let cleanedPhone = shipping_address.phone ? shipping_address.phone.replace(/\D/g, '') : '';
     if (cleanedPhone.length < 10) cleanedPhone = '41999999999'; 
     const areaCode = cleanedPhone.substring(0, 2);
     const phoneNumber = cleanedPhone.substring(2);
 
-    // Endereço
     const rawNumber = String(shipping_address.number || '');
     const streetNumberStr = rawNumber.replace(/\D/g, ''); 
-    const streetNumber = streetNumberStr ? parseInt(streetNumberStr) : 123; // Fallback para 123 se não tiver número
+    const streetNumber = streetNumberStr ? parseInt(streetNumberStr) : 123;
 
-    // E-mail Sandbox
     const payerEmail = `test_user_${Math.floor(Math.random() * 1000000)}@test.com`;
 
-    // CPF/CNPJ (Com Fallback para Sandbox)
-    let identification = { type: 'CPF', number: '19119119100' }; // CPF Genérico de Teste
+    let identification = { type: 'CPF', number: '19119119100' };
     if (shipping_address.cpf_cnpj) {
         const cleanDoc = shipping_address.cpf_cnpj.replace(/\D/g, '');
         if (cleanDoc.length >= 11) {
@@ -109,8 +103,6 @@ serve(async (req) => {
         }
     };
 
-    console.log("[create-mercadopago-preference] Enviando:", JSON.stringify(preferencePayload));
-
     const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
         method: 'POST',
         headers: {
@@ -123,8 +115,6 @@ serve(async (req) => {
     const mpData = await mpResponse.json();
 
     if (!mpResponse.ok) {
-        console.error("[create-mercadopago-preference] Erro MP:", mpData);
-        // Retorna o erro detalhado do MP
         const errorMsg = mpData.message || (mpData.cause && mpData.cause[0] && mpData.cause[0].description) || 'Erro desconhecido no Mercado Pago';
         return new Response(JSON.stringify({ error: `Mercado Pago recusou: ${errorMsg}`, details: mpData }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -143,10 +133,9 @@ serve(async (req) => {
     })
 
   } catch (error) {
-    console.error("[create-mercadopago-preference] Erro Fatal:", error)
     return new Response(JSON.stringify({ error: `Erro Interno: ${error.message}` }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200, // Retorna 200 para o cliente tratar
+      status: 200,
     })
   }
 })

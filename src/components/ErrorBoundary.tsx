@@ -22,7 +22,33 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("Uncaught error:", error, errorInfo);
+    console.error("Uncaught error, attempting automatic recovery:", error, errorInfo);
+
+    // Loop prevention: if we've already tried to recover in this session, show the error screen.
+    if (sessionStorage.getItem('recovery_attempted')) {
+      console.error("Automatic recovery failed. Displaying error boundary.");
+      sessionStorage.removeItem('recovery_attempted'); // Clear for next manual attempt
+      return;
+    }
+
+    try {
+      // Set flag to prevent infinite loops
+      sessionStorage.setItem('recovery_attempted', 'true');
+
+      // Perform the reset, but keep sessionStorage for the flag
+      localStorage.clear();
+      document.cookie.split(";").forEach((c) => {
+        document.cookie = c
+          .replace(/^ +/, "")
+          .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+      });
+
+      // Reload the page to apply the fix
+      window.location.reload();
+    } catch (e) {
+      console.error("Failed to perform automatic recovery:", e);
+      // If recovery itself fails, fall back to showing the error boundary
+    }
   }
 
   private handleReset = () => {

@@ -29,16 +29,23 @@ serve(async (req) => {
     const MP_TOKEN = RAW_MP_TOKEN.trim(); 
     const IS_SANDBOX = MP_TOKEN.startsWith('TEST-');
 
-    console.log(`[MercadoPago] Ambiente: ${IS_SANDBOX ? 'SANDBOX' : 'PRODUÇÃO'}. Redirecionamento automático DESATIVADO.`);
-
+    // 2. Autenticação e Recuperação de E-mail (MAIS RIGOROSO)
     const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+        throw new Error("Autenticação do usuário ausente. Não é possível processar o pagamento.");
+    }
+
     const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { 
-        global: { headers: { 'Authorization': authHeader || '' } } 
+        global: { headers: { 'Authorization': authHeader } } 
     });
     
-    let userEmail = 'cliente@email.com';
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    if (user && user.email) userEmail = user.email;
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+
+    if (userError || !user || !user.email) {
+        console.error("Falha ao obter usuário autenticado para o pagamento:", userError);
+        throw new Error("Não foi possível identificar o e-mail do usuário autenticado. Faça login novamente.");
+    }
+    const userEmail = user.email; // Agora temos certeza que o e-mail existe.
 
     const { order_id, total_price, origin, shipping_address } = await req.json();
 
@@ -65,7 +72,7 @@ serve(async (req) => {
         payerInfo = {
             name: shipping_address.first_name,
             surname: shipping_address.last_name,
-            email: userEmail,
+            email: userEmail, // Usando o e-mail real obtido
             phone: {
                 area_code: cleanPhone.substring(0, 2),
                 number: cleanPhone.substring(2)
@@ -82,7 +89,6 @@ serve(async (req) => {
         };
     }
 
-    // 6. Montagem da Preferência SIMPLIFICADA (Sem Redirect)
     const preferencePayload = {
         items: [{
             id: order_id.toString(),
@@ -93,9 +99,6 @@ serve(async (req) => {
         }],
         external_reference: order_id.toString(),
         payer: payerInfo,
-        // REDIRECIONAMENTO REMOVIDO PARA TESTE DE ESTABILIDADE
-        // back_urls: { ... },
-        // auto_return: "approved",
         notification_url: `${SUPABASE_URL}/functions/v1/mercadopago-webhook`, 
         statement_descriptor: "DKCWB",
         binary_mode: IS_SANDBOX

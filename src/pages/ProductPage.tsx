@@ -41,8 +41,7 @@ const PixIcon = ({ className }: { className?: string }) => (
 
 const ProductPage = () => {
   const { id } = useParams<{ id: string }>();
-  const [searchParams] = useSearchParams();
-  const preSelectedVariantId = searchParams.get('variant');
+  const [searchParams, setSearchParams] = useSearchParams();
   
   const navigate = useNavigate();
   const [product, setProduct] = useState<Product | null>(null);
@@ -89,11 +88,6 @@ const ProductPage = () => {
         });
 
         setVariants(mappedVariants as any);
-        
-        const variantToSelect = mappedVariants.find(v => v.id === preSelectedVariantId) || mappedVariants.find(v => v.stock_quantity > 0);
-        if (variantToSelect) {
-            setSelectedVariant(variantToSelect as any);
-        }
       }
 
       setLoading(false);
@@ -101,11 +95,21 @@ const ProductPage = () => {
 
     fetchProductData();
     window.scrollTo(0, 0);
-  }, [id, preSelectedVariantId]);
+  }, [id]);
+
+  useEffect(() => {
+    if (variants.length > 0) {
+      const preSelectedVariantId = searchParams.get('variant');
+      const variantToSelect = variants.find(v => v.id === preSelectedVariantId) || variants.find(v => v.stock_quantity > 0) || variants[0];
+      if (variantToSelect) {
+        setSelectedVariant(variantToSelect);
+      }
+    }
+  }, [variants, searchParams]);
 
   const handleVariantSelect = (variant: Variant) => {
     setSelectedVariant(variant);
-    navigate(`/produto/${id}?variant=${variant.id}`, { replace: true });
+    setSearchParams({ variant: variant.id }, { replace: true });
   };
 
   const handleAddToCart = async () => {

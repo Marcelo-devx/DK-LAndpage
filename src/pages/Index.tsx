@@ -36,24 +36,67 @@ const Index = () => {
       try {
         setLoadingProducts(true);
         
-        // Buscas em paralelo com tratamento de erro individual ou preventivo
+        const fetchProductsWithVariants = async (queryBuilder: any) => {
+          const { data: parentProducts, error } = await queryBuilder;
+          if (error) throw error;
+          if (!parentProducts || parentProducts.length === 0) return [];
+
+          const productIds = parentProducts.map((p: any) => p.id);
+
+          const { data: variants } = await supabase
+            .from('product_variants')
+            .select('id, product_id, price, pix_price, stock_quantity, flavors(name)')
+            .in('product_id', productIds)
+            .eq('is_active', true)
+            .gt('stock_quantity', 0);
+
+          let finalDisplayList: any[] = [];
+          parentProducts.forEach((prod: any) => {
+            const prodVariants = variants?.filter((v: any) => v.product_id === prod.id) || [];
+            if (prodVariants.length > 0) {
+              prodVariants.forEach((v: any) => {
+                const flavorName = (v.flavors as any)?.name;
+                const displayName = flavorName ? `${prod.name} - ${flavorName}` : prod.name;
+                finalDisplayList.push({
+                  id: prod.id,
+                  variantId: v.id,
+                  name: displayName,
+                  price: v.price,
+                  pixPrice: v.pix_price,
+                  imageUrl: prod.image_url || '',
+                  stockQuantity: v.stock_quantity,
+                });
+              });
+            } else {
+              finalDisplayList.push({
+                id: prod.id,
+                name: prod.name,
+                price: prod.price,
+                pixPrice: prod.pix_price,
+                imageUrl: prod.image_url || '',
+                stockQuantity: prod.stock_quantity,
+              });
+            }
+          });
+          return finalDisplayList;
+        };
+
         const [products, hero, promos, brandsData, categoriesData, featured, popups] = await Promise.all([
-          supabase.from('products').select('*').eq('is_visible', true).gt('stock_quantity', 0).order('created_at', { ascending: false }).limit(12),
+          fetchProductsWithVariants(supabase.from('products').select('*').eq('is_visible', true).gt('stock_quantity', 0).order('created_at', { ascending: false }).limit(12)),
           supabase.from('hero_slides').select('*').eq('is_active', true).order('sort_order'),
           supabase.from('promotions').select('*').eq('is_active', true).gt('stock_quantity', 0).order('created_at', { ascending: false }),
           supabase.from('brands').select('*').eq('is_visible', true).order('name'),
           supabase.from('categories').select('name').eq('is_visible', true).order('name'),
-          supabase.from('products').select('*').eq('is_featured', true).eq('is_visible', true).gt('stock_quantity', 0).limit(8),
-          // Usamos maybeSingle() para evitar erro caso não haja popup ativo
+          fetchProductsWithVariants(supabase.from('products').select('*').eq('is_featured', true).eq('is_visible', true).gt('stock_quantity', 0).limit(8)),
           supabase.from('informational_popups').select('title, content').eq('is_active', true).limit(1).maybeSingle()
         ]);
 
-        setDisplayedProducts(products.data || []);
+        setDisplayedProducts(products || []);
         setHeroSlides(hero.data || []);
         setPromotions(promos.data || []);
         setBrands(brandsData.data || []);
         setCategories(categoriesData.data || []);
-        setFeaturedProducts(featured.data || []);
+        setFeaturedProducts(featured || []);
         
         const triggerInfoPopup = () => {
           if (popups.data && !sessionStorage.getItem('info_popup_seen')) {
@@ -169,9 +212,9 @@ const Index = () => {
                     <Skeleton className="aspect-square bg-slate-200 rounded-2xl md:rounded-3xl" />
                   </CarouselItem>
                 )) : displayedProducts.length > 0 ?
-                  displayedProducts.map((p) => (
-                    <CarouselItem key={p.id} className="pl-3 md:pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4">
-                      <ProductCard product={{ id: p.id, name: p.name, price: p.price, pixPrice: p.pix_price, imageUrl: p.image_url, stockQuantity: p.stock_quantity }} />
+                  displayedProducts.map((p, idx) => (
+                    <CarouselItem key={`${p.id}-${p.variantId || 'main'}-${idx}`} className="pl-3 md:pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4">
+                      <ProductCard product={{ id: p.id, name: p.name, price: p.price, pixPrice: p.pixPrice, imageUrl: p.imageUrl, stockQuantity: p.stockQuantity, variantId: p.variantId }} />
                     </CarouselItem>
                   )) : (
                     <div className="px-4 py-10 text-center w-full text-stone-400 italic">Nenhum produto em destaque no momento.</div>
@@ -194,8 +237,8 @@ const Index = () => {
               <div className="container mx-auto px-4 md:px-6">
                 <h2 className="text-[10px] md:text-xs font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-4 md:mb-8 text-center">Seleção Premium</h2>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
-                  {featuredProducts.map((p) => (
-                    <ProductCard key={p.id} product={{ id: p.id, name: p.name, price: p.price, pixPrice: p.pix_price, imageUrl: p.image_url, stockQuantity: p.stock_quantity }} />
+                  {featuredProducts.map((p, idx) => (
+                    <ProductCard key={`${p.id}-${p.variantId || 'main'}-${idx}`} product={{ id: p.id, name: p.name, price: p.price, pixPrice: p.pixPrice, imageUrl: p.imageUrl, stockQuantity: p.stockQuantity, variantId: p.variantId }} />
                   ))}
                 </div>
               </div>

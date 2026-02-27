@@ -11,36 +11,76 @@ import {
 import ProductCard from './ProductCard';
 import { Skeleton } from './ui/skeleton';
 
-interface Product {
-  id: number;
-  name: string;
-  price: number;
-  pix_price: number | null;
-  image_url: string;
-}
-
 interface CategoryProductCarouselProps {
   categoryName: string;
 }
 
 const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps) => {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchProducts = async () => {
       setLoading(true);
-      const { data, error } = await supabase
+      const { data: parentProducts, error } = await supabase
         .from('products')
-        .select('id, name, price, pix_price, image_url')
+        .select('id, name, price, pix_price, image_url, stock_quantity')
         .eq('category', categoryName)
         .eq('is_visible', true)
         .gt('stock_quantity', 0)
         .limit(10);
 
-      if (!error && data) {
-        setProducts(data as Product[]);
+      if (error || !parentProducts) {
+        console.error(error);
+        setProducts([]);
+        setLoading(false);
+        return;
       }
+
+      const productIds = parentProducts.map(p => p.id);
+      if (productIds.length === 0) {
+        setProducts([]);
+        setLoading(false);
+        return;
+      }
+
+      const { data: variants } = await supabase
+        .from('product_variants')
+        .select('id, product_id, price, pix_price, stock_quantity, flavors(name)')
+        .in('product_id', productIds)
+        .eq('is_active', true)
+        .gt('stock_quantity', 0);
+
+      let finalDisplayList: any[] = [];
+      parentProducts.forEach(prod => {
+        const prodVariants = variants?.filter(v => v.product_id === prod.id) || [];
+        if (prodVariants.length > 0) {
+          prodVariants.forEach(v => {
+            const flavorName = (v.flavors as any)?.name;
+            const displayName = flavorName ? `${prod.name} - ${flavorName}` : prod.name;
+            finalDisplayList.push({
+              id: prod.id,
+              variantId: v.id,
+              name: displayName,
+              price: v.price,
+              pixPrice: v.pix_price,
+              imageUrl: prod.image_url || '',
+              stockQuantity: v.stock_quantity,
+            });
+          });
+        } else {
+          finalDisplayList.push({
+            id: prod.id,
+            name: prod.name,
+            price: prod.price,
+            pixPrice: prod.pix_price,
+            imageUrl: prod.image_url || '',
+            stockQuantity: prod.stock_quantity,
+          });
+        }
+      });
+
+      setProducts(finalDisplayList);
       setLoading(false);
     };
 
@@ -76,14 +116,16 @@ const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps)
         ) : products.length > 0 ? (
           <Carousel opts={{ align: "start", loop: products.length > 4 }} className="w-full">
             <CarouselContent className="-ml-3 md:-ml-4">
-              {products.map((p) => (
-                <CarouselItem key={p.id} className="pl-3 md:pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4">
+              {products.map((p, idx) => (
+                <CarouselItem key={`${p.id}-${p.variantId || 'main'}-${idx}`} className="pl-3 md:pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4">
                   <ProductCard product={{ 
                     id: p.id, 
                     name: p.name, 
                     price: p.price, 
-                    pixPrice: p.pix_price, 
-                    imageUrl: p.image_url
+                    pixPrice: p.pixPrice, 
+                    imageUrl: p.imageUrl,
+                    stockQuantity: p.stockQuantity,
+                    variantId: p.variantId
                   }} />
                 </CarouselItem>
               ))}

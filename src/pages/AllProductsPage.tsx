@@ -92,7 +92,6 @@ const AllProductsPage = () => {
         }
       }
 
-      // Filtro .gt('stock_quantity', 0) ADICIONADO para esconder produtos sem estoque
       let query = supabase
         .from('products')
         .select('id, name, price, pix_price, image_url, category, sub_category, stock_quantity, created_at')
@@ -120,7 +119,6 @@ const AllProductsPage = () => {
       const products = parentProducts || [];
       const productIds = products.map(p => p.id);
 
-      // Busca variantes apenas dos produtos que passaram no filtro de estoque principal
       const { data: variants } = await supabase
         .from('product_variants')
         .select(`
@@ -129,39 +127,38 @@ const AllProductsPage = () => {
         `)
         .in('product_id', productIds)
         .eq('is_active', true)
-        .gt('stock_quantity', 0); // Também filtra variantes sem estoque
+        .gt('stock_quantity', 0);
 
       let finalDisplayList: DisplayProduct[] = [];
 
       products.forEach(prod => {
-        // Se o produto pai tem estoque (verificado na query principal), adicionamos
-        // Porém, se ele tem variantes, a query principal já garantiu que a SOMA das variantes > 0
-        // Vamos adicionar o card principal
-        finalDisplayList.push({
+        const prodVariants = variants?.filter(v => v.product_id === prod.id) || [];
+
+        if (prodVariants.length > 0) {
+          prodVariants.forEach(v => {
+            const flavorName = (v.flavors as any)?.name;
+            const displayName = flavorName ? `${prod.name} - ${flavorName}` : prod.name;
+            
+            finalDisplayList.push({
+              id: prod.id,
+              variantId: v.id,
+              name: displayName,
+              price: v.price,
+              pixPrice: v.pix_price,
+              imageUrl: prod.image_url || '',
+              stockQuantity: v.stock_quantity,
+            });
+          });
+        } else {
+          finalDisplayList.push({
             id: prod.id,
             name: prod.name,
             price: prod.price,
             pixPrice: prod.pix_price,
             imageUrl: prod.image_url || '',
-            stockQuantity: prod.stock_quantity
-        });
-
-        const prodVariants = variants?.filter(v => v.product_id === prod.id) || [];
-
-        prodVariants.forEach(v => {
-            const flavorName = (v.flavors as any)?.name;
-            const displayName = flavorName ? `${prod.name} - ${flavorName}` : prod.name;
-            
-            finalDisplayList.push({
-                id: prod.id,
-                variantId: v.id,
-                name: displayName,
-                price: v.price,
-                pixPrice: v.pix_price,
-                imageUrl: prod.image_url || '',
-                stockQuantity: v.stock_quantity
-            });
-        });
+            stockQuantity: prod.stock_quantity,
+          });
+        }
       });
 
       if (sortField === 'price') {

@@ -82,7 +82,6 @@ const ProductPage = () => {
             flavor_name: flavorsData?.find(f => f.id === v.flavor_id)?.name 
         }));
         
-        // Ordenação inteligente: Primeiro estoque > 0, depois por preço
         mappedVariants.sort((a, b) => {
             if (a.stock_quantity > 0 && b.stock_quantity <= 0) return -1;
             if (a.stock_quantity <= 0 && b.stock_quantity > 0) return 1;
@@ -91,17 +90,9 @@ const ProductPage = () => {
 
         setVariants(mappedVariants as any);
         
-        if (preSelectedVariantId) {
-            const found = mappedVariants.find(v => v.id === preSelectedVariantId);
-            if (found) { 
-                setSelectedVariant(found as any);
-            } else {
-                const firstAvailable = mappedVariants.find(v => v.stock_quantity > 0);
-                if (firstAvailable) setSelectedVariant(firstAvailable as any);
-            }
-        } else {
-            const firstAvailable = mappedVariants.find(v => v.stock_quantity > 0);
-            if (firstAvailable) setSelectedVariant(firstAvailable as any);
+        const variantToSelect = mappedVariants.find(v => v.id === preSelectedVariantId) || mappedVariants.find(v => v.stock_quantity > 0);
+        if (variantToSelect) {
+            setSelectedVariant(variantToSelect as any);
         }
       }
 
@@ -111,6 +102,11 @@ const ProductPage = () => {
     fetchProductData();
     window.scrollTo(0, 0);
   }, [id, preSelectedVariantId]);
+
+  const handleVariantSelect = (variant: Variant) => {
+    setSelectedVariant(variant);
+    navigate(`/produto/${id}?variant=${variant.id}`, { replace: true });
+  };
 
   const handleAddToCart = async () => {
     if (product && variants.length > 0 && !selectedVariant) {
@@ -131,22 +127,17 @@ const ProductPage = () => {
     setIsAdding(false);
   };
 
-  // Helper aprimorado para o rótulo principal
   const getVariantLabel = (v: Variant) => {
     if (v.flavor_name) return v.flavor_name;
-    
-    // Tratamento específico para Resistência (Ohms)
     if (v.ohms) {
-      const cleanOhm = v.ohms.replace(/[^\d.,]/g, ''); // Remove caracteres não numéricos
+      const cleanOhm = v.ohms.replace(/[^\d.,]/g, '');
       return `${cleanOhm}Ω (Ohm)`;
     }
-    
     if (v.color) return v.color;
     if (v.volume_ml) return `${v.volume_ml}ml`;
     return 'Padrão';
   };
 
-  // Helper para o tipo de variação (ícone e texto pequeno)
   const getVariantTypeInfo = (v: Variant) => {
     if (v.flavor_name) return { icon: Droplets, label: 'Sabor' };
     if (v.ohms) return { icon: Zap, label: 'Resistência' };
@@ -155,11 +146,9 @@ const ProductPage = () => {
     return null;
   };
 
-  // Helper para subtítulo
   const getVariantSubLabel = (v: Variant) => {
     const parts = [];
     if (v.volume_ml && v.flavor_name) parts.push(`${v.volume_ml}ml`);
-    // Se tiver sabor E ohm/cor, mostramos o secundário aqui
     if (v.flavor_name && (v.ohms || v.color)) parts.push(v.ohms || v.color);
     return parts.join(' - ');
   };
@@ -250,7 +239,7 @@ const ProductPage = () => {
                     return (
                       <button
                         key={v.id}
-                        onClick={() => setSelectedVariant(v)}
+                        onClick={() => handleVariantSelect(v)}
                         className={cn(
                           "p-4 border-2 rounded-[1.5rem] transition-all text-left relative overflow-hidden flex flex-col justify-center min-h-[90px] group",
                           selectedVariant?.id === v.id 
@@ -259,7 +248,6 @@ const ProductPage = () => {
                           v.stock_quantity <= 0 && "opacity-60 grayscale bg-stone-50 hover:border-stone-200 hover:shadow-none"
                         )}
                       >
-                        {/* Rótulo do Tipo (Pequeno acima) */}
                         {typeInfo && (
                           <div className="flex items-center gap-1.5 mb-1.5 opacity-50 group-hover:opacity-100 transition-opacity">
                             <TypeIcon className="h-3 w-3" />

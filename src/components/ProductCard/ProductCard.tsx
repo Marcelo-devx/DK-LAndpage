@@ -42,7 +42,11 @@ const ProductCard = ({ product }: ProductCardProps) => {
   const installmentValue = (fullPrice / 3).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const formattedPixPrice = pixPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-  const linkUrl = `/produto/${product.id}`;
+  const linkUrl = product.hasMultipleVariants
+    ? `/produto/${product.id}`
+    : product.variantId
+        ? `/produto/${product.id}?variant=${product.variantId}`
+        : `/produto/${product.id}`;
   
   const isOutOfStock = product.stockQuantity !== undefined && product.stockQuantity <= 0 && !hasMultipleVariants;
 

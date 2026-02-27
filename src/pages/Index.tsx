@@ -68,26 +68,28 @@ const Index = () => {
                 });
               });
             } else {
-              finalDisplayList.push({
-                id: prod.id,
-                name: prod.name,
-                price: prod.price,
-                pixPrice: prod.pix_price,
-                imageUrl: prod.image_url || '',
-                stockQuantity: prod.stock_quantity,
-              });
+              if (prod.stock_quantity > 0) {
+                finalDisplayList.push({
+                  id: prod.id,
+                  name: prod.name,
+                  price: prod.price,
+                  pixPrice: prod.pix_price,
+                  imageUrl: prod.image_url || '',
+                  stockQuantity: prod.stock_quantity,
+                });
+              }
             }
           });
           return finalDisplayList;
         };
 
         const [products, hero, promos, brandsData, categoriesData, featured, popups] = await Promise.all([
-          fetchProductsWithVariants(supabase.from('products').select('*').eq('is_visible', true).gt('stock_quantity', 0).order('created_at', { ascending: false }).limit(12)),
+          fetchProductsWithVariants(supabase.from('products').select('*').eq('is_visible', true).order('created_at', { ascending: false }).limit(12)),
           supabase.from('hero_slides').select('*').eq('is_active', true).order('sort_order'),
           supabase.from('promotions').select('*').eq('is_active', true).gt('stock_quantity', 0).order('created_at', { ascending: false }),
           supabase.from('brands').select('*').eq('is_visible', true).order('name'),
           supabase.from('categories').select('name').eq('is_visible', true).order('name'),
-          fetchProductsWithVariants(supabase.from('products').select('*').eq('is_featured', true).eq('is_visible', true).gt('stock_quantity', 0).limit(8)),
+          fetchProductsWithVariants(supabase.from('products').select('*').eq('is_featured', true).eq('is_visible', true).limit(8)),
           supabase.from('informational_popups').select('title, content').eq('is_active', true).limit(1).maybeSingle()
         ]);
 

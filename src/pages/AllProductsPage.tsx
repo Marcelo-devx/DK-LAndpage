@@ -95,8 +95,7 @@ const AllProductsPage = () => {
       let query = supabase
         .from('products')
         .select('id, name, price, pix_price, image_url, category, sub_category, stock_quantity, created_at')
-        .eq('is_visible', true)
-        .gt('stock_quantity', 0);
+        .eq('is_visible', true);
 
       if (debouncedSearchTerm) query = query.ilike('name', `%${debouncedSearchTerm}%`);
       if (selectedCategories.length > 0) query = query.in('category', selectedCategories);
@@ -150,14 +149,16 @@ const AllProductsPage = () => {
             });
           });
         } else {
-          finalDisplayList.push({
-            id: prod.id,
-            name: prod.name,
-            price: prod.price,
-            pixPrice: prod.pix_price,
-            imageUrl: prod.image_url || '',
-            stockQuantity: prod.stock_quantity,
-          });
+          if (prod.stock_quantity > 0) {
+            finalDisplayList.push({
+              id: prod.id,
+              name: prod.name,
+              price: prod.price,
+              pixPrice: prod.pix_price,
+              imageUrl: prod.image_url || '',
+              stockQuantity: prod.stock_quantity,
+            });
+          }
         }
       });
 

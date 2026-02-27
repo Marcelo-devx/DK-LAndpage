@@ -1,8 +1,8 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { addToCart } from "@/utils/cart";
-import { ShoppingCart, Loader2 } from "lucide-react";
+import { ShoppingCart, Loader2, Eye } from "lucide-react";
 import { useState } from "react";
 import { ProductCardProps } from "./ProductCard.types";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,7 @@ const PixIcon = ({ className }: { className?: string }) => (
 
 const ProductCard = ({ product }: ProductCardProps) => {
   const [isAdding, setIsAdding] = useState(false);
+  const navigate = useNavigate();
 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -25,17 +26,25 @@ const ProductCard = ({ product }: ProductCardProps) => {
     setIsAdding(false);
   };
 
+  const handleViewOptions = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    navigate(`/produto/${product.id}`);
+  };
+
+  const hasMultipleVariants = product.hasMultipleVariants;
   const hasPixDiscount = product.pixPrice && product.pixPrice > 0 && product.pixPrice < product.price;
   const pixPrice = hasPixDiscount ? product.pixPrice! : product.price;
   const fullPrice = product.price;
   
+  const pricePrefix = hasMultipleVariants ? "A partir de " : "";
   const formattedFullPrice = fullPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const installmentValue = (fullPrice / 3).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const formattedPixPrice = pixPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-  const linkUrl = product.variantId ? `/produto/${product.id}?variant=${product.variantId}` : `/produto/${product.id}`;
+  const linkUrl = `/produto/${product.id}`;
   
-  const isOutOfStock = product.stockQuantity !== undefined && product.stockQuantity <= 0;
+  const isOutOfStock = product.stockQuantity !== undefined && product.stockQuantity <= 0 && !hasMultipleVariants;
 
   return (
     <Link to={linkUrl} className="group block h-full">
@@ -66,7 +75,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
             
             <div className="space-y-0.5 pt-1">
                 <p className="text-[13px] md:text-[14px] font-black text-slate-900 leading-none">
-                    {formattedFullPrice}
+                    {pricePrefix}{formattedFullPrice}
                 </p>
                 
                 <p className="text-[10px] md:text-[11px] text-slate-900 font-medium tracking-tight">
@@ -84,28 +93,38 @@ const ProductCard = ({ product }: ProductCardProps) => {
                     
                     <div className="flex items-baseline gap-1.5">
                         <span className="text-3xl md:text-4xl font-black text-emerald-600 tracking-tighter leading-none">
-                            {formattedPixPrice}
+                            {pricePrefix}{formattedPixPrice}
                         </span>
                     </div>
                 </div>
             </div>
           </div>
           
-          <Button 
-            className={cn(
-                "w-full font-black uppercase text-[10px] tracking-[0.2em] mt-6 h-11 rounded-xl transition-all duration-300 shadow-md group-hover:translate-y-[-2px]",
-                isOutOfStock ? "bg-stone-200 text-stone-500 cursor-not-allowed hover:bg-stone-200" : "bg-slate-950 hover:bg-sky-500 text-white"
-            )}
-            onClick={handleAddToCart}
-            disabled={isAdding || isOutOfStock}
-          >
-            {isAdding ? <Loader2 className="animate-spin h-4 w-4" /> : (
-              <>
-                <ShoppingCart className="mr-2 h-4 w-4" />
-                {isOutOfStock ? 'Esgotado' : 'Adicionar'}
-              </>
-            )}
-          </Button>
+          {hasMultipleVariants ? (
+            <Button 
+              className="w-full font-black uppercase text-[10px] tracking-[0.2em] mt-6 h-11 rounded-xl transition-all duration-300 shadow-md group-hover:translate-y-[-2px] bg-slate-950 hover:bg-sky-500 text-white"
+              onClick={handleViewOptions}
+            >
+              <Eye className="mr-2 h-4 w-4" />
+              Escolher Opções
+            </Button>
+          ) : (
+            <Button 
+              className={cn(
+                  "w-full font-black uppercase text-[10px] tracking-[0.2em] mt-6 h-11 rounded-xl transition-all duration-300 shadow-md group-hover:translate-y-[-2px]",
+                  isOutOfStock ? "bg-stone-200 text-stone-500 cursor-not-allowed hover:bg-stone-200" : "bg-slate-950 hover:bg-sky-500 text-white"
+              )}
+              onClick={handleAddToCart}
+              disabled={isAdding || isOutOfStock}
+            >
+              {isAdding ? <Loader2 className="animate-spin h-4 w-4" /> : (
+                <>
+                  <ShoppingCart className="mr-2 h-4 w-4" />
+                  {isOutOfStock ? 'Esgotado' : 'Adicionar'}
+                </>
+              )}
+            </Button>
+          )}
         </CardContent>
       </Card>
     </Link>

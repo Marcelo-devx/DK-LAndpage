@@ -14,6 +14,7 @@ interface DisplayProduct {
   imageUrl: string;
   stockQuantity: number;
   variantId?: string;
+  hasMultipleVariants?: boolean;
 }
 
 const AllProductsPage = () => {
@@ -120,10 +121,7 @@ const AllProductsPage = () => {
 
       const { data: variants } = await supabase
         .from('product_variants')
-        .select(`
-            id, product_id, price, pix_price, stock_quantity, created_at,
-            flavors ( name )
-        `)
+        .select('id, product_id, price, pix_price, stock_quantity')
         .in('product_id', productIds)
         .eq('is_active', true)
         .gt('stock_quantity', 0);
@@ -134,19 +132,17 @@ const AllProductsPage = () => {
         const prodVariants = variants?.filter(v => v.product_id === prod.id) || [];
 
         if (prodVariants.length > 0) {
-          prodVariants.forEach(v => {
-            const flavorName = (v.flavors as any)?.name;
-            const displayName = flavorName ? `${prod.name} - ${flavorName}` : prod.name;
-            
-            finalDisplayList.push({
-              id: prod.id,
-              variantId: v.id,
-              name: displayName,
-              price: v.price,
-              pixPrice: v.pix_price,
-              imageUrl: prod.image_url || '',
-              stockQuantity: v.stock_quantity,
-            });
+          const minPrice = Math.min(...prodVariants.map(v => v.price));
+          const minPixPrice = Math.min(...prodVariants.map(v => v.pix_price || v.price));
+
+          finalDisplayList.push({
+            id: prod.id,
+            name: prod.name,
+            price: minPrice,
+            pixPrice: minPixPrice,
+            imageUrl: prod.image_url || '',
+            stockQuantity: 1, // Represents available stock in variants
+            hasMultipleVariants: true,
           });
         } else {
           if (prod.stock_quantity > 0) {
@@ -157,6 +153,7 @@ const AllProductsPage = () => {
               pixPrice: prod.pix_price,
               imageUrl: prod.image_url || '',
               stockQuantity: prod.stock_quantity,
+              hasMultipleVariants: false,
             });
           }
         }
@@ -234,7 +231,8 @@ const AllProductsPage = () => {
                         pixPrice: product.pixPrice,
                         imageUrl: product.imageUrl,
                         stockQuantity: product.stockQuantity,
-                        variantId: product.variantId 
+                        variantId: product.variantId,
+                        hasMultipleVariants: product.hasMultipleVariants
                     }} 
                 />
               ))}

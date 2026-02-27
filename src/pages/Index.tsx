@@ -45,7 +45,7 @@ const Index = () => {
 
           const { data: variants } = await supabase
             .from('product_variants')
-            .select('id, product_id, price, pix_price, stock_quantity, flavors(name)')
+            .select('id, product_id, price, pix_price, stock_quantity')
             .in('product_id', productIds)
             .eq('is_active', true)
             .gt('stock_quantity', 0);
@@ -54,18 +54,16 @@ const Index = () => {
           parentProducts.forEach((prod: any) => {
             const prodVariants = variants?.filter((v: any) => v.product_id === prod.id) || [];
             if (prodVariants.length > 0) {
-              prodVariants.forEach((v: any) => {
-                const flavorName = (v.flavors as any)?.name;
-                const displayName = flavorName ? `${prod.name} - ${flavorName}` : prod.name;
-                finalDisplayList.push({
-                  id: prod.id,
-                  variantId: v.id,
-                  name: displayName,
-                  price: v.price,
-                  pixPrice: v.pix_price,
-                  imageUrl: prod.image_url || '',
-                  stockQuantity: v.stock_quantity,
-                });
+              const minPrice = Math.min(...prodVariants.map(v => v.price));
+              const minPixPrice = Math.min(...prodVariants.map(v => v.pix_price || v.price));
+              finalDisplayList.push({
+                id: prod.id,
+                name: prod.name,
+                price: minPrice,
+                pixPrice: minPixPrice,
+                imageUrl: prod.image_url || '',
+                stockQuantity: 1,
+                hasMultipleVariants: true,
               });
             } else {
               if (prod.stock_quantity > 0) {
@@ -76,6 +74,7 @@ const Index = () => {
                   pixPrice: prod.pix_price,
                   imageUrl: prod.image_url || '',
                   stockQuantity: prod.stock_quantity,
+                  hasMultipleVariants: false,
                 });
               }
             }
@@ -216,7 +215,7 @@ const Index = () => {
                 )) : displayedProducts.length > 0 ?
                   displayedProducts.map((p, idx) => (
                     <CarouselItem key={`${p.id}-${p.variantId || 'main'}-${idx}`} className="pl-3 md:pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4">
-                      <ProductCard product={{ id: p.id, name: p.name, price: p.price, pixPrice: p.pixPrice, imageUrl: p.imageUrl, stockQuantity: p.stockQuantity, variantId: p.variantId }} />
+                      <ProductCard product={{ id: p.id, name: p.name, price: p.price, pixPrice: p.pixPrice, imageUrl: p.imageUrl, stockQuantity: p.stockQuantity, variantId: p.variantId, hasMultipleVariants: p.hasMultipleVariants }} />
                     </CarouselItem>
                   )) : (
                     <div className="px-4 py-10 text-center w-full text-stone-400 italic">Nenhum produto em destaque no momento.</div>
@@ -240,7 +239,7 @@ const Index = () => {
                 <h2 className="text-[10px] md:text-xs font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-4 md:mb-8 text-center">Seleção Premium</h2>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
                   {featuredProducts.map((p, idx) => (
-                    <ProductCard key={`${p.id}-${p.variantId || 'main'}-${idx}`} product={{ id: p.id, name: p.name, price: p.price, pixPrice: p.pixPrice, imageUrl: p.imageUrl, stockQuantity: p.stockQuantity, variantId: p.variantId }} />
+                    <ProductCard key={`${p.id}-${p.variantId || 'main'}-${idx}`} product={{ id: p.id, name: p.name, price: p.price, pixPrice: p.pixPrice, imageUrl: p.imageUrl, stockQuantity: p.stockQuantity, variantId: p.variantId, hasMultipleVariants: p.hasMultipleVariants }} />
                   ))}
                 </div>
               </div>

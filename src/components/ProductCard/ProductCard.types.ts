@@ -7,6 +7,7 @@ export interface ProductCardProps {
     imageUrl: string;
     stockQuantity?: number; // Adicionado para exibir aviso de estoque
     variantId?: string;
+    hasMultipleVariants?: boolean;
   };
   className?: string;
 }

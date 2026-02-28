@@ -11,18 +11,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { showError, showSuccess, showLoading, dismissToast } from '@/utils/toast';
-import { Loader2, Search, CreditCard, MessageSquare, MapPin, Truck, Heart, CheckCircle2, Gift, X } from 'lucide-react';
+import { showError, showLoading, dismissToast } from '@/utils/toast';
+import { Loader2, Search, CreditCard, MessageSquare, MapPin, Gift, X } from 'lucide-react';
 import { getLocalCart, ItemType, clearLocalCart } from '@/utils/localCart';
 import { maskCep, maskPhone, maskCpfCnpj } from '@/utils/masks';
 import CouponsModal from '@/components/CouponsModal';
-import { Alert, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
-import { initMercadoPago, CardPayment } from '@mercadopago/sdk-react';
-
-// Chave pública de produção do Mercado Pago
-const MERCADOPAGO_PUBLIC_KEY = "APP_USR-b39e7dfb-b877-46d0-aabc-d64465bbd9e3";
-initMercadoPago(MERCADOPAGO_PUBLIC_KEY, { locale: 'pt-BR' });
 
 interface DisplayItem {
   id: number;
@@ -84,7 +78,6 @@ const CheckoutPage = () => {
   const [tierName, setTierName] = useState<string>('');
   const [tierBenefits, setTierBenefits] = useState<string[]>([]);
   const [selectedBenefits, setSelectedBenefits] = useState<string[]>([]);
-  const [isBrickReady, setIsBrickReady] = useState(false);
 
   const { register, handleSubmit, setValue, getValues, watch, formState: { errors }, trigger } = useForm<CheckoutFormData>({
     resolver: zodResolver(checkoutSchema),
@@ -102,30 +95,6 @@ const CheckoutPage = () => {
   const subtotal = items.reduce((acc, item) => acc + getItemPrice(item) * item.quantity, 0);
   const discount = selectedCoupon?.discount_value ?? 0;
   const total = Math.max(0, subtotal - discount + shippingCost) + donationAmount;
-
-  // Mercado Pago minimum amount for credit card payments (R$ 1.00)
-  const MINIMUM_CARD_AMOUNT = 1.00;
-  const isCardPaymentAllowed = total >= MINIMUM_CARD_AMOUNT;
-
-  // IMPORTANT: Mercado Pago Brick is sensitive to initial/changed amount.
-  // Use cents + stable key to avoid float issues and force a clean re-init when needed.
-  const totalCents = Math.max(0, Math.round(total * 100));
-  const benefitsKey = selectedBenefits.slice().sort().join('|');
-  const mpBrickKey = `${totalCents}-${benefitsKey}`;
-
-  // Reset Brick readiness whenever payment context changes (amount/benefits/payment method)
-  useEffect(() => {
-    if (paymentMethod === 'mercadopago') {
-      setIsBrickReady(false);
-    }
-  }, [paymentMethod, mpBrickKey]);
-
-  // Auto-switch to PIX if card payment is not allowed due to minimum amount
-  useEffect(() => {
-    if (paymentMethod === 'mercadopago' && !isCardPaymentAllowed) {
-      setValue('payment_method', 'pix');
-    }
-  }, [isCardPaymentAllowed, paymentMethod, setValue]);
 
   const fetchCartItems = useCallback(async () => {
     const localCart = getLocalCart();
@@ -247,38 +216,65 @@ const CheckoutPage = () => {
     }
   };
 
-  const handleCardPayment = async (formData: any) => {
-    const toastId = showLoading("Processando pagamento...");
+  const handleMercadoPagoRedirect = async () => {
+    const isValid = await trigger();
+    if (!isValid) {
+      showError("Preencha todos os dados de entrega primeiro.");
+      return;
+    }
+
+    const toastId = showLoading("Redirecionando para o pagamento...");
+    setIsSubmitting(true);
     try {
       const data = getValues();
       const bStrings = [...tierBenefits.filter(isPassiveBenefit), ...selectedBenefits];
+
       const { data: orderData, error: orderError } = await supabase.rpc('create_pending_order_from_local_cart', {
-        shipping_cost_input: shippingCost, shipping_address_input: data, cart_items_input: getLocalCart(),
-        user_coupon_id_input: selectedCoupon?.user_coupon_id, benefits_input: bStrings.length ? `Nível ${tierName}: ${bStrings.join(', ')}` : null,
-        payment_method_input: 'mercadopago', donation_amount_input: donationAmount
+        shipping_cost_input: shippingCost,
+        shipping_address_input: data,
+        cart_items_input: getLocalCart(),
+        user_coupon_id_input: selectedCoupon?.user_coupon_id,
+        benefits_input: bStrings.length ? `Nível ${tierName}: ${bStrings.join(', ')}` : null,
+        payment_method_input: 'mercadopago',
+        donation_amount_input: donationAmount,
       });
+
       if (orderError) throw orderError;
 
-      const { error: paymentError } = await supabase.functions.invoke('process-mercadopago-payment', {
+      // Garante que cobramos o valor final salvo no pedido
+      const { data: orderRow, error: orderRowError } = await supabase
+        .from('orders')
+        .select('total_price, shipping_cost, donation_amount, shipping_address')
+        .eq('id', orderData.new_order_id)
+        .single();
+
+      if (orderRowError || !orderRow) throw orderRowError || new Error('Pedido não encontrado.');
+
+      const finalTotal =
+        Number(orderRow.total_price || 0) + Number(orderRow.shipping_cost || 0) + Number(orderRow.donation_amount || 0);
+
+      const { data: pref, error: prefError } = await supabase.functions.invoke('create-mercadopago-preference', {
         body: {
-          ...formData,
-          transaction_amount: total,
-          external_reference: orderData.new_order_id,
-          payer: {
-            ...formData.payer,
-            first_name: data.first_name,
-            last_name: data.last_name,
-          }
-        }
+          shipping_address: orderRow.shipping_address || data,
+          order_id: orderData.new_order_id,
+          total_price: finalTotal,
+          origin: window.location.origin,
+        },
       });
-      if (paymentError) throw paymentError;
+
+      if (prefError) throw prefError;
 
       dismissToast(toastId);
       clearLocalCart();
-      navigate(`/confirmacao-pedido/${orderData.new_order_id}`);
+
+      const redirectUrl = pref?.sandbox_init_point || pref?.init_point;
+      if (!redirectUrl) throw new Error('Não foi possível obter a URL de pagamento.');
+
+      window.location.href = redirectUrl;
     } catch (e: any) {
       dismissToast(toastId);
-      showError(e.message || "Pagamento recusado.");
+      showError(e?.message || "Não foi possível iniciar o pagamento.");
+      setIsSubmitting(false);
     }
   };
 
@@ -287,8 +283,7 @@ const CheckoutPage = () => {
     if (data.payment_method === 'pix') {
       await handlePixPayment(data);
     } else {
-      // Para cartão, a submissão é feita pelo Brick do Mercado Pago
-      showError("Preencha os dados do cartão e clique em 'Pagar'.");
+      await handleMercadoPagoRedirect();
     }
     setIsSubmitting(false);
   };
@@ -383,22 +378,9 @@ const CheckoutPage = () => {
               <div className="space-y-3">
                 <Label className="text-[10px] uppercase text-slate-400">Método de Pagamento</Label>
                 <div className="grid grid-cols-2 gap-3">
-                    <Button 
-                      type="button" 
-                      onClick={() => setValue('payment_method', 'mercadopago')} 
-                      disabled={!isCreditCardEnabled || !isCardPaymentAllowed} 
-                      className={cn("h-16 flex-col gap-1 rounded-xl border", paymentMethod === 'mercadopago' ? "bg-sky-500 text-white border-sky-400" : "bg-stone-50 text-slate-500")}
-                    >
-                      <CreditCard className="h-4 w-4" />
-                      <span className="text-[9px] uppercase font-black">Cartão</span>
-                    </Button>
+                    <Button type="button" onClick={() => setValue('payment_method', 'mercadopago')} disabled={!isCreditCardEnabled} className={cn("h-16 flex-col gap-1 rounded-xl border", paymentMethod === 'mercadopago' ? "bg-sky-500 text-white border-sky-400" : "bg-stone-50 text-slate-500")}><CreditCard className="h-4 w-4" /><span className="text-[9px] uppercase font-black">Cartão</span></Button>
                     <Button type="button" onClick={() => setValue('payment_method', 'pix')} className={cn("h-16 flex-col gap-1 rounded-xl border", paymentMethod === 'pix' ? "bg-sky-500 text-white border-sky-400" : "bg-stone-50 text-slate-500")}><MessageSquare className="h-4 w-4" /><span className="text-[9px] uppercase font-black">PIX WhatsApp</span></Button>
                 </div>
-                {!isCardPaymentAllowed && isCreditCardEnabled && (
-                  <p className="text-xs text-amber-600 font-medium mt-2">
-                    ⚠️ Pagamento com cartão disponível apenas para pedidos acima de R$ {MINIMUM_CARD_AMOUNT.toFixed(2).replace('.', ',')}
-                  </p>
-                )}
               </div>
 
               {paymentMethod === 'pix' && (
@@ -406,51 +388,13 @@ const CheckoutPage = () => {
               )}
 
               {paymentMethod === 'mercadopago' && (
-                <div className="bg-stone-50 p-6 rounded-2xl border border-stone-200 relative">
-                  {totalCents > 0 ? (
-                    <>
-                      <CardPayment
-                        key={mpBrickKey}
-                        initialization={{ amount: totalCents / 100 }}
-                        onSubmit={async (formData) => {
-                          const isValid = await trigger();
-                          if (isValid) {
-                            setIsSubmitting(true);
-                            await handleCardPayment(formData);
-                            setIsSubmitting(false);
-                          } else {
-                            showError("Preencha todos os dados de entrega primeiro.");
-                          }
-                        }}
-                        onReady={() => setIsBrickReady(true)}
-                        onError={(error) => {
-                          console.error('[mercadopago-brick] error', error);
-                          setIsBrickReady(false);
-                        }}
-                        customization={{
-                          visual: {
-                            style: {
-                              theme: 'flat',
-                            }
-                          },
-                          paymentMethods: {
-                            maxInstallments: 3,
-                          }
-                        }}
-                      />
-
-                      {!isBrickReady && (
-                        <div className="absolute inset-0 flex justify-center items-center bg-white/70 backdrop-blur-sm rounded-2xl">
-                          <Loader2 className="animate-spin text-sky-500" />
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="flex justify-center items-center p-8">
-                      <Loader2 className="animate-spin text-sky-500" />
-                    </div>
-                  )}
-                </div>
+                <Button
+                  type="submit"
+                  disabled={isSubmitting || !isCreditCardEnabled}
+                  className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95"
+                >
+                  {isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : "Pagar com Mercado Pago"}
+                </Button>
               )}
             </CardContent>
           </Card>

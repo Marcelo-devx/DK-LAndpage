@@ -316,6 +316,7 @@ const CheckoutPage = () => {
                     <>
                       <div style={{ display: isBrickReady ? 'block' : 'none' }}>
                         <CardPayment
+                          key={total}
                           initialization={{ amount: total }}
                           onSubmit={async (formData) => {
                             const isValid = await trigger();

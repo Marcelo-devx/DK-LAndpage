@@ -14,7 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { showError, showSuccess, showLoading, dismissToast } from '@/utils/toast';
 import { Loader2, Search, CreditCard, MessageSquare, MapPin, Truck, Heart, CheckCircle2 } from 'lucide-react';
 import { getLocalCart, ItemType, clearLocalCart } from '@/utils/localCart';
-import { maskCep, maskPhone } from '@/utils/masks';
+import { maskCep, maskPhone, maskCpfCnpj } from '@/utils/masks';
 import CouponsModal from '@/components/CouponsModal';
 import { Alert, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
@@ -42,6 +42,7 @@ const checkoutSchema = z.object({
   first_name: z.string().min(1, "Nome é obrigatório"),
   last_name: z.string().min(1, "Sobrenome é obrigatório"),
   phone: z.string().min(14, "Telefone inválido").max(15, "Telefone inválido"),
+  cpf_cnpj: z.string().min(14, "CPF inválido").max(18, "CNPJ inválido"),
   cep: z.string().min(9, "CEP inválido"),
   street: z.string().min(1, "Rua é obrigatória"),
   number: z.string().min(1, "Número é obrigatório"),
@@ -79,7 +80,6 @@ const CheckoutPage = () => {
   const [tierName, setTierName] = useState<string>('');
   const [tierBenefits, setTierBenefits] = useState<string[]>([]);
   const [selectedBenefits, setSelectedBenefits] = useState<string[]>([]);
-  const [userCpfCnpj, setUserCpfCnpj] = useState<string>('');
 
   const { register, handleSubmit, setValue, getValues, watch, formState: { errors } } = useForm<CheckoutFormData>({
     resolver: zodResolver(checkoutSchema),
@@ -134,16 +134,16 @@ const CheckoutPage = () => {
       setIsCreditCardEnabled(profile.is_credit_card_enabled);
       if (profile.loyalty_tiers) { setTierName(profile.loyalty_tiers.name); setTierBenefits(profile.loyalty_tiers.benefits || []); }
       setValue('payment_method', profile.is_credit_card_enabled ? 'mercadopago' : 'pix');
-      const fields: (keyof CheckoutFormData)[] = ['first_name', 'last_name', 'phone', 'cep', 'street', 'number', 'neighborhood', 'city', 'state', 'complement'];
+      const fields: (keyof CheckoutFormData)[] = ['first_name', 'last_name', 'phone', 'cep', 'street', 'number', 'neighborhood', 'city', 'state', 'complement', 'cpf_cnpj'];
       fields.forEach(f => {
           let val = profile[f] || '';
           if (f === 'phone') val = val ? maskPhone(val) : '';
           if (f === 'cep') val = val ? maskCep(val) : '';
+          if (f === 'cpf_cnpj') val = val ? maskCpfCnpj(val) : '';
           // @ts-ignore
           setValue(f, val);
       });
       setUserPoints(profile.points);
-      if (profile.cpf_cnpj) setUserCpfCnpj(profile.cpf_cnpj);
     }
     const { data: c } = await supabase.from('user_coupons').select('id, expires_at, coupons ( name, discount_value, minimum_order_value )').eq('user_id', currentUser.id).eq('is_used', false).gt('expires_at', new Date().toISOString());
     if (c) setCoupons(c.map((x: any) => ({ user_coupon_id: x.id, name: x.coupons.name, discount_value: x.coupons.discount_value, minimum_order_value: x.coupons.minimum_order_value, expires_at: x.expires_at })));
@@ -239,7 +239,7 @@ const CheckoutPage = () => {
         // 3. Criar Preferência MP
         const { data: mpData, error: mpError } = await supabase.functions.invoke('create-mercadopago-preference', { 
             body: { 
-                shipping_address: { ...addrForProfile, cpf_cnpj: userCpfCnpj },
+                shipping_address: addrForProfile,
                 order_id: o.new_order_id, 
                 total_price: o.final_price,
                 origin: window.location.origin
@@ -291,10 +291,21 @@ const CheckoutPage = () => {
             <CardContent className="p-8 space-y-6">
               {deliveryType === 'correios' && <Alert className="bg-yellow-50"><Truck className="h-4 w-4" /><AlertTitle className="font-bold text-xs uppercase">Entrega via Correios</AlertTitle></Alert>}
               <div className="grid grid-cols-2 gap-4"><div><Label className="text-[10px] uppercase text-slate-500">Nome</Label><Input {...register('first_name')} /></div><div><Label className="text-[10px] uppercase text-slate-500">Sobrenome</Label><Input {...register('last_name')} /></div></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-[10px] uppercase text-slate-500">Telefone</Label>
+                  <Input {...register('phone')} onChange={e => e.target.value = maskPhone(e.target.value)} />
+                  {errors.phone && <p className="text-xs text-red-500 font-bold">{errors.phone.message}</p>}
+                </div>
+                <div>
+                  <Label className="text-[10px] uppercase text-slate-500">CPF/CNPJ</Label>
+                  <Input {...register('cpf_cnpj')} onChange={e => e.target.value = maskCpfCnpj(e.target.value)} />
+                  {errors.cpf_cnpj && <p className="text-xs text-red-500 font-bold">{errors.cpf_cnpj.message}</p>}
+                </div>
+              </div>
               <div><Label className="text-[10px] uppercase text-slate-500">CEP</Label><div className="flex gap-2"><Input {...register('cep')} onChange={e => e.target.value = maskCep(e.target.value)} /><Button type="button" size="icon" onClick={handleCepLookup} className="bg-sky-500 h-10 w-12 shrink-0">{isFetchingCep ? <Loader2 className="animate-spin h-4 w-4" /> : <Search className="h-4 w-4" />}</Button></div></div>
               <div className="grid grid-cols-3 gap-4"><div className="col-span-2"><Label className="text-[10px] uppercase text-slate-500">Rua</Label><Input {...register('street')} /></div><div><Label className="text-[10px] uppercase text-slate-500">Número</Label><Input {...register('number')} /></div></div>
               <div className="grid grid-cols-2 gap-4"><div><Label className="text-[10px] uppercase text-slate-500">Bairro</Label><Input {...register('neighborhood')} /></div><div><Label className="text-[10px] uppercase text-slate-500">Cidade</Label><Input {...register('city')} /></div></div>
-              <div className="space-y-2"><Label className="text-[10px] uppercase text-slate-500">Telefone</Label><Input {...register('phone')} onChange={e => e.target.value = maskPhone(e.target.value)} /></div>
             </CardContent>
           </Card>
           

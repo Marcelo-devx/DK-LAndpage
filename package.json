@@ -8,7 +8,8 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "vercel-build": "vite build"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -89,5 +90,8 @@
     "typescript-eslint": "^8.0.1",
     "vite": "^6.3.4",
     "vitest": "^4.0.17"
+  },
+  "engines": {
+    "node": "18.x"
   }
 }

@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,6 +18,11 @@ import { maskCep, maskPhone, maskCpfCnpj } from '@/utils/masks';
 import CouponsModal from '@/components/CouponsModal';
 import { Alert, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
+import { initMercadoPago, CardPayment } from '@mercadopago/sdk-react';
+
+// IMPORTANTE: O usuário precisa configurar esta chave no Supabase
+const MERCADOPAGO_PUBLIC_KEY = "TEST-c2815533-d507-4a59-8543-5b3493652899";
+initMercadoPago(MERCADOPAGO_PUBLIC_KEY, { locale: 'pt-BR' });
 
 interface DisplayItem {
   id: number;
@@ -62,7 +67,6 @@ const isPassiveBenefit = (benefit: string) => {
 
 const CheckoutPage = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const [items, setItems] = useState<DisplayItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -80,8 +84,9 @@ const CheckoutPage = () => {
   const [tierName, setTierName] = useState<string>('');
   const [tierBenefits, setTierBenefits] = useState<string[]>([]);
   const [selectedBenefits, setSelectedBenefits] = useState<string[]>([]);
+  const [isBrickReady, setIsBrickReady] = useState(false);
 
-  const { register, handleSubmit, setValue, getValues, watch, formState: { errors } } = useForm<CheckoutFormData>({
+  const { register, handleSubmit, setValue, getValues, watch, formState: { errors }, trigger } = useForm<CheckoutFormData>({
     resolver: zodResolver(checkoutSchema),
   });
 
@@ -149,11 +154,7 @@ const CheckoutPage = () => {
     if (c) setCoupons(c.map((x: any) => ({ user_coupon_id: x.id, name: x.coupons.name, discount_value: x.coupons.discount_value, minimum_order_value: x.coupons.minimum_order_value, expires_at: x.expires_at })));
   }, [setValue]);
 
-  const handleRedemption = useCallback(() => {
-    if (user) {
-      fetchUserData(user);
-    }
-  }, [user, fetchUserData]);
+  const handleRedemption = useCallback(() => { if (user) { fetchUserData(user); } }, [user, fetchUserData]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -170,9 +171,7 @@ const CheckoutPage = () => {
       if (subtotal < coupon.minimum_order_value) {
         showError(`O valor mínimo para este cupom é de R$ ${coupon.minimum_order_value.toFixed(2).replace('.', ',')}`);
         setSelectedCoupon(null);
-      } else {
-        setSelectedCoupon(coupon);
-      }
+      } else { setSelectedCoupon(coupon); }
     }
   };
 
@@ -205,79 +204,69 @@ const CheckoutPage = () => {
     return () => clearTimeout(timeoutId);
   }, [watchedNeighborhood, watchedCity, selectedBenefits, deliveryType]);
 
-  const onSubmit = async (data: CheckoutFormData) => {
-    setIsSubmitting(true);
-    const toastId = showLoading("Processando...");
+  const handlePixPayment = async (data: CheckoutFormData) => {
+    const toastId = showLoading("Criando seu pedido PIX...");
     try {
-      // 1. Atualizar Perfil
-      const { payment_method, ...profileData } = data;
-      const addrForProfile = { 
-        ...profileData, 
-        phone: data.phone.replace(/\D/g, ''), 
-        cep: data.cep.replace(/\D/g, '') 
-      };
-      
-      await supabase.from('profiles').update(addrForProfile).eq('id', user.id);
-
-      // 2. Criar Pedido
       const bStrings = [...tierBenefits.filter(isPassiveBenefit), ...selectedBenefits];
       const { data: o, error: err } = await supabase.rpc('create_pending_order_from_local_cart', {
-        shipping_cost_input: shippingCost, shipping_address_input: { ...data, phone: addrForProfile.phone, cep: addrForProfile.cep }, cart_items_input: getLocalCart(),
+        shipping_cost_input: shippingCost, shipping_address_input: data, cart_items_input: getLocalCart(),
         user_coupon_id_input: selectedCoupon?.user_coupon_id, benefits_input: bStrings.length ? `Nível ${tierName}: ${bStrings.join(', ')}` : null,
-        payment_method_input: data.payment_method, donation_amount_input: donationAmount
+        payment_method_input: 'pix', donation_amount_input: donationAmount
       });
-      
       if (err) throw err;
-      
-      await supabase.from('orders').update({ payment_method: data.payment_method === 'pix' ? 'PIX via WhatsApp' : 'Cartão de Crédito', status: data.payment_method === 'pix' ? 'Em Preparação' : 'Aguardando Pagamento' }).eq('id', o.new_order_id);
-      
-      if (data.payment_method === 'pix') { 
-        dismissToast(toastId);
-        clearLocalCart(); 
-        navigate(`/confirmacao-pedido/${o.new_order_id}`); 
-      } else {
-        // 3. Criar Preferência MP
-        const { data: mpData, error: mpError } = await supabase.functions.invoke('create-mercadopago-preference', { 
-            body: { 
-                shipping_address: addrForProfile,
-                order_id: o.new_order_id, 
-                total_price: o.final_price,
-                origin: window.location.origin
-            } 
-        });
-        
-        if (mpError || (mpData && mpData.error)) {
-            console.error("Erro MP:", mpError || mpData);
-            let errorMessage = "Erro ao conectar com o sistema de pagamento.";
-            
-            if (mpData && mpData.error) errorMessage = mpData.error;
-            else if (mpError) errorMessage = mpError.message;
-
-            throw new Error(errorMessage);
-        }
-
-        if (!mpData || (!mpData.init_point && !mpData.sandbox_init_point)) {
-            throw new Error("O Mercado Pago não retornou o link de pagamento.");
-        }
-
-        clearLocalCart(); 
-        dismissToast(toastId);
-        
-        const redirectUrl = mpData.sandbox_init_point || mpData.init_point;
-
-        if (redirectUrl) {
-          window.location.href = redirectUrl;
-        } else {
-          throw new Error(`Link de pagamento não foi gerado pelo Mercado Pago.`);
-        }
-      }
-    } catch (e: any) { 
-      dismissToast(toastId); 
-      console.error("Erro Checkout:", e);
-      showError(e.message || "Erro no checkout."); 
-    } finally { 
-      setIsSubmitting(false); 
+      dismissToast(toastId);
+      clearLocalCart();
+      navigate(`/confirmacao-pedido/${o.new_order_id}`);
+    } catch (e: any) {
+      dismissToast(toastId);
+      showError(e.message || "Erro ao criar pedido PIX.");
     }
+  };
+
+  const handleCardPayment = async (formData: any) => {
+    const toastId = showLoading("Processando pagamento...");
+    try {
+      const data = getValues();
+      const bStrings = [...tierBenefits.filter(isPassiveBenefit), ...selectedBenefits];
+      const { data: orderData, error: orderError } = await supabase.rpc('create_pending_order_from_local_cart', {
+        shipping_cost_input: shippingCost, shipping_address_input: data, cart_items_input: getLocalCart(),
+        user_coupon_id_input: selectedCoupon?.user_coupon_id, benefits_input: bStrings.length ? `Nível ${tierName}: ${bStrings.join(', ')}` : null,
+        payment_method_input: 'mercadopago', donation_amount_input: donationAmount
+      });
+      if (orderError) throw orderError;
+
+      const { error: paymentError } = await supabase.functions.invoke('process-mercadopago-payment', {
+        body: {
+          ...formData,
+          transaction_amount: total,
+          external_reference: orderData.new_order_id,
+          payer: {
+            ...formData.payer,
+            first_name: data.first_name,
+            last_name: data.last_name,
+          }
+        }
+      });
+      if (paymentError) throw paymentError;
+
+      dismissToast(toastId);
+      clearLocalCart();
+      navigate(`/confirmacao-pedido/${orderData.new_order_id}`);
+    } catch (e: any) {
+      dismissToast(toastId);
+      showError(e.message || "Pagamento recusado.");
+    }
+  };
+
+  const onSubmit = async (data: CheckoutFormData) => {
+    setIsSubmitting(true);
+    if (data.payment_method === 'pix') {
+      await handlePixPayment(data);
+    } else {
+      // Para cartão, a submissão é feita pelo Brick do Mercado Pago
+      showError("Preencha os dados do cartão e clique em 'Pagar'.");
+    }
+    setIsSubmitting(false);
   };
 
   if (loading) return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-sky-400" /></div>;
@@ -289,86 +278,26 @@ const CheckoutPage = () => {
           <Card className="bg-white border-stone-200 shadow-xl rounded-[2rem] overflow-hidden">
             <CardHeader className="bg-stone-50 border-b border-stone-100 p-8"><div className="flex items-center space-x-4"><div className="p-3 bg-sky-100 rounded-2xl"><MapPin className="h-6 w-6 text-sky-600" /></div><CardTitle className="font-black text-2xl uppercase tracking-tighter italic">Dados de Entrega.</CardTitle></div></CardHeader>
             <CardContent className="p-8 space-y-6">
-              {deliveryType === 'correios' && <Alert className="bg-yellow-50"><Truck className="h-4 w-4" /><AlertTitle className="font-bold text-xs uppercase">Entrega via Correios</AlertTitle></Alert>}
               <div className="grid grid-cols-2 gap-4"><div><Label className="text-[10px] uppercase text-slate-500">Nome</Label><Input {...register('first_name')} /></div><div><Label className="text-[10px] uppercase text-slate-500">Sobrenome</Label><Input {...register('last_name')} /></div></div>
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-[10px] uppercase text-slate-500">Telefone</Label>
-                  <Input {...register('phone')} onChange={e => e.target.value = maskPhone(e.target.value)} />
-                  {errors.phone && <p className="text-xs text-red-500 font-bold">{errors.phone.message}</p>}
-                </div>
-                <div>
-                  <Label className="text-[10px] uppercase text-slate-500">CPF/CNPJ</Label>
-                  <Input {...register('cpf_cnpj')} onChange={e => e.target.value = maskCpfCnpj(e.target.value)} />
-                  {errors.cpf_cnpj && <p className="text-xs text-red-500 font-bold">{errors.cpf_cnpj.message}</p>}
-                </div>
+                <div><Label className="text-[10px] uppercase text-slate-500">Telefone</Label><Input {...register('phone')} onChange={e => e.target.value = maskPhone(e.target.value)} />{errors.phone && <p className="text-xs text-red-500 font-bold">{errors.phone.message}</p>}</div>
+                <div><Label className="text-[10px] uppercase text-slate-500">CPF/CNPJ</Label><Input {...register('cpf_cnpj')} onChange={e => e.target.value = maskCpfCnpj(e.target.value)} />{errors.cpf_cnpj && <p className="text-xs text-red-500 font-bold">{errors.cpf_cnpj.message}</p>}</div>
               </div>
               <div><Label className="text-[10px] uppercase text-slate-500">CEP</Label><div className="flex gap-2"><Input {...register('cep')} onChange={e => e.target.value = maskCep(e.target.value)} /><Button type="button" size="icon" onClick={handleCepLookup} className="bg-sky-500 h-10 w-12 shrink-0">{isFetchingCep ? <Loader2 className="animate-spin h-4 w-4" /> : <Search className="h-4 w-4" />}</Button></div></div>
               <div className="grid grid-cols-3 gap-4"><div className="col-span-2"><Label className="text-[10px] uppercase text-slate-500">Rua</Label><Input {...register('street')} /></div><div><Label className="text-[10px] uppercase text-slate-500">Número</Label><Input {...register('number')} /></div></div>
               <div className="grid grid-cols-2 gap-4"><div><Label className="text-[10px] uppercase text-slate-500">Bairro</Label><Input {...register('neighborhood')} /></div><div><Label className="text-[10px] uppercase text-slate-500">Cidade</Label><Input {...register('city')} /></div></div>
             </CardContent>
           </Card>
-          
-          {tierBenefits.length > 0 && (
-            <Card className="bg-white border-sky-500/20 shadow-xl rounded-[2rem] overflow-hidden">
-                <CardHeader className="bg-sky-50 p-8"><CardTitle className="font-black text-2xl uppercase tracking-tighter italic">Clube <span className="text-sky-500">{tierName}</span></CardTitle></CardHeader>
-                <CardContent className="p-8 space-y-3">
-                    {tierBenefits.map((b, i) => (
-                        <div key={i} className={cn("flex items-center gap-3 p-3 rounded-xl border", isPassiveBenefit(b) ? "bg-sky-50 border-sky-100" : "bg-stone-50 border-stone-100")}>
-                            {!isPassiveBenefit(b) ? <Checkbox checked={selectedBenefits.includes(b)} onCheckedChange={() => setSelectedBenefits(p => p.includes(b) ? p.filter(x => x !== b) : [...p, b])} /> : <CheckCircle2 className="h-5 w-5 text-sky-500" />}
-                            <span className="text-sm font-bold">{b}</span>
-                        </div>
-                    ))}
-                </CardContent>
-            </Card>
-          )}
         </div>
 
         <div className="space-y-8">
           <Card className="bg-white border-stone-200 shadow-xl rounded-[2rem] overflow-hidden">
             <CardHeader className="bg-stone-50 p-8"><CardTitle className="font-black text-2xl uppercase tracking-tighter italic">Resumo do Pedido.</CardTitle></CardHeader>
             <CardContent className="p-8 space-y-6">
-              <div className="space-y-3 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
-                {items.map(i => (
-                  <div key={i.id} className="flex items-center justify-between bg-stone-50 p-3 rounded-xl border border-stone-100">
-                    <div className="flex items-center gap-3"><img src={i.image_url} className="h-12 w-12 object-cover rounded-lg" /><div><p className="font-black text-[10px] uppercase">{i.name}</p><p className="text-[9px] text-slate-400 font-bold">QTD: {i.quantity}</p></div></div>
-                    <p className="font-black text-sky-600 text-sm">R$ {(getItemPrice(i) * i.quantity).toFixed(2)}</p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-[10px] uppercase text-slate-400">Cupom</Label>
-                <Select onValueChange={handleCouponChange} value={selectedCoupon?.user_coupon_id.toString() || 'none'}>
-                    <SelectTrigger className="rounded-xl h-12"><SelectValue placeholder="Aplicar cupom" /></SelectTrigger>
-                    <SelectContent>{coupons.map(c => <SelectItem key={c.user_coupon_id} value={c.user_coupon_id.toString()}>{c.name}</SelectItem>)}<SelectItem value="none">Nenhum</SelectItem></SelectContent>
-                </Select>
-              </div>
-
-              <div className="bg-rose-50 border border-rose-100 p-5 rounded-2xl space-y-4">
-                <div className="flex items-center gap-2">
-                    <Heart className="h-5 w-5 text-rose-500 fill-current" />
-                    <span className="text-[11px] font-black uppercase tracking-widest text-rose-600">Doação Solidária (ONG)</span>
-                </div>
-                <div className="flex gap-2">
-                    {[2, 5, 10].map(v => (
-                        <Button key={v} type="button" variant="outline" className={cn("flex-1 h-11 text-xs font-black rounded-xl transition-all", donationAmount === v ? "bg-rose-500 text-white border-rose-500 shadow-md" : "bg-white border-rose-200 text-rose-500 hover:bg-rose-100")} onClick={() => setDonationAmount(donationAmount === v ? 0 : v)}>R$ {v}</Button>
-                    ))}
-                    <div className="relative w-1/4">
-                        <Input type="number" placeholder="Outro" className="h-11 text-xs font-bold pl-2 border-rose-200 rounded-xl" onChange={e => setDonationAmount(Number(e.target.value))} />
-                    </div>
-                </div>
-              </div>
-
-              <div className="space-y-3 bg-stone-50 p-6 rounded-2xl border border-stone-100">
-                <div className="flex justify-between text-[10px] font-bold uppercase text-slate-500"><span>Subtotal</span><span>R$ {subtotal.toFixed(2)}</span></div>
-                {selectedCoupon && <div className="flex justify-between text-[10px] font-bold uppercase text-green-600"><span>Desconto</span><span>- R$ {discount.toFixed(2)}</span></div>}
-                <div className="flex justify-between text-[10px] font-bold uppercase text-slate-500"><span>Frete</span><span className={isFreeShippingApplied ? "text-green-600" : ""}>{isFreeShippingApplied ? "GRÁTIS" : `R$ ${shippingCost.toFixed(2)}`}</span></div>
-                {donationAmount > 0 && <div className="flex justify-between text-[10px] font-bold uppercase text-rose-600"><span>Doação</span><span>+ R$ {donationAmount.toFixed(2)}</span></div>}
-                <Separator />
-                <div className="flex justify-between font-black text-3xl italic uppercase tracking-tighter"><span>Total</span><span className="text-sky-600">R$ {total.toFixed(2).replace('.', ',')}</span></div>
-              </div>
-
+              <div className="space-y-3 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">{items.map(i => (<div key={i.id} className="flex items-center justify-between bg-stone-50 p-3 rounded-xl border border-stone-100"><div className="flex items-center gap-3"><img src={i.image_url} className="h-12 w-12 object-cover rounded-lg" /><div><p className="font-black text-[10px] uppercase">{i.name}</p><p className="text-[9px] text-slate-400 font-bold">QTD: {i.quantity}</p></div></div><p className="font-black text-sky-600 text-sm">R$ {(getItemPrice(i) * i.quantity).toFixed(2)}</p></div>))}</div>
+              <div className="space-y-2"><Label className="text-[10px] uppercase text-slate-400">Cupom</Label><Select onValueChange={handleCouponChange} value={selectedCoupon?.user_coupon_id.toString() || 'none'}><SelectTrigger className="rounded-xl h-12"><SelectValue placeholder="Aplicar cupom" /></SelectTrigger><SelectContent>{coupons.map(c => <SelectItem key={c.user_coupon_id} value={c.user_coupon_id.toString()}>{c.name}</SelectItem>)}<SelectItem value="none">Nenhum</SelectItem></SelectContent></Select></div>
+              <div className="space-y-3 bg-stone-50 p-6 rounded-2xl border border-stone-100"><div className="flex justify-between text-[10px] font-bold uppercase text-slate-500"><span>Subtotal</span><span>R$ {subtotal.toFixed(2)}</span></div>{selectedCoupon && <div className="flex justify-between text-[10px] font-bold uppercase text-green-600"><span>Desconto</span><span>- R$ {discount.toFixed(2)}</span></div>}<div className="flex justify-between text-[10px] font-bold uppercase text-slate-500"><span>Frete</span><span className={isFreeShippingApplied ? "text-green-600" : ""}>{isFreeShippingApplied ? "GRÁTIS" : `R$ ${shippingCost.toFixed(2)}`}</span></div>{donationAmount > 0 && <div className="flex justify-between text-[10px] font-bold uppercase text-rose-600"><span>Doação</span><span>+ R$ {donationAmount.toFixed(2)}</span></div>}<Separator /><div className="flex justify-between font-black text-3xl italic uppercase tracking-tighter"><span>Total</span><span className="text-sky-600">R$ {total.toFixed(2).replace('.', ',')}</span></div></div>
+              
               <div className="space-y-3">
                 <Label className="text-[10px] uppercase text-slate-400">Método de Pagamento</Label>
                 <div className="grid grid-cols-2 gap-3">
@@ -377,7 +306,40 @@ const CheckoutPage = () => {
                 </div>
               </div>
 
-              <Button type="submit" disabled={isSubmitting} className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95">{isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : "Finalizar Pedido"}</Button>
+              {paymentMethod === 'pix' && (
+                <Button type="submit" disabled={isSubmitting} className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95">{isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : "Finalizar com PIX"}</Button>
+              )}
+
+              {paymentMethod === 'mercadopago' && (
+                <div className="bg-stone-50 p-6 rounded-2xl border border-stone-200">
+                  <CardPayment
+                    initialization={{ amount: total }}
+                    onSubmit={async (formData) => {
+                      const isValid = await trigger();
+                      if (isValid) {
+                        setIsSubmitting(true);
+                        await handleCardPayment(formData);
+                        setIsSubmitting(false);
+                      } else {
+                        showError("Preencha todos os dados de entrega primeiro.");
+                      }
+                    }}
+                    onReady={() => setIsBrickReady(true)}
+                    onError={(error) => console.error(error)}
+                    customization={{
+                      visual: {
+                        style: {
+                          theme: 'flat',
+                        }
+                      },
+                      paymentMethods: {
+                        maxInstallments: 3,
+                      }
+                    }}
+                  />
+                  {!isBrickReady && <div className="flex justify-center items-center p-8"><Loader2 className="animate-spin text-sky-500" /></div>}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

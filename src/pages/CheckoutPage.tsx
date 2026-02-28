@@ -12,7 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { showError, showSuccess, showLoading, dismissToast } from '@/utils/toast';
-import { Loader2, Search, CreditCard, MessageSquare, MapPin, Truck, Heart, CheckCircle2, Gift } from 'lucide-react';
+import { Loader2, Search, CreditCard, MessageSquare, MapPin, Truck, Heart, CheckCircle2, Gift, X } from 'lucide-react';
 import { getLocalCart, ItemType, clearLocalCart } from '@/utils/localCart';
 import { maskCep, maskPhone, maskCpfCnpj } from '@/utils/masks';
 import CouponsModal from '@/components/CouponsModal';
@@ -335,18 +335,24 @@ const CheckoutPage = () => {
               <div className="space-y-3 bg-stone-50 p-6 rounded-2xl border border-stone-100"><div className="flex justify-between text-[10px] font-bold uppercase text-slate-500"><span>Subtotal</span><span>R$ {subtotal.toFixed(2)}</span></div>{selectedCoupon && <div className="flex justify-between text-[10px] font-bold uppercase text-green-600"><span>Desconto</span><span>- R$ {discount.toFixed(2)}</span></div>}<div className="flex justify-between text-[10px] font-bold uppercase text-slate-500"><span>Frete</span><span className={isFreeShippingApplied ? "text-green-600" : ""}>{isFreeShippingApplied ? "GRÁTIS" : `R$ ${shippingCost.toFixed(2)}`}</span></div>{donationAmount > 0 && <div className="flex justify-between text-[10px] font-bold uppercase text-rose-600"><span>Doação</span><span>+ R$ {donationAmount.toFixed(2)}</span></div>}<Separator /><div className="flex justify-between font-black text-3xl italic uppercase tracking-tighter"><span>Total</span><span className="text-sky-600">R$ {total.toFixed(2).replace('.', ',')}</span></div></div>
               
               <div className="space-y-3">
-                <div className="flex items-center space-x-3 bg-rose-50 p-4 rounded-xl border border-rose-100">
-                  <Checkbox
-                    id="donation"
-                    checked={donationAmount > 0}
-                    onCheckedChange={(checked) => {
-                      setDonationAmount(checked ? 1.00 : 0);
-                    }}
-                  />
-                  <Label htmlFor="donation" className="text-sm font-bold text-rose-800 cursor-pointer flex items-center gap-2">
-                    <Heart className="h-4 w-4 text-rose-500 fill-current" />
-                    Adicionar R$ 1,00 para doação
-                  </Label>
+                <Label className="text-[10px] uppercase text-slate-400">Doação Solidária</Label>
+                <div className="flex flex-wrap items-center gap-2">
+                  {[2, 5, 10].map(val => (
+                    <Button
+                      key={val}
+                      type="button"
+                      variant={donationAmount === val ? 'default' : 'outline'}
+                      onClick={() => setDonationAmount(val)}
+                      className={cn("rounded-lg h-10 text-xs font-bold", donationAmount === val && "bg-rose-500 hover:bg-rose-600")}
+                    >
+                      R$ {val.toFixed(2)}
+                    </Button>
+                  ))}
+                  {donationAmount > 0 && (
+                    <Button type="button" variant="ghost" size="icon" onClick={() => setDonationAmount(0)} className="text-rose-500 hover:text-rose-700">
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </div>
 
@@ -368,7 +374,7 @@ const CheckoutPage = () => {
                     <>
                       <div style={{ display: isBrickReady ? 'block' : 'none' }}>
                         <CardPayment
-                          key={total}
+                          key={`${total}-${selectedBenefits.join('-')}`}
                           initialization={{ amount: total }}
                           onSubmit={async (formData) => {
                             const isValid = await trigger();

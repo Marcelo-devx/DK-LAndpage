@@ -103,6 +103,19 @@ const CheckoutPage = () => {
   const discount = selectedCoupon?.discount_value ?? 0;
   const total = Math.max(0, subtotal - discount + shippingCost) + donationAmount;
 
+  // IMPORTANT: Mercado Pago Brick is sensitive to initial/changed amount.
+  // Use cents + stable key to avoid float issues and force a clean re-init when needed.
+  const totalCents = Math.max(0, Math.round(total * 100));
+  const benefitsKey = selectedBenefits.slice().sort().join('|');
+  const mpBrickKey = `${totalCents}-${benefitsKey}`;
+
+  // Reset Brick readiness whenever payment context changes (amount/benefits/payment method)
+  useEffect(() => {
+    if (paymentMethod === 'mercadopago') {
+      setIsBrickReady(false);
+    }
+  }, [paymentMethod, mpBrickKey]);
+
   const fetchCartItems = useCallback(async () => {
     const localCart = getLocalCart();
     if (localCart.length === 0) { navigate('/', { replace: true }); return; }
@@ -342,7 +355,7 @@ const CheckoutPage = () => {
                       key={val}
                       type="button"
                       variant={donationAmount === val ? 'default' : 'outline'}
-                      onClick={() => setDonationAmount(val)}
+                      onClick={() => setDonationAmount(prev => (prev === val ? 0 : val))}
                       className={cn("rounded-lg h-10 text-xs font-bold", donationAmount === val && "bg-rose-500 hover:bg-rose-600")}
                     >
                       R$ {val.toFixed(2)}
@@ -369,39 +382,41 @@ const CheckoutPage = () => {
               )}
 
               {paymentMethod === 'mercadopago' && (
-                <div className="bg-stone-50 p-6 rounded-2xl border border-stone-200">
-                  {total > 0 ? (
+                <div className="bg-stone-50 p-6 rounded-2xl border border-stone-200 relative">
+                  {totalCents > 0 ? (
                     <>
-                      <div style={{ display: isBrickReady ? 'block' : 'none' }}>
-                        <CardPayment
-                          key={`${total}-${selectedBenefits.join('-')}`}
-                          initialization={{ amount: total }}
-                          onSubmit={async (formData) => {
-                            const isValid = await trigger();
-                            if (isValid) {
-                              setIsSubmitting(true);
-                              await handleCardPayment(formData);
-                              setIsSubmitting(false);
-                            } else {
-                              showError("Preencha todos os dados de entrega primeiro.");
+                      <CardPayment
+                        key={mpBrickKey}
+                        initialization={{ amount: totalCents / 100 }}
+                        onSubmit={async (formData) => {
+                          const isValid = await trigger();
+                          if (isValid) {
+                            setIsSubmitting(true);
+                            await handleCardPayment(formData);
+                            setIsSubmitting(false);
+                          } else {
+                            showError("Preencha todos os dados de entrega primeiro.");
+                          }
+                        }}
+                        onReady={() => setIsBrickReady(true)}
+                        onError={(error) => {
+                          console.error('[mercadopago-brick] error', error);
+                          setIsBrickReady(false);
+                        }}
+                        customization={{
+                          visual: {
+                            style: {
+                              theme: 'flat',
                             }
-                          }}
-                          onReady={() => setIsBrickReady(true)}
-                          onError={(error) => console.error(error)}
-                          customization={{
-                            visual: {
-                              style: {
-                                theme: 'flat',
-                              }
-                            },
-                            paymentMethods: {
-                              maxInstallments: 3,
-                            }
-                          }}
-                        />
-                      </div>
+                          },
+                          paymentMethods: {
+                            maxInstallments: 3,
+                          }
+                        }}
+                      />
+
                       {!isBrickReady && (
-                        <div className="flex justify-center items-center p-8">
+                        <div className="absolute inset-0 flex justify-center items-center bg-white/70 backdrop-blur-sm rounded-2xl">
                           <Loader2 className="animate-spin text-sky-500" />
                         </div>
                       )}

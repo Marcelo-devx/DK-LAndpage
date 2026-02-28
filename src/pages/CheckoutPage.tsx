@@ -225,33 +225,48 @@ const CheckoutPage = () => {
 
     const toastId = showLoading("Redirecionando para o pagamento...");
     setIsSubmitting(true);
+    
     try {
       const data = getValues();
       const bStrings = [...tierBenefits.filter(isPassiveBenefit), ...selectedBenefits];
 
+      console.log('[checkout] Iniciando criação de pedido...');
       const { data: orderData, error: orderError } = await supabase.rpc('create_pending_order_from_local_cart', {
         shipping_cost_input: shippingCost,
         shipping_address_input: data,
         cart_items_input: getLocalCart(),
         user_coupon_id_input: selectedCoupon?.user_coupon_id,
         benefits_input: bStrings.length ? `Nível ${tierName}: ${bStrings.join(', ')}` : null,
-        payment_method_input: 'mercadopago',
+        payment_method_input: 'Cartão de Crédito',
         donation_amount_input: donationAmount,
       });
 
-      if (orderError) throw orderError;
+      if (orderError) {
+        console.error('[checkout] Erro ao criar pedido:', orderError);
+        throw new Error(orderError.message || "Erro ao criar pedido.");
+      }
 
-      // Garante que cobramos o valor final salvo no pedido
+      console.log('[checkout] Pedido criado com ID:', orderData.new_order_id);
+
+      // Buscar dados completos do pedido
       const { data: orderRow, error: orderRowError } = await supabase
         .from('orders')
         .select('total_price, shipping_cost, donation_amount, shipping_address')
         .eq('id', orderData.new_order_id)
         .single();
 
-      if (orderRowError || !orderRow) throw orderRowError || new Error('Pedido não encontrado.');
+      if (orderRowError || !orderRow) {
+        console.error('[checkout] Erro ao buscar pedido:', orderRowError);
+        throw new Error('Pedido não encontrado após criação.');
+      }
 
       const finalTotal =
-        Number(orderRow.total_price || 0) + Number(orderRow.shipping_cost || 0) + Number(orderRow.donation_amount || 0);
+        Number(orderRow.total_price || 0) + 
+        Number(orderRow.shipping_cost || 0) + 
+        Number(orderRow.donation_amount || 0);
+
+      console.log('[checkout] Total calculado:', finalTotal);
+      console.log('[checkout] Criando preferência no Mercado Pago...');
 
       const { data: pref, error: prefError } = await supabase.functions.invoke('create-mercadopago-preference', {
         body: {
@@ -262,18 +277,30 @@ const CheckoutPage = () => {
         },
       });
 
-      if (prefError) throw prefError;
+      console.log('[checkout] Resposta da preferência:', pref, prefError);
+
+      if (prefError) {
+        console.error('[checkout] Erro ao criar preferência:', prefError);
+        throw new Error(prefError.message || "Erro ao criar preferência de pagamento.");
+      }
+
+      if (!pref || (!pref.init_point && !pref.sandbox_init_point)) {
+        console.error('[checkout] Resposta inválida:', pref);
+        throw new Error('Não foi possível obter a URL de pagamento do Mercado Pago.');
+      }
 
       dismissToast(toastId);
       clearLocalCart();
 
-      const redirectUrl = pref?.sandbox_init_point || pref?.init_point;
-      if (!redirectUrl) throw new Error('Não foi possível obter a URL de pagamento.');
-
+      const redirectUrl = pref.sandbox_init_point || pref.init_point;
+      console.log('[checkout] Redirecionando para:', redirectUrl);
+      
       window.location.href = redirectUrl;
+      
     } catch (e: any) {
+      console.error('[checkout] Erro fatal:', e);
       dismissToast(toastId);
-      showError(e?.message || "Não foi possível iniciar o pagamento.");
+      showError(e?.message || "Não foi possível iniciar o pagamento. Tente novamente.");
       setIsSubmitting(false);
     }
   };

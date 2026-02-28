@@ -12,7 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { showError, showSuccess, showLoading, dismissToast } from '@/utils/toast';
-import { Loader2, Search, CreditCard, MessageSquare, MapPin, Truck, Heart, CheckCircle2 } from 'lucide-react';
+import { Loader2, Search, CreditCard, MessageSquare, MapPin, Truck, Heart, CheckCircle2, Gift } from 'lucide-react';
 import { getLocalCart, ItemType, clearLocalCart } from '@/utils/localCart';
 import { maskCep, maskPhone, maskCpfCnpj } from '@/utils/masks';
 import CouponsModal from '@/components/CouponsModal';
@@ -288,6 +288,42 @@ const CheckoutPage = () => {
               <div className="grid grid-cols-2 gap-4"><div><Label className="text-[10px] uppercase text-slate-500">Bairro</Label><Input {...register('neighborhood')} /></div><div><Label className="text-[10px] uppercase text-slate-500">Cidade</Label><Input {...register('city')} /></div></div>
             </CardContent>
           </Card>
+
+          {tierBenefits.length > 0 && (
+            <Card className="bg-white border-stone-200 shadow-xl rounded-[2rem] overflow-hidden">
+              <CardHeader className="bg-stone-50 border-b border-stone-100 p-8">
+                <div className="flex items-center space-x-4">
+                  <div className="p-3 bg-indigo-100 rounded-2xl">
+                    <Gift className="h-6 w-6 text-indigo-600" />
+                  </div>
+                  <CardTitle className="font-black text-2xl uppercase tracking-tighter italic">
+                    Benefícios Clube DK ({tierName})
+                  </CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="p-8 space-y-4">
+                <p className="text-sm text-stone-500 font-medium">
+                  Selecione os benefícios do seu nível que deseja usar neste pedido.
+                </p>
+                {tierBenefits.filter(b => !isPassiveBenefit(b)).map(benefit => (
+                  <div key={benefit} className="flex items-center space-x-3 bg-stone-50 p-4 rounded-xl border border-stone-100">
+                    <Checkbox
+                      id={benefit}
+                      checked={selectedBenefits.includes(benefit)}
+                      onCheckedChange={(checked) => {
+                        setSelectedBenefits(prev =>
+                          checked ? [...prev, benefit] : prev.filter(b => b !== benefit)
+                        );
+                      }}
+                    />
+                    <Label htmlFor={benefit} className="text-sm font-bold text-charcoal-gray cursor-pointer">
+                      {benefit}
+                    </Label>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         <div className="space-y-8">
@@ -298,6 +334,22 @@ const CheckoutPage = () => {
               <div className="space-y-2"><Label className="text-[10px] uppercase text-slate-400">Cupom</Label><Select onValueChange={handleCouponChange} value={selectedCoupon?.user_coupon_id.toString() || 'none'}><SelectTrigger className="rounded-xl h-12"><SelectValue placeholder="Aplicar cupom" /></SelectTrigger><SelectContent>{coupons.map(c => <SelectItem key={c.user_coupon_id} value={c.user_coupon_id.toString()}>{c.name}</SelectItem>)}<SelectItem value="none">Nenhum</SelectItem></SelectContent></Select></div>
               <div className="space-y-3 bg-stone-50 p-6 rounded-2xl border border-stone-100"><div className="flex justify-between text-[10px] font-bold uppercase text-slate-500"><span>Subtotal</span><span>R$ {subtotal.toFixed(2)}</span></div>{selectedCoupon && <div className="flex justify-between text-[10px] font-bold uppercase text-green-600"><span>Desconto</span><span>- R$ {discount.toFixed(2)}</span></div>}<div className="flex justify-between text-[10px] font-bold uppercase text-slate-500"><span>Frete</span><span className={isFreeShippingApplied ? "text-green-600" : ""}>{isFreeShippingApplied ? "GRÁTIS" : `R$ ${shippingCost.toFixed(2)}`}</span></div>{donationAmount > 0 && <div className="flex justify-between text-[10px] font-bold uppercase text-rose-600"><span>Doação</span><span>+ R$ {donationAmount.toFixed(2)}</span></div>}<Separator /><div className="flex justify-between font-black text-3xl italic uppercase tracking-tighter"><span>Total</span><span className="text-sky-600">R$ {total.toFixed(2).replace('.', ',')}</span></div></div>
               
+              <div className="space-y-3">
+                <div className="flex items-center space-x-3 bg-rose-50 p-4 rounded-xl border border-rose-100">
+                  <Checkbox
+                    id="donation"
+                    checked={donationAmount > 0}
+                    onCheckedChange={(checked) => {
+                      setDonationAmount(checked ? 1.00 : 0);
+                    }}
+                  />
+                  <Label htmlFor="donation" className="text-sm font-bold text-rose-800 cursor-pointer flex items-center gap-2">
+                    <Heart className="h-4 w-4 text-rose-500 fill-current" />
+                    Adicionar R$ 1,00 para doação
+                  </Label>
+                </div>
+              </div>
+
               <div className="space-y-3">
                 <Label className="text-[10px] uppercase text-slate-400">Método de Pagamento</Label>
                 <div className="grid grid-cols-2 gap-3">

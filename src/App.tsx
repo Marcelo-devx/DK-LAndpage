@@ -26,6 +26,7 @@ import AuthEventHandler from "./components/AuthEventHandler";
 import { ThemeProvider } from "./context/ThemeContext";
 import AdminCustomizer from "./components/AdminCustomizer";
 import { showSuccess } from "./utils/toast";
+import EmailConfirm from "./pages/EmailConfirm";
 
 const queryClient = new QueryClient();
 
@@ -66,6 +67,7 @@ const App = () => {
               <Route path="/complete-profile" element={<CompleteProfilePage />} />
               <Route path="/update-password" element={<UpdatePassword />} />
               <Route path="/admin/logistica" element={<AdminLogistics />} />
+              <Route path="/auth/confirm" element={<EmailConfirm />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

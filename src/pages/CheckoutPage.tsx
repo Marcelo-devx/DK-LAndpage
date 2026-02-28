@@ -103,6 +103,10 @@ const CheckoutPage = () => {
   const discount = selectedCoupon?.discount_value ?? 0;
   const total = Math.max(0, subtotal - discount + shippingCost) + donationAmount;
 
+  // Mercado Pago minimum amount for credit card payments (R$ 1.00)
+  const MINIMUM_CARD_AMOUNT = 1.00;
+  const isCardPaymentAllowed = total >= MINIMUM_CARD_AMOUNT;
+
   // IMPORTANT: Mercado Pago Brick is sensitive to initial/changed amount.
   // Use cents + stable key to avoid float issues and force a clean re-init when needed.
   const totalCents = Math.max(0, Math.round(total * 100));
@@ -115,6 +119,13 @@ const CheckoutPage = () => {
       setIsBrickReady(false);
     }
   }, [paymentMethod, mpBrickKey]);
+
+  // Auto-switch to PIX if card payment is not allowed due to minimum amount
+  useEffect(() => {
+    if (paymentMethod === 'mercadopago' && !isCardPaymentAllowed) {
+      setValue('payment_method', 'pix');
+    }
+  }, [isCardPaymentAllowed, paymentMethod, setValue]);
 
   const fetchCartItems = useCallback(async () => {
     const localCart = getLocalCart();
@@ -372,9 +383,22 @@ const CheckoutPage = () => {
               <div className="space-y-3">
                 <Label className="text-[10px] uppercase text-slate-400">Método de Pagamento</Label>
                 <div className="grid grid-cols-2 gap-3">
-                    <Button type="button" onClick={() => setValue('payment_method', 'mercadopago')} disabled={!isCreditCardEnabled} className={cn("h-16 flex-col gap-1 rounded-xl border", paymentMethod === 'mercadopago' ? "bg-sky-500 text-white border-sky-400" : "bg-stone-50 text-slate-500")}><CreditCard className="h-4 w-4" /><span className="text-[9px] uppercase font-black">Cartão</span></Button>
+                    <Button 
+                      type="button" 
+                      onClick={() => setValue('payment_method', 'mercadopago')} 
+                      disabled={!isCreditCardEnabled || !isCardPaymentAllowed} 
+                      className={cn("h-16 flex-col gap-1 rounded-xl border", paymentMethod === 'mercadopago' ? "bg-sky-500 text-white border-sky-400" : "bg-stone-50 text-slate-500")}
+                    >
+                      <CreditCard className="h-4 w-4" />
+                      <span className="text-[9px] uppercase font-black">Cartão</span>
+                    </Button>
                     <Button type="button" onClick={() => setValue('payment_method', 'pix')} className={cn("h-16 flex-col gap-1 rounded-xl border", paymentMethod === 'pix' ? "bg-sky-500 text-white border-sky-400" : "bg-stone-50 text-slate-500")}><MessageSquare className="h-4 w-4" /><span className="text-[9px] uppercase font-black">PIX WhatsApp</span></Button>
                 </div>
+                {!isCardPaymentAllowed && isCreditCardEnabled && (
+                  <p className="text-xs text-amber-600 font-medium mt-2">
+                    ⚠️ Pagamento com cartão disponível apenas para pedidos acima de R$ {MINIMUM_CARD_AMOUNT.toFixed(2).replace('.', ',')}
+                  </p>
+                )}
               </div>
 
               {paymentMethod === 'pix' && (

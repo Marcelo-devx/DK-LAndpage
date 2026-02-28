@@ -312,32 +312,46 @@ const CheckoutPage = () => {
 
               {paymentMethod === 'mercadopago' && (
                 <div className="bg-stone-50 p-6 rounded-2xl border border-stone-200">
-                  <CardPayment
-                    initialization={{ amount: total }}
-                    onSubmit={async (formData) => {
-                      const isValid = await trigger();
-                      if (isValid) {
-                        setIsSubmitting(true);
-                        await handleCardPayment(formData);
-                        setIsSubmitting(false);
-                      } else {
-                        showError("Preencha todos os dados de entrega primeiro.");
-                      }
-                    }}
-                    onReady={() => setIsBrickReady(true)}
-                    onError={(error) => console.error(error)}
-                    customization={{
-                      visual: {
-                        style: {
-                          theme: 'flat',
-                        }
-                      },
-                      paymentMethods: {
-                        maxInstallments: 3,
-                      }
-                    }}
-                  />
-                  {!isBrickReady && <div className="flex justify-center items-center p-8"><Loader2 className="animate-spin text-sky-500" /></div>}
+                  {total > 0 ? (
+                    <>
+                      <div style={{ display: isBrickReady ? 'block' : 'none' }}>
+                        <CardPayment
+                          initialization={{ amount: total }}
+                          onSubmit={async (formData) => {
+                            const isValid = await trigger();
+                            if (isValid) {
+                              setIsSubmitting(true);
+                              await handleCardPayment(formData);
+                              setIsSubmitting(false);
+                            } else {
+                              showError("Preencha todos os dados de entrega primeiro.");
+                            }
+                          }}
+                          onReady={() => setIsBrickReady(true)}
+                          onError={(error) => console.error(error)}
+                          customization={{
+                            visual: {
+                              style: {
+                                theme: 'flat',
+                              }
+                            },
+                            paymentMethods: {
+                              maxInstallments: 3,
+                            }
+                          }}
+                        />
+                      </div>
+                      {!isBrickReady && (
+                        <div className="flex justify-center items-center p-8">
+                          <Loader2 className="animate-spin text-sky-500" />
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="flex justify-center items-center p-8">
+                      <Loader2 className="animate-spin text-sky-500" />
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>

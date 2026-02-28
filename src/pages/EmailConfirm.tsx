@@ -14,10 +14,21 @@ const EmailConfirm: React.FC = () => {
     const raw = searchParams.get("confirmation_url");
     if (raw) {
       setStatus("redirecting");
-      const url = decodeURIComponent(raw);
-      // Pequeno delay para mostrar feedback visual antes de sair da página
+      const original = decodeURIComponent(raw);
+
+      // Se a URL já está completa, sobrescrevemos o redirect_to para garantir retorno ao app atual
+      const shouldProceed = /^https?:\/\//i.test(original);
+      if (!shouldProceed) {
+        setStatus("error");
+        return;
+      }
+
+      const desiredRedirect = `${window.location.origin}/login`;
+      const supabaseUrl = new URL(original);
+      supabaseUrl.searchParams.set("redirect_to", desiredRedirect);
+
       setTimeout(() => {
-        window.location.href = url;
+        window.location.href = supabaseUrl.toString();
       }, 500);
     } else {
       setStatus("error");

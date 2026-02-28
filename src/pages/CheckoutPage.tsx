@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { showError, showLoading, dismissToast } from '@/utils/toast';
@@ -407,6 +408,15 @@ const CheckoutPage = () => {
                     <Button type="button" onClick={() => setValue('payment_method', 'mercadopago')} disabled={!isCreditCardEnabled} className={cn("h-16 flex-col gap-1 rounded-xl border", paymentMethod === 'mercadopago' ? "bg-sky-500 text-white border-sky-400" : "bg-stone-50 text-slate-500")}><CreditCard className="h-4 w-4" /><span className="text-[9px] uppercase font-black">Cartão</span></Button>
                     <Button type="button" onClick={() => setValue('payment_method', 'pix')} className={cn("h-16 flex-col gap-1 rounded-xl border", paymentMethod === 'pix' ? "bg-sky-500 text-white border-sky-400" : "bg-stone-50 text-slate-500")}><MessageSquare className="h-4 w-4" /><span className="text-[9px] uppercase font-black">PIX WhatsApp</span></Button>
                 </div>
+
+                {paymentMethod === 'mercadopago' && (
+                  <Alert className="mt-4 bg-amber-50 border-amber-100">
+                    <AlertTitle className="text-sm">Atenção</AlertTitle>
+                    <AlertDescription className="text-sm text-stone-600">
+                      O cartão de crédito deve estar no mesmo nome e CPF/CNPJ cadastrados no site para evitar recusas no pagamento.
+                    </AlertDescription>
+                  </Alert>
+                )}
               </div>
 
               {paymentMethod === 'pix' && (

@@ -105,7 +105,7 @@ serve(async (req) => {
       };
     }
 
-    // 5. Criar preferência
+    // 5. Criar preferência com URLs de retorno corretas
     const preferencePayload = {
       items: [{
         id: order_id.toString(),
@@ -117,17 +117,18 @@ serve(async (req) => {
       external_reference: order_id.toString(),
       payer: payerInfo,
       back_urls: {
-        success: `${origin}/confirmacao-pedido/${order_id}`,
+        success: `${origin}/pedidos`,
         failure: `${origin}/pedidos`,
-        pending: `${origin}/confirmacao-pedido/${order_id}`
+        pending: `${origin}/pedidos`
       },
       auto_return: "approved",
       notification_url: `${SUPABASE_URL}/functions/v1/mercadopago-webhook`,
       statement_descriptor: "DKCWB",
-      binary_mode: IS_SANDBOX
+      binary_mode: false
     };
 
     console.log('[create-mercadopago-preference] Criando preferência no MP...');
+    console.log('[create-mercadopago-preference] Back URLs:', preferencePayload.back_urls);
 
     const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',

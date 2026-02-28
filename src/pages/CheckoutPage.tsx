@@ -20,8 +20,8 @@ import { Alert, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { initMercadoPago, CardPayment } from '@mercadopago/sdk-react';
 
-// IMPORTANTE: O usuário precisa configurar esta chave no Supabase
-const MERCADOPAGO_PUBLIC_KEY = "TEST-c2815533-d507-4a59-8543-5b3493652899";
+// Chave pública de produção do Mercado Pago
+const MERCADOPAGO_PUBLIC_KEY = "APP_USR-b39e7dfb-b877-46d0-aabc-d64465bbd9e3";
 initMercadoPago(MERCADOPAGO_PUBLIC_KEY, { locale: 'pt-BR' });
 
 interface DisplayItem {

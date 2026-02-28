@@ -248,7 +248,6 @@ const CheckoutPage = () => {
 
       console.log('[checkout] Pedido criado com ID:', orderData.new_order_id);
 
-      // Buscar dados completos do pedido
       const { data: orderRow, error: orderRowError } = await supabase
         .from('orders')
         .select('total_price, shipping_cost, donation_amount, shipping_address')
@@ -292,7 +291,7 @@ const CheckoutPage = () => {
       dismissToast(toastId);
       clearLocalCart();
 
-      const redirectUrl = pref.sandbox_init_point || pref.init_point;
+      const redirectUrl = pref.init_point || pref.sandbox_init_point;
       console.log('[checkout] Redirecionando para:', redirectUrl);
       
       window.location.href = redirectUrl;

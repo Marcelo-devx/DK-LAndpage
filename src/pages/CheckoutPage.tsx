@@ -219,9 +219,13 @@ const CheckoutPage = () => {
     try {
       const bStrings = [...tierBenefits.filter(isPassiveBenefit), ...selectedBenefits];
       const { data: o, error: err } = await supabase.rpc('create_pending_order_from_local_cart', {
-        shipping_cost_input: shippingCost, shipping_address_input: data, cart_items_input: getLocalCart(),
-        user_coupon_id_input: selectedCoupon?.user_coupon_id, benefits_input: bStrings.length ? `Nível ${tierName}: ${bStrings.join(', ')}` : null,
-        payment_method_input: 'pix', donation_amount_input: donationAmount
+        shipping_cost_input: shippingCost, // Envia o valor do frete calculado
+        shipping_address_input: data, 
+        cart_items_input: getLocalCart(),
+        user_coupon_id_input: selectedCoupon?.user_coupon_id, 
+        benefits_input: bStrings.length ? `Nível ${tierName}: ${bStrings.join(', ')}` : null,
+        payment_method_input: 'pix', 
+        donation_amount_input: donationAmount
       });
       if (err) throw err;
       dismissToast(toastId);

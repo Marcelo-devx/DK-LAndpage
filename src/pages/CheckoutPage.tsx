@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -310,25 +310,44 @@ const CheckoutPage = () => {
 
       if (prefError) {
         console.error('[checkout] Erro ao criar preferência:', prefError);
+
+        // Tentativa 1: ler body/status do próprio erro (quando disponível)
         const status = (prefError as any).status;
         const body = (prefError as any).body;
         if (status) console.error('[checkout] preference error status:', status);
         if (body) console.error('[checkout] preference error body:', body);
 
-        // Tenta mostrar a mensagem real devolvida pela Edge Function (JSON { error: "..." })
-        let humanMessage: string | undefined;
+        // Tentativa 2 (mais confiável): refazer a chamada via fetch para capturar a mensagem real do backend
         try {
-          if (typeof body === 'string') {
-            const parsed = JSON.parse(body);
-            humanMessage = parsed?.error;
-          } else {
-            humanMessage = body?.error;
-          }
-        } catch {
-          // ignore
-        }
+          const functionUrl = `${SUPABASE_URL}/functions/v1/create-mercadopago-preference`;
+          const { data: { session } } = await supabase.auth.getSession();
+          const authToken = session?.access_token;
 
-        throw new Error(humanMessage || prefError.message || 'Erro ao criar preferência de pagamento.');
+          const resp = await fetch(functionUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              apikey: SUPABASE_PUBLISHABLE_KEY,
+              ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+            },
+            body: JSON.stringify(invokeOptions.body),
+          });
+
+          const text = await resp.text();
+          console.error('[checkout] Edge function raw response:', resp.status, text);
+
+          let parsed: any;
+          try {
+            parsed = JSON.parse(text);
+          } catch {
+            parsed = null;
+          }
+
+          const msg = parsed?.error || parsed?.message;
+          throw new Error(msg || `Edge Function retornou ${resp.status}`);
+        } catch (e: any) {
+          throw new Error(e?.message || prefError.message || 'Erro ao criar preferência de pagamento.');
+        }
       }
 
       if (!pref || (!pref.init_point && !pref.sandbox_init_point)) {

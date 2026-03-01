@@ -284,19 +284,31 @@ const CheckoutPage = () => {
       console.log('[checkout] Total calculado:', finalTotal);
       console.log('[checkout] Criando preferência no Mercado Pago...');
 
-      const { data: pref, error: prefError } = await supabase.functions.invoke('create-mercadopago-preference', {
+      // ensure we include the user's access token so the Edge Function can authenticate the request
+      const { data: { session } } = await supabase.auth.getSession();
+      const authToken = session?.access_token;
+
+      const invokeOptions: any = {
         body: {
           shipping_address: orderRow.shipping_address || data,
           order_id: orderData.new_order_id,
           total_price: finalTotal,
           origin: window.location.origin,
         },
-      });
+      };
+      if (authToken) {
+        invokeOptions.headers = { Authorization: `Bearer ${authToken}` };
+      }
+
+      const { data: pref, error: prefError } = await supabase.functions.invoke('create-mercadopago-preference', invokeOptions);
 
       console.log('[checkout] Resposta da preferência:', pref, prefError);
 
       if (prefError) {
+        // log completo para facilitar diagnóstico (status, message e qualquer detalhe disponível)
         console.error('[checkout] Erro ao criar preferência:', prefError);
+        if ((prefError as any).status) console.error('[checkout] preference error status:', (prefError as any).status);
+        if ((prefError as any).body) console.error('[checkout] preference error body:', (prefError as any).body);
         throw new Error(prefError.message || "Erro ao criar preferência de pagamento.");
       }
 

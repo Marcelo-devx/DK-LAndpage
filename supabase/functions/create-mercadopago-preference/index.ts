@@ -134,6 +134,7 @@ serve(async (req) => {
     }
 
     // 5. Criar preferência com URLs de retorno corretas
+    const backUrlBase = origin.replace(/\/$/, '');
     const preferencePayload = {
       items: [{
         id: orderIdStr,
@@ -145,9 +146,10 @@ serve(async (req) => {
       external_reference: orderIdStr,
       payer: payerInfo,
       back_urls: {
-        success: `${origin}/pedidos`,
-        failure: `${origin}/pedidos`,
-        pending: `${origin}/pedidos`
+        // Após o pagamento, direciona o usuário para "Minhas Compras"
+        success: `${backUrlBase}/compras`,
+        failure: `${backUrlBase}/compras`,
+        pending: `${backUrlBase}/compras`
       },
       auto_return: "approved",
       notification_url: `${SUPABASE_URL}/functions/v1/mercadopago-webhook`,

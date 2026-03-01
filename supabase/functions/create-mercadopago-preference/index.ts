@@ -24,6 +24,11 @@ serve(async (req) => {
     const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') as string;
     // @ts-ignore
     const RAW_MP_TOKEN = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') as string;
+    // NOVO: Bases configuráveis por ambiente
+    // @ts-ignore
+    const FRONTEND_BASE_URL = Deno.env.get('FRONTEND_BASE_URL') as string | undefined;
+    // @ts-ignore
+    const FRONTEND_BASE_URL_SANDBOX = Deno.env.get('FRONTEND_BASE_URL_SANDBOX') as string | undefined;
 
     if (!RAW_MP_TOKEN) {
       throw new Error("Token do Mercado Pago não configurado.");
@@ -64,7 +69,8 @@ serve(async (req) => {
 
     const orderIdRaw = body.order_id;
     const totalPriceRaw = body.total_price;
-    const origin = body.origin;
+    // Em vez de depender do origin do cliente, usaremos uma base validada (com fallback no final)
+    const clientOrigin = body.origin;
     const shipping_address = body.shipping_address;
 
     const orderIdStr = (typeof orderIdRaw === 'number' || typeof orderIdRaw === 'string')
@@ -133,8 +139,42 @@ serve(async (req) => {
       };
     }
 
-    // 5. Criar preferência com URLs de retorno corretas
-    const backUrlBase = origin.replace(/\/$/, '');
+    // 5. Selecionar a base das back_urls por prioridade: ENV -> app_settings -> client
+    let settingsBaseUrl: string | undefined;
+    let settingsBaseUrlSandbox: string | undefined;
+
+    try {
+      const { data: settings } = await supabaseClient
+        .from('app_settings')
+        .select('key, value')
+        .in('key', ['frontend_base_url', 'frontend_base_url_sandbox']);
+
+      if (settings && Array.isArray(settings)) {
+        for (const s of settings) {
+          if (s.key === 'frontend_base_url') settingsBaseUrl = s.value;
+          if (s.key === 'frontend_base_url_sandbox') settingsBaseUrlSandbox = s.value;
+        }
+      }
+    } catch (e) {
+      console.warn('[create-mercadopago-preference] Falha ao ler app_settings, continuando com ENV/cliente...');
+    }
+
+    const configuredBase =
+      (IS_SANDBOX ? (FRONTEND_BASE_URL_SANDBOX || settingsBaseUrlSandbox) : (FRONTEND_BASE_URL || settingsBaseUrl))
+      || undefined;
+
+    const chosenBase = (configuredBase || clientOrigin || '').toString().trim();
+    if (!chosenBase) {
+      throw new Error('Frontend base URL ausente. Defina FRONTEND_BASE_URL (e opcionalmente FRONTEND_BASE_URL_SANDBOX) ou app_settings.frontend_base_url.');
+    }
+
+    const backUrlBase = chosenBase.replace(/\/$/, '');
+    console.log('[create-mercadopago-preference] Base escolhida para retorno:', {
+      is_sandbox: IS_SANDBOX,
+      from: configuredBase ? 'config' : 'client',
+      base: backUrlBase
+    });
+
     const preferencePayload = {
       items: [{
         id: orderIdStr,
@@ -156,6 +196,8 @@ serve(async (req) => {
       statement_descriptor: "DKCWB",
       binary_mode: false
     };
+
+    console.log('[create-mercadopago-preference] Back URLs definidas:', preferencePayload.back_urls);
 
     console.log('[create-mercadopago-preference] Criando preferência no MP...');
     console.log('[create-mercadopago-preference] Back URLs:', preferencePayload.back_urls);

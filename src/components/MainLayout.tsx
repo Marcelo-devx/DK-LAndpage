@@ -6,7 +6,6 @@ import BrandProductsModal from "./BrandProductsModal";
 import { CartSheet } from "./CartSheet";
 import Footer from "./Footer";
 import SocialProofPopup from "./SocialProofPopup";
-import AgeVerificationPopup from "./AgeVerificationPopup";
 import DeliveryTimerBar from "./DeliveryTimerBar";
 import SupportChatWidget from "./SupportChatWidget"; // Novo
 import LoyaltyButton from "./LoyaltyButton";
@@ -92,8 +91,6 @@ const MainLayout = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-off-white text-charcoal-gray transition-colors duration-500">
-      <AgeVerificationPopup />
-      
       <div className="sticky top-0 z-40 w-full">
         <DeliveryTimerBar />
         <Header onCartClick={() => setIsCartOpen(true)} />

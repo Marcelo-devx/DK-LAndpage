@@ -1,30 +1,15 @@
-import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, ShieldAlert } from 'lucide-react';
+import { ShieldAlert } from 'lucide-react';
 
-const AgeVerificationPopup = () => {
-  const [isOpen, setIsOpen] = useState(false);
+interface AgeVerificationPopupProps {
+  onConfirm: () => void;
+  onExit: () => void;
+}
 
-  useEffect(() => {
-    const isVerified = sessionStorage.getItem('age-verified-v2');
-    if (!isVerified) {
-      setIsOpen(true);
-    }
-  }, []);
-
-  const handleConfirm = () => {
-    sessionStorage.setItem('age-verified-v2', 'true');
-    window.dispatchEvent(new Event('ageVerified'));
-    setIsOpen(false);
-  };
-
-  const handleExit = () => {
-    window.location.href = 'https://www.google.com';
-  };
-
+const AgeVerificationPopup = ({ onConfirm, onExit }: AgeVerificationPopupProps) => {
   return (
-    <Dialog open={isOpen} onOpenChange={() => {}}>
+    <Dialog open={true} onOpenChange={() => {}}>
       <DialogContent 
         className="w-[95vw] sm:max-w-md bg-slate-950 border-white/10 p-0 overflow-hidden rounded-[2rem] shadow-[0_0_100px_rgba(0,0,0,1)] outline-none [&>button]:hidden z-[9999]"
         onPointerDownOutside={(e) => e.preventDefault()}
@@ -62,14 +47,14 @@ const AgeVerificationPopup = () => {
 
           <div className="flex flex-col gap-4">
             <Button 
-              onClick={handleConfirm}
+              onClick={onConfirm}
               className="bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest h-14 rounded-xl shadow-[0_10px_20px_-5px_rgba(14,165,233,0.4)] transition-all active:scale-95"
             >
               SIM, TENHO +18 ANOS
             </Button>
             <Button 
               variant="outline"
-              onClick={handleExit}
+              onClick={onExit}
               className="border-white/10 hover:bg-red-500/10 hover:text-red-500 text-slate-400 font-black uppercase tracking-widest h-14 rounded-xl transition-all"
             >
               NÃO, QUERO SAIR

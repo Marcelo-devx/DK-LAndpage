@@ -144,9 +144,8 @@ const Login = () => {
                   label: { textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700', fontSize: '11px' }
                 }
               }}
-              // ADICIONADO: Provedor Google
               providers={['google']} 
-              redirectTo={window.location.origin} // Garante o redirecionamento correto após o OAuth
+              redirectTo={`${window.location.origin}/auth/confirm`}
               theme="default"
               view={initialView}
               localization={{

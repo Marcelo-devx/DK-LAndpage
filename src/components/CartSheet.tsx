@@ -80,19 +80,15 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
               // Build parts for a robust label: prefer explicit flavor/name + volume, otherwise try other attributes
               const parts: string[] = [];
               if (fName) parts.push(fName);
-              if (variant.size) parts.push(String(variant.size));
-              if (variant.volume_ml) parts.push(`${variant.volume_ml}ml`);
               if (variant.color) parts.push(variant.color);
               if (variant.ohms) parts.push(variant.ohms);
-              if (variant.sku) parts.push(variant.sku);
 
               // Join parts with separator; fallback to a generic but explicit label if nothing meaningful found
               const built = parts.join(' - ').trim();
               if (built) {
                 label = `Opção: ${built}`;
               } else {
-                // As last resort, include the variant id so the user knows which option was chosen
-                label = `Opção: ${variant.sku || variant.id || 'selecionada'}`;
+                label = 'Opção selecionada';
               }
             }
           }

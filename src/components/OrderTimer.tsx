@@ -10,7 +10,7 @@ interface OrderTimerProps {
 
 const OrderTimer = ({ createdAt, onExpire, className }: OrderTimerProps) => {
   const [timeLeft, setTimeLeft] = useState<number>(0);
-  const RESERVATION_TIME_MS = 15 * 60 * 1000; // 15 minutos
+  const RESERVATION_TIME_MS = 60 * 60 * 1000; // 60 minutos
 
   useEffect(() => {
     const calculateTimeLeft = () => {

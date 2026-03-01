@@ -65,6 +65,21 @@ const MainLayout = () => {
     checkProfile();
   }, [navigate, location.pathname]);
 
+  // Listener para redirecionamento de login
+  useEffect(() => {
+    const handleAuthRequired = (event: CustomEvent) => {
+        // Pequeno delay para o usuário ver a mensagem de erro
+        setTimeout(() => {
+            navigate('/login', { state: { from: event.detail.from || location.pathname } });
+        }, 1500);
+    };
+
+    window.addEventListener('authRequired', handleAuthRequired as EventListener);
+    return () => {
+        window.removeEventListener('authRequired', handleAuthRequired as EventListener);
+    };
+  }, [navigate, location.pathname]);
+
   const handleCategoryClick = (categoryName: string) => {
     setSelectedCategory(categoryName);
     setIsCategoryModalOpen(true);

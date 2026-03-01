@@ -82,16 +82,12 @@ serve(async (req) => {
     console.log('[create-mercadopago-preference] Dados recebidos:', {
       order_id: orderIdStr,
       total_price: totalPriceNum,
-      origin,
+      client_origin: clientOrigin,
       has_shipping: !!shipping_address
     });
 
     if (!orderIdStr) {
       throw new Error('Order ID is required');
-    }
-
-    if (!origin) {
-      throw new Error('Origin is required');
     }
 
     if (!shipping_address) {

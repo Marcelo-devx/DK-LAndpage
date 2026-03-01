@@ -73,11 +73,24 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
             if (variant) {
               price = variant.price;
               stock = variant.stock_quantity;
+
+              // Try to find flavor name if available
               const fName = variant.flavor_id ? flavorsData?.find(f => f.id === variant.flavor_id)?.name : '';
-              const vMl = variant.volume_ml ? `${variant.volume_ml}ml` : '';
-              
-              if (fName && vMl) label = `${fName} - ${vMl}`;
-              else label = fName || vMl;
+
+              // Build parts for a robust label: prefer flavor + volume, otherwise try other attributes
+              const parts: string[] = [];
+              if (fName) parts.push(fName);
+              if (variant.volume_ml) parts.push(`${variant.volume_ml}ml`);
+              if (variant.ohms) parts.push(variant.ohms);
+              if (variant.color) parts.push(variant.color);
+
+              // Join parts with separator; fallback to a generic 'Opção' label if nothing meaningful found
+              label = parts.join(' - ');
+              if (!label) {
+                // As last resort, try to use any stringifiable attribute that might help the user
+                const fallbackAttrs = [variant.color, variant.ohms, variant.volume_ml].filter(Boolean).map(String);
+                label = fallbackAttrs.join(' - ') || 'Opção selecionada';
+              }
             }
           }
 

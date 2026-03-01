@@ -164,8 +164,29 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
     fetchCartItems();
   };
 
-  const handleCheckout = () => {
-    if (items.length === 0) { showError("Seu carrinho está vazio."); return; }
+  const handleCheckout = async () => {
+    if (items.length === 0) { 
+      showError("Seu carrinho está vazio."); 
+      return; 
+    }
+
+    // Verifica se o usuário está logado
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session || !session.user) {
+      // Se não estiver logado, mostra aviso e redireciona para login
+      showError("Você precisa estar logado para finalizar a compra.");
+      onOpenChange(false);
+      
+      // Redireciona para login após um pequeno delay para o usuário ver o aviso
+      setTimeout(() => {
+        navigate('/login', { 
+          state: { from: '/checkout' } 
+        });
+      }, 1500);
+      return;
+    }
+
     navigate('/checkout');
     onOpenChange(false);
   };

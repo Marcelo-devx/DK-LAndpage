@@ -276,8 +276,14 @@ const CheckoutPage = () => {
         throw new Error('Pedido não encontrado após criação.');
       }
 
-      // O total_price já inclui frete e doação (calculado pela função create_pending_order_from_local_cart)
-      const finalTotal = Number(orderRow.total_price || 0);
+      // total_price do pedido normalmente é o subtotal (itens). Frete e doação podem estar em colunas separadas.
+      const finalTotalRaw =
+        Number(orderRow.total_price || 0) +
+        Number(orderRow.shipping_cost || 0) +
+        Number(orderRow.donation_amount || 0);
+
+      // Mercado Pago espera valor numérico válido (com até 2 casas)
+      const finalTotal = Number(finalTotalRaw.toFixed(2));
 
       console.log('[checkout] Total calculado:', finalTotal);
       console.log('[checkout] Criando preferência no Mercado Pago...');
@@ -303,11 +309,26 @@ const CheckoutPage = () => {
       console.log('[checkout] Resposta da preferência:', pref, prefError);
 
       if (prefError) {
-        // log completo para facilitar diagnóstico (status, message e qualquer detalhe disponível)
         console.error('[checkout] Erro ao criar preferência:', prefError);
-        if ((prefError as any).status) console.error('[checkout] preference error status:', (prefError as any).status);
-        if ((prefError as any).body) console.error('[checkout] preference error body:', (prefError as any).body);
-        throw new Error(prefError.message || "Erro ao criar preferência de pagamento.");
+        const status = (prefError as any).status;
+        const body = (prefError as any).body;
+        if (status) console.error('[checkout] preference error status:', status);
+        if (body) console.error('[checkout] preference error body:', body);
+
+        // Tenta mostrar a mensagem real devolvida pela Edge Function (JSON { error: "..." })
+        let humanMessage: string | undefined;
+        try {
+          if (typeof body === 'string') {
+            const parsed = JSON.parse(body);
+            humanMessage = parsed?.error;
+          } else {
+            humanMessage = body?.error;
+          }
+        } catch {
+          // ignore
+        }
+
+        throw new Error(humanMessage || prefError.message || 'Erro ao criar preferência de pagamento.');
       }
 
       if (!pref || (!pref.init_point && !pref.sandbox_init_point)) {

@@ -29,7 +29,7 @@ serve(async (req) => {
       throw new Error("Token do Mercado Pago não configurado.");
     }
 
-    const MP_TOKEN = RAW_MP_TOKEN.trim(); 
+    const MP_TOKEN = RAW_MP_TOKEN.trim();
     const IS_SANDBOX = MP_TOKEN.startsWith('TEST-');
 
     console.log('[create-mercadopago-preference] Modo:', IS_SANDBOX ? 'SANDBOX' : 'PRODUÇÃO');
@@ -40,10 +40,10 @@ serve(async (req) => {
       throw new Error("Autenticação ausente.");
     }
 
-    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { 
-      global: { headers: { 'Authorization': authHeader } } 
+    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { 'Authorization': authHeader } }
     });
-    
+
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
 
     if (userError || !user || !user.email) {
@@ -54,18 +54,46 @@ serve(async (req) => {
     const userEmail = user.email;
     console.log('[create-mercadopago-preference] Usuário:', userEmail);
 
-    // 3. Parse do body
-    const { order_id, total_price, origin, shipping_address } = await req.json();
+    // 3. Parse do body (com validações mais claras)
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {
+      body = {};
+    }
+
+    const orderIdRaw = body.order_id;
+    const totalPriceRaw = body.total_price;
+    const origin = body.origin;
+    const shipping_address = body.shipping_address;
+
+    const orderIdStr = (typeof orderIdRaw === 'number' || typeof orderIdRaw === 'string')
+      ? String(orderIdRaw).trim()
+      : '';
+
+    const totalPriceNum = Number(totalPriceRaw);
 
     console.log('[create-mercadopago-preference] Dados recebidos:', {
-      order_id,
-      total_price,
+      order_id: orderIdStr,
+      total_price: totalPriceNum,
       origin,
       has_shipping: !!shipping_address
     });
 
-    if (!shipping_address || !order_id || !total_price) {
-      throw new Error('Dados do pedido incompletos.');
+    if (!orderIdStr) {
+      throw new Error('Order ID is required');
+    }
+
+    if (!origin) {
+      throw new Error('Origin is required');
+    }
+
+    if (!shipping_address) {
+      throw new Error('Shipping address is required');
+    }
+
+    if (!Number.isFinite(totalPriceNum) || totalPriceNum <= 0) {
+      throw new Error('Total inválido para pagamento.');
     }
 
     // 4. Preparar dados do pagador
@@ -84,7 +112,7 @@ serve(async (req) => {
       const cleanPhone = (shipping_address.phone || '').replace(/\D/g, '');
       const cleanCpf = (shipping_address.cpf_cnpj || '').replace(/\D/g, '');
       const cleanCep = (shipping_address.cep || '').replace(/\D/g, '');
-      
+
       payerInfo = {
         name: shipping_address.first_name,
         surname: shipping_address.last_name,
@@ -108,13 +136,13 @@ serve(async (req) => {
     // 5. Criar preferência com URLs de retorno corretas
     const preferencePayload = {
       items: [{
-        id: order_id.toString(),
-        title: `Pedido #${order_id} - DKCWB`,
+        id: orderIdStr,
+        title: `Pedido #${orderIdStr} - DKCWB`,
         quantity: 1,
         currency_id: "BRL",
-        unit_price: Number(total_price),
+        unit_price: Number(totalPriceNum.toFixed(2)),
       }],
-      external_reference: order_id.toString(),
+      external_reference: orderIdStr,
       payer: payerInfo,
       back_urls: {
         success: `${origin}/pedidos`,
@@ -139,31 +167,38 @@ serve(async (req) => {
       body: JSON.stringify(preferencePayload),
     });
 
-    const mpData = await mpResponse.json();
+    const mpData = await mpResponse.json().catch(() => ({}));
 
     if (!mpResponse.ok) {
       console.error('[create-mercadopago-preference] Erro do MP:', JSON.stringify(mpData));
       const errorMsg = mpData.message || 'Erro ao criar preferência';
-      throw new Error(`Mercado Pago: ${errorMsg}`);
+      return new Response(JSON.stringify({
+        success: false,
+        error: `Mercado Pago: ${errorMsg}`,
+        mp_error: mpData,
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400,
+      });
     }
 
     console.log('[create-mercadopago-preference] Preferência criada com sucesso!');
 
     return new Response(JSON.stringify({
       success: true,
-      order_id: order_id,
-      init_point: mpData.init_point, 
+      order_id: orderIdStr,
+      init_point: mpData.init_point,
       sandbox_init_point: mpData.sandbox_init_point
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("[create-mercadopago-preference] Erro:", error);
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       success: false,
-      error: error.message || 'Erro interno do servidor'
+      error: error?.message || 'Erro interno do servidor'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400,

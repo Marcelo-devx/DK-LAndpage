@@ -263,12 +263,26 @@ const CheckoutPage = () => {
         throw new Error(orderError.message || "Erro ao criar pedido.");
       }
 
-      console.log('[checkout] Pedido criado com ID:', orderData.new_order_id);
+      console.log('[checkout] orderData raw:', orderData);
+
+      const rawOrderId: any =
+        (orderData as any)?.new_order_id ??
+        (orderData as any)?.order_id ??
+        (orderData as any)?.id ??
+        orderData;
+
+      const orderId = typeof rawOrderId === 'string' ? Number(rawOrderId) : rawOrderId;
+
+      if (!orderId || !Number.isFinite(Number(orderId))) {
+        throw new Error('Não foi possível criar o pedido (ID ausente).');
+      }
+
+      console.log('[checkout] Pedido criado com ID:', orderId);
 
       const { data: orderRow, error: orderRowError } = await supabase
         .from('orders')
         .select('total_price, shipping_cost, donation_amount, shipping_address')
-        .eq('id', orderData.new_order_id)
+        .eq('id', orderId)
         .single();
 
       if (orderRowError || !orderRow) {
@@ -295,7 +309,7 @@ const CheckoutPage = () => {
       const invokeOptions: any = {
         body: {
           shipping_address: orderRow.shipping_address || data,
-          order_id: orderData.new_order_id,
+          order_id: orderId,
           total_price: finalTotal,
           origin: window.location.origin,
         },
@@ -303,6 +317,8 @@ const CheckoutPage = () => {
       if (authToken) {
         invokeOptions.headers = { Authorization: `Bearer ${authToken}` };
       }
+
+      console.log('[checkout] Enviando para Edge Function:', invokeOptions.body);
 
       const { data: pref, error: prefError } = await supabase.functions.invoke('create-mercadopago-preference', invokeOptions);
 

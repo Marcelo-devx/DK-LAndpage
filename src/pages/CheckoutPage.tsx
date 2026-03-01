@@ -276,10 +276,8 @@ const CheckoutPage = () => {
         throw new Error('Pedido não encontrado após criação.');
       }
 
-      const finalTotal =
-        Number(orderRow.total_price || 0) + 
-        Number(orderRow.shipping_cost || 0) + 
-        Number(orderRow.donation_amount || 0);
+      // O total_price já inclui frete e doação (calculado pela função create_pending_order_from_local_cart)
+      const finalTotal = Number(orderRow.total_price || 0);
 
       console.log('[checkout] Total calculado:', finalTotal);
       console.log('[checkout] Criando preferência no Mercado Pago...');

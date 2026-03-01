@@ -13,7 +13,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { showError, showLoading, dismissToast } from '@/utils/toast';
-import { Loader2, Search, CreditCard, MessageSquare, MapPin, Gift, X } from 'lucide-react';
+import { Loader2, Search, CreditCard, MessageSquare, MapPin, Gift, X, AlertTriangle } from 'lucide-react';
 import { getLocalCart, ItemType, clearLocalCart } from '@/utils/localCart';
 import { maskCep, maskPhone, maskCpfCnpj } from '@/utils/masks';
 import CouponsModal from '@/components/CouponsModal';
@@ -79,6 +79,7 @@ const CheckoutPage = () => {
   const [tierName, setTierName] = useState<string>('');
   const [tierBenefits, setTierBenefits] = useState<string[]>([]);
   const [selectedBenefits, setSelectedBenefits] = useState<string[]>([]);
+  const [isAddressComplete, setIsAddressComplete] = useState(false);
 
   const { register, handleSubmit, setValue, getValues, watch, formState: { errors }, trigger } = useForm<CheckoutFormData>({
     resolver: zodResolver(checkoutSchema),
@@ -87,6 +88,23 @@ const CheckoutPage = () => {
   const paymentMethod = watch('payment_method');
   const watchedNeighborhood = watch('neighborhood');
   const watchedCity = watch('city');
+  const watchedAddressFields = watch(['first_name', 'last_name', 'phone', 'cpf_cnpj', 'cep', 'street', 'number', 'neighborhood', 'city', 'state']);
+
+  useEffect(() => {
+    const data = getValues();
+    const isComplete =
+      !!data.first_name?.trim() &&
+      !!data.last_name?.trim() &&
+      (data.phone?.length ?? 0) >= 14 &&
+      (data.cpf_cnpj?.length ?? 0) >= 14 &&
+      (data.cep?.length ?? 0) >= 9 &&
+      !!data.street?.trim() &&
+      !!data.number?.trim() &&
+      !!data.neighborhood?.trim() &&
+      !!data.city?.trim() &&
+      !!data.state?.trim();
+    setIsAddressComplete(isComplete);
+  }, [watchedAddressFields, getValues]);
 
   const getItemPrice = useCallback((item: DisplayItem) => {
     if (paymentMethod === 'pix' && item.pixPrice && item.pixPrice > 0) return item.pixPrice;
@@ -490,9 +508,18 @@ const CheckoutPage = () => {
 
               <div className="space-y-3">
                 <Label className="text-[10px] uppercase text-slate-400">Método de Pagamento</Label>
+                {!isAddressComplete && (
+                  <Alert variant="destructive" className="bg-red-50 border-red-100 text-red-700">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle className="font-bold">Endereço Incompleto</AlertTitle>
+                    <AlertDescription className="text-xs">
+                      Preencha todos os seus dados de entrega para liberar as opções de pagamento.
+                    </AlertDescription>
+                  </Alert>
+                )}
                 <div className="grid grid-cols-2 gap-3">
-                    <Button type="button" onClick={() => setValue('payment_method', 'mercadopago')} disabled={!isCreditCardEnabled} className={cn("h-16 flex-col gap-1 rounded-xl border", paymentMethod === 'mercadopago' ? "bg-sky-500 text-white border-sky-400" : "bg-stone-50 text-slate-500")}><CreditCard className="h-4 w-4" /><span className="text-[9px] uppercase font-black">Cartão</span></Button>
-                    <Button type="button" onClick={() => setValue('payment_method', 'pix')} className={cn("h-16 flex-col gap-1 rounded-xl border", paymentMethod === 'pix' ? "bg-sky-500 text-white border-sky-400" : "bg-stone-50 text-slate-500")}><MessageSquare className="h-4 w-4" /><span className="text-[9px] uppercase font-black">PIX WhatsApp</span></Button>
+                    <Button type="button" onClick={() => setValue('payment_method', 'mercadopago')} disabled={!isCreditCardEnabled || !isAddressComplete} className={cn("h-16 flex-col gap-1 rounded-xl border", paymentMethod === 'mercadopago' ? "bg-sky-500 text-white border-sky-400" : "bg-stone-50 text-slate-500")}><CreditCard className="h-4 w-4" /><span className="text-[9px] uppercase font-black">Cartão</span></Button>
+                    <Button type="button" onClick={() => setValue('payment_method', 'pix')} disabled={!isAddressComplete} className={cn("h-16 flex-col gap-1 rounded-xl border", paymentMethod === 'pix' ? "bg-sky-500 text-white border-sky-400" : "bg-stone-50 text-slate-500")}><MessageSquare className="h-4 w-4" /><span className="text-[9px] uppercase font-black">PIX WhatsApp</span></Button>
                 </div>
 
                 {paymentMethod === 'mercadopago' && (
@@ -506,13 +533,13 @@ const CheckoutPage = () => {
               </div>
 
               {paymentMethod === 'pix' && (
-                <Button type="submit" disabled={isSubmitting} className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95">{isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : "Finalizar com PIX"}</Button>
+                <Button type="submit" disabled={isSubmitting || !isAddressComplete} className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95">{isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : "Finalizar com PIX"}</Button>
               )}
 
               {paymentMethod === 'mercadopago' && (
                 <Button
                   type="submit"
-                  disabled={isSubmitting || !isCreditCardEnabled}
+                  disabled={isSubmitting || !isCreditCardEnabled || !isAddressComplete}
                   className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95"
                 >
                   {isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : "Pagar com Mercado Pago"}

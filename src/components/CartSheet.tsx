@@ -51,7 +51,7 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
       const [productsRes, promotionsRes, variantsRes] = await Promise.all([
         supabase.from('products').select('id, name, price, image_url, stock_quantity').in('id', productIds),
         supabase.from('promotions').select('id, name, price, image_url, stock_quantity').in('id', promotionIds),
-        variantIds.length > 0 ? supabase.from('product_variants').select('id, flavor_id, volume_ml, price, stock_quantity').in('id', variantIds) : Promise.resolve({ data: [] })
+        variantIds.length > 0 ? supabase.from('product_variants').select('id, flavor_id, volume_ml, price, stock_quantity, color, ohms, size, sku').in('id', variantIds) : Promise.resolve({ data: [] })
       ]);
 
       const flavorsIds = (variantsRes as any).data?.filter((v: any) => v.flavor_id).map((v: any) => v.flavor_id!) || [];
@@ -77,19 +77,22 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
               // Try to find flavor name if available
               const fName = variant.flavor_id ? flavorsData?.find(f => f.id === variant.flavor_id)?.name : '';
 
-              // Build parts for a robust label: prefer flavor + volume, otherwise try other attributes
+              // Build parts for a robust label: prefer explicit flavor/name + volume, otherwise try other attributes
               const parts: string[] = [];
               if (fName) parts.push(fName);
+              if (variant.size) parts.push(String(variant.size));
               if (variant.volume_ml) parts.push(`${variant.volume_ml}ml`);
-              if (variant.ohms) parts.push(variant.ohms);
               if (variant.color) parts.push(variant.color);
+              if (variant.ohms) parts.push(variant.ohms);
+              if (variant.sku) parts.push(variant.sku);
 
-              // Join parts with separator; fallback to a generic 'Opção' label if nothing meaningful found
-              label = parts.join(' - ');
-              if (!label) {
-                // As last resort, try to use any stringifiable attribute that might help the user
-                const fallbackAttrs = [variant.color, variant.ohms, variant.volume_ml].filter(Boolean).map(String);
-                label = fallbackAttrs.join(' - ') || 'Opção selecionada';
+              // Join parts with separator; fallback to a generic but explicit label if nothing meaningful found
+              const built = parts.join(' - ').trim();
+              if (built) {
+                label = `Opção: ${built}`;
+              } else {
+                // As last resort, include the variant id so the user knows which option was chosen
+                label = `Opção: ${variant.sku || variant.id || 'selecionada'}`;
               }
             }
           }

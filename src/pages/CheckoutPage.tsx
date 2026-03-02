@@ -13,7 +13,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { showError, showLoading, dismissToast } from '@/utils/toast';
-import { Loader2, Search, CreditCard, MessageSquare, MapPin, Gift, X, AlertTriangle } from 'lucide-react';
+import { Loader2, Search, CreditCard, MessageSquare, MapPin, Gift, X, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { getLocalCart, ItemType, clearLocalCart } from '@/utils/localCart';
 import { maskCep, maskPhone, maskCpfCnpj } from '@/utils/masks';
 import CouponsModal from '@/components/CouponsModal';
@@ -55,9 +55,16 @@ const checkoutSchema = z.object({
 
 type CheckoutFormData = z.infer<typeof checkoutSchema>;
 
+// Benefícios que são automáticos e não precisam de seleção
 const isPassiveBenefit = (benefit: string) => {
   const b = benefit.toLowerCase();
-  return b.includes('pontos') || b.includes('pré-venda') || b.includes('aniversário') || b.includes('acesso') || b.includes('atendimento') || b.includes('recorrente');
+  return b.includes('ponto') || b.includes('pré-venda') || b.includes('aniversário') || b.includes('acesso') || b.includes('atendimento') || b.includes('recorrente');
+};
+
+// Benefícios que o usuário PODE escolher usar (ex: Frete Grátis)
+const isSelectableBenefit = (benefit: string) => {
+  const b = benefit.toLowerCase();
+  return b.includes('frete');
 };
 
 const CheckoutPage = () => {
@@ -174,7 +181,6 @@ const CheckoutPage = () => {
       setUser(u);
       
       if (!u) {
-        // Se não estiver logado, redireciona para login
         navigate('/login', { 
           replace: true,
           state: { from: '/checkout' }
@@ -237,7 +243,7 @@ const CheckoutPage = () => {
     try {
       const bStrings = [...tierBenefits.filter(isPassiveBenefit), ...selectedBenefits];
       const { data: o, error: err } = await supabase.rpc('create_pending_order_from_local_cart', {
-        shipping_cost_input: shippingCost, // Envia o valor do frete calculado
+        shipping_cost_input: shippingCost,
         shipping_address_input: data, 
         cart_items_input: getLocalCart(),
         user_coupon_id_input: selectedCoupon?.user_coupon_id, 
@@ -269,7 +275,6 @@ const CheckoutPage = () => {
       const data = getValues();
       const bStrings = [...tierBenefits.filter(isPassiveBenefit), ...selectedBenefits];
 
-      console.log('[checkout] Iniciando criação de pedido...');
       const { data: orderData, error: orderError } = await supabase.rpc('create_pending_order_from_local_cart', {
         shipping_cost_input: shippingCost,
         shipping_address_input: data,
@@ -280,51 +285,19 @@ const CheckoutPage = () => {
         donation_amount_input: donationAmount,
       });
 
-      if (orderError) {
-        console.error('[checkout] Erro ao criar pedido:', orderError);
-        throw new Error(orderError.message || "Erro ao criar pedido.");
-      }
+      if (orderError) throw new Error(orderError.message || "Erro ao criar pedido.");
 
-      console.log('[checkout] orderData raw:', orderData);
-
-      const rawOrderId: any =
-        (orderData as any)?.new_order_id ??
-        (orderData as any)?.order_id ??
-        (orderData as any)?.id ??
-        orderData;
-
+      const rawOrderId: any = (orderData as any)?.new_order_id ?? (orderData as any)?.order_id ?? (orderData as any)?.id ?? orderData;
       const orderId = typeof rawOrderId === 'string' ? Number(rawOrderId) : rawOrderId;
 
-      if (!orderId || !Number.isFinite(Number(orderId))) {
-        throw new Error('Não foi possível criar o pedido (ID ausente).');
-      }
+      if (!orderId || !Number.isFinite(Number(orderId))) throw new Error('Não foi possível criar o pedido (ID ausente).');
 
-      console.log('[checkout] Pedido criado com ID:', orderId);
+      const { data: orderRow, error: orderRowError } = await supabase.from('orders').select('total_price, shipping_cost, donation_amount, shipping_address').eq('id', orderId).single();
+      if (orderRowError || !orderRow) throw new Error('Pedido não encontrado após criação.');
 
-      const { data: orderRow, error: orderRowError } = await supabase
-        .from('orders')
-        .select('total_price, shipping_cost, donation_amount, shipping_address')
-        .eq('id', orderId)
-        .single();
-
-      if (orderRowError || !orderRow) {
-        console.error('[checkout] Erro ao buscar pedido:', orderRowError);
-        throw new Error('Pedido não encontrado após criação.');
-      }
-
-      // total_price do pedido normalmente é o subtotal (itens). Frete e doação podem estar em colunas separadas.
-      const finalTotalRaw =
-        Number(orderRow.total_price || 0) +
-        Number(orderRow.shipping_cost || 0) +
-        Number(orderRow.donation_amount || 0);
-
-      // Mercado Pago espera valor numérico válido (com até 2 casas)
+      const finalTotalRaw = Number(orderRow.total_price || 0) + Number(orderRow.shipping_cost || 0) + Number(orderRow.donation_amount || 0);
       const finalTotal = Number(finalTotalRaw.toFixed(2));
 
-      console.log('[checkout] Total calculado:', finalTotal);
-      console.log('[checkout] Criando preferência no Mercado Pago...');
-
-      // ensure we include the user's access token so the Edge Function can authenticate the request
       const { data: { session } } = await supabase.auth.getSession();
       const authToken = session?.access_token;
 
@@ -336,73 +309,18 @@ const CheckoutPage = () => {
           origin: window.location.origin,
         },
       };
-      if (authToken) {
-        invokeOptions.headers = { Authorization: `Bearer ${authToken}` };
-      }
-
-      console.log('[checkout] Enviando para Edge Function:', invokeOptions.body);
+      if (authToken) invokeOptions.headers = { Authorization: `Bearer ${authToken}` };
 
       const { data: pref, error: prefError } = await supabase.functions.invoke('create-mercadopago-preference', invokeOptions);
 
-      console.log('[checkout] Resposta da preferência:', pref, prefError);
-
-      if (prefError) {
-        console.error('[checkout] Erro ao criar preferência:', prefError);
-
-        // Tentativa 1: ler body/status do próprio erro (quando disponível)
-        const status = (prefError as any).status;
-        const body = (prefError as any).body;
-        if (status) console.error('[checkout] preference error status:', status);
-        if (body) console.error('[checkout] preference error body:', body);
-
-        // Tentativa 2 (mais confiável): refazer a chamada via fetch para capturar a mensagem real do backend
-        try {
-          const functionUrl = `${SUPABASE_URL}/functions/v1/create-mercadopago-preference`;
-          const { data: { session } } = await supabase.auth.getSession();
-          const authToken = session?.access_token;
-
-          const resp = await fetch(functionUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              apikey: SUPABASE_PUBLISHABLE_KEY,
-              ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-            },
-            body: JSON.stringify(invokeOptions.body),
-          });
-
-          const text = await resp.text();
-          console.error('[checkout] Edge function raw response:', resp.status, text);
-
-          let parsed: any;
-          try {
-            parsed = JSON.parse(text);
-          } catch {
-            parsed = null;
-          }
-
-          const msg = parsed?.error || parsed?.message;
-          throw new Error(msg || `Edge Function retornou ${resp.status}`);
-        } catch (e: any) {
-          throw new Error(e?.message || prefError.message || 'Erro ao criar preferência de pagamento.');
-        }
-      }
-
-      if (!pref || (!pref.init_point && !pref.sandbox_init_point)) {
-        console.error('[checkout] Resposta inválida:', pref);
-        throw new Error('Não foi possível obter a URL de pagamento do Mercado Pago.');
-      }
+      if (prefError) throw new Error(prefError.message || 'Erro ao criar preferência de pagamento.');
+      if (!pref || (!pref.init_point && !pref.sandbox_init_point)) throw new Error('Não foi possível obter a URL de pagamento do Mercado Pago.');
 
       dismissToast(toastId);
       clearLocalCart();
-
-      const redirectUrl = pref.init_point || pref.sandbox_init_point;
-      console.log('[checkout] Redirecionando para:', redirectUrl);
-      
-      window.location.href = redirectUrl;
+      window.location.href = pref.init_point || pref.sandbox_init_point;
       
     } catch (e: any) {
-      console.error('[checkout] Erro fatal:', e);
       dismissToast(toastId);
       showError(e?.message || "Não foi possível iniciar o pagamento. Tente novamente.");
       setIsSubmitting(false);
@@ -433,7 +351,7 @@ const CheckoutPage = () => {
                 <div><Label className="text-[10px] uppercase text-slate-500">Telefone</Label><Input {...register('phone')} onChange={e => e.target.value = maskPhone(e.target.value)} />{errors.phone && <p className="text-xs text-red-500 font-bold">{errors.phone.message}</p>}</div>
                 <div><Label className="text-[10px] uppercase text-slate-500">CPF/CNPJ</Label><Input {...register('cpf_cnpj')} onChange={e => e.target.value = maskCpfCnpj(e.target.value)} />{errors.cpf_cnpj && <p className="text-xs text-red-500 font-bold">{errors.cpf_cnpj.message}</p>}</div>
               </div>
-              <div><Label className="text-[10px] uppercase text-slate-500">CEP</Label><div className="flex gap-2"><Input {...register('cep')} onChange={e => e.target.value = maskCep(e.target.value)} /><Button type="button" size="icon" onClick={handleCepLookup} className="bg-sky-500 h-10 w-12 shrink-0">{isFetchingCep ? <Loader2 className="animate-spin h-4 w-4" /> : <Search className="h-4 w-4" />}</Button></div></div>
+              <div><Label className="text-[10px] uppercase text-slate-400">CEP</Label><div className="flex gap-2"><Input {...register('cep')} onChange={e => e.target.value = maskCep(e.target.value)} /><Button type="button" size="icon" onClick={handleCepLookup} className="bg-sky-500 h-10 w-12 shrink-0">{isFetchingCep ? <Loader2 className="animate-spin h-4 w-4" /> : <Search className="h-4 w-4" />}</Button></div></div>
               <div className="grid grid-cols-3 gap-4"><div className="col-span-2"><Label className="text-[10px] uppercase text-slate-500">Rua</Label><Input {...register('street')} /></div><div><Label className="text-[10px] uppercase text-slate-500">Número</Label><Input {...register('number')} /></div></div>
               <div className="grid grid-cols-2 gap-4"><div><Label className="text-[10px] uppercase text-slate-500">Bairro</Label><Input {...register('neighborhood')} /></div><div><Label className="text-[10px] uppercase text-slate-500">Cidade</Label><Input {...register('city')} /></div></div>
             </CardContent>
@@ -452,25 +370,43 @@ const CheckoutPage = () => {
                 </div>
               </CardHeader>
               <CardContent className="p-8 space-y-4">
-                <p className="text-sm text-stone-500 font-medium">
-                  Selecione os benefícios do seu nível que deseja usar neste pedido.
+                <p className="text-sm text-stone-500 font-medium mb-4">
+                  Confira as vantagens ativas para o seu nível neste pedido.
                 </p>
-                {tierBenefits.filter(b => !isPassiveBenefit(b)).map(benefit => (
-                  <div key={benefit} className="flex items-center space-x-3 bg-stone-50 p-4 rounded-xl border border-stone-100">
-                    <Checkbox
-                      id={benefit}
-                      checked={selectedBenefits.includes(benefit)}
-                      onCheckedChange={(checked) => {
-                        setSelectedBenefits(prev =>
-                          checked ? [...prev, benefit] : prev.filter(b => b !== benefit)
+                
+                <div className="space-y-3">
+                    {tierBenefits.map(benefit => {
+                        const selectable = isSelectableBenefit(benefit);
+                        
+                        if (selectable) {
+                            return (
+                                <div key={benefit} className="flex items-center space-x-3 bg-sky-50 p-4 rounded-xl border border-sky-100 shadow-sm">
+                                    <Checkbox
+                                        id={benefit}
+                                        checked={selectedBenefits.includes(benefit)}
+                                        onCheckedChange={(checked) => {
+                                            setSelectedBenefits(prev =>
+                                                checked ? [...prev, benefit] : prev.filter(b => b !== benefit)
+                                            );
+                                        }}
+                                    />
+                                    <Label htmlFor={benefit} className="text-sm font-black text-sky-700 cursor-pointer uppercase tracking-tight">
+                                        {benefit}
+                                    </Label>
+                                </div>
+                            );
+                        }
+
+                        return (
+                            <div key={benefit} className="flex items-center space-x-3 bg-stone-50 p-4 rounded-xl border border-stone-100 opacity-80">
+                                <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
+                                <span className="text-sm font-bold text-charcoal-gray">
+                                    {benefit}
+                                </span>
+                            </div>
                         );
-                      }}
-                    />
-                    <Label htmlFor={benefit} className="text-sm font-bold text-charcoal-gray cursor-pointer">
-                      {benefit}
-                    </Label>
-                  </div>
-                ))}
+                    })}
+                </div>
               </CardContent>
             </Card>
           )}

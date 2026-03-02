@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,11 +13,13 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { showError, showLoading, dismissToast } from '@/utils/toast';
-import { Loader2, Search, CreditCard, MessageSquare, MapPin, Gift, X, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Loader2, Search, CreditCard, MessageSquare, MapPin, Gift, X, AlertTriangle, CheckCircle2, Clock, Info } from 'lucide-react';
 import { getLocalCart, ItemType, clearLocalCart } from '@/utils/localCart';
 import { maskCep, maskPhone, maskCpfCnpj } from '@/utils/masks';
 import CouponsModal from '@/components/CouponsModal';
 import { cn } from '@/lib/utils';
+import { differenceInDays, endOfWeek, isSameWeek } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface DisplayItem {
   id: number;
@@ -55,13 +57,11 @@ const checkoutSchema = z.object({
 
 type CheckoutFormData = z.infer<typeof checkoutSchema>;
 
-// Benefícios que são automáticos e não precisam de seleção
 const isPassiveBenefit = (benefit: string) => {
   const b = benefit.toLowerCase();
   return b.includes('ponto') || b.includes('pré-venda') || b.includes('aniversário') || b.includes('acesso') || b.includes('atendimento') || b.includes('recorrente');
 };
 
-// Benefícios que o usuário PODE escolher usar (ex: Frete Grátis)
 const isSelectableBenefit = (benefit: string) => {
   const b = benefit.toLowerCase();
   return b.includes('frete');
@@ -87,6 +87,7 @@ const CheckoutPage = () => {
   const [tierBenefits, setTierBenefits] = useState<string[]>([]);
   const [selectedBenefits, setSelectedBenefits] = useState<string[]>([]);
   const [isAddressComplete, setIsAddressComplete] = useState(false);
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
 
   const { register, handleSubmit, setValue, getValues, watch, formState: { errors }, trigger } = useForm<CheckoutFormData>({
     resolver: zodResolver(checkoutSchema),
@@ -153,7 +154,13 @@ const CheckoutPage = () => {
   }, [navigate]);
 
   const fetchUserData = useCallback(async (currentUser: any) => {
-    const { data: profile } = await supabase.from('profiles').select('*, loyalty_tiers ( name, benefits )').eq('id', currentUser.id).single();
+    const [profileRes, couponsRes, ordersRes] = await Promise.all([
+        supabase.from('profiles').select('*, loyalty_tiers ( name, benefits )').eq('id', currentUser.id).single(),
+        supabase.from('user_coupons').select('id, expires_at, coupons ( name, discount_value, minimum_order_value )').eq('user_id', currentUser.id).eq('is_used', false).gt('expires_at', new Date().toISOString()),
+        supabase.from('orders').select('created_at, benefits_used').eq('user_id', currentUser.id).neq('status', 'Cancelado').order('created_at', { ascending: false }).limit(10)
+    ]);
+
+    const profile = profileRes.data;
     if (profile) {
       setIsCreditCardEnabled(profile.is_credit_card_enabled);
       if (profile.loyalty_tiers) { setTierName(profile.loyalty_tiers.name); setTierBenefits(profile.loyalty_tiers.benefits || []); }
@@ -169,9 +176,43 @@ const CheckoutPage = () => {
       });
       setUserPoints(profile.points);
     }
-    const { data: c } = await supabase.from('user_coupons').select('id, expires_at, coupons ( name, discount_value, minimum_order_value )').eq('user_id', currentUser.id).eq('is_used', false).gt('expires_at', new Date().toISOString());
-    if (c) setCoupons(c.map((x: any) => ({ user_coupon_id: x.id, name: x.coupons.name, discount_value: x.coupons.discount_value, minimum_order_value: x.coupons.minimum_order_value, expires_at: x.expires_at })));
+
+    if (couponsRes.data) setCoupons(couponsRes.data.map((x: any) => ({ user_coupon_id: x.id, name: x.coupons.name, discount_value: x.coupons.discount_value, minimum_order_value: x.coupons.minimum_order_value, expires_at: x.expires_at })));
+    if (ordersRes.data) setRecentOrders(ordersRes.data);
   }, [setValue]);
+
+  const getBenefitInfo = (benefit: string) => {
+    const lowerBenefit = benefit.toLowerCase();
+    const now = new Date();
+
+    if (lowerBenefit.includes('semana')) {
+        const usedThisWeek = recentOrders.some(o => 
+            o.benefits_used && 
+            o.benefits_used.includes(benefit) && 
+            isSameWeek(new Date(o.created_at), now, { locale: ptBR })
+        );
+
+        if (usedThisWeek) {
+            const endOfCurrentWeek = endOfWeek(now, { locale: ptBR });
+            const daysToRenew = differenceInDays(endOfCurrentWeek, now) + 1;
+            return {
+                status: 'used',
+                label: `Já utilizado. Renova em ${daysToRenew} dias.`,
+                color: 'text-stone-400'
+            };
+        } else {
+            const endOfCurrentWeek = endOfWeek(now, { locale: ptBR });
+            const daysLeft = differenceInDays(endOfCurrentWeek, now);
+            return {
+                status: 'available',
+                label: daysLeft === 0 ? 'Disponível (Expira HOJE!)' : `Disponível (Expira em ${daysLeft} dias).`,
+                color: 'text-sky-600'
+            };
+        }
+    }
+
+    return { status: 'active', label: 'Benefício Ativo', color: 'text-emerald-600' };
+  };
 
   const handleRedemption = useCallback(() => { if (user) { fetchUserData(user); } }, [user, fetchUserData]);
 
@@ -179,21 +220,8 @@ const CheckoutPage = () => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       const u = session?.user; 
       setUser(u);
-      
-      if (!u) {
-        navigate('/login', { 
-          replace: true,
-          state: { from: '/checkout' }
-        });
-        setLoading(false);
-        return;
-      }
-      
-      if (u) { 
-        fetchUserData(u); 
-        fetchCartItems(); 
-        setLoading(false); 
-      }
+      if (!u) { navigate('/login', { replace: true, state: { from: '/checkout' } }); setLoading(false); return; }
+      if (u) { fetchUserData(u); fetchCartItems(); setLoading(false); }
       else setLoading(false);
     });
   }, [fetchUserData, fetchCartItems, navigate]);
@@ -263,18 +291,12 @@ const CheckoutPage = () => {
 
   const handleMercadoPagoRedirect = async () => {
     const isValid = await trigger();
-    if (!isValid) {
-      showError("Preencha todos os dados de entrega primeiro.");
-      return;
-    }
-
+    if (!isValid) { showError("Preencha todos os dados de entrega primeiro."); return; }
     const toastId = showLoading("Redirecionando para o pagamento...");
     setIsSubmitting(true);
-    
     try {
       const data = getValues();
       const bStrings = [...tierBenefits.filter(isPassiveBenefit), ...selectedBenefits];
-
       const { data: orderData, error: orderError } = await supabase.rpc('create_pending_order_from_local_cart', {
         shipping_cost_input: shippingCost,
         shipping_address_input: data,
@@ -284,56 +306,31 @@ const CheckoutPage = () => {
         payment_method_input: 'Cartão de Crédito',
         donation_amount_input: donationAmount,
       });
-
       if (orderError) throw new Error(orderError.message || "Erro ao criar pedido.");
-
       const rawOrderId: any = (orderData as any)?.new_order_id ?? (orderData as any)?.order_id ?? (orderData as any)?.id ?? orderData;
       const orderId = typeof rawOrderId === 'string' ? Number(rawOrderId) : rawOrderId;
-
       if (!orderId || !Number.isFinite(Number(orderId))) throw new Error('Não foi possível criar o pedido (ID ausente).');
-
       const { data: orderRow, error: orderRowError } = await supabase.from('orders').select('total_price, shipping_cost, donation_amount, shipping_address').eq('id', orderId).single();
       if (orderRowError || !orderRow) throw new Error('Pedido não encontrado após criação.');
-
       const finalTotalRaw = Number(orderRow.total_price || 0) + Number(orderRow.shipping_cost || 0) + Number(orderRow.donation_amount || 0);
       const finalTotal = Number(finalTotalRaw.toFixed(2));
-
       const { data: { session } } = await supabase.auth.getSession();
       const authToken = session?.access_token;
-
-      const invokeOptions: any = {
-        body: {
-          shipping_address: orderRow.shipping_address || data,
-          order_id: orderId,
-          total_price: finalTotal,
-          origin: window.location.origin,
-        },
-      };
+      const invokeOptions: any = { body: { shipping_address: orderRow.shipping_address || data, order_id: orderId, total_price: finalTotal, origin: window.location.origin } };
       if (authToken) invokeOptions.headers = { Authorization: `Bearer ${authToken}` };
-
       const { data: pref, error: prefError } = await supabase.functions.invoke('create-mercadopago-preference', invokeOptions);
-
       if (prefError) throw new Error(prefError.message || 'Erro ao criar preferência de pagamento.');
       if (!pref || (!pref.init_point && !pref.sandbox_init_point)) throw new Error('Não foi possível obter a URL de pagamento do Mercado Pago.');
-
       dismissToast(toastId);
       clearLocalCart();
       window.location.href = pref.init_point || pref.sandbox_init_point;
-      
-    } catch (e: any) {
-      dismissToast(toastId);
-      showError(e?.message || "Não foi possível iniciar o pagamento. Tente novamente.");
-      setIsSubmitting(false);
-    }
+    } catch (e: any) { dismissToast(toastId); showError(e?.message || "Não foi possível iniciar o pagamento. Tente novamente."); setIsSubmitting(false); }
   };
 
   const onSubmit = async (data: CheckoutFormData) => {
     setIsSubmitting(true);
-    if (data.payment_method === 'pix') {
-      await handlePixPayment(data);
-    } else {
-      await handleMercadoPagoRedirect();
-    }
+    if (data.payment_method === 'pix') await handlePixPayment(data);
+    else await handleMercadoPagoRedirect();
     setIsSubmitting(false);
   };
 
@@ -377,22 +374,41 @@ const CheckoutPage = () => {
                 <div className="space-y-3">
                     {tierBenefits.map(benefit => {
                         const selectable = isSelectableBenefit(benefit);
+                        const info = getBenefitInfo(benefit);
                         
                         if (selectable) {
+                            const isUsed = info.status === 'used';
                             return (
-                                <div key={benefit} className="flex items-center space-x-3 bg-sky-50 p-4 rounded-xl border border-sky-100 shadow-sm">
-                                    <Checkbox
-                                        id={benefit}
-                                        checked={selectedBenefits.includes(benefit)}
-                                        onCheckedChange={(checked) => {
-                                            setSelectedBenefits(prev =>
-                                                checked ? [...prev, benefit] : prev.filter(b => b !== benefit)
-                                            );
-                                        }}
-                                    />
-                                    <Label htmlFor={benefit} className="text-sm font-black text-sky-700 cursor-pointer uppercase tracking-tight">
-                                        {benefit}
-                                    </Label>
+                                <div key={benefit} className={cn(
+                                    "flex items-start space-x-4 p-4 rounded-xl border transition-all",
+                                    isUsed ? "bg-stone-50 border-stone-100 opacity-60" : "bg-sky-50 border-sky-100 shadow-sm"
+                                )}>
+                                    <div className="pt-1">
+                                        <Checkbox
+                                            id={benefit}
+                                            checked={selectedBenefits.includes(benefit)}
+                                            disabled={isUsed}
+                                            onCheckedChange={(checked) => {
+                                                setSelectedBenefits(prev =>
+                                                    checked ? [...prev, benefit] : prev.filter(b => b !== benefit)
+                                                );
+                                            }}
+                                        />
+                                    </div>
+                                    <div className="flex-1">
+                                        <Label htmlFor={benefit} className={cn(
+                                            "text-sm font-black uppercase tracking-tight cursor-pointer block mb-1",
+                                            isUsed ? "text-stone-400" : "text-sky-700"
+                                        )}>
+                                            {benefit}
+                                        </Label>
+                                        <div className="flex items-center gap-1.5">
+                                            {isUsed ? <Clock className="h-3 w-3 text-stone-400" /> : <Info className="h-3 w-3 text-sky-500" />}
+                                            <span className={cn("text-[10px] font-bold uppercase tracking-widest", info.color)}>
+                                                {info.label}
+                                            </span>
+                                        </div>
+                                    </div>
                                 </div>
                             );
                         }
@@ -419,68 +435,10 @@ const CheckoutPage = () => {
               <div className="space-y-3 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">{items.map(i => (<div key={i.id} className="flex items-center justify-between bg-stone-50 p-3 rounded-xl border border-stone-100"><div className="flex items-center gap-3"><img src={i.image_url} className="h-12 w-12 object-cover rounded-lg" /><div><p className="font-black text-[10px] uppercase">{i.name}</p><p className="text-[9px] text-slate-400 font-bold">QTD: {i.quantity}</p></div></div><p className="font-black text-sky-600 text-sm">R$ {(getItemPrice(i) * i.quantity).toFixed(2)}</p></div>))}</div>
               <div className="space-y-2"><Label className="text-[10px] uppercase text-slate-400">Cupom</Label><Select onValueChange={handleCouponChange} value={selectedCoupon?.user_coupon_id.toString() || 'none'}><SelectTrigger className="rounded-xl h-12"><SelectValue placeholder="Aplicar cupom" /></SelectTrigger><SelectContent>{coupons.map(c => <SelectItem key={c.user_coupon_id} value={c.user_coupon_id.toString()}>{c.name}</SelectItem>)}<SelectItem value="none">Nenhum</SelectItem></SelectContent></Select></div>
               <div className="space-y-3 bg-stone-50 p-6 rounded-2xl border border-stone-100"><div className="flex justify-between text-[10px] font-bold uppercase text-slate-500"><span>Subtotal</span><span>R$ {subtotal.toFixed(2)}</span></div>{selectedCoupon && <div className="flex justify-between text-[10px] font-bold uppercase text-green-600"><span>Desconto</span><span>- R$ {discount.toFixed(2)}</span></div>}<div className="flex justify-between text-[10px] font-bold uppercase text-slate-500"><span>Frete</span><span className={isFreeShippingApplied ? "text-green-600" : ""}>{isFreeShippingApplied ? "GRÁTIS" : `R$ ${shippingCost.toFixed(2)}`}</span></div>{donationAmount > 0 && <div className="flex justify-between text-[10px] font-bold uppercase text-rose-600"><span>Doação</span><span>+ R$ {donationAmount.toFixed(2)}</span></div>}<Separator /><div className="flex justify-between font-black text-3xl italic uppercase tracking-tighter"><span>Total</span><span className="text-sky-600">R$ {total.toFixed(2).replace('.', ',')}</span></div></div>
-              
-              <div className="space-y-3">
-                <Label className="text-[10px] uppercase text-slate-400">Doação Solidária</Label>
-                <div className="flex flex-wrap items-center gap-2">
-                  {[2, 5, 10].map(val => (
-                    <Button
-                      key={val}
-                      type="button"
-                      variant={donationAmount === val ? 'default' : 'outline'}
-                      onClick={() => setDonationAmount(prev => (prev === val ? 0 : val))}
-                      className={cn("rounded-lg h-10 text-xs font-bold", donationAmount === val && "bg-rose-500 hover:bg-rose-600")}
-                    >
-                      R$ {val.toFixed(2)}
-                    </Button>
-                  ))}
-                  {donationAmount > 0 && (
-                    <Button type="button" variant="ghost" size="icon" onClick={() => setDonationAmount(0)} className="text-rose-500 hover:text-rose-700">
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <Label className="text-[10px] uppercase text-slate-400">Método de Pagamento</Label>
-                {!isAddressComplete && (
-                  <Alert variant="destructive" className="bg-red-50 border-red-100 text-red-700">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle className="font-bold">Endereço Incompleto</AlertTitle>
-                    <AlertDescription className="text-xs">
-                      Preencha todos os seus dados de entrega para liberar as opções de pagamento.
-                    </AlertDescription>
-                  </Alert>
-                )}
-                <div className="grid grid-cols-2 gap-3">
-                    <Button type="button" onClick={() => setValue('payment_method', 'mercadopago')} disabled={!isCreditCardEnabled || !isAddressComplete} className={cn("h-16 flex-col gap-1 rounded-xl border", paymentMethod === 'mercadopago' ? "bg-sky-500 text-white border-sky-400" : "bg-stone-50 text-slate-500")}><CreditCard className="h-4 w-4" /><span className="text-[9px] uppercase font-black">Cartão</span></Button>
-                    <Button type="button" onClick={() => setValue('payment_method', 'pix')} disabled={!isAddressComplete} className={cn("h-16 flex-col gap-1 rounded-xl border", paymentMethod === 'pix' ? "bg-sky-500 text-white border-sky-400" : "bg-stone-50 text-slate-500")}><MessageSquare className="h-4 w-4" /><span className="text-[9px] uppercase font-black">PIX WhatsApp</span></Button>
-                </div>
-
-                {paymentMethod === 'mercadopago' && (
-                  <Alert className="mt-4 bg-amber-50 border-amber-100">
-                    <AlertTitle className="text-sm">Atenção</AlertTitle>
-                    <AlertDescription className="text-sm text-stone-600">
-                      O cartão de crédito deve estar no mesmo nome e CPF/CNPJ cadastrados no site para evitar recusas no pagamento.
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </div>
-
-              {paymentMethod === 'pix' && (
-                <Button type="submit" disabled={isSubmitting || !isAddressComplete} className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95">{isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : "Finalizar com PIX"}</Button>
-              )}
-
-              {paymentMethod === 'mercadopago' && (
-                <Button
-                  type="submit"
-                  disabled={isSubmitting || !isCreditCardEnabled || !isAddressComplete}
-                  className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95"
-                >
-                  {isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : "Pagar com Mercado Pago"}
-                </Button>
-              )}
+              <div className="space-y-3"><Label className="text-[10px] uppercase text-slate-400">Doação Solidária</Label><div className="flex flex-wrap items-center gap-2">{[2, 5, 10].map(val => (<Button key={val} type="button" variant={donationAmount === val ? 'default' : 'outline'} onClick={() => setDonationAmount(prev => (prev === val ? 0 : val))} className={cn("rounded-lg h-10 text-xs font-bold", donationAmount === val && "bg-rose-500 hover:bg-rose-600")}>R$ {val.toFixed(2)}</Button>))}{donationAmount > 0 && (<Button type="button" variant="ghost" size="icon" onClick={() => setDonationAmount(0)} className="text-rose-500 hover:text-rose-700"><X className="h-4 w-4" /></Button>)}</div></div>
+              <div className="space-y-3"><Label className="text-[10px] uppercase text-slate-400">Método de Pagamento</Label>{!isAddressComplete && (<Alert variant="destructive" className="bg-red-50 border-red-100 text-red-700"><AlertTriangle className="h-4 w-4" /><AlertTitle className="font-bold">Endereço Incompleto</AlertTitle><AlertDescription className="text-xs">Preencha todos os seus dados de entrega para liberar as opções de pagamento.</AlertDescription></Alert>)}<div className="grid grid-cols-2 gap-3"><Button type="button" onClick={() => setValue('payment_method', 'mercadopago')} disabled={!isCreditCardEnabled || !isAddressComplete} className={cn("h-16 flex-col gap-1 rounded-xl border", paymentMethod === 'mercadopago' ? "bg-sky-500 text-white border-sky-400" : "bg-stone-50 text-slate-500")}><CreditCard className="h-4 w-4" /><span className="text-[9px] uppercase font-black">Cartão</span></Button><Button type="button" onClick={() => setValue('payment_method', 'pix')} disabled={!isAddressComplete} className={cn("h-16 flex-col gap-1 rounded-xl border", paymentMethod === 'pix' ? "bg-sky-500 text-white border-sky-400" : "bg-stone-50 text-slate-500")}><MessageSquare className="h-4 w-4" /><span className="text-[9px] uppercase font-black">PIX WhatsApp</span></Button></div>{paymentMethod === 'mercadopago' && (<Alert className="mt-4 bg-amber-50 border-amber-100"><AlertTitle className="text-sm">Atenção</AlertTitle><AlertDescription className="text-sm text-stone-600">O cartão de crédito deve estar no mesmo nome e CPF/CNPJ cadastrados no site para evitar recusas no pagamento.</AlertDescription></Alert>)}</div>
+              {paymentMethod === 'pix' && (<Button type="submit" disabled={isSubmitting || !isAddressComplete} className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95">{isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : "Finalizar com PIX"}</Button>)}
+              {paymentMethod === 'mercadopago' && (<Button type="submit" disabled={isSubmitting || !isCreditCardEnabled || !isAddressComplete} className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95">{isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : "Pagar com Mercado Pago"}</Button>)}
             </CardContent>
           </Card>
         </div>

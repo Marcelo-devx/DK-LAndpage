@@ -13,7 +13,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { showError, showLoading, dismissToast } from '@/utils/toast';
-import { Loader2, Search, CreditCard, MessageSquare, MapPin, Gift, X, AlertTriangle, CheckCircle2, Clock, Info } from 'lucide-react';
+import { Loader2, Search, CreditCard, MessageSquare, MapPin, Gift, X, AlertTriangle, CheckCircle2, Clock, Info, Sparkles } from 'lucide-react';
 import { getLocalCart, ItemType, clearLocalCart } from '@/utils/localCart';
 import { maskCep, maskPhone, maskCpfCnpj } from '@/utils/masks';
 import CouponsModal from '@/components/CouponsModal';
@@ -197,21 +197,21 @@ const CheckoutPage = () => {
             const daysToRenew = differenceInDays(endOfCurrentWeek, now) + 1;
             return {
                 status: 'used',
-                label: `Já utilizado. Renova em ${daysToRenew} dias.`,
-                color: 'text-stone-400'
+                label: `Renova em ${daysToRenew} dias`,
+                color: 'text-stone-400 bg-stone-100 border-stone-200'
             };
         } else {
             const endOfCurrentWeek = endOfWeek(now, { locale: ptBR });
             const daysLeft = differenceInDays(endOfCurrentWeek, now);
             return {
                 status: 'available',
-                label: daysLeft === 0 ? 'Disponível (Expira HOJE!)' : `Disponível (Expira em ${daysLeft} dias).`,
-                color: 'text-sky-600'
+                label: daysLeft === 0 ? 'Expira HOJE!' : `Expira em ${daysLeft} dias`,
+                color: 'text-sky-600 bg-sky-50 border-sky-200'
             };
         }
     }
 
-    return { status: 'active', label: 'Benefício Ativo', color: 'text-emerald-600' };
+    return { status: 'active', label: 'Ativo', color: 'text-emerald-600 bg-emerald-50 border-emerald-200' };
   };
 
   const handleRedemption = useCallback(() => { if (user) { fetchUserData(user); } }, [user, fetchUserData]);
@@ -355,33 +355,37 @@ const CheckoutPage = () => {
           </Card>
 
           {tierBenefits.length > 0 && (
-            <Card className="bg-white border-stone-200 shadow-xl rounded-[2rem] overflow-hidden">
-              <CardHeader className="bg-stone-50 border-b border-stone-100 p-8">
-                <div className="flex items-center space-x-4">
-                  <div className="p-3 bg-indigo-100 rounded-2xl">
-                    <Gift className="h-6 w-6 text-indigo-600" />
-                  </div>
-                  <CardTitle className="font-black text-2xl uppercase tracking-tighter italic">
-                    Benefícios Clube DK ({tierName})
-                  </CardTitle>
+            <Card className="bg-slate-950 border-white/10 shadow-2xl rounded-[2.5rem] overflow-hidden">
+              <CardHeader className="bg-white/5 border-b border-white/5 p-8">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                        <div className="p-3 bg-sky-500/20 rounded-2xl border border-sky-500/30">
+                            <Gift className="h-6 w-6 text-sky-400" />
+                        </div>
+                        <div>
+                            <CardTitle className="font-black text-2xl uppercase tracking-tighter italic text-white">
+                                Privilégios {tierName}.
+                            </CardTitle>
+                            <p className="text-[10px] font-black text-sky-500 uppercase tracking-[0.2em] mt-1">Clube DK Exclusive</p>
+                        </div>
+                    </div>
+                    <Sparkles className="h-6 w-6 text-sky-500/40" />
                 </div>
               </CardHeader>
-              <CardContent className="p-8 space-y-4">
-                <p className="text-sm text-stone-500 font-medium mb-4">
-                  Confira as vantagens ativas para o seu nível neste pedido.
-                </p>
-                
-                <div className="space-y-3">
+              <CardContent className="p-8 space-y-6">
+                <div className="grid gap-4">
                     {tierBenefits.map(benefit => {
                         const selectable = isSelectableBenefit(benefit);
                         const info = getBenefitInfo(benefit);
+                        const isUsed = info.status === 'used';
                         
                         if (selectable) {
-                            const isUsed = info.status === 'used';
                             return (
                                 <div key={benefit} className={cn(
-                                    "flex items-start space-x-4 p-4 rounded-xl border transition-all",
-                                    isUsed ? "bg-stone-50 border-stone-100 opacity-60" : "bg-sky-50 border-sky-100 shadow-sm"
+                                    "group relative flex items-start space-x-5 p-5 rounded-2xl border transition-all duration-300",
+                                    isUsed 
+                                        ? "bg-white/5 border-white/5 opacity-40" 
+                                        : "bg-white/5 border-white/10 hover:border-sky-500/50 hover:bg-white/[0.08] cursor-pointer"
                                 )}>
                                     <div className="pt-1">
                                         <Checkbox
@@ -393,35 +397,44 @@ const CheckoutPage = () => {
                                                     checked ? [...prev, benefit] : prev.filter(b => b !== benefit)
                                                 );
                                             }}
+                                            className="h-5 w-5 border-white/20 data-[state=checked]:bg-sky-500 data-[state=checked]:border-sky-500"
                                         />
                                     </div>
-                                    <div className="flex-1">
+                                    <div className="flex-1 min-w-0">
                                         <Label htmlFor={benefit} className={cn(
-                                            "text-sm font-black uppercase tracking-tight cursor-pointer block mb-1",
-                                            isUsed ? "text-stone-400" : "text-sky-700"
+                                            "text-sm font-black uppercase tracking-tight cursor-pointer block mb-1.5 transition-colors",
+                                            isUsed ? "text-slate-500" : "text-white group-hover:text-sky-400"
                                         )}>
                                             {benefit}
                                         </Label>
-                                        <div className="flex items-center gap-1.5">
-                                            {isUsed ? <Clock className="h-3 w-3 text-stone-400" /> : <Info className="h-3 w-3 text-sky-500" />}
-                                            <span className={cn("text-[10px] font-bold uppercase tracking-widest", info.color)}>
+                                        <div className="flex items-center gap-2">
+                                            <div className={cn("px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border", info.color)}>
                                                 {info.label}
-                                            </span>
+                                            </div>
                                         </div>
                                     </div>
+                                    {!isUsed && <div className="absolute top-4 right-4 w-2 h-2 bg-sky-500 rounded-full animate-pulse" />}
                                 </div>
                             );
                         }
 
                         return (
-                            <div key={benefit} className="flex items-center space-x-3 bg-stone-50 p-4 rounded-xl border border-stone-100 opacity-80">
-                                <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
-                                <span className="text-sm font-bold text-charcoal-gray">
+                            <div key={benefit} className="flex items-center space-x-4 bg-white/[0.03] p-4 rounded-2xl border border-white/5">
+                                <div className="p-2 bg-emerald-500/10 rounded-lg">
+                                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                                </div>
+                                <span className="text-xs font-bold text-slate-300 uppercase tracking-wide">
                                     {benefit}
                                 </span>
                             </div>
                         );
                     })}
+                </div>
+                
+                <div className="pt-4">
+                    <p className="text-[9px] text-slate-500 font-medium uppercase tracking-widest text-center">
+                        Benefícios aplicados automaticamente com base no seu nível de fidelidade.
+                    </p>
                 </div>
               </CardContent>
             </Card>

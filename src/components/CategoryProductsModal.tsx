@@ -42,8 +42,7 @@ const CategoryProductsModal = ({ categoryName, isOpen, onOpenChange }: CategoryP
         .from('products')
         .select('id, name, price, pix_price, image_url, category, sub_category, stock_quantity')
         .eq('category', categoryName)
-        .eq('is_visible', true)
-        .gt('stock_quantity', 0); // Filtro de estoque adicionado
+        .eq('is_visible', true); // Removido filtro de estoque
 
       if (error) {
         console.error("Error fetching products for category:", error);

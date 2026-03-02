@@ -47,8 +47,7 @@ const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps)
         .from('product_variants')
         .select('id, product_id, price, pix_price, stock_quantity')
         .in('product_id', productIds)
-        .eq('is_active', true)
-        .gt('stock_quantity', 0);
+        .eq('is_active', true);
 
       let finalDisplayList: any[] = [];
       parentProducts.forEach(prod => {
@@ -56,27 +55,27 @@ const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps)
         if (prodVariants.length > 0) {
           const minPrice = Math.min(...prodVariants.map(v => v.price));
           const minPixPrice = Math.min(...prodVariants.map(v => v.pix_price || v.price));
+          const totalStock = prodVariants.reduce((acc, v) => acc + (v.stock_quantity || 0), 0);
+          
           finalDisplayList.push({
             id: prod.id,
             name: prod.name,
             price: minPrice,
             pixPrice: minPixPrice,
             imageUrl: prod.image_url || '',
-            stockQuantity: 1,
+            stockQuantity: totalStock,
             hasMultipleVariants: true,
           });
         } else {
-          if (prod.stock_quantity > 0) {
-            finalDisplayList.push({
-              id: prod.id,
-              name: prod.name,
-              price: prod.price,
-              pixPrice: prod.pix_price,
-              imageUrl: prod.image_url || '',
-              stockQuantity: prod.stock_quantity,
-              hasMultipleVariants: false,
-            });
-          }
+          finalDisplayList.push({
+            id: prod.id,
+            name: prod.name,
+            price: prod.price,
+            pixPrice: prod.pix_price,
+            imageUrl: prod.image_url || '',
+            stockQuantity: prod.stock_quantity,
+            hasMultipleVariants: false,
+          });
         }
       });
 

@@ -42,8 +42,7 @@ const BrandProductsModal = ({ brandName, isOpen, onOpenChange }: BrandProductsMo
         .from('products')
         .select('id, name, price, pix_price, image_url, category, sub_category, stock_quantity')
         .eq('brand', brandName)
-        .eq('is_visible', true)
-        .gt('stock_quantity', 0); // Filtra estoque > 0
+        .eq('is_visible', true); // Removido filtro de estoque
 
       if (error) {
         console.error("Error fetching products for brand:", error);

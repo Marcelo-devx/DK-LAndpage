@@ -123,8 +123,7 @@ const AllProductsPage = () => {
         .from('product_variants')
         .select('id, product_id, price, pix_price, stock_quantity')
         .in('product_id', productIds)
-        .eq('is_active', true)
-        .gt('stock_quantity', 0);
+        .eq('is_active', true); // Removido filtro de estoque > 0
 
       let finalDisplayList: DisplayProduct[] = [];
 
@@ -134,6 +133,7 @@ const AllProductsPage = () => {
         if (prodVariants.length > 0) {
           const minPrice = Math.min(...prodVariants.map(v => v.price));
           const minPixPrice = Math.min(...prodVariants.map(v => v.pix_price || v.price));
+          const totalStock = prodVariants.reduce((acc, v) => acc + (v.stock_quantity || 0), 0);
 
           finalDisplayList.push({
             id: prod.id,
@@ -141,21 +141,19 @@ const AllProductsPage = () => {
             price: minPrice,
             pixPrice: minPixPrice,
             imageUrl: prod.image_url || '',
-            stockQuantity: 1, // Represents available stock in variants
+            stockQuantity: totalStock,
             hasMultipleVariants: true,
           });
         } else {
-          if (prod.stock_quantity > 0) {
-            finalDisplayList.push({
-              id: prod.id,
-              name: prod.name,
-              price: prod.price,
-              pixPrice: prod.pix_price,
-              imageUrl: prod.image_url || '',
-              stockQuantity: prod.stock_quantity,
-              hasMultipleVariants: false,
-            });
-          }
+          finalDisplayList.push({
+            id: prod.id,
+            name: prod.name,
+            price: prod.price,
+            pixPrice: prod.pix_price,
+            imageUrl: prod.image_url || '',
+            stockQuantity: prod.stock_quantity,
+            hasMultipleVariants: false,
+          });
         }
       });
 

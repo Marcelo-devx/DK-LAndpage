@@ -47,8 +47,7 @@ const Index = () => {
             .from('product_variants')
             .select('id, product_id, price, pix_price, stock_quantity')
             .in('product_id', productIds)
-            .eq('is_active', true)
-            .gt('stock_quantity', 0);
+            .eq('is_active', true); // Removido o filtro de stock_quantity > 0
 
           let finalDisplayList: any[] = [];
           parentProducts.forEach((prod: any) => {
@@ -56,27 +55,27 @@ const Index = () => {
             if (prodVariants.length > 0) {
               const minPrice = Math.min(...prodVariants.map(v => v.price));
               const minPixPrice = Math.min(...prodVariants.map(v => v.pix_price || v.price));
+              const totalStock = prodVariants.reduce((acc, v) => acc + (v.stock_quantity || 0), 0);
+              
               finalDisplayList.push({
                 id: prod.id,
                 name: prod.name,
                 price: minPrice,
                 pixPrice: minPixPrice,
                 imageUrl: prod.image_url || '',
-                stockQuantity: 1,
+                stockQuantity: totalStock,
                 hasMultipleVariants: true,
               });
             } else {
-              if (prod.stock_quantity > 0) {
-                finalDisplayList.push({
-                  id: prod.id,
-                  name: prod.name,
-                  price: prod.price,
-                  pixPrice: prod.pix_price,
-                  imageUrl: prod.image_url || '',
-                  stockQuantity: prod.stock_quantity,
-                  hasMultipleVariants: false,
-                });
-              }
+              finalDisplayList.push({
+                id: prod.id,
+                name: prod.name,
+                price: prod.price,
+                pixPrice: prod.pix_price,
+                imageUrl: prod.image_url || '',
+                stockQuantity: prod.stock_quantity,
+                hasMultipleVariants: false,
+              });
             }
           });
           return finalDisplayList;
@@ -85,7 +84,7 @@ const Index = () => {
         const [products, hero, promos, brandsData, categoriesData, featured, popups] = await Promise.all([
           fetchProductsWithVariants(supabase.from('products').select('*').eq('is_visible', true).order('created_at', { ascending: false }).limit(12)),
           supabase.from('hero_slides').select('*').eq('is_active', true).order('sort_order'),
-          supabase.from('promotions').select('*').eq('is_active', true).gt('stock_quantity', 0).order('created_at', { ascending: false }),
+          supabase.from('promotions').select('*').eq('is_active', true).order('created_at', { ascending: false }), // Removido filtro de estoque
           supabase.from('brands').select('*').eq('is_visible', true).order('name'),
           supabase.from('categories').select('name').eq('is_visible', true).order('name'),
           fetchProductsWithVariants(supabase.from('products').select('*').eq('is_featured', true).eq('is_visible', true).limit(8)),

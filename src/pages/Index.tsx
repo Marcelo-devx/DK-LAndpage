@@ -36,7 +36,12 @@ const Index = () => {
       try {
         setLoadingProducts(true);
         
-        const fetchProductsWithVariants = async (queryBuilder: any) => {
+        // Create a category map helper
+        const createCategoryMap = (cats: any[]) => {
+          return new Map(cats.map(c => [c.name, c.show_age_restriction !== false]));
+        };
+
+        const fetchProductsWithVariants = async (queryBuilder: any, categoryMap: Map<string, boolean>) => {
           const { data: parentProducts, error } = await queryBuilder;
           if (error) throw error;
           if (!parentProducts || parentProducts.length === 0) return [];
@@ -47,7 +52,7 @@ const Index = () => {
             .from('product_variants')
             .select('id, product_id, price, pix_price, stock_quantity')
             .in('product_id', productIds)
-            .eq('is_active', true); // Removido o filtro de stock_quantity > 0
+            .eq('is_active', true);
 
           let finalDisplayList: any[] = [];
           parentProducts.forEach((prod: any) => {
@@ -65,8 +70,7 @@ const Index = () => {
                 imageUrl: prod.image_url || '',
                 stockQuantity: totalStock,
                 hasMultipleVariants: true,
-                // Use the category's flag if available; prod.categories may be an array
-                showAgeBadge: Array.isArray(prod.categories) ? (prod.categories as any[])[0]?.show_age_restriction !== false : prod.categories?.show_age_restriction !== false,
+                showAgeBadge: prod.category ? categoryMap.get(prod.category) ?? true : true,
               });
             } else {
               finalDisplayList.push({
@@ -77,8 +81,7 @@ const Index = () => {
                 imageUrl: prod.image_url || '',
                 stockQuantity: prod.stock_quantity,
                 hasMultipleVariants: false,
-                // Use the category's flag if available
-                showAgeBadge: Array.isArray(prod.categories) ? (prod.categories as any[])[0]?.show_age_restriction !== false : prod.categories?.show_age_restriction !== false,
+                showAgeBadge: prod.category ? categoryMap.get(prod.category) ?? true : true,
               });
             }
           });
@@ -86,23 +89,37 @@ const Index = () => {
         };
 
         const [products, hero, promos, brandsData, categoriesData, featured, popups] = await Promise.all([
-          // Join categories so we can respect the category-level show_age_restriction flag
-          fetchProductsWithVariants(supabase.from('products').select('*, categories(show_age_restriction)').eq('is_visible', true).order('created_at', { ascending: false }).limit(12)),
+          // REMOVED: categories(show_age_restriction) - invalid join
+          fetchProductsWithVariants(supabase.from('products').select('*').eq('is_visible', true).order('created_at', { ascending: false }).limit(12), new Map()), // Temp empty map, will fix after categories load
           supabase.from('hero_slides').select('*').eq('is_active', true).order('sort_order'),
-          supabase.from('promotions').select('*').eq('is_active', true).order('created_at', { ascending: false }), // Removido filtro de estoque
+          supabase.from('promotions').select('*').eq('is_active', true).order('created_at', { ascending: false }),
           supabase.from('brands').select('*').eq('is_visible', true).order('name'),
-          supabase.from('categories').select('name').eq('is_visible', true).order('name'),
-          // Featured products should also include category info
-          fetchProductsWithVariants(supabase.from('products').select('*, categories(show_age_restriction)').eq('is_featured', true).eq('is_visible', true).limit(8)),
+          supabase.from('categories').select('name, show_age_restriction').eq('is_visible', true).order('name'),
+          // REMOVED: categories(show_age_restriction) - invalid join
+          fetchProductsWithVariants(supabase.from('products').select('*').eq('is_featured', true).eq('is_visible', true).limit(8), new Map()), // Temp empty map
           supabase.from('informational_popups').select('title, content').eq('is_active', true).limit(1).maybeSingle()
         ]);
 
-        setDisplayedProducts(products || []);
+        // Create the category map now that we have categories
+        const categoryMap = createCategoryMap(categoriesData.data || []);
+
+        // Re-process products with the correct category map
+        const productsWithFlags = await fetchProductsWithVariants(
+          supabase.from('products').select('*').eq('is_visible', true).order('created_at', { ascending: false }).limit(12),
+          categoryMap
+        );
+
+        const featuredWithFlags = await fetchProductsWithVariants(
+          supabase.from('products').select('*').eq('is_featured', true).eq('is_visible', true).limit(8),
+          categoryMap
+        );
+
+        setDisplayedProducts(productsWithFlags);
         setHeroSlides(hero.data || []);
         setPromotions(promos.data || []);
         setBrands(brandsData.data || []);
         setCategories(categoriesData.data || []);
-        setFeaturedProducts(featured || []);
+        setFeaturedProducts(featuredWithFlags);
         
         const triggerInfoPopup = () => {
           if (popups.data && !sessionStorage.getItem('info_popup_seen')) {

@@ -104,16 +104,31 @@ const Index = () => {
         // Create the category map now that we have categories
         const categoryMap = createCategoryMap(categoriesData.data || []);
 
-        // Re-process products with the correct category map
-        const productsWithFlags = await fetchProductsWithVariants(
-          supabase.from('products').select('*').eq('is_visible', true).order('created_at', { ascending: false }).limit(12),
-          categoryMap
-        );
+        // DEBUG: show category map for verification
+        // (remove or comment this in production)
+        // eslint-disable-next-line no-console
+        console.debug("[Index] categoryMap:", Array.from(categoryMap.entries()));
+ 
+         // Re-process products with the correct category map
+         const productsWithFlags = await fetchProductsWithVariants(
+           supabase.from('products').select('*').eq('is_visible', true).order('created_at', { ascending: false }).limit(12),
+           categoryMap
+         );
 
-        const featuredWithFlags = await fetchProductsWithVariants(
-          supabase.from('products').select('*').eq('is_featured', true).eq('is_visible', true).limit(8),
-          categoryMap
-        );
+         // DEBUG: log any product that looks like the ginger product to help troubleshooting
+         productsWithFlags.forEach((p: any) => {
+           try {
+             if (p.name && String(p.name).toLowerCase().includes('ginger')) {
+               // eslint-disable-next-line no-console
+               console.debug("[Index] suspected product:", { name: p.name, category: p.category, showAgeBadge: p.showAgeBadge, stockQuantity: p.stockQuantity });
+             }
+           } catch (e) { /* ignore */ }
+         });
+
+         const featuredWithFlags = await fetchProductsWithVariants(
+           supabase.from('products').select('*').eq('is_featured', true).eq('is_visible', true).limit(8),
+           categoryMap
+         );
 
         setDisplayedProducts(productsWithFlags);
         setHeroSlides(hero.data || []);

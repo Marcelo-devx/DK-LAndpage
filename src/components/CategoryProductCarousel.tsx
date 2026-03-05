@@ -29,6 +29,9 @@ const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps)
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Normalize category keys centrally so all lookups use the same logic
+  const normalizeCategory = (s?: string) => (typeof s === 'string' ? s.trim().toLowerCase() : '');
+
   useEffect(() => {
     const fetchProducts = async () => {
       setLoading(true);
@@ -41,12 +44,14 @@ const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps)
           .eq('is_visible', true);
 
         const categoryMap: Record<string, boolean> = {};
-        const normalizeCategory = (s?: string) => (typeof s === 'string' ? s.trim().toLowerCase() : '');
         if (categoriesData) {
           categoriesData.forEach((c: any) => {
             if (c.name) categoryMap[normalizeCategory(c.name)] = c.show_age_restriction !== false;
           });
         }
+        // DEBUG: inspect category map
+        // eslint-disable-next-line no-console
+        console.debug("[CategoryProductCarousel] categoryMap:", categoryMap);
 
         // Fetch parent products without joining categories
         const { data: parentProducts, error } = await supabase
@@ -106,6 +111,13 @@ const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps)
               showAgeBadge: prod.category ? (categoryMap[normalizeCategory(prod.category)] ?? true) : true,
             });
           }
+          // DEBUG: highlight ginger product if present
+          try {
+            if (prod.name && String(prod.name).toLowerCase().includes('ginger')) {
+              // eslint-disable-next-line no-console
+              console.debug("[CategoryProductCarousel] suspected product:", { id: prod.id, name: prod.name, category: prod.category, showAgeBadge: (prod.category ? (categoryMap[normalizeCategory(prod.category)] ?? true) : true) });
+            }
+          } catch (e) { /* ignore */ }
         });
 
         setProducts(finalDisplayList);

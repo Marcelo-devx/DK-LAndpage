@@ -84,6 +84,9 @@ const AllProductsPage = () => {
           if (c.name) categoriesMap[normalizeCategory(c.name)] = c.show_age_restriction !== false;
         });
       }
+      // DEBUG: inspect category map
+      // eslint-disable-next-line no-console
+      console.debug("[AllProductsPage] categoriesMap:", categoriesMap);
       
       let productIdsFromFlavors: number[] | null = null;
 
@@ -142,6 +145,13 @@ const AllProductsPage = () => {
         const prodVariants = variants?.filter(v => v.product_id === prod.id) || [];
 
         const showAge = prod.category ? (categoriesMap[normalizeCategory(prod.category)] ?? true) : true;
+        // DEBUG: log if product looks like gingerbread
+        try {
+          if (prod.name && String(prod.name).toLowerCase().includes('ginger')) {
+            // eslint-disable-next-line no-console
+            console.debug("[AllProductsPage] suspected product:", { id: prod.id, name: prod.name, category: prod.category, resolvedShowAge: showAge, variants: prodVariants.length });
+          }
+        } catch (e) { /* ignore */ }
 
         if (prodVariants.length > 0) {
           const minPrice = Math.min(...prodVariants.map(v => v.price));

@@ -93,7 +93,8 @@ const CategoryProductsModal = ({ categoryName, isOpen, onOpenChange }: CategoryP
                   pixPrice: product.pix_price,
                   imageUrl: product.image_url,
                   stockQuantity: product.stock_quantity,
-                  showAgeBadge: Array.isArray(product.categories) ? product.categories[0]?.show_age_restriction !== false : product.categories?.show_age_restriction !== false
+                  // categories may be an array; use first element if present (cast to any[] to avoid TS 'never')
+                  showAgeBadge: Array.isArray(product.categories) ? (product.categories as any[])[0]?.show_age_restriction !== false : (product.categories as any)?.show_age_restriction !== false
                 }} />
               ))}
             </div>

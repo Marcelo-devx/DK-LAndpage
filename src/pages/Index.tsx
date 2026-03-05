@@ -65,8 +65,8 @@ const Index = () => {
                 imageUrl: prod.image_url || '',
                 stockQuantity: totalStock,
                 hasMultipleVariants: true,
-                // Use the category's flag if available
-                showAgeBadge: prod.categories?.show_age_restriction !== false,
+                // Use the category's flag if available; prod.categories may be an array
+                showAgeBadge: Array.isArray(prod.categories) ? (prod.categories as any[])[0]?.show_age_restriction !== false : prod.categories?.show_age_restriction !== false,
               });
             } else {
               finalDisplayList.push({
@@ -78,7 +78,7 @@ const Index = () => {
                 stockQuantity: prod.stock_quantity,
                 hasMultipleVariants: false,
                 // Use the category's flag if available
-                showAgeBadge: prod.categories?.show_age_restriction !== false,
+                showAgeBadge: Array.isArray(prod.categories) ? (prod.categories as any[])[0]?.show_age_restriction !== false : prod.categories?.show_age_restriction !== false,
               });
             }
           });
@@ -87,13 +87,13 @@ const Index = () => {
 
         const [products, hero, promos, brandsData, categoriesData, featured, popups] = await Promise.all([
           // Join categories so we can respect the category-level show_age_restriction flag
-          fetchProductsWithVariants(supabase.from('products').select('*, categories!inner(show_age_restriction)').eq('is_visible', true).order('created_at', { ascending: false }).limit(12)),
+          fetchProductsWithVariants(supabase.from('products').select('*, categories(show_age_restriction)').eq('is_visible', true).order('created_at', { ascending: false }).limit(12)),
           supabase.from('hero_slides').select('*').eq('is_active', true).order('sort_order'),
           supabase.from('promotions').select('*').eq('is_active', true).order('created_at', { ascending: false }), // Removido filtro de estoque
           supabase.from('brands').select('*').eq('is_visible', true).order('name'),
           supabase.from('categories').select('name').eq('is_visible', true).order('name'),
           // Featured products should also include category info
-          fetchProductsWithVariants(supabase.from('products').select('*, categories!inner(show_age_restriction)').eq('is_featured', true).eq('is_visible', true).limit(8)),
+          fetchProductsWithVariants(supabase.from('products').select('*, categories(show_age_restriction)').eq('is_featured', true).eq('is_visible', true).limit(8)),
           supabase.from('informational_popups').select('title, content').eq('is_active', true).limit(1).maybeSingle()
         ]);
 

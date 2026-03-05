@@ -42,7 +42,8 @@ const BrandProductsModal = ({ brandName, isOpen, onOpenChange }: BrandProductsMo
       setLoading(true);
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, price, pix_price, image_url, category, sub_category, stock_quantity, categories!inner(show_age_restriction)')
+        // use a LEFT join-like select (no !inner) so products without categories are kept
+        .select('id, name, price, pix_price, image_url, category, sub_category, stock_quantity, categories(show_age_restriction)')
         .eq('brand', brandName)
         .eq('is_visible', true);
 

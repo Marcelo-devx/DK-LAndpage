@@ -22,8 +22,8 @@ interface ProductWithCategory {
   pix_price: number | null;
   image_url: string | null;
   stock_quantity: number;
-  // categories can come back as an array when using supabase 'inner' join
-  categories?: { show_age_restriction?: boolean | null }[] | null;
+  // categories can come back as an array when using supabase join
+  categories?: any[] | null;
 }
 
 const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps) => {
@@ -35,7 +35,8 @@ const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps)
       setLoading(true);
       const { data: parentProducts, error } = await supabase
         .from('products')
-        .select('id, name, price, pix_price, image_url, stock_quantity, categories!inner(show_age_restriction)')
+        // use left-join style select to keep products without categories
+        .select('id, name, price, pix_price, image_url, stock_quantity, categories(show_age_restriction)')
         .eq('category', categoryName)
         .eq('is_visible', true)
         .limit(10);

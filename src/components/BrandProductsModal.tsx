@@ -46,10 +46,11 @@ const BrandProductsModal = ({ brandName, isOpen, onOpenChange }: BrandProductsMo
           .select('name, show_age_restriction')
           .eq('is_visible', true);
 
+        const normalizeCategory = (s?: string) => (typeof s === 'string' ? s.trim().toLowerCase() : '');
         const categoryMap: Record<string, boolean> = {};
         if (categoriesData) {
           categoriesData.forEach((c: any) => {
-            if (c.name) categoryMap[c.name] = c.show_age_restriction !== false;
+            if (c.name) categoryMap[normalizeCategory(c.name)] = c.show_age_restriction !== false;
           });
         }
 
@@ -66,7 +67,7 @@ const BrandProductsModal = ({ brandName, isOpen, onOpenChange }: BrandProductsMo
         } else if (data) {
           const processed = (data as Product[]).map(p => ({
             ...p,
-            _showAgeBadge: p.category ? (categoryMap[p.category] ?? true) : true
+            _showAgeBadge: p.category ? (categoryMap[normalizeCategory(p.category)] ?? true) : true
           })) as any[];
           setProducts(processed);
         }

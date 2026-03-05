@@ -37,8 +37,9 @@ const Index = () => {
         setLoadingProducts(true);
         
         // Create a category map helper
+        const normalizeCategory = (s?: string) => (typeof s === 'string' ? s.trim().toLowerCase() : '');
         const createCategoryMap = (cats: any[]) => {
-          return new Map(cats.map(c => [c.name, c.show_age_restriction !== false]));
+          return new Map(cats.map(c => [normalizeCategory(c.name), c.show_age_restriction !== false]));
         };
 
         const fetchProductsWithVariants = async (queryBuilder: any, categoryMap: Map<string, boolean>) => {
@@ -70,7 +71,7 @@ const Index = () => {
                 imageUrl: prod.image_url || '',
                 stockQuantity: totalStock,
                 hasMultipleVariants: true,
-                showAgeBadge: prod.category ? categoryMap.get(prod.category) ?? true : true,
+                showAgeBadge: prod.category ? (categoryMap.get(normalizeCategory(prod.category)) ?? true) : true,
               });
             } else {
               finalDisplayList.push({
@@ -81,7 +82,7 @@ const Index = () => {
                 imageUrl: prod.image_url || '',
                 stockQuantity: prod.stock_quantity,
                 hasMultipleVariants: false,
-                showAgeBadge: prod.category ? categoryMap.get(prod.category) ?? true : true,
+                showAgeBadge: prod.category ? (categoryMap.get(normalizeCategory(prod.category)) ?? true) : true,
               });
             }
           });

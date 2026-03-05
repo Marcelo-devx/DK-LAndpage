@@ -46,10 +46,11 @@ const CategoryProductsModal = ({ categoryName, isOpen, onOpenChange }: CategoryP
           .select('name, show_age_restriction')
           .eq('is_visible', true);
 
+        const normalizeCategory = (s?: string) => (typeof s === 'string' ? s.trim().toLowerCase() : '');
         const categoryMap: Record<string, boolean> = {};
         if (categoriesData) {
           categoriesData.forEach((c: any) => {
-            if (c.name) categoryMap[c.name] = c.show_age_restriction !== false;
+            if (c.name) categoryMap[normalizeCategory(c.name)] = c.show_age_restriction !== false;
           });
         }
 
@@ -69,7 +70,7 @@ const CategoryProductsModal = ({ categoryName, isOpen, onOpenChange }: CategoryP
             ...p,
             // if category undefined, default to true (show badge)
             show_age_restriction: undefined, // keep shape minimal; ProductCard reads category map separately
-            _showAgeBadge: p.category ? (categoryMap[p.category] ?? true) : true
+            _showAgeBadge: p.category ? (categoryMap[normalizeCategory(p.category)] ?? true) : true
           })) as any[];
           setProducts(processed);
         }

@@ -41,9 +41,10 @@ const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps)
           .eq('is_visible', true);
 
         const categoryMap: Record<string, boolean> = {};
+        const normalizeCategory = (s?: string) => (typeof s === 'string' ? s.trim().toLowerCase() : '');
         if (categoriesData) {
           categoriesData.forEach((c: any) => {
-            if (c.name) categoryMap[c.name] = c.show_age_restriction !== false;
+            if (c.name) categoryMap[normalizeCategory(c.name)] = c.show_age_restriction !== false;
           });
         }
 
@@ -91,7 +92,7 @@ const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps)
               imageUrl: prod.image_url || '',
               stockQuantity: totalStock,
               hasMultipleVariants: true,
-              showAgeBadge: prod.category ? (categoryMap[prod.category] ?? true) : true,
+              showAgeBadge: prod.category ? (categoryMap[normalizeCategory(prod.category)] ?? true) : true,
             });
           } else {
             finalDisplayList.push({
@@ -102,7 +103,7 @@ const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps)
               imageUrl: prod.image_url || '',
               stockQuantity: prod.stock_quantity,
               hasMultipleVariants: false,
-              showAgeBadge: prod.category ? (categoryMap[prod.category] ?? true) : true,
+              showAgeBadge: prod.category ? (categoryMap[normalizeCategory(prod.category)] ?? true) : true,
             });
           }
         });

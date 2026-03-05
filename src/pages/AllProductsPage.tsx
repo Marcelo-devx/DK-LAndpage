@@ -77,10 +77,11 @@ const AllProductsPage = () => {
 
       // Fetch categories map to determine show_age_restriction per category
       const { data: categoriesData } = await supabase.from('categories').select('name, show_age_restriction');
+      const normalizeCategory = (s?: string) => (typeof s === 'string' ? s.trim().toLowerCase() : '');
       const categoriesMap: Record<string, boolean> = {};
       if (categoriesData) {
         categoriesData.forEach((c: any) => {
-          if (c.name) categoriesMap[c.name] = c.show_age_restriction !== false;
+          if (c.name) categoriesMap[normalizeCategory(c.name)] = c.show_age_restriction !== false;
         });
       }
       
@@ -140,7 +141,7 @@ const AllProductsPage = () => {
       products.forEach(prod => {
         const prodVariants = variants?.filter(v => v.product_id === prod.id) || [];
 
-        const showAge = prod.category ? (categoriesMap[prod.category] ?? true) : true;
+        const showAge = prod.category ? (categoriesMap[normalizeCategory(prod.category)] ?? true) : true;
 
         if (prodVariants.length > 0) {
           const minPrice = Math.min(...prodVariants.map(v => v.price));

@@ -60,7 +60,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
             className={cn("w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 ease-out", isOutOfStock && "grayscale")} 
           />
           {/* Age restriction badge controlled by category setting */}
-          {product.showAgeBadge !== false && (
+          {product.showAgeBadge !== false && !isOutOfStock && (
             <div className="absolute inset-x-0 bottom-0 bg-black/80 backdrop-blur-sm py-1.5 px-2 text-[8px] font-black text-white uppercase text-center tracking-[0.2em] z-10">
               Apenas Maiores de 18 Anos
             </div>

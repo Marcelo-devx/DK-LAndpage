@@ -59,9 +59,12 @@ const ProductCard = ({ product }: ProductCardProps) => {
             alt={product.name} 
             className={cn("w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 ease-out", isOutOfStock && "grayscale")} 
           />
-          <div className="absolute inset-x-0 bottom-0 bg-black/80 backdrop-blur-sm py-1.5 px-2 text-[8px] font-black text-white uppercase text-center tracking-[0.2em] z-10">
-            Apenas Maiores de 18 Anos
-          </div>
+          {/* Age restriction badge controlled by category setting */}
+          {product.showAgeBadge !== false && (
+            <div className="absolute inset-x-0 bottom-0 bg-black/80 backdrop-blur-sm py-1.5 px-2 text-[8px] font-black text-white uppercase text-center tracking-[0.2em] z-10">
+              Apenas Maiores de 18 Anos
+            </div>
+          )}
           {isOutOfStock && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/30 z-20">
                 <span className="bg-slate-900 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-lg transform -rotate-12 border border-white/20">

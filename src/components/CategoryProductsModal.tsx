@@ -47,6 +47,8 @@ const CategoryProductsModal = ({ categoryName, isOpen, onOpenChange }: CategoryP
       if (error) {
         console.error("Error fetching products for category:", error);
         setProducts([]);
+        setLoading(false);
+        return;
       } else if (data) {
         setProducts(data as Product[]);
       }
@@ -89,6 +91,7 @@ const CategoryProductsModal = ({ categoryName, isOpen, onOpenChange }: CategoryP
                   pixPrice: product.pix_price,
                   imageUrl: product.image_url,
                   stockQuantity: product.stock_quantity
+                 , showAgeBadge: product.show_age_restriction !== false
                 }} />
               ))}
             </div>

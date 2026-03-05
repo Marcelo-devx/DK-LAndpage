@@ -89,6 +89,7 @@ const BrandProductsModal = ({ brandName, isOpen, onOpenChange }: BrandProductsMo
                   pixPrice: product.pix_price,
                   imageUrl: product.image_url,
                   stockQuantity: product.stock_quantity
+                 , showAgeBadge: product.show_age_restriction !== false
                 }} />
               ))}
             </div>

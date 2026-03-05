@@ -15,6 +15,7 @@ interface DisplayProduct {
   stockQuantity: number;
   variantId?: string;
   hasMultipleVariants?: boolean;
+  showAgeBadge?: boolean;
 }
 
 const AllProductsPage = () => {
@@ -73,6 +74,15 @@ const AllProductsPage = () => {
   useEffect(() => {
     const fetchProducts = async () => {
       setLoading(true);
+
+      // Fetch categories map to determine show_age_restriction per category
+      const { data: categoriesData } = await supabase.from('categories').select('name, show_age_restriction');
+      const categoriesMap: Record<string, boolean> = {};
+      if (categoriesData) {
+        categoriesData.forEach((c: any) => {
+          if (c.name) categoriesMap[c.name] = c.show_age_restriction !== false;
+        });
+      }
       
       let productIdsFromFlavors: number[] | null = null;
 
@@ -82,11 +92,11 @@ const AllProductsPage = () => {
           const flavorIds = flavorIdsData.map(f => f.id);
           const { data: variantData } = await supabase.from('product_variants').select('product_id').in('flavor_id', flavorIds);
           const { data: prodFlavorData } = await supabase.from('product_flavors').select('product_id').in('flavor_id', flavorIds);
-          
+
           const idsA = variantData?.map(v => v.product_id) || [];
           const idsB = prodFlavorData?.map(pf => pf.product_id) || [];
           productIdsFromFlavors = [...new Set([...idsA, ...idsB])];
-          
+
           if (productIdsFromFlavors.length === 0) productIdsFromFlavors = [-1];
         } else {
           productIdsFromFlavors = [-1];
@@ -123,12 +133,14 @@ const AllProductsPage = () => {
         .from('product_variants')
         .select('id, product_id, price, pix_price, stock_quantity')
         .in('product_id', productIds)
-        .eq('is_active', true); // Removido filtro de estoque > 0
+        .eq('is_active', true);
 
       let finalDisplayList: DisplayProduct[] = [];
 
       products.forEach(prod => {
         const prodVariants = variants?.filter(v => v.product_id === prod.id) || [];
+
+        const showAge = prod.category ? (categoriesMap[prod.category] ?? true) : true;
 
         if (prodVariants.length > 0) {
           const minPrice = Math.min(...prodVariants.map(v => v.price));
@@ -143,6 +155,7 @@ const AllProductsPage = () => {
             imageUrl: prod.image_url || '',
             stockQuantity: totalStock,
             hasMultipleVariants: true,
+            showAgeBadge: showAge,
           });
         } else {
           finalDisplayList.push({
@@ -153,6 +166,7 @@ const AllProductsPage = () => {
             imageUrl: prod.image_url || '',
             stockQuantity: prod.stock_quantity,
             hasMultipleVariants: false,
+            showAgeBadge: showAge,
           });
         }
       });

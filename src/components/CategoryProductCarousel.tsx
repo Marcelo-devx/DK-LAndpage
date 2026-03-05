@@ -65,6 +65,7 @@ const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps)
             imageUrl: prod.image_url || '',
             stockQuantity: totalStock,
             hasMultipleVariants: true,
+            showAgeBadge: prod.show_age_restriction !== false,
           });
         } else {
           finalDisplayList.push({
@@ -75,6 +76,7 @@ const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps)
             imageUrl: prod.image_url || '',
             stockQuantity: prod.stock_quantity,
             hasMultipleVariants: false,
+            showAgeBadge: prod.show_age_restriction !== false,
           });
         }
       });

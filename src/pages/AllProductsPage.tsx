@@ -244,7 +244,8 @@ const AllProductsPage = () => {
                         imageUrl: product.imageUrl,
                         stockQuantity: product.stockQuantity,
                         variantId: product.variantId,
-                        hasMultipleVariants: product.hasMultipleVariants
+                        hasMultipleVariants: product.hasMultipleVariants,
+                        showAgeBadge: product.showAgeBadge
                     }} 
                 />
               ))}

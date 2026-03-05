@@ -22,9 +22,8 @@ interface ProductWithCategory {
   pix_price: number | null;
   image_url: string | null;
   stock_quantity: number;
-  categories: {
-    show_age_restriction: boolean | null;
-  } | null;
+  // categories can come back as an array when using supabase 'inner' join
+  categories?: { show_age_restriction?: boolean | null }[] | null;
 }
 
 const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps) => {
@@ -77,7 +76,8 @@ const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps)
             imageUrl: prod.image_url || '',
             stockQuantity: totalStock,
             hasMultipleVariants: true,
-            showAgeBadge: prod.categories?.show_age_restriction !== false,
+            // categories may be an array; use the first entry if present
+            showAgeBadge: Array.isArray(prod.categories) ? (prod.categories as any[])[0]?.show_age_restriction !== false : (prod.categories as any)?.show_age_restriction !== false,
           });
         } else {
           finalDisplayList.push({
@@ -88,7 +88,7 @@ const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps)
             imageUrl: prod.image_url || '',
             stockQuantity: prod.stock_quantity,
             hasMultipleVariants: false,
-            showAgeBadge: prod.categories?.show_age_restriction !== false,
+            showAgeBadge: Array.isArray(prod.categories) ? (prod.categories as any[])[0]?.show_age_restriction !== false : (prod.categories as any)?.show_age_restriction !== false,
           });
         }
       });

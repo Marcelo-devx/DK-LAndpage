@@ -12,14 +12,15 @@ import { Skeleton } from './ui/skeleton';
 
 interface Product {
   id: number;
-  name: string;
+  name: number | string;
   price: number;
   pix_price: number | null;
   image_url: string;
   category: string | null;
   sub_category: string | null;
   stock_quantity: number;
-  show_age_restriction?: boolean;
+  // categories returned by the join may be an array
+  categories?: any[] | null;
 }
 
 interface CategoryProductsModalProps {
@@ -87,12 +88,12 @@ const CategoryProductsModal = ({ categoryName, isOpen, onOpenChange }: CategoryP
               {products.map((product) => (
                 <ProductCard key={product.id} product={{
                   id: product.id,
-                  name: product.name,
+                  name: product.name as unknown as string,
                   price: product.price,
                   pixPrice: product.pix_price,
                   imageUrl: product.image_url,
                   stockQuantity: product.stock_quantity,
-                  showAgeBadge: product.show_age_restriction !== false
+                  showAgeBadge: Array.isArray(product.categories) ? product.categories[0]?.show_age_restriction !== false : product.categories?.show_age_restriction !== false
                 }} />
               ))}
             </div>

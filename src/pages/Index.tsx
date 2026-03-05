@@ -65,7 +65,8 @@ const Index = () => {
                 imageUrl: prod.image_url || '',
                 stockQuantity: totalStock,
                 hasMultipleVariants: true,
-                showAgeBadge: prod.show_age_restriction !== false,
+                // Use the category's flag if available
+                showAgeBadge: prod.categories?.show_age_restriction !== false,
               });
             } else {
               finalDisplayList.push({
@@ -76,7 +77,8 @@ const Index = () => {
                 imageUrl: prod.image_url || '',
                 stockQuantity: prod.stock_quantity,
                 hasMultipleVariants: false,
-                showAgeBadge: prod.show_age_restriction !== false,
+                // Use the category's flag if available
+                showAgeBadge: prod.categories?.show_age_restriction !== false,
               });
             }
           });
@@ -84,12 +86,14 @@ const Index = () => {
         };
 
         const [products, hero, promos, brandsData, categoriesData, featured, popups] = await Promise.all([
-          fetchProductsWithVariants(supabase.from('products').select('*').eq('is_visible', true).order('created_at', { ascending: false }).limit(12)),
+          // Join categories so we can respect the category-level show_age_restriction flag
+          fetchProductsWithVariants(supabase.from('products').select('*, categories!inner(show_age_restriction)').eq('is_visible', true).order('created_at', { ascending: false }).limit(12)),
           supabase.from('hero_slides').select('*').eq('is_active', true).order('sort_order'),
           supabase.from('promotions').select('*').eq('is_active', true).order('created_at', { ascending: false }), // Removido filtro de estoque
           supabase.from('brands').select('*').eq('is_visible', true).order('name'),
           supabase.from('categories').select('name').eq('is_visible', true).order('name'),
-          fetchProductsWithVariants(supabase.from('products').select('*').eq('is_featured', true).eq('is_visible', true).limit(8)),
+          // Featured products should also include category info
+          fetchProductsWithVariants(supabase.from('products').select('*, categories!inner(show_age_restriction)').eq('is_featured', true).eq('is_visible', true).limit(8)),
           supabase.from('informational_popups').select('title, content').eq('is_active', true).limit(1).maybeSingle()
         ]);
 
@@ -216,7 +220,7 @@ const Index = () => {
                 )) : displayedProducts.length > 0 ?
                   displayedProducts.map((p, idx) => (
                     <CarouselItem key={`${p.id}-${p.variantId || 'main'}-${idx}`} className="pl-3 md:pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4">
-                      <ProductCard product={{ id: p.id, name: p.name, price: p.price, pixPrice: p.pixPrice, imageUrl: p.imageUrl, stockQuantity: p.stockQuantity, variantId: p.variantId, hasMultipleVariants: p.hasMultipleVariants }} />
+                      <ProductCard product={{ id: p.id, name: p.name, price: p.price, pixPrice: p.pixPrice, imageUrl: p.imageUrl, stockQuantity: p.stockQuantity, variantId: p.variantId, hasMultipleVariants: p.hasMultipleVariants, showAgeBadge: p.showAgeBadge }} />
                     </CarouselItem>
                   )) : (
                     <div className="px-4 py-10 text-center w-full text-stone-400 italic">Nenhum produto em destaque no momento.</div>
@@ -240,7 +244,7 @@ const Index = () => {
                 <h2 className="text-[10px] md:text-xs font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-4 md:mb-8 text-center">Seleção Premium</h2>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
                   {featuredProducts.map((p, idx) => (
-                    <ProductCard key={`${p.id}-${p.variantId || 'main'}-${idx}`} product={{ id: p.id, name: p.name, price: p.price, pixPrice: p.pixPrice, imageUrl: p.imageUrl, stockQuantity: p.stockQuantity, variantId: p.variantId, hasMultipleVariants: p.hasMultipleVariants }} />
+                    <ProductCard key={`${p.id}-${p.variantId || 'main'}-${idx}`} product={{ id: p.id, name: p.name, price: p.price, pixPrice: p.pixPrice, imageUrl: p.imageUrl, stockQuantity: p.stockQuantity, variantId: p.variantId, hasMultipleVariants: p.hasMultipleVariants, showAgeBadge: p.showAgeBadge }} />
                   ))}
                 </div>
               </div>

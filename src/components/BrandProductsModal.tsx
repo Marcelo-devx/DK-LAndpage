@@ -19,7 +19,8 @@ interface Product {
   category: string | null;
   sub_category: string | null;
   stock_quantity: number;
-  show_age_restriction?: boolean;
+  // categories returned by the join may be an array
+  categories?: any[] | null;
 }
 
 interface BrandProductsModalProps {
@@ -90,7 +91,8 @@ const BrandProductsModal = ({ brandName, isOpen, onOpenChange }: BrandProductsMo
                   pixPrice: product.pix_price,
                   imageUrl: product.image_url,
                   stockQuantity: product.stock_quantity,
-                  showAgeBadge: product.show_age_restriction !== false
+                  // categories may be an array; use first element if present
+                  showAgeBadge: Array.isArray(product.categories) ? product.categories[0]?.show_age_restriction !== false : product.categories?.show_age_restriction !== false
                 }} />
               ))}
             </div>

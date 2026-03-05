@@ -15,6 +15,18 @@ interface CategoryProductCarouselProps {
   categoryName: string;
 }
 
+interface ProductWithCategory {
+  id: number;
+  name: string;
+  price: number;
+  pix_price: number | null;
+  image_url: string | null;
+  stock_quantity: number;
+  categories: {
+    show_age_restriction: boolean | null;
+  } | null;
+}
+
 const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps) => {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,7 +36,7 @@ const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps)
       setLoading(true);
       const { data: parentProducts, error } = await supabase
         .from('products')
-        .select('id, name, price, pix_price, image_url, stock_quantity')
+        .select('id, name, price, pix_price, image_url, stock_quantity, categories!inner(show_age_restriction)')
         .eq('category', categoryName)
         .eq('is_visible', true)
         .limit(10);
@@ -50,7 +62,7 @@ const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps)
         .eq('is_active', true);
 
       let finalDisplayList: any[] = [];
-      parentProducts.forEach(prod => {
+      parentProducts.forEach((prod: ProductWithCategory) => {
         const prodVariants = variants?.filter(v => v.product_id === prod.id) || [];
         if (prodVariants.length > 0) {
           const minPrice = Math.min(...prodVariants.map(v => v.price));
@@ -65,7 +77,7 @@ const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps)
             imageUrl: prod.image_url || '',
             stockQuantity: totalStock,
             hasMultipleVariants: true,
-            showAgeBadge: prod.show_age_restriction !== false,
+            showAgeBadge: prod.categories?.show_age_restriction !== false,
           });
         } else {
           finalDisplayList.push({
@@ -76,7 +88,7 @@ const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps)
             imageUrl: prod.image_url || '',
             stockQuantity: prod.stock_quantity,
             hasMultipleVariants: false,
-            showAgeBadge: prod.show_age_restriction !== false,
+            showAgeBadge: prod.categories?.show_age_restriction !== false,
           });
         }
       });
@@ -127,7 +139,8 @@ const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps)
                     imageUrl: p.imageUrl,
                     stockQuantity: p.stockQuantity,
                     variantId: p.variantId,
-                    hasMultipleVariants: p.hasMultipleVariants
+                    hasMultipleVariants: p.hasMultipleVariants,
+                    showAgeBadge: p.showAgeBadge
                   }} />
                 </CarouselItem>
               ))}

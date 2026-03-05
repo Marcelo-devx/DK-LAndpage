@@ -18,7 +18,8 @@ import {
   ArrowUpCircle,
   Loader2,
   Zap,
-  Trash2
+  Trash2,
+  Package
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -55,6 +56,10 @@ const AdminCustomizer = () => {
   const [testStatus, setTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [isSimulating, setIsSimulating] = useState<string | null>(null);
 
+  // NOVO: Estado para gerenciar categorias
+  const [categories, setCategories] = useState<any[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(false);
+
   // Constantes de URL (Projeto)
   const PROJECT_URL = "https://jrlozhhvwqfmjtkmvukf.supabase.co";
 
@@ -81,6 +86,7 @@ const AdminCustomizer = () => {
       if (data?.role === 'adm') {
         setIsAdmin(true);
         fetchWebhooks();
+        fetchCategories(); // NOVO: Carregar categorias
       } else {
         setIsAdmin(false);
       }
@@ -95,6 +101,19 @@ const AdminCustomizer = () => {
         });
         setWebhooks(currentHooks);
       }
+    };
+
+    // NOVO: Função para buscar categorias
+    const fetchCategories = async () => {
+      setLoadingCategories(true);
+      const { data } = await supabase
+        .from('categories')
+        .select('*')
+        .order('name');
+      if (data) {
+        setCategories(data);
+      }
+      setLoadingCategories(false);
     };
 
     checkAdmin();
@@ -130,6 +149,29 @@ const AdminCustomizer = () => {
         showError('Erro ao salvar configuração.');
       }
     }, 1000);
+  };
+
+  // NOVO: Função para atualizar restrição de idade da categoria
+  const updateCategoryAgeRestriction = async (categoryId: number, value: boolean) => {
+    setCategories(prev => prev.map(cat => 
+      cat.id === categoryId ? { ...cat, show_age_restriction: value } : cat
+    ));
+    
+    const { error } = await supabase
+      .from('categories')
+      .update({ show_age_restriction: value })
+      .eq('id', categoryId);
+    
+    if (error) {
+      console.error('Erro ao atualizar categoria:', error);
+      showError('Erro ao salvar categoria');
+      // Reverter em caso de erro
+      setCategories(prev => prev.map(cat => 
+        cat.id === categoryId ? { ...cat, show_age_restriction: !value } : cat
+      ));
+    } else {
+      showSuccess('Categoria atualizada!');
+    }
   };
 
   const handleTestConnection = async () => {
@@ -226,6 +268,9 @@ const AdminCustomizer = () => {
               <TabsList className="bg-transparent p-0 gap-2 h-auto flex w-max">
                 <TabsTrigger value="global" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-slate-900 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><Globe className="h-3.5 w-3.5" /> Global</TabsTrigger>
                 <TabsTrigger value="integrations" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-purple-600 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><Network className="h-3.5 w-3.5" /> Webhooks</TabsTrigger>
+                <TabsTrigger value="categories" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-emerald-600 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider">
+                  <Package className="h-3.5 w-3.5" /> Categorias
+                </TabsTrigger>
                 <TabsTrigger value="home" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-sky-500 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><Home className="h-3.5 w-3.5" /> Home</TabsTrigger>
                 <TabsTrigger value="login" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-indigo-500 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><LogIn className="h-3.5 w-3.5" /> Login</TabsTrigger>
               </TabsList>
@@ -233,6 +278,53 @@ const AdminCustomizer = () => {
 
             <div className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-slate-50/30">
               
+              {/* --- NOVA ABA CATEGORIAS --- */}
+              <TabsContent value="categories" className="space-y-6 mt-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Package className="h-5 w-5 text-emerald-600" />
+                    <h3 className="font-bold text-emerald-900 text-sm">Restrição de Idade por Categoria</h3>
+                  </div>
+                  <p className="text-xs text-emerald-700 font-medium">
+                    Ative ou desative a tarja "+18" para cada categoria. Produtos de categorias desativadas não mostrarão a faixa de restrição.
+                  </p>
+                </div>
+
+                {loadingCategories ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {categories.map((category) => (
+                      <div key={category.id} className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm transition-all hover:border-emerald-200">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            {category.image_url && (
+                              <img 
+                                src={category.image_url} 
+                                alt={category.name} 
+                                className="w-10 h-10 rounded-lg object-cover"
+                              />
+                            )}
+                            <div>
+                              <h4 className="font-bold text-slate-900 text-sm">{category.name}</h4>
+                              <p className="text-[10px] text-slate-500 uppercase tracking-wider">
+                                {category.show_age_restriction ? 'Mostrar +18' : 'Ocultar +18'}
+                              </p>
+                            </div>
+                          </div>
+                          <Switch
+                            checked={category.show_age_restriction !== false}
+                            onCheckedChange={(checked) => updateCategoryAgeRestriction(category.id, checked)}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
               {/* --- ABA INTEGRAÇÕES (WEBHOOKS) --- */}
               <TabsContent value="integrations" className="space-y-8 mt-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="bg-purple-50 border border-purple-100 p-4 rounded-xl mb-6">

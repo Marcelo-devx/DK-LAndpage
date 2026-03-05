@@ -19,6 +19,7 @@ interface Product {
   category: string | null;
   sub_category: string | null;
   stock_quantity: number;
+  show_age_restriction?: boolean;
 }
 
 interface BrandProductsModalProps {
@@ -40,9 +41,9 @@ const BrandProductsModal = ({ brandName, isOpen, onOpenChange }: BrandProductsMo
       setLoading(true);
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, price, pix_price, image_url, category, sub_category, stock_quantity')
+        .select('id, name, price, pix_price, image_url, category, sub_category, stock_quantity, categories!inner(show_age_restriction)')
         .eq('brand', brandName)
-        .eq('is_visible', true); // Removido filtro de estoque
+        .eq('is_visible', true);
 
       if (error) {
         console.error("Error fetching products for brand:", error);
@@ -88,8 +89,8 @@ const BrandProductsModal = ({ brandName, isOpen, onOpenChange }: BrandProductsMo
                   price: product.price,
                   pixPrice: product.pix_price,
                   imageUrl: product.image_url,
-                  stockQuantity: product.stock_quantity
-                 , showAgeBadge: product.show_age_restriction !== false
+                  stockQuantity: product.stock_quantity,
+                  showAgeBadge: product.show_age_restriction !== false
                 }} />
               ))}
             </div>

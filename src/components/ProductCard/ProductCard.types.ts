@@ -8,6 +8,7 @@ export interface ProductCardProps {
     stockQuantity?: number; // Adicionado para exibir aviso de estoque
     variantId?: string;
     hasMultipleVariants?: boolean;
+    showAgeBadge?: boolean; // Controla exibição da faixa +18
   };
   className?: string;
 }

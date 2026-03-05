@@ -19,8 +19,6 @@ interface Product {
   category: string | null;
   sub_category: string | null;
   stock_quantity: number;
-  // categories returned by the join may be an array
-  categories?: any[] | null;
 }
 
 interface CategoryProductsModalProps {
@@ -40,21 +38,47 @@ const CategoryProductsModal = ({ categoryName, isOpen, onOpenChange }: CategoryP
         return;
       };
       setLoading(true);
-      const { data, error } = await supabase
-        .from('products')
-        .select('id, name, price, pix_price, image_url, category, sub_category, stock_quantity, categories!inner(show_age_restriction)')
-        .eq('category', categoryName)
-        .eq('is_visible', true);
 
-      if (error) {
-        console.error("Error fetching products for category:", error);
+      try {
+        // Fetch category map to determine show_age_restriction
+        const { data: categoriesData } = await supabase
+          .from('categories')
+          .select('name, show_age_restriction')
+          .eq('is_visible', true);
+
+        const categoryMap: Record<string, boolean> = {};
+        if (categoriesData) {
+          categoriesData.forEach((c: any) => {
+            if (c.name) categoryMap[c.name] = c.show_age_restriction !== false;
+          });
+        }
+
+        // Fetch products WITHOUT joining categories (the relation doesn't exist)
+        const { data, error } = await supabase
+          .from('products')
+          .select('id, name, price, pix_price, image_url, category, sub_category, stock_quantity')
+          .eq('category', categoryName)
+          .eq('is_visible', true);
+
+        if (error) {
+          console.error("Error fetching products for category:", error);
+          setProducts([]);
+        } else if (data) {
+          // Attach showAgeBadge flag to each product via the category map
+          const processed = (data as Product[]).map(p => ({
+            ...p,
+            // if category undefined, default to true (show badge)
+            show_age_restriction: undefined, // keep shape minimal; ProductCard reads category map separately
+            _showAgeBadge: p.category ? (categoryMap[p.category] ?? true) : true
+          })) as any[];
+          setProducts(processed);
+        }
+      } catch (err) {
+        console.error("Error fetching products for category:", err);
         setProducts([]);
+      } finally {
         setLoading(false);
-        return;
-      } else if (data) {
-        setProducts(data as Product[]);
       }
-      setLoading(false);
     };
 
     fetchProducts();
@@ -85,7 +109,7 @@ const CategoryProductsModal = ({ categoryName, isOpen, onOpenChange }: CategoryP
             </div>
           ) : products.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {products.map((product) => (
+              {products.map((product: any) => (
                 <ProductCard key={product.id} product={{
                   id: product.id,
                   name: product.name as unknown as string,
@@ -93,8 +117,8 @@ const CategoryProductsModal = ({ categoryName, isOpen, onOpenChange }: CategoryP
                   pixPrice: product.pix_price,
                   imageUrl: product.image_url,
                   stockQuantity: product.stock_quantity,
-                  // categories may be an array; use first element if present (cast to any[] to avoid TS 'never')
-                  showAgeBadge: Array.isArray(product.categories) ? (product.categories as any[])[0]?.show_age_restriction !== false : (product.categories as any)?.show_age_restriction !== false
+                  // compute showAgeBadge from temporary _showAgeBadge property
+                  showAgeBadge: product._showAgeBadge !== false
                 }} />
               ))}
             </div>

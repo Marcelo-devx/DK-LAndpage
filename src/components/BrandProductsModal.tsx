@@ -19,8 +19,6 @@ interface Product {
   category: string | null;
   sub_category: string | null;
   stock_quantity: number;
-  // categories returned by the join may be an array
-  categories?: any[] | null;
 }
 
 interface BrandProductsModalProps {
@@ -40,20 +38,44 @@ const BrandProductsModal = ({ brandName, isOpen, onOpenChange }: BrandProductsMo
         return;
       };
       setLoading(true);
-      const { data, error } = await supabase
-        .from('products')
-        // use a LEFT join-like select (no !inner) so products without categories are kept
-        .select('id, name, price, pix_price, image_url, category, sub_category, stock_quantity, categories(show_age_restriction)')
-        .eq('brand', brandName)
-        .eq('is_visible', true);
 
-      if (error) {
-        console.error("Error fetching products for brand:", error);
+      try {
+        // Fetch category map to determine show_age_restriction
+        const { data: categoriesData } = await supabase
+          .from('categories')
+          .select('name, show_age_restriction')
+          .eq('is_visible', true);
+
+        const categoryMap: Record<string, boolean> = {};
+        if (categoriesData) {
+          categoriesData.forEach((c: any) => {
+            if (c.name) categoryMap[c.name] = c.show_age_restriction !== false;
+          });
+        }
+
+        // Fetch products WITHOUT joining categories
+        const { data, error } = await supabase
+          .from('products')
+          .select('id, name, price, pix_price, image_url, category, sub_category, stock_quantity')
+          .eq('brand', brandName)
+          .eq('is_visible', true);
+
+        if (error) {
+          console.error("Error fetching products for brand:", error);
+          setProducts([]);
+        } else if (data) {
+          const processed = (data as Product[]).map(p => ({
+            ...p,
+            _showAgeBadge: p.category ? (categoryMap[p.category] ?? true) : true
+          })) as any[];
+          setProducts(processed);
+        }
+      } catch (err) {
+        console.error("Error fetching products for brand:", err);
         setProducts([]);
-      } else if (data) {
-        setProducts(data as Product[]);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchProducts();
@@ -84,7 +106,7 @@ const BrandProductsModal = ({ brandName, isOpen, onOpenChange }: BrandProductsMo
             </div>
           ) : products.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {products.map((product) => (
+              {products.map((product: any) => (
                 <ProductCard key={product.id} product={{
                   id: product.id,
                   name: product.name,
@@ -92,8 +114,7 @@ const BrandProductsModal = ({ brandName, isOpen, onOpenChange }: BrandProductsMo
                   pixPrice: product.pix_price,
                   imageUrl: product.image_url,
                   stockQuantity: product.stock_quantity,
-                  // categories may be an array; use first element if present (cast to any[] to avoid TS 'never')
-                  showAgeBadge: Array.isArray(product.categories) ? (product.categories as any[])[0]?.show_age_restriction !== false : (product.categories as any)?.show_age_restriction !== false
+                  showAgeBadge: product._showAgeBadge !== false
                 }} />
               ))}
             </div>

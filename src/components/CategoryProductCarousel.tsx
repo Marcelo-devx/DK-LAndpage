@@ -22,8 +22,7 @@ interface ProductWithCategory {
   pix_price: number | null;
   image_url: string | null;
   stock_quantity: number;
-  // categories can come back as an array when using supabase join
-  categories?: any[] | null;
+  category?: string | null;
 }
 
 const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps) => {
@@ -33,69 +32,88 @@ const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps)
   useEffect(() => {
     const fetchProducts = async () => {
       setLoading(true);
-      const { data: parentProducts, error } = await supabase
-        .from('products')
-        // use left-join style select to keep products without categories
-        .select('id, name, price, pix_price, image_url, stock_quantity, categories(show_age_restriction)')
-        .eq('category', categoryName)
-        .eq('is_visible', true)
-        .limit(10);
 
-      if (error || !parentProducts) {
-        console.error(error);
-        setProducts([]);
-        setLoading(false);
-        return;
-      }
+      try {
+        // Load category flags first
+        const { data: categoriesData } = await supabase
+          .from('categories')
+          .select('name, show_age_restriction')
+          .eq('is_visible', true);
 
-      const productIds = parentProducts.map(p => p.id);
-      if (productIds.length === 0) {
-        setProducts([]);
-        setLoading(false);
-        return;
-      }
-
-      const { data: variants } = await supabase
-        .from('product_variants')
-        .select('id, product_id, price, pix_price, stock_quantity')
-        .in('product_id', productIds)
-        .eq('is_active', true);
-
-      let finalDisplayList: any[] = [];
-      parentProducts.forEach((prod: ProductWithCategory) => {
-        const prodVariants = variants?.filter(v => v.product_id === prod.id) || [];
-        if (prodVariants.length > 0) {
-          const minPrice = Math.min(...prodVariants.map(v => v.price));
-          const minPixPrice = Math.min(...prodVariants.map(v => v.pix_price || v.price));
-          const totalStock = prodVariants.reduce((acc, v) => acc + (v.stock_quantity || 0), 0);
-          
-          finalDisplayList.push({
-            id: prod.id,
-            name: prod.name,
-            price: minPrice,
-            pixPrice: minPixPrice,
-            imageUrl: prod.image_url || '',
-            stockQuantity: totalStock,
-            hasMultipleVariants: true,
-            // categories may be an array; use the first entry if present
-            showAgeBadge: Array.isArray(prod.categories) ? (prod.categories as any[])[0]?.show_age_restriction !== false : (prod.categories as any)?.show_age_restriction !== false,
-          });
-        } else {
-          finalDisplayList.push({
-            id: prod.id,
-            name: prod.name,
-            price: prod.price,
-            pixPrice: prod.pix_price,
-            imageUrl: prod.image_url || '',
-            stockQuantity: prod.stock_quantity,
-            hasMultipleVariants: false,
-            showAgeBadge: Array.isArray(prod.categories) ? (prod.categories as any[])[0]?.show_age_restriction !== false : (prod.categories as any)?.show_age_restriction !== false,
+        const categoryMap: Record<string, boolean> = {};
+        if (categoriesData) {
+          categoriesData.forEach((c: any) => {
+            if (c.name) categoryMap[c.name] = c.show_age_restriction !== false;
           });
         }
-      });
 
-      setProducts(finalDisplayList);
-      setLoading(false);
+        // Fetch parent products without joining categories
+        const { data: parentProducts, error } = await supabase
+          .from('products')
+          .select('id, name, price, pix_price, image_url, stock_quantity, category')
+          .eq('category', categoryName)
+          .eq('is_visible', true)
+          .limit(10);
+
+        if (error || !parentProducts) {
+          console.error(error);
+          setProducts([]);
+          setLoading(false);
+          return;
+        }
+
+        const productIds = parentProducts.map((p: any) => p.id);
+        if (productIds.length === 0) {
+          setProducts([]);
+          setLoading(false);
+          return;
+        }
+
+        const { data: variants } = await supabase
+          .from('product_variants')
+          .select('id, product_id, price, pix_price, stock_quantity')
+          .in('product_id', productIds)
+          .eq('is_active', true);
+
+        let finalDisplayList: any[] = [];
+        parentProducts.forEach((prod: ProductWithCategory) => {
+          const prodVariants = variants?.filter(v => v.product_id === prod.id) || [];
+          if (prodVariants.length > 0) {
+            const minPrice = Math.min(...prodVariants.map(v => v.price));
+            const minPixPrice = Math.min(...prodVariants.map(v => v.pix_price || v.price));
+            const totalStock = prodVariants.reduce((acc, v) => acc + (v.stock_quantity || 0), 0);
+            
+            finalDisplayList.push({
+              id: prod.id,
+              name: prod.name,
+              price: minPrice,
+              pixPrice: minPixPrice,
+              imageUrl: prod.image_url || '',
+              stockQuantity: totalStock,
+              hasMultipleVariants: true,
+              showAgeBadge: prod.category ? (categoryMap[prod.category] ?? true) : true,
+            });
+          } else {
+            finalDisplayList.push({
+              id: prod.id,
+              name: prod.name,
+              price: prod.price,
+              pixPrice: prod.pix_price,
+              imageUrl: prod.image_url || '',
+              stockQuantity: prod.stock_quantity,
+              hasMultipleVariants: false,
+              showAgeBadge: prod.category ? (categoryMap[prod.category] ?? true) : true,
+            });
+          }
+        });
+
+        setProducts(finalDisplayList);
+      } catch (err) {
+        console.error(err);
+        setProducts([]);
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchProducts();

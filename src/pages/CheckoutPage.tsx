@@ -320,7 +320,21 @@ const CheckoutPage = () => {
       if (authToken) invokeOptions.headers = { Authorization: `Bearer ${authToken}` };
       const { data: pref, error: prefError } = await supabase.functions.invoke('create-mercadopago-preference', invokeOptions);
       if (prefError) throw new Error(prefError.message || 'Erro ao criar preferência de pagamento.');
-      if (!pref || (!pref.init_point && !pref.sandbox_init_point)) throw new Error('Não foi possível obter a URL de pagamento do Mercado Pago.');
+
+      // If the edge function returned an explicit mp_error or success:false, surface it for easier debugging
+      // pref is expected to contain init_point or sandbox_init_point on success
+      if (pref && (pref as any).mp_error) {
+        console.error('create-mercadopago-preference returned mp_error:', pref);
+        const mpErr = (pref as any).mp_error;
+        const userMsg = (pref as any).error || (mpErr && (mpErr.message || JSON.stringify(mpErr))) || 'Erro no Mercado Pago.';
+        throw new Error(`Mercado Pago: ${userMsg}`);
+      }
+
+      if (!pref || ((!pref as any).init_point && !(pref as any).sandbox_init_point)) {
+        console.error('create-mercadopago-preference unexpected response:', pref);
+        throw new Error('Não foi possível obter a URL de pagamento do Mercado Pago. Verifique logs da Edge Function.');
+      }
+
       dismissToast(toastId);
       clearLocalCart();
       window.location.href = pref.init_point || pref.sandbox_init_point;

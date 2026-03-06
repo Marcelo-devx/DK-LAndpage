@@ -67,6 +67,9 @@ serve(async (req) => {
       body = {};
     }
 
+    // Log completo do body para depuração (não contém o token)
+    console.log('[create-mercadopago-preference] Body recebido:', JSON.stringify(body));
+
     const orderIdRaw = body.order_id;
     const totalPriceRaw = body.total_price;
     // Em vez de depender do origin do cliente, usaremos uma base validada (com fallback no final)
@@ -193,10 +196,20 @@ serve(async (req) => {
       binary_mode: false
     };
 
-    console.log('[create-mercadopago-preference] Back URLs definidas:', preferencePayload.back_urls);
+    // Log do payload que será enviado ao Mercado Pago (sem incluir o token)
+    console.log('[create-mercadopago-preference] preferencePayload:', JSON.stringify({
+      ...preferencePayload,
+      payer: {
+        ...preferencePayload.payer,
+        // mask identification number for logs
+        identification: {
+          type: preferencePayload.payer.identification?.type,
+          number: preferencePayload.payer.identification?.number ? '***' : undefined
+        }
+      }
+    }));
 
     console.log('[create-mercadopago-preference] Criando preferência no MP...');
-    console.log('[create-mercadopago-preference] Back URLs:', preferencePayload.back_urls);
 
     const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',
@@ -205,20 +218,34 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(preferencePayload),
+    }).catch((fetchErr) => {
+      console.error('[create-mercadopago-preference] Erro ao chamar MP (fetch):', fetchErr);
+      throw new Error('Falha de rede ao comunicar com Mercado Pago.');
     });
 
-    const mpData = await mpResponse.json().catch(() => ({}));
+    const mpStatus = mpResponse.status;
+    let mpData: any = {};
+    try {
+      mpData = await mpResponse.json();
+    } catch (e) {
+      console.warn('[create-mercadopago-preference] Não foi possível parsear JSON da resposta do MP', e);
+      mpData = {};
+    }
 
+    // Logar resposta do MP (sem expor token)
+    console.log('[create-mercadopago-preference] Resposta MP:', { status: mpStatus, body: mpData });
+
+    // Retornar sempre JSON detalhado para o cliente — isso evita que o client veja apenas um 400 sem body
     if (!mpResponse.ok) {
       console.error('[create-mercadopago-preference] Erro do MP:', JSON.stringify(mpData));
-      const errorMsg = mpData.message || 'Erro ao criar preferência';
       return new Response(JSON.stringify({
         success: false,
-        error: `Mercado Pago: ${errorMsg}`,
+        error: 'Mercado Pago returned an error',
         mp_error: mpData,
+        statusCode: mpStatus
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
+        status: 200,
       });
     }
 
@@ -236,12 +263,13 @@ serve(async (req) => {
 
   } catch (error: any) {
     console.error("[create-mercadopago-preference] Erro:", error);
+    // Sempre retornar JSON para o frontend conseguir mostrar a mensagem concreta
     return new Response(JSON.stringify({
       success: false,
       error: error?.message || 'Erro interno do servidor'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
+      status: 200,
     });
   }
 })

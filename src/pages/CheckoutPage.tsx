@@ -41,6 +41,7 @@ interface Coupon {
 }
 
 const checkoutSchema = z.object({
+  email: z.string().min(1, "E-mail é obrigatório").email("E-mail inválido"),
   first_name: z.string().min(1, "Nome é obrigatório"),
   last_name: z.string().min(1, "Sobrenome é obrigatório"),
   phone: z.string().min(14, "Telefone inválido").max(15, "Telefone inválido"),
@@ -96,11 +97,12 @@ const CheckoutPage = () => {
   const paymentMethod = watch('payment_method');
   const watchedNeighborhood = watch('neighborhood');
   const watchedCity = watch('city');
-  const watchedAddressFields = watch(['first_name', 'last_name', 'phone', 'cpf_cnpj', 'cep', 'street', 'number', 'neighborhood', 'city', 'state']);
+  const watchedAddressFields = watch(['email', 'first_name', 'last_name', 'phone', 'cpf_cnpj', 'cep', 'street', 'number', 'neighborhood', 'city', 'state', 'complement']);
 
   useEffect(() => {
     const data = getValues();
     const isComplete =
+      !!data.email?.trim() &&
       !!data.first_name?.trim() &&
       !!data.last_name?.trim() &&
       (data.phone?.length ?? 0) >= 14 &&
@@ -165,9 +167,10 @@ const CheckoutPage = () => {
       setIsCreditCardEnabled(profile.is_credit_card_enabled);
       if (profile.loyalty_tiers) { setTierName(profile.loyalty_tiers.name); setTierBenefits(profile.loyalty_tiers.benefits || []); }
       setValue('payment_method', profile.is_credit_card_enabled ? 'mercadopago' : 'pix');
-      const fields: (keyof CheckoutFormData)[] = ['first_name', 'last_name', 'phone', 'cep', 'street', 'number', 'neighborhood', 'city', 'state', 'complement', 'cpf_cnpj'];
+      const fields: (keyof CheckoutFormData)[] = ['email', 'first_name', 'last_name', 'phone', 'cep', 'street', 'number', 'neighborhood', 'city', 'state', 'complement', 'cpf_cnpj'];
       fields.forEach(f => {
           let val = profile[f] || '';
+          if (f === 'email') val = currentUser.email || '';
           if (f === 'phone') val = val ? maskPhone(val) : '';
           if (f === 'cep') val = val ? maskCep(val) : '';
           if (f === 'cpf_cnpj') val = val ? maskCpfCnpj(val) : '';
@@ -217,14 +220,22 @@ const CheckoutPage = () => {
   const handleRedemption = useCallback(() => { if (user) { fetchUserData(user); } }, [user, fetchUserData]);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const u = session?.user; 
+    // Carregar carrinho e verificar sessão (mas não redirecionar para login)
+    const loadCheckout = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const u = session?.user;
       setUser(u);
-      if (!u) { navigate('/login', { replace: true, state: { from: '/checkout' } }); setLoading(false); return; }
-      if (u) { fetchUserData(u); fetchCartItems(); setLoading(false); }
-      else setLoading(false);
-    });
-  }, [fetchUserData, fetchCartItems, navigate]);
+      
+      if (u) {
+        await fetchUserData(u);
+      }
+      
+      await fetchCartItems();
+      setLoading(false);
+    };
+    
+    loadCheckout();
+  }, [fetchUserData, fetchCartItems]);
 
   const handleCouponChange = (val: string) => {
     if (val === 'none') { setSelectedCoupon(null); return; }
@@ -269,20 +280,41 @@ const CheckoutPage = () => {
   const handlePixPayment = async (data: CheckoutFormData) => {
     const toastId = showLoading("Criando seu pedido PIX...");
     try {
-      const bStrings = [...tierBenefits.filter(isPassiveBenefit), ...selectedBenefits];
-      const { data: o, error: err } = await supabase.rpc('create_pending_order_from_local_cart', {
-        shipping_cost_input: shippingCost,
-        shipping_address_input: data, 
-        cart_items_input: getLocalCart(),
-        user_coupon_id_input: selectedCoupon?.user_coupon_id, 
-        benefits_input: bStrings.length ? `Nível ${tierName}: ${bStrings.join(', ')}` : null,
-        payment_method_input: 'pix', 
-        donation_amount_input: donationAmount
-      });
-      if (err) throw err;
-      dismissToast(toastId);
-      clearLocalCart();
-      navigate(`/confirmacao-pedido/${o.new_order_id}`);
+      if (user) {
+        // Usuário logado - usa a função original
+        const bStrings = [...tierBenefits.filter(isPassiveBenefit), ...selectedBenefits];
+        const { data: o, error: err } = await supabase.rpc('create_pending_order_from_local_cart', {
+          shipping_cost_input: shippingCost,
+          shipping_address_input: data, 
+          cart_items_input: getLocalCart(),
+          user_coupon_id_input: selectedCoupon?.user_coupon_id, 
+          benefits_input: bStrings.length ? `Nível ${tierName}: ${bStrings.join(', ')}` : null,
+          payment_method_input: 'pix', 
+          donation_amount_input: donationAmount
+        });
+        if (err) throw err;
+        dismissToast(toastId);
+        clearLocalCart();
+        navigate(`/confirmacao-pedido/${o.new_order_id}`);
+      } else {
+        // Convidado - usa a nova função
+        const { data: o, error: err } = await supabase.rpc('create_guest_order', {
+          p_email: data.email,
+          p_first_name: data.first_name,
+          p_last_name: data.last_name,
+          p_phone: data.phone.replace(/\D/g, ''),
+          p_cpf_cnpj: data.cpf_cnpj.replace(/\D/g, ''),
+          p_shipping_cost: shippingCost,
+          p_shipping_address: data,
+          p_cart_items: getLocalCart(),
+          p_payment_method: 'pix',
+          p_donation_amount: donationAmount
+        });
+        if (err) throw err;
+        dismissToast(toastId);
+        clearLocalCart();
+        navigate(`/confirmacao-pedido/${o.new_order_id}`);
+      }
     } catch (e: any) {
       dismissToast(toastId);
       showError(e.message || "Erro ao criar pedido PIX.");
@@ -296,33 +328,69 @@ const CheckoutPage = () => {
     setIsSubmitting(true);
     try {
       const data = getValues();
-      const bStrings = [...tierBenefits.filter(isPassiveBenefit), ...selectedBenefits];
-      const { data: orderData, error: orderError } = await supabase.rpc('create_pending_order_from_local_cart', {
-        shipping_cost_input: shippingCost,
-        shipping_address_input: data,
-        cart_items_input: getLocalCart(),
-        user_coupon_id_input: selectedCoupon?.user_coupon_id,
-        benefits_input: bStrings.length ? `Nível ${tierName}: ${bStrings.join(', ')}` : null,
-        payment_method_input: 'Cartão de Crédito',
-        donation_amount_input: donationAmount,
-      });
-      if (orderError) throw new Error(orderError.message || "Erro ao criar pedido.");
-      const rawOrderId: any = (orderData as any)?.new_order_id ?? (orderData as any)?.order_id ?? (orderData as any)?.id ?? orderData;
-      const orderId = typeof rawOrderId === 'string' ? Number(rawOrderId) : rawOrderId;
-      if (!orderId || !Number.isFinite(Number(orderId))) throw new Error('Não foi possível criar o pedido (ID ausente).');
-      const { data: orderRow, error: orderRowError } = await supabase.from('orders').select('total_price, shipping_cost, donation_amount, shipping_address').eq('id', orderId).single();
-      if (orderRowError || !orderRow) throw new Error('Pedido não encontrado após criação.');
-      const finalTotalRaw = Number(orderRow.total_price || 0) + Number(orderRow.shipping_cost || 0) + Number(orderRow.donation_amount || 0);
-      const finalTotal = Number(finalTotalRaw.toFixed(2));
+      let orderId: number;
+      let finalTotal: number;
+      let shippingAddress: any;
+
+      if (user) {
+        // Usuário logado - usa a função original
+        const bStrings = [...tierBenefits.filter(isPassiveBenefit), ...selectedBenefits];
+        const { data: orderData, error: orderError } = await supabase.rpc('create_pending_order_from_local_cart', {
+          shipping_cost_input: shippingCost,
+          shipping_address_input: data,
+          cart_items_input: getLocalCart(),
+          user_coupon_id_input: selectedCoupon?.user_coupon_id,
+          benefits_input: bStrings.length ? `Nível ${tierName}: ${bStrings.join(', ')}` : null,
+          payment_method_input: 'Cartão de Crédito',
+          donation_amount_input: donationAmount,
+        });
+        if (orderError) throw new Error(orderError.message || "Erro ao criar pedido.");
+        const rawOrderId: any = (orderData as any)?.new_order_id ?? (orderData as any)?.order_id ?? (orderData as any)?.id ?? orderData;
+        orderId = typeof rawOrderId === 'string' ? Number(rawOrderId) : rawOrderId;
+        if (!orderId || !Number.isFinite(Number(orderId))) throw new Error('Não foi possível criar o pedido (ID ausente).');
+        const { data: orderRow, error: orderRowError } = await supabase.from('orders').select('total_price, shipping_cost, donation_amount, shipping_address').eq('id', orderId).single();
+        if (orderRowError || !orderRow) throw new Error('Pedido não encontrado após criação.');
+        finalTotal = Number(Number(orderRow.total_price || 0) + Number(orderRow.shipping_cost || 0) + Number(orderRow.donation_amount || 0));
+        shippingAddress = orderRow.shipping_address || data;
+      } else {
+        // Convidado - usa a nova função
+        const { data: orderData, error: orderError } = await supabase.rpc('create_guest_order', {
+          p_email: data.email,
+          p_first_name: data.first_name,
+          p_last_name: data.last_name,
+          p_phone: data.phone.replace(/\D/g, ''),
+          p_cpf_cnpj: data.cpf_cnpj.replace(/\D/g, ''),
+          p_shipping_cost: shippingCost,
+          p_shipping_address: data,
+          p_cart_items: getLocalCart(),
+          p_payment_method: 'Cartão de Crédito',
+          p_donation_amount: donationAmount
+        });
+        if (orderError) throw new Error(orderError.message || "Erro ao criar pedido.");
+        const rawOrderId: any = (orderData as any)?.new_order_id ?? (orderData as any)?.order_id ?? (orderData as any)?.id ?? orderData;
+        orderId = typeof rawOrderId === 'string' ? Number(rawOrderId) : rawOrderId;
+        if (!orderId || !Number.isFinite(Number(orderId))) throw new Error('Não foi possível criar o pedido (ID ausente).');
+        finalTotal = Number((orderData as any)?.final_price || 0);
+        shippingAddress = data;
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
       const authToken = session?.access_token;
-      const invokeOptions: any = { body: { shipping_address: orderRow.shipping_address || data, order_id: orderId, total_price: finalTotal, origin: window.location.origin } };
+      const invokeOptions: any = { 
+        body: { 
+          shipping_address: shippingAddress, 
+          order_id: orderId, 
+          total_price: finalTotal, 
+          origin: window.location.origin,
+          guest_email: user ? undefined : data.email,
+          guest_phone: user ? undefined : data.phone.replace(/\D/g, ''),
+          guest_cpf_cnpj: user ? undefined : data.cpf_cnpj.replace(/\D/g, '')
+        } 
+      };
       if (authToken) invokeOptions.headers = { Authorization: `Bearer ${authToken}` };
       const { data: pref, error: prefError } = await supabase.functions.invoke('create-mercadopago-preference', invokeOptions);
       if (prefError) throw new Error(prefError.message || 'Erro ao criar preferência de pagamento.');
 
-      // If the edge function returned an explicit mp_error or success:false, surface it for easier debugging
-      // pref is expected to contain init_point or sandbox_init_point on success
       if (pref && (pref as any).mp_error) {
         console.error('create-mercadopago-preference returned mp_error:', pref);
         const mpErr = (pref as any).mp_error;
@@ -357,6 +425,7 @@ const CheckoutPage = () => {
           <Card className="bg-white border-stone-200 shadow-xl rounded-[2rem] overflow-hidden">
             <CardHeader className="bg-stone-50 border-b border-stone-100 p-8"><div className="flex items-center space-x-4"><div className="p-3 bg-sky-100 rounded-2xl"><MapPin className="h-6 w-6 text-sky-600" /></div><CardTitle className="font-black text-2xl uppercase tracking-tighter italic">Dados de Entrega.</CardTitle></div></CardHeader>
             <CardContent className="p-8 space-y-6">
+              <div><Label className="text-[10px] uppercase text-slate-500">E-mail</Label><Input {...register('email')} type="email" placeholder="seu@email.com" />{errors.email && <p className="text-xs text-red-500 font-bold">{errors.email.message}</p>}</div>
               <div className="grid grid-cols-2 gap-4"><div><Label className="text-[10px] uppercase text-slate-500">Nome</Label><Input {...register('first_name')} /></div><div><Label className="text-[10px] uppercase text-slate-500">Sobrenome</Label><Input {...register('last_name')} /></div></div>
               <div className="grid grid-cols-2 gap-4">
                 <div><Label className="text-[10px] uppercase text-slate-500">Telefone</Label><Input {...register('phone')} onChange={e => e.target.value = maskPhone(e.target.value)} />{errors.phone && <p className="text-xs text-red-500 font-bold">{errors.phone.message}</p>}</div>

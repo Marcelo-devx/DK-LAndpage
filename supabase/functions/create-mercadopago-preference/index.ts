@@ -39,25 +39,25 @@ serve(async (req) => {
 
     console.log('[create-mercadopago-preference] Modo:', IS_SANDBOX ? 'SANDBOX' : 'PRODUÇÃO');
 
-    // 2. Autenticação
+    // 2. Autenticação (opcional para convidados)
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error("Autenticação ausente.");
+    let userEmail: string | undefined;
+    let isGuest = false;
+
+    if (authHeader) {
+      const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        global: { headers: { 'Authorization': authHeader } }
+      });
+
+      const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+
+      if (!userError && user && user.email) {
+        userEmail = user.email;
+        console.log('[create-mercadopago-preference] Usuário autenticado:', userEmail);
+      } else {
+        console.log('[create-mercadopago-preference] Token inválido, verificando se é convidado...');
+      }
     }
-
-    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: { headers: { 'Authorization': authHeader } }
-    });
-
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-
-    if (userError || !user || !user.email) {
-      console.error('[create-mercadopago-preference] Erro de autenticação:', userError);
-      throw new Error("Usuário não autenticado.");
-    }
-
-    const userEmail = user.email;
-    console.log('[create-mercadopago-preference] Usuário:', userEmail);
 
     // 3. Parse do body (com validações mais claras)
     let body: any = {};
@@ -65,6 +65,17 @@ serve(async (req) => {
       body = await req.json();
     } catch {
       body = {};
+    }
+
+    // Verificar se é convidado
+    if (!userEmail && body.guest_email) {
+      userEmail = body.guest_email;
+      isGuest = true;
+      console.log('[create-mercadopago-preference] Convidado:', userEmail);
+    }
+
+    if (!userEmail) {
+      throw new Error("E-mail do comprador é obrigatório.");
     }
 
     // Log completo do body para depuração (não contém o token)
@@ -114,8 +125,11 @@ serve(async (req) => {
         address: { zip_code: "01001000", street_name: "Rua de Teste", street_number: 123 }
       };
     } else {
-      const cleanPhone = (shipping_address.phone || '').replace(/\D/g, '');
-      const cleanCpf = (shipping_address.cpf_cnpj || '').replace(/\D/g, '');
+      // Usar dados do convidado se disponíveis, senão usar shipping_address
+      const guestPhone = body.guest_phone || '';
+      const guestCpf = body.guest_cpf_cnpj || '';
+      const cleanPhone = (guestPhone || shipping_address.phone || '').replace(/\D/g, '');
+      const cleanCpf = (guestCpf || shipping_address.cpf_cnpj || '').replace(/\D/g, '');
       const cleanCep = (shipping_address.cep || '').replace(/\D/g, '');
 
       payerInfo = {

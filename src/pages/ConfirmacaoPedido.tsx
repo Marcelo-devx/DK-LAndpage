@@ -49,46 +49,62 @@ const ConfirmacaoPedido = () => {
     setErrorMessage(null);
 
     try {
+      // First attempt: try to fetch with regular client (works for logged users)
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .select('*')
         .eq('id', id)
         .single();
 
-      if (orderError) {
-        console.error("Error fetching order:", orderError);
-        setErrorMessage('Não foi possível buscar o pedido. Tente novamente.');
-        setOrder(null);
-        setItems([]);
+      if (!orderError && orderData) {
+        setOrder(orderData as Order);
+
+        const { data: itemsData, error: itemsError } = await supabase
+          .from('order_items')
+          .select('name_at_purchase, quantity, price_at_purchase, image_url_at_purchase')
+          .eq('order_id', id);
+
+        if (!itemsError && itemsData) setItems(itemsData as OrderItem[]);
+        else setItems([]);
+
+        setLoading(false);
         return;
       }
 
-      if (!orderData) {
-        setErrorMessage('Pedido não encontrado.');
-        setOrder(null);
-        setItems([]);
+      // If we reach here, client fetch failed (probably RLS / unauthenticated user).
+      // Try fallback: call edge function get-order-public (uses service role key)
+      try {
+        const invokeResult: any = await supabase.functions.invoke('get-order-public', { body: { order_id: Number(id) } });
+        if (invokeResult?.data) {
+          const payload = invokeResult.data;
+          if (payload.success) {
+            setOrder(payload.order as Order);
+            setItems(payload.items || []);
+            setLoading(false);
+            return;
+          } else {
+            setErrorMessage('Pedido não encontrado.');
+            setLoading(false);
+            return;
+          }
+        }
+
+        // If invoke didn't return expected shape
+        setErrorMessage('Não foi possível buscar o pedido.');
+        setLoading(false);
+        return;
+      } catch (fnErr) {
+        console.error('[ConfirmacaoPedido] get-order-public error:', fnErr);
+        setErrorMessage('Não foi possível buscar o pedido.');
+        setLoading(false);
         return;
       }
 
-      setOrder(orderData as Order);
-
-      const { data: itemsData, error: itemsError } = await supabase
-        .from('order_items')
-        .select('name_at_purchase, quantity, price_at_purchase, image_url_at_purchase')
-        .eq('order_id', id);
-
-      if (itemsError) {
-        console.error("Error fetching order items:", itemsError);
-        setItems([]);
-      } else {
-        setItems(itemsData as OrderItem[]);
-      }
     } catch (e: any) {
       console.error('Unexpected error fetching order details:', e);
       setErrorMessage('Ocorreu um erro ao carregar o pedido.');
       setOrder(null);
       setItems([]);
-    } finally {
       setLoading(false);
     }
   };
@@ -102,13 +118,11 @@ const ConfirmacaoPedido = () => {
     setIsCheckingPayment(true);
     setErrorMessage(null);
     try {
-      // Attempt to run the finalize RPC — webhook normally does this, but in case it's delayed we try manually.
       const { error: rpcError } = await supabase.rpc('finalize_order_payment', { p_order_id: Number(id) });
       if (rpcError) {
         console.warn('RPC finalize_order_payment returned error:', rpcError);
         setErrorMessage('Não foi possível forçar a verificação automática do pagamento. Tente novamente em alguns instantes.');
       } else {
-        // Re-fetch order details after attempting finalize
         await fetchOrderDetails();
       }
     } catch (e: any) {

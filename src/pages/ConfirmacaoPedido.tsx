@@ -40,44 +40,100 @@ const ConfirmacaoPedido = () => {
   const [order, setOrder] = useState<Order | null>(null);
   const [items, setItems] = useState<OrderItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isCheckingPayment, setIsCheckingPayment] = useState(false);
 
   const fetchOrderDetails = async () => {
     if (!id) return;
     setLoading(true);
+    setErrorMessage(null);
 
-    const { data: orderData, error: orderError } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('id', id)
-      .single();
+    try {
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', id)
+        .single();
 
-    if (orderError || !orderData) {
-      console.error("Error fetching order:", orderError);
+      if (orderError) {
+        console.error("Error fetching order:", orderError);
+        setErrorMessage('Não foi possível buscar o pedido. Tente novamente.');
+        setOrder(null);
+        setItems([]);
+        return;
+      }
+
+      if (!orderData) {
+        setErrorMessage('Pedido não encontrado.');
+        setOrder(null);
+        setItems([]);
+        return;
+      }
+
+      setOrder(orderData as Order);
+
+      const { data: itemsData, error: itemsError } = await supabase
+        .from('order_items')
+        .select('name_at_purchase, quantity, price_at_purchase, image_url_at_purchase')
+        .eq('order_id', id);
+
+      if (itemsError) {
+        console.error("Error fetching order items:", itemsError);
+        setItems([]);
+      } else {
+        setItems(itemsData as OrderItem[]);
+      }
+    } catch (e: any) {
+      console.error('Unexpected error fetching order details:', e);
+      setErrorMessage('Ocorreu um erro ao carregar o pedido.');
+      setOrder(null);
+      setItems([]);
+    } finally {
       setLoading(false);
-      return;
     }
-    setOrder(orderData as Order);
-
-    const { data: itemsData, error: itemsError } = await supabase
-      .from('order_items')
-      .select('name_at_purchase, quantity, price_at_purchase, image_url_at_purchase')
-      .eq('order_id', id);
-    
-    if (itemsError) {
-      console.error("Error fetching order items:", itemsError);
-    } else {
-      setItems(itemsData as OrderItem[]);
-    }
-
-    setLoading(false);
   };
 
   useEffect(() => {
     fetchOrderDetails();
   }, [id]);
 
+  const handleForceCheckPayment = async () => {
+    if (!id) return;
+    setIsCheckingPayment(true);
+    setErrorMessage(null);
+    try {
+      // Attempt to run the finalize RPC — webhook normally does this, but in case it's delayed we try manually.
+      const { error: rpcError } = await supabase.rpc('finalize_order_payment', { p_order_id: Number(id) });
+      if (rpcError) {
+        console.warn('RPC finalize_order_payment returned error:', rpcError);
+        setErrorMessage('Não foi possível forçar a verificação automática do pagamento. Tente novamente em alguns instantes.');
+      } else {
+        // Re-fetch order details after attempting finalize
+        await fetchOrderDetails();
+      }
+    } catch (e: any) {
+      console.error('Error forcing payment check:', e);
+      setErrorMessage('Erro ao verificar pagamento.');
+    } finally {
+      setIsCheckingPayment(false);
+    }
+  };
+
   if (loading) {
-    return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-sky-400" /></div>;
+    return <div className="flex flex-col justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-sky-400" /><p className="text-sm text-stone-500 mt-4">Carregando detalhes do pedido...</p></div>;
+  }
+
+  if (errorMessage) {
+    return (
+      <div className="container mx-auto px-4 py-16 text-center">
+        <h1 className="font-serif text-2xl text-charcoal-gray mb-4">Não foi possível carregar o pedido</h1>
+        <p className="text-sm text-stone-500 mb-6">{errorMessage}</p>
+        <div className="flex items-center justify-center gap-3">
+          <Button onClick={fetchOrderDetails} className="bg-sky-500 hover:bg-sky-400 text-white">Tentar novamente</Button>
+          <Button onClick={handleForceCheckPayment} variant="outline" disabled={isCheckingPayment}>{isCheckingPayment ? 'Verificando...' : 'Verificar pagamento agora'}</Button>
+        </div>
+      </div>
+    );
   }
 
   if (!order) {

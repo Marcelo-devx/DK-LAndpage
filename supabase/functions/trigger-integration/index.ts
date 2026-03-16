@@ -52,14 +52,71 @@ serve(async (req) => {
         const orderId = Number(payload.order_id)
         const { data: orderData, error: orderErr } = await supabase
           .from('orders')
-          .select('*, order_items(*), profiles(*)')
+          .select('*, order_items(*), user_id, shipping_address')
           .eq('id', orderId)
           .single()
         if (orderErr) {
           console.warn('[trigger-integration] could not fetch order details', { orderErr })
         } else if (orderData) {
-          payload = { ...payload, order: orderData }
-          console.log('[trigger-integration] order details attached')
+          // Normalize order and items
+          const order = orderData
+          let items = order.order_items || []
+          // If items are empty, try to fetch explicitly
+          if (!items || items.length === 0) {
+            const { data: fetchedItems } = await supabase.from('order_items').select('*').eq('order_id', orderId)
+            items = fetchedItems || []
+          }
+
+          // Build items array in the required shape
+          const mappedItems = items.map((it: any) => {
+            const price = Number(it.price_at_purchase ?? it.price ?? 0)
+            const qty = Number(it.quantity ?? 0)
+            return {
+              name: it.name_at_purchase || it.name || '',
+              quantity: qty,
+              price: price,
+              total: +(price * qty).toFixed(2),
+              image: it.image_url_at_purchase || it.image_url || null,
+              type: it.item_type || 'product'
+            }
+          })
+
+          const subtotal_products = mappedItems.reduce((s: number, it: any) => s + (it.price * it.quantity), 0)
+
+          // Customer info: prefer shipping_address fields, fallback to profile if available
+          const shipping = order.shipping_address || {}
+          const customer = {
+            id: order.user_id || null,
+            full_name: (shipping.first_name && shipping.last_name) ? `${shipping.first_name} ${shipping.last_name}` : (shipping.full_name || null),
+            phone: shipping.phone ? String(shipping.phone).replace(/\D/g, '') : (shipping.phone || null),
+            email: shipping.email || order.guest_email || null,
+            cpf: shipping.cpf_cnpj ? String(shipping.cpf_cnpj).replace(/\D/g, '') : (shipping.cpf_cnpj || null)
+          }
+
+          // Assemble the standardized payload required by n8n
+          const outgoing = {
+            event: eventType,
+            timestamp: new Date().toISOString(),
+            data: {
+              id: Number(order.id),
+              total_price: Number(order.total_price) || Number(order.total_price) === 0 ? Number(order.total_price) : subtotal_products,
+              subtotal_products: +subtotal_products.toFixed(2),
+              discount_applied: Number(order.coupon_discount ?? 0),
+              shipping_cost: Number(order.shipping_cost ?? 0),
+              donation_amount: Number(order.donation_amount ?? 0),
+              payment_method: order.payment_method || (shipping.payment_method || 'pix'),
+              status: order.status,
+              created_at: order.created_at,
+              coupon_name: order.coupon_name || null,
+              benefits_used: order.benefits_used || null,
+              customer,
+              shipping_address: shipping,
+              items: mappedItems
+            }
+          }
+
+          payload = outgoing
+          console.log('[trigger-integration] built outgoing payload for n8n', { orderId, outgoingPreview: { id: outgoing.data.id, total_price: outgoing.data.total_price, items_count: outgoing.data.items.length } })
         }
       }
     } catch (enrichErr) {
@@ -84,18 +141,19 @@ serve(async (req) => {
     // Dispatch to each configured URL in parallel
     const results = await Promise.allSettled(configs.map(async (cfg: any) => {
       const url = cfg.target_url
-      const bodyToSend = JSON.stringify({ event_type: eventType, payload })
-      
+
+      // Build the exact body to send: if we've already constructed outgoing payload (for orders), send that, otherwise wrap generic
+      const bodyToSend = JSON.stringify(payload && payload.event ? payload : { event: eventType, timestamp: new Date().toISOString(), data: payload })
+
       try {
-        console.log('[trigger-integration] dispatching to', url, 'with body:', bodyToSend)
+        console.log('[trigger-integration] dispatching to', url, 'with body preview:', { eventType, previewId: payload?.data?.id ?? payload?.order_id ?? null })
         const resp = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: bodyToSend,
-          // Add a 10 second timeout
           signal: AbortSignal.timeout(10000)
         })
-        
+
         const text = await resp.text().catch(() => null)
         console.log('[trigger-integration] response from', url, { status: resp.status, ok: resp.ok, body: text })
         return { url, ok: resp.ok, status: resp.status, statusText: resp.statusText, body: text }

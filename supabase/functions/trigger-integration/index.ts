@@ -83,6 +83,15 @@ serve(async (req) => {
 
           const subtotal_products = mappedItems.reduce((s: number, it: any) => s + (it.price * it.quantity), 0)
 
+          // DEBUG: Log dos valores brutos do banco
+          console.log('[trigger-integration] DEBUG - Valores brutos do pedido', {
+            orderId,
+            subtotal_products,
+            shipping_cost_raw: order.shipping_cost,
+            donation_amount_raw: order.donation_amount,
+            coupon_discount_raw: order.coupon_discount
+          })
+
           // Customer info: prefer shipping_address fields, fallback to profile if available
           const shipping = order.shipping_address || {}
           const customer = {
@@ -94,8 +103,21 @@ serve(async (req) => {
           }
 
           // CORRECTED: Calculate FINAL total including items, shipping, donation and discount
-          const totalFinal = (subtotal_products + Number(order.shipping_cost ?? 0) + Number(order.donation_amount ?? 0) - Number(order.coupon_discount ?? 0))
+          const shippingCost = Number(order.shipping_cost ?? 0)
+          const donationAmount = Number(order.donation_amount ?? 0)
+          const couponDiscount = Number(order.coupon_discount ?? 0)
+          const totalFinal = (subtotal_products + shippingCost + donationAmount - couponDiscount)
           const total_price = isNaN(totalFinal) ? subtotal_products : totalFinal
+
+          // DEBUG: Log do cálculo final
+          console.log('[trigger-integration] DEBUG - Cálculo do total', {
+            orderId,
+            subtotal: subtotal_products,
+            shipping: shippingCost,
+            donation: donationAmount,
+            discount: couponDiscount,
+            total_calculado: total_price
+          })
 
           // Assemble the standardized payload required by n8n
           const outgoing = {

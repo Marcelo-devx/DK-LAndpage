@@ -45,17 +45,21 @@ serve(async (req) => {
     let isGuest = false;
 
     if (authHeader) {
-      const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        global: { headers: { 'Authorization': authHeader } }
-      });
+      try {
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+          global: { headers: { 'Authorization': authHeader } }
+        });
 
-      const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+        const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
 
-      if (!userError && user && user.email) {
-        userEmail = user.email;
-        console.log('[create-mercadopago-preference] Usuário autenticado:', userEmail);
-      } else {
-        console.log('[create-mercadopago-preference] Token inválido, verificando se é convidado...');
+        if (!userError && user && user.email) {
+          userEmail = user.email;
+          console.log('[create-mercadopago-preference] Usuário autenticado:', userEmail);
+        } else {
+          console.log('[create-mercadopago-preference] Token inválido ou sem usuário, verificando se é convidado...');
+        }
+      } catch (e) {
+        console.warn('[create-mercadopago-preference] erro ao tentar validar auth header, continuando:', e);
       }
     }
 
@@ -67,11 +71,19 @@ serve(async (req) => {
       body = {};
     }
 
-    // Verificar se é convidado
+    // Verificar se é convidado via body
     if (!userEmail && body.guest_email) {
       userEmail = body.guest_email;
       isGuest = true;
-      console.log('[create-mercadopago-preference] Convidado:', userEmail);
+      console.log('[create-mercadopago-preference] Convidado (guest_email):', userEmail);
+    }
+
+    // Also allow email inside shipping_address
+    const shipping_address = body.shipping_address || body.shippingAddress || null;
+    if (!userEmail && shipping_address?.email) {
+      userEmail = shipping_address.email;
+      isGuest = true;
+      console.log('[create-mercadopago-preference] Convidado (shipping_address.email):', userEmail);
     }
 
     if (!userEmail) {
@@ -85,7 +97,6 @@ serve(async (req) => {
     const totalPriceRaw = body.total_price;
     // Em vez de depender do origin do cliente, usaremos uma base validada (com fallback no final)
     const clientOrigin = body.origin;
-    const shipping_address = body.shipping_address;
 
     const orderIdStr = (typeof orderIdRaw === 'number' || typeof orderIdRaw === 'string')
       ? String(orderIdRaw).trim()
@@ -157,6 +168,8 @@ serve(async (req) => {
     let settingsBaseUrlSandbox: string | undefined;
 
     try {
+      // create a client with service role to read app_settings
+      const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
       const { data: settings } = await supabaseClient
         .from('app_settings')
         .select('key, value')

@@ -420,9 +420,10 @@ const CheckoutPage = () => {
           order_id: orderId, 
           total_price: finalTotal, 
           origin: window.location.origin,
-          guest_email: user ? undefined : data.email,
-          guest_phone: user ? undefined : data.phone.replace(/\D/g, ''),
-          guest_cpf_cnpj: user ? undefined : data.cpf_cnpj.replace(/\D/g, '')
+          // Always include guest fields so Edge Function has an email/phone even if auth header is missing
+          guest_email: data.email,
+          guest_phone: data.phone.replace(/\D/g, ''),
+          guest_cpf_cnpj: data.cpf_cnpj.replace(/\D/g, '')
         } 
       };
       if (authToken) invokeOptions.headers = { Authorization: `Bearer ${authToken}` };

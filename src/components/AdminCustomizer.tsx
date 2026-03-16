@@ -76,6 +76,30 @@ const AdminCustomizer = () => {
   // Estado Dinâmico para Webhooks
   const [webhooks, setWebhooks] = useState<Record<string, string>>({});
   const webhookTimeouts = useRef<Record<string, NodeJS.Timeout>>({});
+  const [lastFetched, setLastFetched] = useState<number | null>(null);
+  const [loadingWebhooks, setLoadingWebhooks] = useState(false);
+
+  // Função para buscar webhooks (pode ser chamada manualmente)
+  const fetchWebhooks = async () => {
+    setLoadingWebhooks(true);
+    try {
+      const { data, error } = await supabase.from('webhook_configs').select('trigger_event, target_url');
+      if (!error && data) {
+        const currentHooks: Record<string, string> = {};
+        data.forEach((config: any) => {
+          currentHooks[config.trigger_event] = config.target_url;
+        });
+        setWebhooks(currentHooks);
+        setLastFetched(Date.now());
+      } else if (error) {
+        console.error('Erro ao carregar webhooks:', error);
+      }
+    } catch (e) {
+      console.error('Erro ao buscar webhooks:', e);
+    } finally {
+      setLoadingWebhooks(false);
+    }
+  };
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -89,17 +113,6 @@ const AdminCustomizer = () => {
         fetchCategories(); // NOVO: Carregar categorias
       } else {
         setIsAdmin(false);
-      }
-    };
-
-    const fetchWebhooks = async () => {
-      const { data } = await supabase.from('webhook_configs').select('trigger_event, target_url');
-      if (data) {
-        const currentHooks: Record<string, string> = {};
-        data.forEach(config => {
-          currentHooks[config.trigger_event] = config.target_url;
-        });
-        setWebhooks(currentHooks);
       }
     };
 
@@ -354,8 +367,13 @@ const AdminCustomizer = () => {
                             <div className="bg-purple-500/10 p-2 rounded-lg"><Webhook className="h-5 w-5 text-purple-600" /></div>
                             <h3 className="font-bold text-purple-900 text-sm">Conexão N8N</h3>
                         </div>
-                        {testStatus === 'success' && <div className="flex items-center gap-1 text-[10px] font-black text-green-600 bg-green-100 px-2 py-1 rounded-md uppercase tracking-wider"><CheckCircle2 className="h-3 w-3" /> Online</div>}
-                        {testStatus === 'error' && <div className="flex items-center gap-1 text-[10px] font-black text-red-600 bg-red-100 px-2 py-1 rounded-md uppercase tracking-wider"><XCircle className="h-3 w-3" /> Erro</div>}
+                        <div className="flex items-center gap-2">
+                          {testStatus === 'success' && <div className="flex items-center gap-1 text-[10px] font-black text-green-600 bg-green-100 px-2 py-1 rounded-md uppercase tracking-wider"><CheckCircle2 className="h-3 w-3" /> Online</div>}
+                          {testStatus === 'error' && <div className="flex items-center gap-1 text-[10px] font-black text-red-600 bg-red-100 px-2 py-1 rounded-md uppercase tracking-wider"><XCircle className="h-3 w-3" /> Erro</div>}
+                          <Button size="sm" variant="ghost" className="ml-2 text-[10px]" onClick={fetchWebhooks} disabled={loadingWebhooks} title="Atualizar configurações">
+                            {loadingWebhooks ? <Loader2 className="h-3 w-3 animate-spin text-purple-600" /> : 'Atualizar'}
+                          </Button>
+                        </div>
                     </div>
                     
                     <Button 
@@ -366,6 +384,9 @@ const AdminCustomizer = () => {
                     >
                         {testStatus === 'loading' ? 'Testando...' : 'Testar Ping'} <Activity className="ml-2 h-3 w-3" />
                     </Button>
+                    {lastFetched && (
+                      <p className="text-[10px] text-slate-500 mt-2">Última sincronização: {new Date(lastFetched).toLocaleString()}</p>
+                    )}
                 </div>
 
                 <div className="space-y-4">

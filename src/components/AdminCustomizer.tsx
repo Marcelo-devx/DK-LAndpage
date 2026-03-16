@@ -204,8 +204,29 @@ const AdminCustomizer = () => {
       if (data?.success) showSuccess("Teste enviado com sucesso!");
       else showError(data?.error || "Erro no teste.");
     } catch (error: any) {
+      // Melhor logging para debugar falhas de Edge Function
+      console.error('[AdminCustomizer] trigger-integration invoke error:', error);
+      // Tenta capturar detalhes retornados pelo supabase error object
+      const detailed = error?.message || (error && typeof error === 'object' ? JSON.stringify(error) : String(error));
+
+      // Fallback diagnóstico: tentar chamar a URL direta da Edge Function (apenas para debug no console)
+      try {
+        const debugResp = await fetch(`${PROJECT_URL}/functions/v1/trigger-integration`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ event_type: eventType, simulate: true })
+        });
+        if (!debugResp.ok) {
+          console.warn('[AdminCustomizer] direct function fetch response not ok:', debugResp.status, debugResp.statusText);
+        } else {
+          console.info('[AdminCustomizer] direct function fetch succeeded (for debug).');
+        }
+      } catch (fetchErr) {
+        console.error('[AdminCustomizer] direct function fetch error (CORS/network):', fetchErr);
+      }
+
       dismissToast(toastId);
-      showError(error.message || "Falha na simulação.");
+      showError(detailed || "Falha na simulação. Verifique o console para mais detalhes.");
     } finally {
       setIsSimulating(null);
     }

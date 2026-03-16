@@ -293,9 +293,30 @@ const CheckoutPage = () => {
           donation_amount_input: donationAmount
         });
         if (err) throw err;
+        
+        // Tentar extrair o ID do pedido criado de forma robusta
+        const rawOrderId: any = (o as any)?.new_order_id ?? (o as any)?.order_id ?? (o as any)?.id ?? o;
+        const createdOrderId = typeof rawOrderId === 'string' ? Number(rawOrderId) : rawOrderId;
+
         dismissToast(toastId);
         clearLocalCart();
-        navigate(`/confirmacao-pedido/${o.new_order_id}`);
+
+        // Disparar webhook de order_created via Edge Function (não bloquear se falhar)
+        (async () => {
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const authToken = session?.access_token;
+            const invokeOptions: any = { body: { event_type: 'order_created', payload: { order_id: createdOrderId } } };
+            if (authToken) invokeOptions.headers = { Authorization: `Bearer ${authToken}` };
+            const { data: invokeData, error: invokeError } = await supabase.functions.invoke('trigger-integration', invokeOptions);
+            if (invokeError) console.error('[CheckoutPage] trigger-integration invoke error:', invokeError);
+            else console.info('[CheckoutPage] trigger-integration invoked:', invokeData);
+          } catch (invokeEx) {
+            console.error('[CheckoutPage] error invoking trigger-integration:', invokeEx);
+          }
+        })();
+
+        navigate(`/confirmacao-pedido/${createdOrderId}`);
       } else {
         // Convidado - usa a nova função
         const { data: o, error: err } = await supabase.rpc('create_guest_order', {
@@ -311,9 +332,26 @@ const CheckoutPage = () => {
           p_donation_amount: donationAmount
         });
         if (err) throw err;
+        
+        const rawOrderId: any = (o as any)?.new_order_id ?? (o as any)?.order_id ?? (o as any)?.id ?? o;
+        const createdOrderId = typeof rawOrderId === 'string' ? Number(rawOrderId) : rawOrderId;
+
         dismissToast(toastId);
         clearLocalCart();
-        navigate(`/confirmacao-pedido/${o.new_order_id}`);
+
+        // Disparar webhook de order_created via Edge Function (não bloquear se falhar)
+        (async () => {
+          try {
+            const invokeOptions: any = { body: { event_type: 'order_created', payload: { order_id: createdOrderId, guest_email: data.email } } };
+            const { data: invokeData, error: invokeError } = await supabase.functions.invoke('trigger-integration', invokeOptions);
+            if (invokeError) console.error('[CheckoutPage] trigger-integration invoke error (guest):', invokeError);
+            else console.info('[CheckoutPage] trigger-integration invoked (guest):', invokeData);
+          } catch (invokeEx) {
+            console.error('[CheckoutPage] error invoking trigger-integration (guest):', invokeEx);
+          }
+        })();
+
+        navigate(`/confirmacao-pedido/${createdOrderId}`);
       }
     } catch (e: any) {
       dismissToast(toastId);

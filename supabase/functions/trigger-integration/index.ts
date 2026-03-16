@@ -93,13 +93,17 @@ serve(async (req) => {
             cpf: shipping.cpf_cnpj ? String(shipping.cpf_cnpj).replace(/\D/g, '') : (shipping.cpf_cnpj || null)
           }
 
+          // CORRECTED: Calculate FINAL total including items, shipping, donation and discount
+          const totalFinal = (subtotal_products + Number(order.shipping_cost ?? 0) + Number(order.donation_amount ?? 0) - Number(order.coupon_discount ?? 0))
+          const total_price = isNaN(totalFinal) ? subtotal_products : totalFinal
+
           // Assemble the standardized payload required by n8n
           const outgoing = {
             event: eventType,
             timestamp: new Date().toISOString(),
             data: {
               id: Number(order.id),
-              total_price: Number(order.total_price) || Number(order.total_price) === 0 ? Number(order.total_price) : subtotal_products,
+              total_price: total_price,
               subtotal_products: +subtotal_products.toFixed(2),
               discount_applied: Number(order.coupon_discount ?? 0),
               shipping_cost: Number(order.shipping_cost ?? 0),

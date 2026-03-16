@@ -52,7 +52,7 @@ serve(async (req) => {
         const orderId = Number(payload.order_id)
         const { data: orderData, error: orderErr } = await supabase
           .from('orders')
-          .select('*, order_items(*), user_id, shipping_address')
+          .select('*, order_items(*), user_id, shipping_address, shipping_cost, donation_amount, coupon_discount')
           .eq('id', orderId)
           .single()
         if (orderErr) {

@@ -84,19 +84,28 @@ serve(async (req) => {
     // Dispatch to each configured URL in parallel
     const results = await Promise.allSettled(configs.map(async (cfg: any) => {
       const url = cfg.target_url
+      const bodyToSend = JSON.stringify({ event_type: eventType, payload })
+      
       try {
-        console.log('[trigger-integration] dispatching to', url)
+        console.log('[trigger-integration] dispatching to', url, 'with body:', bodyToSend)
         const resp = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ event_type: eventType, payload })
+          body: bodyToSend,
+          // Add a 10 second timeout
+          signal: AbortSignal.timeout(10000)
         })
+        
         const text = await resp.text().catch(() => null)
-        console.log('[trigger-integration] dispatched to', url, { status: resp.status })
+        console.log('[trigger-integration] response from', url, { status: resp.status, ok: resp.ok, body: text })
         return { url, ok: resp.ok, status: resp.status, statusText: resp.statusText, body: text }
-      } catch (err) {
-        console.error('[trigger-integration] dispatch error to', url, err)
-        return { url, ok: false, error: String(err) }
+      } catch (err: any) {
+        console.error('[trigger-integration] dispatch error to', url, 'Error details:', {
+          name: err?.name,
+          message: err?.message,
+          cause: err?.cause
+        })
+        return { url, ok: false, error: String(err), details: err?.message }
       }
     }))
 

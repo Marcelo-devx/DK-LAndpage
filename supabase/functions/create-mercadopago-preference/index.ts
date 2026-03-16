@@ -9,13 +9,12 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    console.log('[create-mercadopago-preference] Iniciando...');
+    console.log('[create-mercadopago-preference] Iniciando processamento...');
 
     // 1. Recuperação das variáveis de ambiente
     // @ts-ignore
@@ -24,20 +23,26 @@ serve(async (req) => {
     const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') as string;
     // @ts-ignore
     const RAW_MP_TOKEN = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') as string;
-    // NOVO: Bases configuráveis por ambiente
-    // @ts-ignore
-    const FRONTEND_BASE_URL = Deno.env.get('FRONTEND_BASE_URL') as string | undefined;
-    // @ts-ignore
-    const FRONTEND_BASE_URL_SANDBOX = Deno.env.get('FRONTEND_BASE_URL_SANDBOX') as string | undefined;
-
-    if (!RAW_MP_TOKEN) {
-      throw new Error("Token do Mercado Pago não configurado.");
+    
+    // Verificação robusta do token - SE ESTIVER VAZIO, VAI DAR ERRO AQUI ANTES DE CHAMAR O MP
+    if (!RAW_MP_TOKEN || RAW_MP_TOKEN.trim() === '') {
+      console.error('[create-mercadopago-preference] ERRO CRÍTICO: Variável MERCADOPAGO_ACCESS_TOKEN não encontrada ou está VAZIA no ambiente.');
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Configuração do Mercado Pago incompleta. Token não encontrado ou vazio.',
+        details: 'Verifique a variável de ambiente MERCADOPAGO_ACCESS_TOKEN no Supabase e cole o token correto.'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500,
+      });
     }
 
     const MP_TOKEN = RAW_MP_TOKEN.trim();
     const IS_SANDBOX = MP_TOKEN.startsWith('TEST-');
+    const MODE = IS_SANDBOX ? 'SANDBOX' : 'PRODUÇÃO';
 
-    console.log('[create-mercadopago-preference] Modo:', IS_SANDBOX ? 'SANDBOX' : 'PRODUÇÃO');
+    console.log('[create-mercadopago-preference] Modo de operação:', MODE);
+    console.log('[create-mercadopago-preference] Token carregado com sucesso (primeiros 8 chars):', MP_TOKEN.substring(0, 8) + '...');
 
     // 2. Autenticação (opcional para convidados)
     const authHeader = req.headers.get('Authorization');
@@ -49,21 +54,17 @@ serve(async (req) => {
         const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
           global: { headers: { 'Authorization': authHeader } }
         });
-
         const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
 
         if (!userError && user && user.email) {
           userEmail = user.email;
           console.log('[create-mercadopago-preference] Usuário autenticado:', userEmail);
-        } else {
-          console.log('[create-mercadopago-preference] Token inválido ou sem usuário, verificando se é convidado...');
         }
       } catch (e) {
-        console.warn('[create-mercadopago-preference] erro ao tentar validar auth header, continuando:', e);
+        console.warn('[create-mercadopago-preference] Erro na validação do token de sessão, prosseguindo como convidado se possível.');
       }
     }
 
-    // 3. Parse do body (com validações mais claras)
     let body: any = {};
     try {
       body = await req.json();
@@ -71,31 +72,32 @@ serve(async (req) => {
       body = {};
     }
 
-    // Verificar se é convidado via body
     if (!userEmail && body.guest_email) {
       userEmail = body.guest_email;
       isGuest = true;
-      console.log('[create-mercadopago-preference] Convidado (guest_email):', userEmail);
+      console.log('[create-mercadopago-preference] Identificado como convidado (guest_email):', userEmail);
     }
 
-    // Also allow email inside shipping_address
     const shipping_address = body.shipping_address || body.shippingAddress || null;
     if (!userEmail && shipping_address?.email) {
       userEmail = shipping_address.email;
       isGuest = true;
-      console.log('[create-mercadopago-preference] Convidado (shipping_address.email):', userEmail);
+      console.log('[create-mercadopago-preference] Identificado como convidado (shipping_address):', userEmail);
     }
 
     if (!userEmail) {
-      throw new Error("E-mail do comprador é obrigatório.");
+      console.error('[create-mercadopago-preference] Erro: E-mail do comprador não fornecido.');
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'E-mail do comprador é obrigatório.'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400,
+      });
     }
-
-    // Log completo do body para depuração (não contém o token)
-    console.log('[create-mercadopago-preference] Body recebido:', JSON.stringify(body));
 
     const orderIdRaw = body.order_id;
     const totalPriceRaw = body.total_price;
-    // Em vez de depender do origin do cliente, usaremos uma base validada (com fallback no final)
     const clientOrigin = body.origin;
 
     const orderIdStr = (typeof orderIdRaw === 'number' || typeof orderIdRaw === 'string')
@@ -104,12 +106,7 @@ serve(async (req) => {
 
     const totalPriceNum = Number(totalPriceRaw);
 
-    console.log('[create-mercadopago-preference] Dados recebidos:', {
-      order_id: orderIdStr,
-      total_price: totalPriceNum,
-      client_origin: clientOrigin,
-      has_shipping: !!shipping_address
-    });
+    console.log('[create-mercadopago-preference] Dados do pedido:', { order_id: orderIdStr, total: totalPriceNum });
 
     if (!orderIdStr) {
       throw new Error('Order ID is required');
@@ -123,8 +120,8 @@ serve(async (req) => {
       throw new Error('Total inválido para pagamento.');
     }
 
-    // 4. Preparar dados do pagador
-    let payerInfo;
+    // 3. Preparar dados do pagador
+    let payerInfo: any;
 
     if (IS_SANDBOX) {
       payerInfo = {
@@ -136,7 +133,6 @@ serve(async (req) => {
         address: { zip_code: "01001000", street_name: "Rua de Teste", street_number: 123 }
       };
     } else {
-      // Usar dados do convidado se disponíveis, senão usar shipping_address
       const guestPhone = body.guest_phone || '';
       const guestCpf = body.guest_cpf_cnpj || '';
       const cleanPhone = (guestPhone || shipping_address.phone || '').replace(/\D/g, '');
@@ -163,43 +159,42 @@ serve(async (req) => {
       };
     }
 
-    // 5. Selecionar a base das back_urls por prioridade: ENV -> app_settings -> client
+    // 4. Configuração de URLs de retorno (Back URLs)
     let settingsBaseUrl: string | undefined;
     let settingsBaseUrlSandbox: string | undefined;
 
     try {
-      // create a client with service role to read app_settings
-      const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+      const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       const { data: settings } = await supabaseClient
         .from('app_settings')
         .select('key, value')
         .in('key', ['frontend_base_url', 'frontend_base_url_sandbox']);
 
       if (settings && Array.isArray(settings)) {
-        for (const s of settings) {
+        settings.forEach(s => {
           if (s.key === 'frontend_base_url') settingsBaseUrl = s.value;
           if (s.key === 'frontend_base_url_sandbox') settingsBaseUrlSandbox = s.value;
-        }
+        });
       }
     } catch (e) {
-      console.warn('[create-mercadopago-preference] Falha ao ler app_settings, continuando com ENV/cliente...');
+      console.warn('[create-mercadopago-preference] Falha ao ler app_settings, usando fallback.');
     }
 
-    const configuredBase =
-      (IS_SANDBOX ? (FRONTEND_BASE_URL_SANDBOX || settingsBaseUrlSandbox) : (FRONTEND_BASE_URL || settingsBaseUrl))
-      || undefined;
+    const configuredBase = (IS_SANDBOX 
+      ? (settingsBaseUrlSandbox || // @ts-ignore
+        Deno.env.get('FRONTEND_BASE_URL_SANDBOX'))
+      : (settingsBaseUrl || // @ts-ignore
+        Deno.env.get('FRONTEND_BASE_URL'))
+    ) || undefined;
 
     const chosenBase = (configuredBase || clientOrigin || '').toString().trim();
+    
     if (!chosenBase) {
-      throw new Error('Frontend base URL ausente. Defina FRONTEND_BASE_URL (e opcionalmente FRONTEND_BASE_URL_SANDBOX) ou app_settings.frontend_base_url.');
+      throw new Error('Não foi possível determinar a URL de retorno.');
     }
 
     const backUrlBase = chosenBase.replace(/\/$/, '');
-    console.log('[create-mercadopago-preference] Base escolhida para retorno:', {
-      is_sandbox: IS_SANDBOX,
-      from: configuredBase ? 'config' : 'client',
-      base: backUrlBase
-    });
+    console.log('[create-mercadopago-preference] Base de retorno configurada:', backUrlBase);
 
     const preferencePayload = {
       items: [{
@@ -212,7 +207,6 @@ serve(async (req) => {
       external_reference: orderIdStr,
       payer: payerInfo,
       back_urls: {
-        // Após o pagamento, direciona o usuário para "Minhas Compras"
         success: `${backUrlBase}/compras`,
         failure: `${backUrlBase}/compras`,
         pending: `${backUrlBase}/compras`
@@ -223,21 +217,9 @@ serve(async (req) => {
       binary_mode: false
     };
 
-    // Log do payload que será enviado ao Mercado Pago (sem incluir o token)
-    console.log('[create-mercadopago-preference] preferencePayload:', JSON.stringify({
-      ...preferencePayload,
-      payer: {
-        ...preferencePayload.payer,
-        // mask identification number for logs
-        identification: {
-          type: preferencePayload.payer.identification?.type,
-          number: preferencePayload.payer.identification?.number ? '***' : undefined
-        }
-      }
-    }));
-
-    console.log('[create-mercadopago-preference] Criando preferência no MP...');
-
+    console.log('[create-mercadopago-preference] Enviando requisição para Mercado Pago API...');
+    
+    // 5. Chamada à API do Mercado Pago
     const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',
       headers: {
@@ -246,8 +228,8 @@ serve(async (req) => {
       },
       body: JSON.stringify(preferencePayload),
     }).catch((fetchErr) => {
-      console.error('[create-mercadopago-preference] Erro ao chamar MP (fetch):', fetchErr);
-      throw new Error('Falha de rede ao comunicar com Mercado Pago.');
+      console.error('[create-mercadopago-preference] Erro de rede ao chamar MP:', fetchErr);
+      throw new Error('Falha de conexão com o Mercado Pago.');
     });
 
     const mpStatus = mpResponse.status;
@@ -255,19 +237,17 @@ serve(async (req) => {
     try {
       mpData = await mpResponse.json();
     } catch (e) {
-      console.warn('[create-mercadopago-preference] Não foi possível parsear JSON da resposta do MP', e);
-      mpData = {};
+      console.warn('[create-mercadopago-preference] Resposta do MP não é JSON.');
     }
 
-    // Logar resposta do MP (sem expor token)
-    console.log('[create-mercadopago-preference] Resposta MP:', { status: mpStatus, body: mpData });
+    console.log('[create-mercadopago-preference] Status Resposta MP:', mpStatus);
+    console.log('[create-mercadopago-preference] Body Resposta MP:', JSON.stringify(mpData));
 
-    // Retornar sempre JSON detalhado para o cliente — isso evita que o client veja apenas um 400 sem body
     if (!mpResponse.ok) {
-      console.error('[create-mercadopago-preference] Erro do MP:', JSON.stringify(mpData));
+      console.error('[create-mercadopago-preference] Mercado Pago retornou erro:', mpData);
       return new Response(JSON.stringify({
         success: false,
-        error: 'Mercado Pago returned an error',
+        error: 'Erro ao processar pagamento no Mercado Pago',
         mp_error: mpData,
         statusCode: mpStatus
       }), {
@@ -277,7 +257,7 @@ serve(async (req) => {
     }
 
     console.log('[create-mercadopago-preference] Preferência criada com sucesso!');
-
+    
     return new Response(JSON.stringify({
       success: true,
       order_id: orderIdStr,
@@ -289,8 +269,7 @@ serve(async (req) => {
     });
 
   } catch (error: any) {
-    console.error("[create-mercadopago-preference] Erro:", error);
-    // Sempre retornar JSON para o frontend conseguir mostrar a mensagem concreta
+    console.error("[create-mercadopago-preference] Erro interno:", error);
     return new Response(JSON.stringify({
       success: false,
       error: error?.message || 'Erro interno do servidor'

@@ -16,23 +16,27 @@ interface Order {
   donation_amount: number;
   status: string;
   payment_method: string | null;
-  shipping_address: {
-    street: string;
-    number: string;
-    neighborhood: string;
-    city: string;
-    state: string;
-    cep: string;
+  shipping_address?: {
+    street?: string;
+    number?: string;
+    neighborhood?: string;
+    city?: string;
+    state?: string;
+    cep?: string;
     complement?: string;
     phone?: string;
-  };
+    first_name?: string;
+    last_name?: string;
+    cpf_cnpj?: string;
+    email?: string;
+  } | null;
 }
 
 interface OrderItem {
-  name_at_purchase: string;
-  quantity: number;
-  price_at_purchase: number;
-  image_url_at_purchase: string;
+  name_at_purchase?: string;
+  quantity?: number;
+  price_at_purchase?: number;
+  image_url_at_purchase?: string;
 }
 
 const ConfirmacaoPedido = () => {
@@ -43,13 +47,35 @@ const ConfirmacaoPedido = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
 
+  const safeOrder = (o: any): Order => {
+    return {
+      id: Number(o?.id || 0),
+      created_at: o?.created_at || new Date().toISOString(),
+      total_price: Number(o?.total_price ?? 0),
+      shipping_cost: Number(o?.shipping_cost ?? 0),
+      donation_amount: Number(o?.donation_amount ?? 0),
+      status: o?.status || 'Pendente',
+      payment_method: o?.payment_method || (o?.shipping_address?.payment_method ?? 'Pix'),
+      shipping_address: o?.shipping_address || {},
+    };
+  };
+
+  const safeItems = (it: any[]): OrderItem[] => {
+    if (!Array.isArray(it)) return [];
+    return it.map(i => ({
+      name_at_purchase: i?.name_at_purchase || i?.name || '',
+      quantity: Number(i?.quantity ?? 1),
+      price_at_purchase: Number(i?.price_at_purchase ?? i?.price ?? 0),
+      image_url_at_purchase: i?.image_url_at_purchase || i?.image_url || ''
+    }));
+  };
+
   const fetchOrderDetails = async () => {
     if (!id) return;
     setLoading(true);
     setErrorMessage(null);
 
     try {
-      // First attempt: try to fetch with regular client (works for logged users)
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .select('*')
@@ -57,29 +83,28 @@ const ConfirmacaoPedido = () => {
         .single();
 
       if (!orderError && orderData) {
-        setOrder(orderData as Order);
+        setOrder(safeOrder(orderData));
 
         const { data: itemsData, error: itemsError } = await supabase
           .from('order_items')
           .select('name_at_purchase, quantity, price_at_purchase, image_url_at_purchase')
           .eq('order_id', id);
 
-        if (!itemsError && itemsData) setItems(itemsData as OrderItem[]);
+        if (!itemsError && itemsData) setItems(safeItems(itemsData));
         else setItems([]);
 
         setLoading(false);
         return;
       }
 
-      // If we reach here, client fetch failed (probably RLS / unauthenticated user).
-      // Try fallback: call edge function get-order-public (uses service role key)
+      // fallback to edge function
       try {
         const invokeResult: any = await supabase.functions.invoke('get-order-public', { body: { order_id: Number(id) } });
         if (invokeResult?.data) {
           const payload = invokeResult.data;
           if (payload.success) {
-            setOrder(payload.order as Order);
-            setItems(payload.items || []);
+            setOrder(safeOrder(payload.order));
+            setItems(safeItems(payload.items || []));
             setLoading(false);
             return;
           } else {
@@ -89,7 +114,6 @@ const ConfirmacaoPedido = () => {
           }
         }
 
-        // If invoke didn't return expected shape
         setErrorMessage('Não foi possível buscar o pedido.');
         setLoading(false);
         return;
@@ -161,8 +185,8 @@ const ConfirmacaoPedido = () => {
 
   const isPending = order.status === 'Aguardando Pagamento' || order.status === 'Em Preparação';
   const isCancelled = order.status === 'Cancelado';
-  const isPix = order.payment_method?.toLowerCase().includes('pix');
-  const { shipping_address: addr } = order;
+  const isPix = (order.payment_method || '').toString().toLowerCase().includes('pix');
+  const addr = order.shipping_address || {};
 
   const finalTotal = (Number(order.total_price) || 0) + (Number(order.shipping_cost) || 0) + (Number(order.donation_amount) || 0);
 
@@ -196,7 +220,7 @@ const ConfirmacaoPedido = () => {
                  <div>
                    <h3 className="text-emerald-800 font-black uppercase tracking-wide text-lg mb-2">Aguarde nosso contato</h3>
                    <p className="text-emerald-700 font-medium text-sm max-w-md mx-auto leading-relaxed">
-                     Não é necessário fazer mais nada! Nosso <strong>assistente virtual</strong> enviará uma mensagem para o seu WhatsApp <strong>({addr.phone})</strong> em instantes com a chave PIX para pagamento.
+                     Não é necessário fazer mais nada! Nosso <strong>assistente virtual</strong> enviará uma mensagem para o seu WhatsApp <strong>({addr?.phone || '—'})</strong> em instantes com a chave PIX para pagamento.
                    </p>
                  </div>
               </div>
@@ -229,11 +253,11 @@ const ConfirmacaoPedido = () => {
               <div className="bg-stone-50 p-6 rounded-2xl border border-stone-100">
                 <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-3">Local de Entrega</p>
                 <div className="text-sm text-stone-600 space-y-1 font-medium">
-                  <p className="text-charcoal-gray font-bold">{addr.street}, {addr.number}</p>
-                  {addr.complement && <p>{addr.complement}</p>}
-                  <p>{addr.neighborhood}</p>
-                  <p>{addr.city} - {addr.state}</p>
-                  <p className="text-[10px] font-black tracking-widest text-sky-600 mt-2">{addr.cep}</p>
+                  <p className="text-charcoal-gray font-bold">{addr?.street || ''}{addr?.number ? `, ${addr.number}` : ''}</p>
+                  {addr?.complement && <p>{addr.complement}</p>}
+                  <p>{addr?.neighborhood || ''}</p>
+                  <p>{addr?.city || ''} - {addr?.state || ''}</p>
+                  <p className="text-[10px] font-black tracking-widest text-sky-600 mt-2">{addr?.cep || ''}</p>
                 </div>
               </div>
             </div>

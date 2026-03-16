@@ -34,30 +34,41 @@ const MainLayout = () => {
     const checkProfile = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
-      if (session) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
+      // Skip if no session (user logged out or not logged in)
+      if (!session?.user?.id) {
+        return;
+      }
 
-        const isProfileComplete = profile && 
-          profile.first_name && 
-          profile.last_name && 
-          profile.phone && 
-          profile.cpf_cnpj &&
-          profile.gender &&
-          profile.date_of_birth &&
-          profile.cep &&
-          profile.street &&
-          profile.number &&
-          profile.neighborhood &&
-          profile.city &&
-          profile.state;
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
 
-        if (!isProfileComplete && location.pathname !== '/complete-profile') {
-          navigate('/complete-profile', { replace: true });
-        }
+      // Skip if profile fetch failed
+      if (error || !profile) {
+        console.error("Erro ao buscar perfil:", error);
+        return;
+      }
+
+      const isProfileComplete = 
+        profile.first_name && 
+        profile.last_name && 
+        profile.phone && 
+        profile.cpf_cnpj &&
+        profile.gender &&
+        profile.date_of_birth &&
+        profile.cep &&
+        profile.street &&
+        profile.number &&
+        profile.neighborhood &&
+        profile.city &&
+        profile.state;
+
+      // Only redirect if not on complete-profile page
+      if (!isProfileComplete && location.pathname !== '/complete-profile' && location.pathname !== '/login') {
+        console.log('Redirecionando para completar perfil');
+        navigate('/complete-profile', { replace: true });
       }
     };
 

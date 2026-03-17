@@ -366,6 +366,12 @@ const CheckoutPage = () => {
     setIsSubmitting(true);
     try {
       const data = getValues();
+      console.log('[CheckoutPage] DEBUG - Valores passados para create_pending_order_from_local_cart (MP):', {
+        shipping_cost_input: shippingCost,
+        donation_amount_input: donationAmount,
+        total_items_price: subtotal
+      });
+      
       let orderId: number;
       let finalTotal: number;
       let shippingAddress: any;

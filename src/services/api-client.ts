@@ -7,7 +7,7 @@ import { Product } from "@/types/product";
  */
 export const apiClient = {
   products: {
-    list: async (filters: any): Promise<Product[]> => {
+    list: async (filters: any = {}): Promise<Product[]> => {
       // Nota de CTO: Em produção, isto chamaria uma Edge Function em vez de .from()
       // para garantir que a regra de negócio/filtragem aconteça no server-side.
       let query = supabase
@@ -16,7 +16,13 @@ export const apiClient = {
         .eq('is_visible', true)
         .gt('stock_quantity', 0);
 
-      if (filters.category) query = query.in('category', filters.categories);
+      // Support both a single category or an array of categories
+      if (filters.categories && Array.isArray(filters.categories) && filters.categories.length > 0) {
+        query = query.in('category', filters.categories);
+      } else if (filters.category) {
+        query = query.eq('category', filters.category);
+      }
+
       if (filters.search) query = query.ilike('name', `%${filters.search}%`);
 
       const { data, error } = await query.order('created_at', { ascending: false });

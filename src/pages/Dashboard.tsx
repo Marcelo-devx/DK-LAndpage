@@ -70,8 +70,24 @@ const Dashboard = () => {
   }, [fetchDashboardData, refreshTrigger]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate('/');
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error('[Dashboard] signOut error:', err);
+      // show a non-blocking error so user knows something went wrong
+      showError('Erro ao encerrar sessão. Tentando forçar logout...');
+    }
+
+    // Navigate to home and force a full reload to ensure all app state is reset.
+    try {
+      navigate('/');
+    } catch (e) {
+      // ignore navigation error
+    }
+    // Small timeout to ensure navigation runs before reload
+    setTimeout(() => {
+      window.location.href = '/';
+    }, 150);
   };
 
   const handleRefresh = () => {

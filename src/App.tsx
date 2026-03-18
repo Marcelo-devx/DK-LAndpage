@@ -25,21 +25,12 @@ import UpdatePassword from "./pages/UpdatePassword";
 import AuthEventHandler from "./components/AuthEventHandler";
 import { ThemeProvider } from "./context/ThemeContext";
 import AdminCustomizer from "./components/AdminCustomizer";
-import { showSuccess } from "./utils/toast";
 import EmailConfirm from "./pages/EmailConfirm";
 import { AgeVerificationProvider } from "./context/AgeVerificationContext";
 
 const queryClient = new QueryClient();
 
 const App = () => {
-  useEffect(() => {
-    // After a successful automatic recovery, clear the flag.
-    if (sessionStorage.getItem('recovery_attempted')) {
-      sessionStorage.removeItem('recovery_attempted');
-      showSuccess("Sessão restaurada para corrigir um problema.");
-    }
-  }, []);
-
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>

@@ -1,6 +1,6 @@
-import { Outlet, useOutletContext, useNavigate, useLocation } from "react-router-dom";
+import { Outlet, useOutletContext } from "react-router-dom";
 import Header from "./Header";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import CategoryProductsModal from "./CategoryProductsModal";
 import BrandProductsModal from "./BrandProductsModal";
 import { CartSheet } from "./CartSheet";
@@ -9,7 +9,6 @@ import SocialProofPopup from "./SocialProofPopup";
 import DeliveryTimerBar from "./DeliveryTimerBar";
 import SupportChatWidget from "./SupportChatWidget"; // Novo
 import LoyaltyButton from "./LoyaltyButton";
-import { supabase } from '@/integrations/supabase/client';
 
 export interface OutletContextType {
   handleCategoryClick: (categoryName: string) => void;
@@ -19,8 +18,6 @@ export interface OutletContextType {
 export const useAppOutletContext = () => useOutletContext<OutletContextType>();
 
 const MainLayout = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
@@ -28,67 +25,6 @@ const MainLayout = () => {
   const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
 
   const [isCartOpen, setIsCartOpen] = useState(false);
-
-  // Verificação Global de Perfil Completo
-  useEffect(() => {
-    const checkProfile = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      // Skip if no session (user logged out or not logged in)
-      if (!session?.user?.id) {
-        return;
-      }
-
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', session.user.id)
-        .single();
-
-      // Skip if profile fetch failed
-      if (error || !profile) {
-        console.error("Erro ao buscar perfil:", error);
-        return;
-      }
-
-      const isProfileComplete = 
-        profile.first_name && 
-        profile.last_name && 
-        profile.phone && 
-        profile.cpf_cnpj &&
-        profile.gender &&
-        profile.date_of_birth &&
-        profile.cep &&
-        profile.street &&
-        profile.number &&
-        profile.neighborhood &&
-        profile.city &&
-        profile.state;
-
-      // Only redirect if not on complete-profile page
-      if (!isProfileComplete && location.pathname !== '/complete-profile' && location.pathname !== '/login') {
-        console.log('Redirecionando para completar perfil');
-        navigate('/complete-profile', { replace: true });
-      }
-    };
-
-    checkProfile();
-  }, [navigate, location.pathname]);
-
-  // Listener para redirecionamento de login
-  useEffect(() => {
-    const handleAuthRequired = (event: CustomEvent) => {
-        // Pequeno delay para o usuário ver a mensagem de erro
-        setTimeout(() => {
-            navigate('/login', { state: { from: event.detail.from || location.pathname } });
-        }, 1500);
-    };
-
-    window.addEventListener('authRequired', handleAuthRequired as EventListener);
-    return () => {
-        window.removeEventListener('authRequired', handleAuthRequired as EventListener);
-    };
-  }, [navigate, location.pathname]);
 
   const handleCategoryClick = (categoryName: string) => {
     setSelectedCategory(categoryName);

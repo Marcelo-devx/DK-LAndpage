@@ -36,7 +36,11 @@ const AuthEventHandler = () => {
           profile.city &&
           profile.state;
 
-        if (!isProfileComplete && window.location.pathname !== '/complete-profile') {
+        // Prevent redirect loops by checking current path
+        if (!isProfileComplete && 
+            window.location.pathname !== '/complete-profile' &&
+            window.location.pathname !== '/login' &&
+            window.location.pathname !== '/update-password') {
           navigate('/complete-profile', { replace: true });
         }
       }

@@ -77,7 +77,9 @@ const Login = () => {
     if (refCode) {
       sessionStorage.setItem('referral_code', refCode);
     }
+  }, [location.search]);
 
+  useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) {
         const storedRefCode = sessionStorage.getItem('referral_code');
@@ -86,36 +88,12 @@ const Login = () => {
           sessionStorage.removeItem('referral_code');
         }
 
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-
-        const isProfileComplete = profile && 
-          profile.first_name && 
-          profile.last_name && 
-          profile.phone &&
-          profile.cpf_cnpj &&
-          profile.gender &&
-          profile.date_of_birth &&
-          profile.cep &&
-          profile.street &&
-          profile.number &&
-          profile.neighborhood &&
-          profile.city &&
-          profile.state;
-
-        if (!isProfileComplete) {
-          navigate('/complete-profile', { replace: true });
-        } else {
-          navigate(from, { replace: true });
-        }
+        navigate(from, { replace: true });
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate, from, location.search]);
+  }, [navigate, from]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-off-white relative overflow-hidden p-4">

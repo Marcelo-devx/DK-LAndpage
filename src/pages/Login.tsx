@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, LogIn, UserPlus } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
+import { showError } from '@/utils/toast';
 
 const customTheme: Theme = {
   default: {
@@ -81,14 +82,59 @@ const Login = () => {
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('[Login] Auth state changed:', event, session?.user?.id);
+      
       if (event === 'SIGNED_IN' && session) {
+        // Handle referral code first
         const storedRefCode = sessionStorage.getItem('referral_code');
         if (storedRefCode) {
-          await supabase.rpc('link_referral', { referral_code_input: storedRefCode });
-          sessionStorage.removeItem('referral_code');
+          try {
+            await supabase.rpc('link_referral', { referral_code_input: storedRefCode });
+            sessionStorage.removeItem('referral_code');
+          } catch (error) {
+            console.error('[Login] Error linking referral:', error);
+          }
         }
 
-        navigate(from, { replace: true });
+        // Check if profile is complete
+        try {
+          const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('first_name, last_name, phone, cpf_cnpj, gender, date_of_birth, cep, street, number, neighborhood, city, state')
+            .eq('id', session.user.id)
+            .single();
+
+          if (error) {
+            console.error('[Login] Error fetching profile:', error);
+            // Still redirect, even on error
+            navigate(from, { replace: true });
+            return;
+          }
+
+          const isProfileComplete = profile && 
+            profile.first_name && 
+            profile.last_name && 
+            profile.phone && 
+            profile.cpf_cnpj &&
+            profile.gender &&
+            profile.date_of_birth &&
+            profile.cep &&
+            profile.street &&
+            profile.number &&
+            profile.neighborhood &&
+            profile.city &&
+            profile.state;
+
+          // Prevent redirect to complete-profile if already there
+          if (!isProfileComplete && window.location.pathname !== '/complete-profile') {
+            navigate('/complete-profile', { replace: true });
+          } else {
+            navigate(from, { replace: true });
+          }
+        } catch (err) {
+          console.error('[Login] Unexpected error:', err);
+          navigate(from, { replace: true });
+        }
       }
     });
 
@@ -137,7 +183,7 @@ const Login = () => {
                   providers={['google']} 
                   redirectTo={`${window.location.origin}/auth/confirm`}
                   theme="default"
-                  showLinks={false} // Escondemos os links padrão para usar as abas
+                  showLinks={false} 
                   localization={{
                     variables: {
                       sign_in: {

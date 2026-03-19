@@ -63,27 +63,33 @@ const Index = () => {
               const minPixPrice = Math.min(...prodVariants.map(v => v.pix_price || v.price));
               const totalStock = prodVariants.reduce((acc, v) => acc + (v.stock_quantity || 0), 0);
               
-              finalDisplayList.push({
-                id: prod.id,
-                name: prod.name,
-                price: minPrice,
-                pixPrice: minPixPrice,
-                imageUrl: prod.image_url || '',
-                stockQuantity: totalStock,
-                hasMultipleVariants: true,
-                showAgeBadge: prod.category ? (categoryMap.get(normalizeCategory(prod.category)) ?? true) : true,
-              });
+              // Only add if product has stock
+              if (totalStock > 0) {
+                finalDisplayList.push({
+                  id: prod.id,
+                  name: prod.name,
+                  price: minPrice,
+                  pixPrice: minPixPrice,
+                  imageUrl: prod.image_url || '',
+                  stockQuantity: totalStock,
+                  hasMultipleVariants: true,
+                  showAgeBadge: prod.category ? (categoryMap.get(normalizeCategory(prod.category)) ?? true) : true,
+                });
+              }
             } else {
-              finalDisplayList.push({
-                id: prod.id,
-                name: prod.name,
-                price: prod.price,
-                pixPrice: prod.pix_price,
-                imageUrl: prod.image_url || '',
-                stockQuantity: prod.stock_quantity,
-                hasMultipleVariants: false,
-                showAgeBadge: prod.category ? (categoryMap.get(normalizeCategory(prod.category)) ?? true) : true,
-              });
+              // Only add if product has stock
+              if (prod.stock_quantity > 0) {
+                finalDisplayList.push({
+                  id: prod.id,
+                  name: prod.name,
+                  price: prod.price,
+                  pixPrice: prod.pix_price,
+                  imageUrl: prod.image_url || '',
+                  stockQuantity: prod.stock_quantity,
+                  hasMultipleVariants: false,
+                  showAgeBadge: prod.category ? (categoryMap.get(normalizeCategory(prod.category)) ?? true) : true,
+                });
+              }
             }
           });
           return finalDisplayList;

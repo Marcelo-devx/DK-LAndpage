@@ -1,39 +1,111 @@
 import React, { useEffect, useState } from "react";
-import { useSearchParams, Link } from "react-router-dom";
+import { useSearchParams, Link, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertCircle } from "lucide-react";
 import { useTheme } from "@/context/ThemeContext";
+import { supabase } from '@/integrations/supabase/client';
 
 const EmailConfirm: React.FC = () => {
   const [searchParams] = useSearchParams();
   const [status, setStatus] = useState<"idle" | "redirecting" | "error">("idle");
   const { settings } = useTheme();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const raw = searchParams.get("confirmation_url");
-    if (raw) {
-      setStatus("redirecting");
-      const original = decodeURIComponent(raw);
+    const handleConfirm = async () => {
+      setStatus('redirecting');
 
-      // Se a URL já está completa, sobrescrevemos o redirect_to para garantir retorno ao app atual
-      const shouldProceed = /^https?:\/\//i.test(original);
-      if (!shouldProceed) {
-        setStatus("error");
-        return;
+      try {
+        // If the client exposes getSessionFromUrl (Supabase JS helper), use it to parse the
+        // magic-link callback and persist the session in the client.
+        const getSessionFromUrlFn = (supabase.auth as any).getSessionFromUrl;
+        if (typeof getSessionFromUrlFn === 'function') {
+          try {
+            const result = await getSessionFromUrlFn();
+            // result may contain data/session or an error depending on SDK version
+            if (result?.error) {
+              console.warn('[EmailConfirm] getSessionFromUrl returned error:', result.error);
+            }
+          } catch (err) {
+            console.warn('[EmailConfirm] getSessionFromUrl threw:', err);
+          }
+        }
+
+        // After attempting to extract session from URL, ask the client for current session
+        const { data: sessionData } = await supabase.auth.getSession();
+        const session = sessionData?.session;
+
+        if (session) {
+          // Session exists: check if profile is complete and redirect accordingly
+          try {
+            const { data: profile, error } = await supabase
+              .from('profiles')
+              .select('first_name, last_name, phone, cpf_cnpj, gender, date_of_birth, cep, street, number, neighborhood, city, state')
+              .eq('id', session.user.id)
+              .single();
+
+            const isProfileComplete = profile && 
+              profile.first_name && 
+              profile.last_name && 
+              profile.phone && 
+              profile.cpf_cnpj &&
+              profile.gender &&
+              profile.date_of_birth &&
+              profile.cep &&
+              profile.street &&
+              profile.number &&
+              profile.neighborhood &&
+              profile.city &&
+              profile.state;
+
+            if (!isProfileComplete) {
+              navigate('/complete-profile', { replace: true });
+            } else {
+              navigate('/', { replace: true });
+            }
+            return;
+          } catch (err) {
+            console.error('[EmailConfirm] Error checking profile:', err);
+            // Fallback to home
+            navigate('/', { replace: true });
+            return;
+          }
+        }
+
+        // If we reach here there's no session. Fallback to previous behavior: try to
+        // redirect the full confirmation URL back to Supabase so it handles tokens.
+        const raw = searchParams.get("confirmation_url");
+        if (raw) {
+          const original = decodeURIComponent(raw);
+
+          // Validate
+          const shouldProceed = /^https?:\/\//i.test(original);
+          if (!shouldProceed) {
+            setStatus("error");
+            return;
+          }
+
+          const desiredRedirect = `${window.location.origin}/login`;
+          const supabaseUrl = new URL(original);
+          supabaseUrl.searchParams.set("redirect_to", desiredRedirect);
+
+          setTimeout(() => {
+            window.location.href = supabaseUrl.toString();
+          }, 500);
+          return;
+        }
+
+        // Nothing we can do automatically
+        setStatus('error');
+      } catch (err) {
+        console.error('[EmailConfirm] unexpected error:', err);
+        setStatus('error');
       }
+    };
 
-      const desiredRedirect = `${window.location.origin}/login`;
-      const supabaseUrl = new URL(original);
-      supabaseUrl.searchParams.set("redirect_to", desiredRedirect);
-
-      setTimeout(() => {
-        window.location.href = supabaseUrl.toString();
-      }, 500);
-    } else {
-      setStatus("error");
-    }
-  }, [searchParams]);
+    handleConfirm();
+  }, [searchParams, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-off-white p-4 relative">

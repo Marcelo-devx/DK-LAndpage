@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -90,6 +90,8 @@ const CheckoutPage = () => {
   const [isAddressComplete, setIsAddressComplete] = useState(false);
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
 
+  const isMountedRef = useRef(true);
+
   const { register, handleSubmit, setValue, getValues, watch, formState: { errors }, trigger } = useForm<CheckoutFormData>({
     resolver: zodResolver(checkoutSchema),
   });
@@ -98,6 +100,11 @@ const CheckoutPage = () => {
   const watchedNeighborhood = watch('neighborhood');
   const watchedCity = watch('city');
   const watchedAddressFields = watch(['email', 'first_name', 'last_name', 'phone', 'cpf_cnpj', 'cep', 'street', 'number', 'neighborhood', 'city', 'state', 'complement']);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
 
   useEffect(() => {
     const data = getValues();
@@ -127,7 +134,7 @@ const CheckoutPage = () => {
 
   const fetchCartItems = useCallback(async () => {
     const localCart = getLocalCart();
-    if (localCart.length === 0) { navigate('/', { replace: true }); return; }
+    if (localCart.length === 0) { if (isMountedRef.current) navigate('/', { replace: true }); return; }
     const productIds = localCart.filter(i => i.itemType === 'product').map(i => i.itemId);
     const promotionIds = localCart.filter(i => i.itemType === 'promotion').map(i => i.itemId);
     const { data: products } = await supabase.from('products').select('id, name, price, pix_price, image_url').in('id', productIds);
@@ -152,7 +159,7 @@ const CheckoutPage = () => {
       }
       return details ? { id: cartItem.itemId, itemId: cartItem.itemId, itemType: cartItem.itemType, quantity: cartItem.quantity, name: details.name, price: price, pixPrice: pixPrice, image_url: details.image_url || '' } : null;
     }).filter((i): i is DisplayItem => i !== null);
-    setItems(finalItems);
+    if (isMountedRef.current) setItems(finalItems);
   }, [navigate]);
 
   const fetchUserData = useCallback(async (currentUser: any) => {
@@ -163,7 +170,7 @@ const CheckoutPage = () => {
     ]);
 
     const profile = profileRes.data;
-    if (profile) {
+    if (profile && isMountedRef.current) {
       setIsCreditCardEnabled(profile.is_credit_card_enabled);
       if (profile.loyalty_tiers) { setTierName(profile.loyalty_tiers.name); setTierBenefits(profile.loyalty_tiers.benefits || []); }
       setValue('payment_method', profile.is_credit_card_enabled ? 'mercadopago' : 'pix');
@@ -180,8 +187,8 @@ const CheckoutPage = () => {
       setUserPoints(profile.points);
     }
 
-    if (couponsRes.data) setCoupons(couponsRes.data.map((x: any) => ({ user_coupon_id: x.id, name: x.coupons.name, discount_value: x.coupons.discount_value, minimum_order_value: x.coupons.minimum_order_value, expires_at: x.expires_at })));
-    if (ordersRes.data) setRecentOrders(ordersRes.data);
+    if (couponsRes.data && isMountedRef.current) setCoupons(couponsRes.data.map((x: any) => ({ user_coupon_id: x.id, name: x.coupons.name, discount_value: x.coupons.discount_value, minimum_order_value: x.coupons.minimum_order_value, expires_at: x.expires_at })));
+    if (ordersRes.data && isMountedRef.current) setRecentOrders(ordersRes.data);
   }, [setValue]);
 
   const getBenefitInfo = (benefit: string) => {
@@ -224,14 +231,14 @@ const CheckoutPage = () => {
     const loadCheckout = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       const u = session?.user;
-      setUser(u);
+      if (isMountedRef.current) setUser(u);
       
       if (u) {
         await fetchUserData(u);
       }
       
       await fetchCartItems();
-      setLoading(false);
+      if (isMountedRef.current) setLoading(false);
     };
     
     loadCheckout();
@@ -258,19 +265,20 @@ const CheckoutPage = () => {
       if (error) { showError("Endereço não encontrado."); return; }
       setValue('street', data.logradouro); setValue('neighborhood', data.bairro); setValue('city', data.localidade); setValue('state', data.uf);
       setDeliveryType(data.deliveryType === 'correios' ? 'correios' : 'local');
-    } catch (e) { showError("Erro ao buscar CEP."); } finally { setIsFetchingCep(false); }
+    } catch (e) { showError("Erro ao buscar CEP."); } finally { if (isMountedRef.current) setIsFetchingCep(false); }
   };
 
   useEffect(() => {
     const calculateShipping = async () => {
-      if (deliveryType === 'correios') { setShippingCost(0); setIsFreeShippingApplied(false); return; }
+      if (deliveryType === 'correios') { if (isMountedRef.current) { setShippingCost(0); setIsFreeShippingApplied(false); } return; }
       const hasFreeShippingBenefit = selectedBenefits.some(b => b.toLowerCase().includes('frete grátis'));
-      if (hasFreeShippingBenefit) { setShippingCost(0); setIsFreeShippingApplied(true); return; }
-      setIsFreeShippingApplied(false);
+      if (hasFreeShippingBenefit) { if (isMountedRef.current) { setShippingCost(0); setIsFreeShippingApplied(true); } return; }
       if (watchedNeighborhood && watchedCity) {
         const { data, error } = await supabase.rpc('get_shipping_rate', { p_neighborhood: watchedNeighborhood, p_city: watchedCity });
-        if (!error && data !== null) setShippingCost(Number(data));
-        else setShippingCost(0);
+        if (isMountedRef.current) {
+          if (!error && data !== null) setShippingCost(Number(data));
+          else setShippingCost(0);
+        }
       }
     };
     const timeoutId = setTimeout(calculateShipping, 500);
@@ -293,15 +301,15 @@ const CheckoutPage = () => {
           donation_amount_input: donationAmount
         });
         if (err) throw err;
-        
-        // Tentar extrair o ID do pedido criado de forma robusta
+
         const rawOrderId: any = (o as any)?.new_order_id ?? (o as any)?.order_id ?? (o as any)?.id ?? o;
         const createdOrderId = typeof rawOrderId === 'string' ? Number(rawOrderId) : rawOrderId;
+
+        if (!isMountedRef.current) return; // component unmounted - abort follow-ups
 
         dismissToast(toastId);
         clearLocalCart();
 
-        // Disparar webhook de order_created via Edge Function (não bloquear se falhar)
         (async () => {
           try {
             const { data: { session } } = await supabase.auth.getSession();
@@ -316,7 +324,7 @@ const CheckoutPage = () => {
           }
         })();
 
-        navigate(`/confirmacao-pedido/${createdOrderId}`);
+        if (isMountedRef.current) navigate(`/confirmacao-pedido/${createdOrderId}`);
       } else {
         // Convidado - usa a nova função
         const { data: o, error: err } = await supabase.rpc('create_guest_order', {
@@ -332,14 +340,15 @@ const CheckoutPage = () => {
           p_donation_amount: donationAmount
         });
         if (err) throw err;
-        
+
         const rawOrderId: any = (o as any)?.new_order_id ?? (o as any)?.order_id ?? (o as any)?.id ?? o;
         const createdOrderId = typeof rawOrderId === 'string' ? Number(rawOrderId) : rawOrderId;
+
+        if (!isMountedRef.current) return;
 
         dismissToast(toastId);
         clearLocalCart();
 
-        // Disparar webhook de order_created via Edge Function (não bloquear se falhar)
         (async () => {
           try {
             const invokeOptions: any = { body: { event_type: 'order_created', payload: { order_id: createdOrderId, guest_email: data.email } } };
@@ -351,11 +360,13 @@ const CheckoutPage = () => {
           }
         })();
 
-        navigate(`/confirmacao-pedido/${createdOrderId}`);
+        if (isMountedRef.current) navigate(`/confirmacao-pedido/${createdOrderId}`);
       }
     } catch (e: any) {
-      dismissToast(toastId);
-      showError(e.message || "Erro ao criar pedido PIX.");
+      if (isMountedRef.current) {
+        dismissToast(toastId);
+        showError(e.message || "Erro ao criar pedido PIX.");
+      }
     }
   };
 
@@ -363,7 +374,7 @@ const CheckoutPage = () => {
     const isValid = await trigger();
     if (!isValid) { showError("Preencha todos os dados de entrega primeiro."); return; }
     const toastId = showLoading("Redirecionando para o pagamento...");
-    setIsSubmitting(true);
+    if (isMountedRef.current) setIsSubmitting(true);
     try {
       const data = getValues();
       console.log('[CheckoutPage] DEBUG - Valores passados para create_pending_order_from_local_cart (MP):', {
@@ -418,6 +429,8 @@ const CheckoutPage = () => {
         shippingAddress = data;
       }
 
+      if (!isMountedRef.current) return; // abort if user navigated away during order creation
+
       const { data: { session } } = await supabase.auth.getSession();
       const authToken = session?.access_token;
       const invokeOptions: any = { 
@@ -436,6 +449,8 @@ const CheckoutPage = () => {
       const { data: pref, error: prefError } = await supabase.functions.invoke('create-mercadopago-preference', invokeOptions);
       if (prefError) throw new Error(prefError.message || 'Erro ao criar preferência de pagamento.');
 
+      if (!isMountedRef.current) return; // user left while calling Edge Function
+
       if (pref && (pref as any).mp_error) {
         console.error('create-mercadopago-preference returned mp_error:', pref);
         const mpErr = (pref as any).mp_error;
@@ -448,17 +463,35 @@ const CheckoutPage = () => {
         throw new Error('Não foi possível obter a URL de pagamento do Mercado Pago. Verifique logs da Edge Function.');
       }
 
-      dismissToast(toastId);
-      clearLocalCart();
-      window.location.href = pref.init_point || pref.sandbox_init_point;
-    } catch (e: any) { dismissToast(toastId); showError(e?.message || "Não foi possível iniciar o pagamento. Tente novamente."); setIsSubmitting(false); }
+      if (isMountedRef.current) {
+        dismissToast(toastId);
+        clearLocalCart();
+      }
+
+      // Redirect to Mercado Pago. This will navigate away from the app. If the user
+      // has already navigated back/unmounted, avoid forcing a redirect.
+      if (isMountedRef.current) {
+        const target = (pref as any).init_point || (pref as any).sandbox_init_point;
+        window.location.href = target;
+      }
+    } catch (e: any) {
+      if (isMountedRef.current) {
+        dismissToast(toastId);
+        showError(e?.message || "Não foi possível iniciar o pagamento. Tente novamente.");
+        setIsSubmitting(false);
+      } else {
+        // If component unmounted, log silently
+        console.warn('[CheckoutPage] Aborted payment flow due to unmount:', e);
+      }
+    }
   };
 
   const onSubmit = async (data: CheckoutFormData) => {
+    if (!isMountedRef.current) return;
     setIsSubmitting(true);
     if (data.payment_method === 'pix') await handlePixPayment(data);
     else await handleMercadoPagoRedirect();
-    setIsSubmitting(false);
+    if (isMountedRef.current) setIsSubmitting(false);
   };
 
   if (loading) return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-sky-400" /></div>;

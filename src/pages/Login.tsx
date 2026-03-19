@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, LogIn, UserPlus } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
-import { showError } from '@/utils/toast';
+import { showError, showSuccess } from '@/utils/toast';
 
 const customTheme: Theme = {
   default: {
@@ -72,6 +72,9 @@ const Login = () => {
 
   const params = new URLSearchParams(location.search);
   const [view, setView] = useState<ViewType>((params.get('view') as ViewType) || 'sign_in');
+
+  const [emailForSignup, setEmailForSignup] = useState('');
+  const [isSendingMagicLink, setIsSendingMagicLink] = useState(false);
 
   useEffect(() => {
     const refCode = params.get('ref');
@@ -141,6 +144,37 @@ const Login = () => {
     return () => subscription.unsubscribe();
   }, [navigate, from]);
 
+  const sendMagicLink = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const email = emailForSignup.trim();
+    if (!email) {
+      showError('Informe um e-mail válido');
+      return;
+    }
+
+    setIsSendingMagicLink(true);
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: `${window.location.origin}/auth/confirm` }
+      } as any);
+
+      if (error) {
+        console.error('[Login] signInWithOtp error:', error);
+        showError('Não foi possível enviar o link. Tente novamente.');
+      } else {
+        showSuccess('Enviamos um link para o seu e-mail. Acesse para finalizar o cadastro.');
+        // optionally switch back to sign_in view
+        setView('sign_in');
+      }
+    } catch (err) {
+      console.error('[Login] Unexpected error sending magic link:', err);
+      showError('Erro inesperado. Tente novamente mais tarde.');
+    } finally {
+      setIsSendingMagicLink(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-off-white relative overflow-hidden p-4">
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-sky-500/5 blur-[120px] rounded-full pointer-events-none" />
@@ -169,69 +203,99 @@ const Login = () => {
               </TabsList>
               
               <div className="p-8">
-                <Auth
-                  supabaseClient={supabase}
-                  view={view}
-                  appearance={{ 
-                    theme: customTheme,
-                    style: {
-                      button: { textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: '800', fontSize: '11px', height: '48px' },
-                      label: { textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700', fontSize: '10px', color: '#94a3b8' },
-                      input: { borderRadius: '0.75rem', height: '48px' }
-                    }
-                  }}
-                  providers={['google']} 
-                  redirectTo={`${window.location.origin}/auth/confirm`}
-                  theme="default"
-                  showLinks={false} 
-                  localization={{
-                    variables: {
-                      sign_in: {
-                        email_label: 'E-mail',
-                        password_label: 'Senha',
-                        email_input_placeholder: 'seu@email.com',
-                        password_input_placeholder: '••••••••',
-                        button_label: 'Acessar Conta',
-                        social_provider_text: 'Entrar com {{provider}}',
-                      },
-                      sign_up: {
-                        email_label: 'E-mail',
-                        password_label: 'Senha',
-                        email_input_placeholder: 'seu@email.com',
-                        password_input_placeholder: 'Crie uma senha segura',
-                        button_label: 'Finalizar Cadastro',
-                        social_provider_text: 'Cadastrar com {{provider}}',
-                      },
-                      forgotten_password: {
-                        email_label: 'E-mail',
-                        email_input_placeholder: 'seu@email.com',
-                        button_label: 'Recuperar Senha',
-                        link_text: 'Esqueci minha senha',
-                      },
-                    },
-                  }}
-                />
-                
-                {view === 'sign_in' && (
-                  <div className="mt-4 text-center">
-                    <button 
-                      onClick={() => setView('forgotten_password')}
-                      className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-sky-500 transition-colors"
-                    >
-                      Esqueci minha senha
-                    </button>
-                  </div>
-                )}
+                {view === 'sign_up' ? (
+                  // Custom magic link signup form (only email)
+                  <form onSubmit={sendMagicLink} className="flex flex-col gap-4">
+                    <div className="text-center">
+                      <p className="text-sm text-slate-500">Digite seu e-mail e enviaremos um link para finalizar o cadastro.</p>
+                    </div>
+                    <input
+                      type="email"
+                      placeholder="seu@email.com"
+                      value={emailForSignup}
+                      onChange={(e) => setEmailForSignup(e.target.value)}
+                      className="w-full h-12 px-4 rounded-xl border border-stone-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-sky-300"
+                    />
+                    <Button type="submit" className="h-12 uppercase font-black tracking-widest" disabled={isSendingMagicLink}>
+                      {isSendingMagicLink ? 'Enviando...' : 'Enviar Link por E-mail'}
+                    </Button>
+                    <div className="text-center">
+                      <button 
+                        type="button"
+                        onClick={() => setView('sign_in')}
+                        className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-sky-500 transition-colors"
+                      >
+                        Voltar para Entrar
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <>
+                    <Auth
+                      supabaseClient={supabase}
+                      view={view}
+                      appearance={{ 
+                        theme: customTheme,
+                        style: {
+                          button: { textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: '800', fontSize: '11px', height: '48px' },
+                          label: { textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700', fontSize: '10px', color: '#94a3b8' },
+                          input: { borderRadius: '0.75rem', height: '48px' }
+                        }
+                      }}
+                      providers={['google']} 
+                      redirectTo={`${window.location.origin}/auth/confirm`}
+                      theme="default"
+                      showLinks={false} 
+                      localization={{
+                        variables: {
+                          sign_in: {
+                            email_label: 'E-mail',
+                            password_label: 'Senha',
+                            email_input_placeholder: 'seu@email.com',
+                            password_input_placeholder: '••••••••',
+                            button_label: 'Acessar Conta',
+                            social_provider_text: 'Entrar com {{provider}}',
+                          },
+                          sign_up: {
+                            email_label: 'E-mail',
+                            password_label: 'Senha',
+                            email_input_placeholder: 'seu@email.com',
+                            password_input_placeholder: 'Crie uma senha segura',
+                            button_label: 'Finalizar Cadastro',
+                            social_provider_text: 'Cadastrar com {{provider}}',
+                          },
+                          forgotten_password: {
+                            email_label: 'E-mail',
+                            email_input_placeholder: 'seu@email.com',
+                            button_label: 'Recuperar Senha',
+                            link_text: 'Esqueci minha senha',
+                          },
+                        },
+                      }}
+                    />
 
-                {view === 'forgotten_password' && (
-                  <div className="mt-4 text-center">
-                    <button 
-                      onClick={() => setView('sign_in')}
-                      className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-sky-500 transition-colors"
-                    >
-                      Voltar para o Login
-                    </button>
-                  </div>
+                    {view === 'sign_in' && (
+                      <div className="mt-4 text-center">
+                        <button 
+                          onClick={() => setView('forgotten_password')}
+                          className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-sky-500 transition-colors"
+                        >
+                          Esqueci minha senha
+                        </button>
+                      </div>
+                    )}
+  
+                    {view === 'forgotten_password' && (
+                      <div className="mt-4 text-center">
+                        <button 
+                          onClick={() => setView('sign_in')}
+                          className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-sky-500 transition-colors"
+                        >
+                          Voltar para o Login
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </Tabs>

@@ -23,6 +23,8 @@ serve(async (req) => {
     const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') as string;
     // @ts-ignore
     const RAW_MP_TOKEN = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') as string;
+    // @ts-ignore
+    const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
     
     // Verificação robusta do token - SE ESTIVER VAZIO, VAI DAR ERRO AQUI ANTES DE CHAMAR O MP
     if (!RAW_MP_TOKEN || RAW_MP_TOKEN.trim() === '') {
@@ -43,6 +45,14 @@ serve(async (req) => {
 
     console.log('[create-mercadopago-preference] Modo de operação:', MODE);
     console.log('[create-mercadopago-preference] Token carregado com sucesso (primeiros 8 chars):', MP_TOKEN.substring(0, 8) + '...');
+
+    // create service-role supabase client for logging (bypasses RLS)
+    let supabaseService: any = null;
+    try {
+      if (SERVICE_ROLE_KEY) supabaseService = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+    } catch (e) {
+      console.warn('[create-mercadopago-preference] Não foi possível criar supabase service client para logging:', e);
+    }
 
     // 2. Autenticação (opcional para convidados)
     const authHeader = req.headers.get('Authorization');
@@ -245,6 +255,23 @@ serve(async (req) => {
 
     if (!mpResponse.ok) {
       console.error('[create-mercadopago-preference] Mercado Pago retornou erro:', mpData);
+
+      // Attempt to log this failure to integration_logs using service role client
+      try {
+        if (supabaseService) {
+          await supabaseService.from('integration_logs').insert({
+            event_type: 'mercadopago_preference',
+            status: 'error',
+            response_code: mpStatus,
+            details: JSON.stringify(mpData),
+            payload: { order_id: orderIdStr, total_price: totalPriceNum, email: userEmail }
+          });
+          console.log('[create-mercadopago-preference] Erro registrado em integration_logs');
+        }
+      } catch (logErr) {
+        console.warn('[create-mercadopago-preference] Falha ao salvar integration_log:', logErr);
+      }
+
       return new Response(JSON.stringify({
         success: false,
         error: 'Erro ao processar pagamento no Mercado Pago',
@@ -270,6 +297,26 @@ serve(async (req) => {
 
   } catch (error: any) {
     console.error("[create-mercadopago-preference] Erro interno:", error);
+
+    // Log unexpected internal errors as well
+    try {
+      // @ts-ignore
+      const SUPABASE_URL = Deno.env.get('SUPABASE_URL') as string;
+      // @ts-ignore
+      const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
+      if (SERVICE_ROLE_KEY) {
+        const supabaseService = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+        await supabaseService.from('integration_logs').insert({
+          event_type: 'mercadopago_preference',
+          status: 'error',
+          details: error?.message || String(error),
+        });
+        console.log('[create-mercadopago-preference] Erro interno registrado em integration_logs');
+      }
+    } catch (logErr) {
+      console.warn('[create-mercadopago-preference] Falha ao salvar log interno:', logErr);
+    }
+
     return new Response(JSON.stringify({
       success: false,
       error: error?.message || 'Erro interno do servidor'

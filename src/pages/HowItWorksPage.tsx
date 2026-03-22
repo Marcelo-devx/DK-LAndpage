@@ -20,6 +20,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import ScrollAnimationWrapper from '@/components/ScrollAnimationWrapper';
 import { cn } from '@/lib/utils';
 import { motion, useScroll, useTransform } from 'framer-motion';
+import { BackButton } from '@/components/BackButton';
 
 interface Tier {
   id: number;
@@ -154,12 +155,15 @@ const HowItWorksPage = () => {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-6 justify-center pt-8">
-            <Button asChild size="lg" className="bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest h-16 px-10 rounded-2xl shadow-[0_0_30px_rgba(14,165,233,0.4)] transition-all hover:scale-105 text-sm">
-              <Link to="/login?view=sign_up">Quero Participar</Link>
-            </Button>
-            <Button asChild variant="outline" size="lg" className="bg-[#f4eee3] hover:bg-white text-slate-900 border-none font-black uppercase tracking-widest h-16 px-10 rounded-2xl shadow-lg transition-all hover:scale-105 text-sm">
-              <Link to="/login">Já sou membro</Link>
-            </Button>
+            <BackButton />
+            <div className="flex gap-6">
+              <Button asChild size="lg" className="bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest h-16 px-10 rounded-2xl shadow-[0_0_30px_rgba(14,165,233,0.4)] transition-all hover:scale-105 text-sm">
+                <Link to="/login?view=sign_up">Quero Participar</Link>
+              </Button>
+              <Button asChild variant="outline" size="lg" className="bg-[#f4eee3] hover:bg-white text-slate-900 border-none font-black uppercase tracking-widest h-16 px-10 rounded-2xl shadow-lg transition-all hover:scale-105 text-sm">
+                <Link to="/login">Já sou membro</Link>
+              </Button>
+            </div>
           </div>
 
           {/* GALERIA DE IMAGENS */}

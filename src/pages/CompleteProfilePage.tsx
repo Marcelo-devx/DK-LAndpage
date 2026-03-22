@@ -15,6 +15,7 @@ import { maskCep, maskPhone, maskCpfCnpj } from '@/utils/masks';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { format } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Checkbox } from '@/components/ui/checkbox';
 
 const profileSchema = z.object({
   first_name: z.string().min(1, "Nome é obrigatório"),
@@ -30,6 +31,24 @@ const profileSchema = z.object({
   neighborhood: z.string().min(1, "Bairro é obrigatório"),
   city: z.string().min(1, "Cidade é obrigatória"),
   state: z.string().min(2, "Estado inválido").max(2, "Use a sigla do estado (ex: SC)"),
+  // Password fields optional but if provided must match rules
+  password: z.string().min(8, 'A senha deve ter pelo menos 8 caracteres').optional(),
+  password_confirm: z.string().optional(),
+}).superRefine((obj, ctx) => {
+  const pwd = obj.password;
+  const conf = obj.password_confirm;
+  if (pwd) {
+    // at least one uppercase, one number, one special
+    const re = /(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9])/;
+    if (!re.test(pwd)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'A senha precisa ter 1 maiúscula, 1 número e 1 caractere especial' });
+    }
+    if (!conf) {
+      ctx.addIssue({ path: ['password_confirm'], code: z.ZodIssueCode.custom, message: 'Confirme a senha' });
+    } else if (pwd !== conf) {
+      ctx.addIssue({ path: ['password_confirm'], code: z.ZodIssueCode.custom, message: 'A confirmação não coincide' });
+    }
+  }
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
@@ -41,6 +60,7 @@ const CompleteProfilePage = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isFetchingCep, setIsFetchingCep] = useState(false);
   const [deliveryType, setDeliveryType] = useState<'local' | 'correios' | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const { register, handleSubmit, control, setValue, getValues, formState: { errors } } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -102,7 +122,6 @@ const CompleteProfilePage = () => {
           .eq('id', session.user.id)
           .single();
         
-        // Verificação rigorosa na própria página para evitar loop de redirecionamento ou saída prematura
         const isProfileComplete = profile && 
           profile.first_name && 
           profile.last_name && 
@@ -131,26 +150,39 @@ const CompleteProfilePage = () => {
     setIsSaving(true);
     const toastId = showLoading("Salvando informações...");
 
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        ...data,
-        phone: data.phone.replace(/\D/g, ''),
-        cpf_cnpj: data.cpf_cnpj.replace(/\D/g, ''),
-        date_of_birth: format(data.date_of_birth, 'yyyy-MM-dd'),
-      })
-      .eq('id', user.id);
+    // Separate password fields from profile data
+    const { password, password_confirm, ...profileData } = data as any;
 
-    dismissToast(toastId);
-    if (error) {
-      showError("Erro ao salvar. Tente novamente.");
-      console.error(error);
-    } else {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          ...profileData,
+          phone: profileData.phone.replace(/\D/g, ''),
+          cpf_cnpj: profileData.cpf_cnpj.replace(/\D/g, ''),
+          date_of_birth: format(profileData.date_of_birth, 'yyyy-MM-dd'),
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      // If password provided, update auth password as well
+      if (password) {
+        const { data: updated, error: pwdErr } = await supabase.auth.updateUser({ password });
+        if (pwdErr) throw pwdErr;
+      }
+
+      dismissToast(toastId);
       showSuccess("Cadastro completo!");
       window.dispatchEvent(new CustomEvent('profileUpdated'));
       navigate('/');
+    } catch (err: any) {
+      dismissToast(toastId);
+      showError(err.message || "Erro ao salvar. Tente novamente.");
+      console.error(err);
+    } finally {
+      setIsSaving(false);
     }
-    setIsSaving(false);
   };
 
   if (loading) {
@@ -306,6 +338,34 @@ const CompleteProfilePage = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Password section */}
+            <div className="space-y-4">
+              <h3 className="text-xs font-black uppercase tracking-[0.2em] text-stone-400 border-b border-stone-100 pb-2">Defina sua senha de acesso</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-end">
+                <div className="space-y-2">
+                  <Label htmlFor="password" className="text-charcoal-gray">Senha</Label>
+                  <div className="flex items-center">
+                    <Input id="password" type={showPassword ? 'text' : 'password'} {...register('password')} className="bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors" />
+                  </div>
+                  {errors.password && <p className="text-xs text-red-500 font-bold">{(errors.password as any)?.message}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="password_confirm" className="text-charcoal-gray">Confirmar senha</Label>
+                  <Input id="password_confirm" type={showPassword ? 'text' : 'password'} {...register('password_confirm')} className="bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors" />
+                  {errors.password_confirm && <p className="text-xs text-red-500 font-bold">{(errors.password_confirm as any)?.message}</p>}
+                </div>
+
+                <div className="md:col-span-2 flex items-center gap-2">
+                  <Checkbox id="show_pwd" checked={showPassword} onCheckedChange={(v) => setShowPassword(Boolean(v))} />
+                  <Label htmlFor="show_pwd" className="text-sm">Mostrar senhas</Label>
+                </div>
+
+                <p className="md:col-span-2 text-xs text-slate-500">A senha deve ter no mínimo 8 caracteres, incluir pelo menos 1 letra maiúscula, 1 número e 1 caractere especial.</p>
+              </div>
+            </div>
+
             <Button type="submit" size="lg" className="w-full bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest h-14 rounded-xl shadow-lg transition-all active:scale-95 text-sm" disabled={isSaving}>
               {isSaving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : 'Finalizar Cadastro'}
             </Button>

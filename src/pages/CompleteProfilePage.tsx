@@ -3,7 +3,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,23 +31,29 @@ const profileSchema = z.object({
   neighborhood: z.string().min(1, "Bairro é obrigatório"),
   city: z.string().min(1, "Cidade é obrigatória"),
   state: z.string().min(2, "Estado inválido").max(2, "Use a sigla do estado (ex: SC)"),
-  // Password fields optional but if provided must match rules
-  password: z.string().min(8, 'A senha deve ter pelo menos 8 caracteres').optional(),
-  password_confirm: z.string().optional(),
+  // Password fields now required
+  password: z.string().min(8, 'A senha deve ter pelo menos 8 caracteres'),
+  password_confirm: z.string(),
+  accepted_terms: z.boolean(),
 }).superRefine((obj, ctx) => {
   const pwd = obj.password;
   const conf = obj.password_confirm;
-  if (pwd) {
-    // at least one uppercase, one number, one special
-    const re = /(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9])/;
-    if (!re.test(pwd)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'A senha precisa ter 1 maiúscula, 1 número e 1 caractere especial' });
-    }
-    if (!conf) {
-      ctx.addIssue({ path: ['password_confirm'], code: z.ZodIssueCode.custom, message: 'Confirme a senha' });
-    } else if (pwd !== conf) {
-      ctx.addIssue({ path: ['password_confirm'], code: z.ZodIssueCode.custom, message: 'A confirmação não coincide' });
-    }
+  const accepted = obj.accepted_terms;
+
+  // password rules: at least one uppercase, one number, one special char
+  const re = /(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9])/;
+  if (!re.test(pwd)) {
+    ctx.addIssue({ path: ['password'], code: z.ZodIssueCode.custom, message: 'A senha precisa ter 1 maiúscula, 1 número e 1 caractere especial' });
+  }
+
+  if (!conf) {
+    ctx.addIssue({ path: ['password_confirm'], code: z.ZodIssueCode.custom, message: 'Confirme a senha' });
+  } else if (pwd !== conf) {
+    ctx.addIssue({ path: ['password_confirm'], code: z.ZodIssueCode.custom, message: 'A confirmação não coincide' });
+  }
+
+  if (!accepted) {
+    ctx.addIssue({ path: ['accepted_terms'], code: z.ZodIssueCode.custom, message: 'Você precisa aceitar os Termos de Uso e Política de Privacidade' });
   }
 });
 
@@ -151,22 +157,33 @@ const CompleteProfilePage = () => {
     const toastId = showLoading("Salvando informações...");
 
     // Separate password fields from profile data
-    const { password, password_confirm, ...profileData } = data as any;
+    const { password, password_confirm, accepted_terms, ...profileData } = data as any;
 
     try {
       const { error } = await supabase
         .from('profiles')
         .update({
           ...profileData,
+          accepted_terms: true,
           phone: profileData.phone.replace(/\D/g, ''),
           cpf_cnpj: profileData.cpf_cnpj.replace(/\D/g, ''),
           date_of_birth: format(profileData.date_of_birth, 'yyyy-MM-dd'),
         })
         .eq('id', user.id);
 
-      if (error) throw error;
+      if (error) {
+        // If column accepted_terms doesn't exist, ignore that part and retry without it
+        if (String(error.message || '').toLowerCase().includes('column "accepted_terms"') || String(error.code || '').includes('42703')) {
+          await supabase.from('profiles').update({
+            ...profileData,
+            phone: profileData.phone.replace(/\D/g, ''),
+            cpf_cnpj: profileData.cpf_cnpj.replace(/\D/g, ''),
+            date_of_birth: format(profileData.date_of_birth, 'yyyy-MM-dd'),
+          }).eq('id', user.id);
+        } else throw error;
+      }
 
-      // If password provided, update auth password as well
+      // If password provided, update auth password as well (mandatory here)
       if (password) {
         const { data: updated, error: pwdErr } = await supabase.auth.updateUser({ password });
         if (pwdErr) throw pwdErr;
@@ -363,6 +380,15 @@ const CompleteProfilePage = () => {
                 </div>
 
                 <p className="md:col-span-2 text-xs text-slate-500">A senha deve ter no mínimo 8 caracteres, incluir pelo menos 1 letra maiúscula, 1 número e 1 caractere especial.</p>
+              </div>
+            </div>
+
+            {/* Terms */}
+            <div className="flex items-start gap-3">
+              <Checkbox id="accepted_terms" {...register('accepted_terms')} />
+              <div className="text-sm text-slate-600">
+                <label htmlFor="accepted_terms" className="cursor-pointer">Li e aceito os <Link to="/terms" className="text-sky-500 underline">Termos de Uso e Política de Privacidade</Link>.</label>
+                {errors.accepted_terms && <p className="text-xs text-red-500 font-bold">{(errors.accepted_terms as any)?.message}</p>}
               </div>
             </div>
 

@@ -60,16 +60,11 @@ const profileSchema = z.object({
 
 type ProfileFormData = z.infer<typeof profileSchema>;
 
-const termsContent = `Termo de Uso e Responsabilidade
-
-Prezado Cliente, leia com atenção os tópicos abaixo, antes de realizar a compra.
+const termsContent = `Prezado Cliente, leia com atenção os tópicos abaixo, antes de realizar a compra.
 
 Quase todos nossos produtos são importados, mas por possuírem nicotina, bateria que aquece o líquido interno, composto por aromatizante, nicotina, propilenoglicol e glicerina, não nos responsabilizamos pela composição do vapor e os danos à saúde, bem como sobre o papel destes produtos na redução de danos e no tratamento da dependência de nicotina, potencial de dependência, danos à saúde pulmonar, cardiovascular e neurológica.
 
 É de responsabilidade dos consumidores o uso, de forma correta indicada pelos fabricantes nos manuais dos mesmos, cientes dos riscos que pode causar, sendo permitida a venda e consumo somente para maiores de 18 anos.
-
-Co...
-
 
 POLÍTICA DE PRIVACIDADE DE DADOS
 
@@ -79,7 +74,167 @@ Priorizamos a privacidade e a segurança de nossos clientes durante todo o proce
 
 Utilizamos cookies e informações de sua navegação com o objetivo de traçar um perfil do público que visita o site e, assim, podermos aperfeiçoar nossos serviços, produtos e conteúdos, tudo conforme o regulamentado pela Lei Geral de Proteção de Dados. Durante todo este processo, mantemos suas informações em sigilo absoluto.
 
-...`;
+O que é a LGPD?
+
+A Lei Geral de Proteção de Dados (Lei nº 13.709/2018) regulamenta o tratamento de dados pessoais de clientes e usuários por parte de empresas públicas e privadas.
+
+O que são dados pessoais?
+
+Dados pessoais são quaisquer informações capazes de identificar você e/ou qualquer pessoa física. Ou seja, são considerados dados pessoais não só aqueles que identificam uma pessoa imediatamente (como nome, sobrenome, CPF, RG, CNH, Carteira de Trabalho, passaporte e título de eleitor), como também aqueles que, em conjunto com outros dados, tornam uma pessoa identificável. Dados como gênero, idade, telefone, e-mail, ainda que não sejam capazes de identificar alguém de imediato, em conjunto, tornam a pessoa passível de identificação.
+
+O que é tratamento de dados?
+
+É o termo utilizado pela LGPD que resume tudo o que uma empresa pode fazer com dados pessoais a que tem acesso, como coleta, qualificação, compartilhamento e exclusão.
+
+O que são cookies?
+
+São pequenos arquivos de texto enviados para seu navegador, contendo registros sobre seu comportamento ao acessar um site, mas que não armazenam dados pessoais ou afetam o sistema do seu dispositivo. Utilizamos cookies, pixels e outras tecnologias para reconhecer seu navegador ou dispositivo, aprender mais sobre seus interesses, apresentar serviços essenciais, aperfeiçoar a sua experiência de navegação e, ainda, para impedir atividades fraudulentas e melhorar a sua segurança no processo de compra em nossa loja.
+
+Cookies da Sessão
+
+Cookies da sessão são cookies temporários que são utilizados para lembrar de você durante o curso da sua visita ao site, e eles perdem a validade quando você fecha o navegador.
+
+Cookies Persistentes
+
+Cookies persistentes são utilizados para medir a eficácia de nosso site, bem como lembrar suas preferências do site, e permanecem no seu desktop ou dispositivo móvel mesmo depois de você fechar o seu navegador ou efetuar uma reinicialização. Utilizamos tais cookies para analisar o comportamento do usuário e estabelecer padrões, de modo a melhorar a funcionalidade do nosso site para você e outros que o visitam. Estes cookies também nos permitem oferecer os anúncios segmentados e medir a eficácia do nosso site, além da funcionalidade de tais anúncios.
+
+Como usamos os dados pessoais que coletamos?
+
+Você está ciente de que fornece informação de forma consciente e voluntária por meio de aceite dos cookies da página, bem como no momento de realização de um pedido no site e/ou cadastro em nosso site. Quando você o realiza o cadastro e/ou preenche formulário oferecido pela DK CWB, inclusive nos sites por ela operados, determinados Dados Pessoais solicitados serão mantidos em sigilo e serão utilizados apenas para o propósito que motivou o cadastro, não sendo divulgados a terceiros, a não ser no cumprimento de ordens judiciais e/ou emitidas por autoridades públicas.
+
+Para que estes dados permaneçam seguros, recomendamos que você jamais forneça seus dados de acesso ao site (login e senha) a terceiros, mesmo que sejam amigos e parentes. Em caso de suspeita ou confirmação de acesso indevido, entre imediatamente em sua área de cliente e altere a senha.
+
+Por quanto tempo usamos os dados pessoais que coletamos?
+
+Os Dados Pessoais são armazenados somente pelo tempo necessário para cumprir com as finalidades para as quais foram coletados, salvo se houver outra razão para a sua manutenção, a exemplo do cumprimento de quaisquer obrigações legais, regulatórias, contratuais, entre outras.
+
+Quais os seus direitos?
+
+Você tem direito de solicitar à DK CWB informações referentes ao tratamento de seus dados pessoais, por meio dos pedidos abaixo:
+
+I. Confirmação da existência de tratamento de dados pessoais seus e acesso aos dados;
+
+II. Correção de dados incompletos, inexatos ou desatualizados - é importante que os dados pessoais sejam precisos e atuais e cabe a você mantê-los corretos e atualizados;
+
+III. Anonimização, bloqueio ou eliminação de dados desnecessários, excessivos ou tratados em desconformidade com a LGPD - você poderá solicitar o bloqueio e a eliminação de seus dados pessoais, salvo nos casos previstos em lei;
+
+IV. Portabilidade dos dados a outro fornecedor de serviço ou produto, mediante requisição expressa, de acordo com a regulamentação da Autoridade Nacional, observados os segredos comercial e industrial - a portabilidade dos dados pessoais não inclui dados já anonimizados pela DK CWB;
+
+V. Informação sobre o compartilhamento de dados com entidades públicas e privadas;
+
+VI. Informação sobre a possibilidade de não fornecer consentimento e sobre as consequências da negativa: a DK CWB está disponível para atender e auxiliar, de forma transparente, quaisquer dúvidas que possam existir em função do tratamento dos seus dados pessoais, inclusive sobre os possíveis impactos decorrentes do não fornecimento do consentimento;
+
+VII. Revogação do consentimento: você pode retirar o seu consentimento em relação às atividades de tratamento que o requerem;
+
+Para qualquer dos pedidos elencados acima, você deverá entrar em contato com a DK CWB por meio das informações de contato disponibilizadas.
+
+Cadastre-se e compre com tranquilidade, sem preocupações.
+
+As alterações sobre nossa política de privacidade serão devidamente informadas neste espaço.
+
+A DK CWB garante que utiliza os seus dados pessoais de endereçamento, pagamento e conteúdo do pedido, apenas para fins de processamento dos pedidos realizados, não sendo, portanto, divulgados em hipótese alguma. Em relação à segurança no tráfego de dados, toda a navegação realizada em nosso site, bem como as transações que envolverem pagamento, seja por cartão de crédito ou não, estarão criptografadas com a tecnologia SSL (Secure Socket Layer). Isso significa que só a loja tem acesso a suas informações pessoais e mais ninguém. Quando você preenche os dados e nos envia...
+
+Garantia / Política de Trocas e Devoluções
+
+Garantia / Trocas e Devoluções:
+
+Prezado Cliente, leia com atenção os tópicos abaixo, antes de realizar a compra.
+
+Todos os produtos que comercializamos são originais, entregues nas respectivas caixas lacradas e com código de verificação de autenticidade do fabricante. O fabricante, reserva-se ao direito de fazer alterações nas embalagens e produtos a qualquer tempo, sem prévio aviso e sem que comprometa o funcionamento do mesmo.
+
+Dispomos de uma equipe comprometida em proporcionar a melhor entrega, buscamos sempre garantir que o seu produto chegue sempre em perfeitas condições.
+
+Ao receber sua encomenda:
+
+Observe se a embalagem encontra-se fechada e em perfeitas condições, caso não esteja de acordo, recuse o recebimento e assinale no verso do comprovante de entrega os motivos da recusa.
+
+Desembale a compra e verifique se está em conformidade com o pedido realizado, caso não esteja de acordo, entre em contato conosco informando o ocorrido.
+
+Termos e condições para utilização da Garantia:
+
+A garantia oferecida pela loja DK CWB nos produtos anunciados é de 30 dias para defeitos de fabricação, que serão contados a partir da data de entrega do pedido. Não há garantia contra mau uso (quedas, deixar ligado intermitentemente, uso de líquido de má qualidade, utilização de produtos paralelos e não recomendados pela fabricante, falta de conhecimento ou informação).
+
+A DK CWB se reserva ao direto de avaliar individualmente cada solicitação, passando por análise da equipe técnica, aprovando ou não a realização do procedimento de troca dos produtos.
+
+Não será aprovado em nenhuma hipótese produtos que contenham sinais de má utilização como:
+
+Botões afundados por pressão excessiva.
+
+Conexões Micro USB ou USB C danificadas por conexão inversa ou forçados além do necessário ou por sinais de umidade (água/líquidos).
+
+Sinais de quedas.
+
+Derrubamento de qualquer tipo de líquido que danifique o aparelho, incluindo deixar vazamento excessivo de juice sem a devida manutenção diária.
+
+Produtos com defeito de fabricação:
+
+Trabalhamos com as melhores marcas proporcionando produtos com a melhor qualidade disponível no mercado.
+
+Solicitamos a atenção de todos quanto às solicitações iniciais dos fabricantes contidas nos manuais.
+
+Diversos aparelhos contém resistências que contém malha de algodão. A não realização dos passos iniciais contidos nos manuais dos aparelhos poderá danificar e/ou queimar o algodão inutilizando o aparelho.
+
+A garantia da loja não cobre resistências que forem mal utilizadas, pedimos a todos que fiquem atentos durante os primeiros passos evitando esse tipo de problema.
+
+Após a leitura do manual e realização dos procedimentos necessários, caso tenha algum problema na utilização do produto recebido, entre em contato conosco e solicite auxílio.
+
+A DK CWB entende que, a partir do ato da compra, o comprador se informou sobre o produto que está adquirindo (seja no site do fabricante, nos vários textos disponíveis na internet, nas dezenas de reviews no YouTube, que explicam o funcionamento do produto e também através de contatos com usuários) e que está à par de todos os procedimentos necessários para o perfeito funcionamento do produto.
+
+Se for identificado através do nosso atendimento pela equipe técnica que produto está em desconformidade, providenciaremos a substituição no menor tempo possível, neste caso a loja arcará com os custos de transporte dos produtos.
+
+Termos e condições para realização do procedimento de Troca e/ou Devolução:
+
+O cancelamento da compra e a realização de troca de produtos somente será realizada mediante prévio contato com atendimento da loja. Será avaliado o prazo legal, conforme o Código de Defesa do Consumidor.
+
+Toda troca será realizada no local de origem, e o cliente arcará com os custos de transporte dos produtos. A mesma regra valerá para cancelamento de compras que já tiverem sido remetidas.
+
+Para realizar a solicitação de troca é importante que você forneça os dados do produto adquirido, número de compra, e-mail cadastrado e telefone para contato para o registro correto de sua solicitação.
+
+Ao devolver a mercadoria, deverá ser entregue em sua embalagem original e lacrada, com todos os manuais e acessórios.
+
+Nossos produtos são de uso pessoal, não vendemos produtos utilizados, portanto a solicitação de troca ou cancelamento não será aprovada se for constatado:
+
+Sinais de utilização do produto;
+
+Falta de algum acessório ou componente;
+
+Sinais de quedas e/ou líquidos.
+
+A devolução de produto sem autorização ou que apresente uma das opções acima não será aceita em nenhuma hipótese, e nesse caso o produto será enviado mediante pagamento de frete pelo comprador/cliente.
+
+O prazo para desistir ou trocar sua compra é de 7 (sete) dias corridos, a contar da data do recebimento do produto.
+
+O produto deverá estar na embalagem original, sem indícios de uso, sem violação do lacre original do fabricante, contendo o manual e todos os acessórios que possui.
+
+Os valores ressarcidos serão os preços efetivamente pagos pela(s) mercadoria(s), subtraindo-se o valor do frete e demais encargos tributários gerados pela desistência.
+
+TROCAS DE PODs DESCARTÁVEIS
+
+Não efetuamos trocas/estornos de pods descartáveis após serem abertos e usados. A quantidade de puffs é apenas exemplar e variam de acordo com a intensidade da puxada. Trocas só poderão ser solicitadas em caso de bateria descarregada (quando o aparelho não funciona nem uma vez), para isso, todos os pods recebidos no pedido devem ser testados no ato da entrega e, caso não funcione, o cliente deverá entrar em contato via WhatsApp imediatamente, informando o não funcionamento do produto, fazendo o envio de vídeos que mostrem o defeito do produto.
+
+Reclamações posteriores a data de entrega não serão válidas.
+
+Ressarcimento do valor da compra
+
+O prazo para ressarcimento do valor pago é de até 7 dias úteis após a chegada do item em nosso endereço. Será realizado tão breve quanto possível, assim que o produto for avaliado por nossa equipe técnica.
+
+Só serão realizados estornos ao titular da compra. O crédito não será concedido a terceiros em nenhuma hipótese.
+
+Em caso de compras no cartão de crédito o estorno será realizado pelo sistema e poderá ocorrer apenas na próxima fatura do cartão de crédito. Este procedimento é de responsabilidade exclusiva do sistema de pagamento e da sua administradora do cartão de crédito.
+
+Esta política de trocas e devoluções restringe-se aos produtos adquiridos através do site: www.dkcwb.com
+
+Perguntas Frequentes sobre garantia
+
+Perguntas Frequentes!
+
+Prezado Cliente, leia com atenção os tópicos abaixo, antes de realizar a compra.
+
+CASOS DE CLIENTE QUE QUEIRAM A TROCA DO PRODUTO FORA DA GARANTIA:
+
+Considering that the user provided full text. Need to update the termsContent with full text already larger; earlier we inserted a long text but it had '...' etc. Now user says provide full. We already replaced earlier with a fairly complete version but maybe truncated. Now they provided final text. Need to update termsContent again to exactly that. Let's edit file to set termsContent to the provided text entire. Use edit_file to replace previous termsContent string with new detailed string. Ensure escape backticks etc. We'll overwrite variable assignment with string containing the full text. Then confirm. Also ensure modal displays accept and onAccept sets accepted_terms true. Already implemented. Proceed to edit. Need to include full Portuguese text; it's long—tool accepts. Let's edit. Then respond confirming done and that user clicking
+
+`;
 
 const CompleteProfilePage = () => {
   const navigate = useNavigate();

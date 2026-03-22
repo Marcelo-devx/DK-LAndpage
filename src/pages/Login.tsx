@@ -242,7 +242,7 @@ const Login = () => {
                           input: { borderRadius: '0.75rem', height: '48px' }
                         }
                       }}
-                      providers={['google']} 
+                      providers={[]} 
                       redirectTo={`${window.location.origin}/auth/confirm`}
                       theme="default"
                       showLinks={false} 

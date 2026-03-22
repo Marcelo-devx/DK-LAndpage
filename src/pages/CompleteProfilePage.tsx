@@ -60,6 +60,7 @@ const profileSchema = z.object({
 
 type ProfileFormData = z.infer<typeof profileSchema>;
 
+const TERMS_VERSION = "1.0"; // Version identifier for current terms
 const termsContent = `Prezado Cliente, leia com atenção os tópicos abaixo, antes de realizar a compra.
 
 Quase todos nossos produtos são importados, mas por possuírem nicotina, bateria que aquece o líquido interno, composto por aromatizante, nicotina, propilenoglicol e glicerina, não nos responsabilizamos pela composição do vapor e os danos à saúde, bem como sobre o papel destes produtos na redução de danos e no tratamento da dependência de nicotina, potencial de dependência, danos à saúde pulmonar, cardiovascular e neurológica.
@@ -132,7 +133,7 @@ Cadastre-se e compre com tranquilidade, sem preocupações.
 
 As alterações sobre nossa política de privacidade serão devidamente informadas neste espaço.
 
-A DK CWB garante que utiliza os seus dados pessoais de endereçamento, pagamento e conteúdo do pedido, apenas para fins de processamento dos pedidos realizados, não sendo, portanto, divulgados em hipótese alguma. Em relação à segurança no tráfego de dados, toda a navegação realizada em nosso site, bem como as transações que envolverem pagamento, seja por cartão de crédito ou não, estarão criptografadas com a tecnologia SSL (Secure Socket Layer). Isso significa que só a loja tem acesso a suas informações pessoais e mais ninguém. Quando você preenche os dados e nos envia...
+A DK CWB garante que utiliza os seus dados pessoais de endereçamento, pagamento e conteúdo do pedido, apenas para fins de processamento dos pedidos realizados, não sendo, portanto, divulgados em hipótese alguma. Em relação à segurança no tráfego de dados, toda a navegação realizada em nosso site, bem como as transações que envolverem pagamento, seja por cartão de crédito ou não, estarão criptografadas com a tecnologia SSL (Secure Socket Layer). Isso significa que só a loja tem acesso a suas informações pessoais e mais ninguém. Quando você preenche os dados e nos envia, essas informações são tratadas com total segurança e confidencialidade.
 
 Garantia / Política de Trocas e Devoluções
 
@@ -232,9 +233,15 @@ Prezado Cliente, leia com atenção os tópicos abaixo, antes de realizar a comp
 
 CASOS DE CLIENTE QUE QUEIRAM A TROCA DO PRODUTO FORA DA GARANTIA:
 
-Considering that the user provided full text. Need to update the termsContent with full text already larger; earlier we inserted a long text but it had '...' etc. Now user says provide full. We already replaced earlier with a fairly complete version but maybe truncated. Now they provided final text. Need to update termsContent again to exactly that. Let's edit file to set termsContent to the provided text entire. Use edit_file to replace previous termsContent string with new detailed string. Ensure escape backticks etc. We'll overwrite variable assignment with string containing the full text. Then confirm. Also ensure modal displays accept and onAccept sets accepted_terms true. Already implemented. Proceed to edit. Need to include full Portuguese text; it's long—tool accepts. Let's edit. Then respond confirming done and that user clicking
+Considerando que o prazo de garantia conforme estabelecido no site e no CDC já transcorreu, sem a comunicação prévia através dos canais oficiais da DK (WhatsApp, Instagram ou através do site), a empresa não tem como efetuar o reembolso/devolução dos valores pagos pelo produto. Desde logo, a empresa fica a disposição, ressaltando que os prazos e regras estabelecidos são de extrema importância para resguardar os direitos dos consumidores e dos fornecedores, devendo o cliente ficar atento aos prazos estabelecidos.
 
-`;
+CASOS DE CLIENTE QUE TENHAM ABERTO O PRODUTO:
+
+Considerando o produto foi utilizado, contrariando as regras estabelecidas no site, a empresa não tem como efetuar o reembolso/devolução dos valores pagos pelo produto. Desde logo, a empresa fica a disposição, ressaltando que as normas e condições de uso estabelecidas são de extrema importância para resguardar os direitos dos consumidores e dos fornecedores, devendo o cliente ficar atento às normas estabelecidas no site.
+
+CASOS DE CLIENTE QUE TENHAM DEVOLVIDO O PRODUTO COM DANOS/AVARIAS:
+
+Considerando o produto devolvido foi entregue com danos/avarias, contrariando as regras estabelecidas no site, a empresa não tem como efetuar o reembolso/devolução dos valores pagos pelo produto por estarem em desacordo com às normas estabelecidas no site devido ao mal uso do aparelho. Desde logo, a empresa fica a disposição, ressaltando que as normas e condições de uso estabelecidas são de extrema importância para resguardar os direitos dos consumidores e dos fornecedores, devendo o cliente ficar atento às normas estabelecidas no site.`;
 
 const CompleteProfilePage = () => {
   const navigate = useNavigate();
@@ -343,6 +350,8 @@ const CompleteProfilePage = () => {
         .update({
           ...profileData,
           accepted_terms: true,
+          accepted_terms_version: TERMS_VERSION,
+          accepted_terms_at: new Date().toISOString(),
           phone: profileData.phone.replace(/\D/g, ''),
           cpf_cnpj: profileData.cpf_cnpj.replace(/\D/g, ''),
           date_of_birth: format(profileData.date_of_birth, 'yyyy-MM-dd'),
@@ -350,8 +359,11 @@ const CompleteProfilePage = () => {
         .eq('id', user.id);
 
       if (error) {
-        // If column accepted_terms doesn't exist, ignore that part and retry without it
-        if (String(error.message || '').toLowerCase().includes('column "accepted_terms"') || String(error.code || '').includes('42703')) {
+        // If column doesn't exist, retry without terms tracking columns
+        if (String(error.message || '').toLowerCase().includes('column "accepted_terms"') || 
+            String(error.code || '').includes('42703') ||
+            String(error.message || '').toLowerCase().includes('column "accepted_terms_version"') ||
+            String(error.message || '').toLowerCase().includes('column "accepted_terms_at"')) {
           await supabase.from('profiles').update({
             ...profileData,
             phone: profileData.phone.replace(/\D/g, ''),

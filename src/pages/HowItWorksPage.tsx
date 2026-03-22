@@ -91,16 +91,31 @@ const HowItWorksPage = () => {
   // Transformação do movimento Y (sobe 15% e desce 15% em relação ao scroll)
   const y = useTransform(scrollYProgress, [0, 1], ["-15%", "15%"]);
 
-  useEffect(() => {
-    const fetchTiers = async () => {
-      const { data } = await supabase
+  const fetchTiers = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
         .from('loyalty_tiers')
         .select('*')
         .order('min_spend', { ascending: true });
-      
-      if (data) setTiers(data);
+
+      if (error) {
+        console.error('[HowItWorksPage] Error fetching tiers:', error);
+        setTiers([]);
+      } else if (data) {
+        // Ensure benefits is always an array to avoid rendering issues
+        const normalized = data.map((t: any) => ({ ...t, benefits: Array.isArray(t.benefits) ? t.benefits : [] }));
+        setTiers(normalized as Tier[]);
+      }
+    } catch (err) {
+      console.error('[HowItWorksPage] Unexpected error:', err);
+      setTiers([]);
+    } finally {
       setLoading(false);
-    };
+    }
+  };
+
+  useEffect(() => {
     fetchTiers();
   }, []);
 

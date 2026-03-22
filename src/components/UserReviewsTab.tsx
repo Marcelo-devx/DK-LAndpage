@@ -8,6 +8,7 @@ import StarRating from './StarRating';
 import { PenSquare, MessageSquareQuote, ShoppingBag } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { cn } from '@/lib/utils';
+import ProductImage from '@/components/ProductImage';
 
 interface ProductToReview {
   product_id: number;
@@ -100,7 +101,7 @@ const UserReviewsTab = () => {
               {productsToReview.map((product) => (
                 <div key={`${product.order_id}-${product.product_id}`} className="flex items-center space-x-5 p-5 bg-white/5 border border-white/5 rounded-2xl hover:border-sky-500/30 transition-all">
                   <Link to={`/produto/${product.product_id}`} className="shrink-0">
-                    <img src={product.image_url || 'https://picsum.photos/200'} alt={product.name} className="h-20 w-20 object-cover rounded-xl border border-white/5" />
+                    <ProductImage src={product.image_url || 'https://picsum.photos/200'} alt={product.name} className="h-20 w-20 object-cover rounded-xl border border-white/5" />
                   </Link>
                   <div className="flex-grow">
                     <Link to={`/produto/${product.product_id}`} className="hover:text-sky-400 transition-colors">
@@ -131,7 +132,7 @@ const UserReviewsTab = () => {
                 <div key={review.id} className="p-6 bg-white/5 border border-white/5 rounded-2xl">
                   <div className="flex flex-col sm:flex-row items-start gap-6">
                     {review.products && (
-                        <img src={review.products.image_url || 'https://picsum.photos/200'} alt={review.products.name} className="h-20 w-20 object-cover rounded-xl border border-white/5 shrink-0" />
+                        <ProductImage src={review.products.image_url || 'https://picsum.photos/200'} alt={review.products.name} className="h-20 w-20 object-cover rounded-xl border border-white/5 shrink-0" />
                     )}
                     <div className="flex-grow w-full">
                         <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-4">

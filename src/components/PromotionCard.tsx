@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { addToCart } from "@/utils/cart";
 import { ShoppingCart } from "lucide-react";
+import ProductImage from '@/components/ProductImage';
 
 interface PromotionCardProps {
   promotion: {
@@ -24,7 +25,7 @@ const PromotionCard = ({ promotion }: PromotionCardProps) => {
     <Link to={promotion.url} className="group block h-full">
       <Card className="w-full h-full mx-auto border border-stone-200 hover:shadow-xl transition-shadow duration-300 rounded-lg overflow-hidden bg-white flex flex-col">
         <div className="overflow-hidden aspect-square">
-          <img 
+          <ProductImage 
             src={promotion.imageUrl} 
             alt={promotion.name} 
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 

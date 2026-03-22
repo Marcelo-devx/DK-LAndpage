@@ -79,7 +79,8 @@ const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps)
           .from('product_variants')
           .select('id, product_id, price, pix_price, stock_quantity')
           .in('product_id', productIds)
-          .eq('is_active', true);
+          .eq('is_active', true)
+          .order('created_at', { ascending: false });
 
         let finalDisplayList: any[] = [];
         parentProducts.forEach((prod: ProductWithCategory) => {

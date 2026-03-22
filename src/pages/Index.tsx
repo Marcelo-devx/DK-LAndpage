@@ -14,6 +14,7 @@ import CategoryProductCarousel from '@/components/CategoryProductCarousel';
 import BrandSection from '@/components/BrandSection';
 import InformationalPopup from '@/components/InformationalPopup';
 import { useTheme } from '@/context/ThemeContext';
+import ProductImage from '@/components/ProductImage';
 
 const Index = () => {
   const { settings } = useTheme();
@@ -53,7 +54,8 @@ const Index = () => {
             .from('product_variants')
             .select('id, product_id, price, pix_price, stock_quantity')
             .in('product_id', productIds)
-            .eq('is_active', true);
+            .eq('is_active', true)
+            .order('created_at', { ascending: false });
 
           let finalDisplayList: any[] = [];
           parentProducts.forEach((prod: any) => {
@@ -196,10 +198,10 @@ const Index = () => {
                     to={slide.button_url || '#'} 
                     className="block relative w-full h-auto"
                   >
-                    <img 
+                    <ProductImage 
                       src={slide.image_url} 
-                      className="w-full h-auto block" 
                       alt={slide.title || "Banner Principal"} 
+                      className="w-full h-auto block" 
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-off-white/80 via-transparent to-transparent" />
                   </Link>

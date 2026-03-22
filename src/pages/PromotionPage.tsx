@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { addToCart } from '@/utils/cart';
 import ScrollAnimationWrapper from '@/components/ScrollAnimationWrapper';
 import PromotionCard from '@/components/PromotionCard';
+import ProductImage from '@/components/ProductImage';
 
 interface Promotion {
   id: number;
@@ -124,7 +125,7 @@ const PromotionPage = () => {
         <div className="grid md:grid-cols-2 gap-8 md:gap-16 items-start">
           
           <div className="w-full">
-            <img 
+            <ProductImage 
               src={promotion.image_url || 'https://picsum.photos/600/800'} 
               alt={promotion.name} 
               className="w-full h-auto object-cover rounded-lg shadow-lg"

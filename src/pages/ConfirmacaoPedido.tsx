@@ -7,6 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import { Loader2, CheckCircle, CreditCard, MessageSquare, AlertTriangle, Smartphone, Heart } from 'lucide-react';
 import OrderTimer from '@/components/OrderTimer';
 import { cn } from '@/lib/utils';
+import ProductImage from '@/components/ProductImage';
 
 interface Order {
   id: number;
@@ -268,7 +269,7 @@ const ConfirmacaoPedido = () => {
                 {items.map((item, index) => (
                   <div key={index} className="flex items-center justify-between bg-white p-4 rounded-xl border border-stone-100">
                     <div className="flex items-center space-x-4">
-                      <img src={item.image_url_at_purchase} alt={item.name_at_purchase} className="h-14 w-14 object-cover rounded-lg shadow-sm" />
+                      <ProductImage src={item.image_url_at_purchase} alt={item.name_at_purchase} className="h-14 w-14 object-cover rounded-lg shadow-sm" />
                       <div>
                         <p className="font-black text-charcoal-gray tracking-tight text-sm">{item.name_at_purchase}</p>
                         <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest">Qtd: {item.quantity}</p>

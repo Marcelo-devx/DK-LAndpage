@@ -6,6 +6,7 @@ import { ShoppingCart, Loader2, Eye } from "lucide-react";
 import { useState } from "react";
 import { ProductCardProps } from "./ProductCard.types";
 import { cn } from "@/lib/utils";
+import ProductImage from "@/components/ProductImage";
 
 const PixIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
@@ -54,7 +55,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
     <Link to={linkUrl} className="group block h-full">
       <Card className={cn("h-full bg-white border border-stone-100 hover:border-sky-500/30 transition-all duration-500 rounded-2xl overflow-hidden flex flex-col group-hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)]", isOutOfStock && "opacity-80")}>
         <div className="overflow-hidden aspect-[4/5] relative bg-white shrink-0">
-          <img 
+          <ProductImage 
             src={product.imageUrl} 
             alt={product.name} 
             className={cn("w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 ease-out", isOutOfStock && "grayscale")} 

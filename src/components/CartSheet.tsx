@@ -9,6 +9,7 @@ import { Plus, Minus, Trash2, ShoppingCart, Loader2 } from 'lucide-react';
 import { showError } from '@/utils/toast';
 import { getLocalCart, updateLocalCartItemQuantity, removeFromLocalCart, ItemType, getCartCreatedAt } from '@/utils/localCart';
 import OrderTimer from './OrderTimer';
+import ProductImage from '@/components/ProductImage';
 
 interface DisplayItem {
   id: number;
@@ -227,7 +228,7 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
               const key = `${item.itemType}-${item.itemId}-${item.variantId || 'no-var'}`;
               return (
                 <div key={key} className="flex items-start space-x-4 bg-stone-50 p-4 rounded-2xl border border-stone-100">
-                  <img src={item.image_url} alt={item.name} className="h-20 w-20 object-cover rounded-xl border border-stone-200" />
+                  <ProductImage src={item.image_url} alt={item.name} className="h-20 w-20 object-cover rounded-xl border border-stone-200" />
                   <div className="flex-grow">
                     <p className="font-bold text-charcoal-gray text-sm tracking-tight leading-tight">{item.name}</p>
                     {item.variant_label && <p className="text-[10px] font-black text-sky-600 uppercase mt-1 tracking-widest">{item.variant_label}</p>}

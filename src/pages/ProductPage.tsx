@@ -8,6 +8,7 @@ import { addToCart } from '@/utils/cart';
 import { cn } from '@/lib/utils';
 import { showError } from '@/utils/toast';
 import { Card, CardContent } from "@/components/ui/card";
+import ProductImage from '@/components/ProductImage';
 
 interface Product {
   id: number;
@@ -177,7 +178,7 @@ const ProductPage = () => {
         <div className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-start mb-16">
           <div className="relative group lg:sticky lg:top-32">
             <div className="absolute -inset-4 bg-sky-500/5 rounded-[3rem] blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
-            <img 
+            <ProductImage 
               src={product.image_url || ''} 
               alt={product.name} 
               className={cn(

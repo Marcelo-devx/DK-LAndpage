@@ -16,6 +16,8 @@ interface InformationalPopupProps {
   onClose: () => void;
   title: string;
   content: string;
+  // optional accept action (e.g., accept terms)
+  onAccept?: () => void;
 }
 
 const renderContent = (text: string) => {
@@ -45,7 +47,12 @@ const renderContent = (text: string) => {
   ));
 };
 
-const InformationalPopup = ({ isOpen, onClose, title, content }: InformationalPopupProps) => {
+const InformationalPopup = ({ isOpen, onClose, title, content, onAccept }: InformationalPopupProps) => {
+  const handleAccept = () => {
+    if (onAccept) onAccept();
+    onClose();
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={() => {}}>
       <DialogContent 
@@ -79,14 +86,34 @@ const InformationalPopup = ({ isOpen, onClose, title, content }: InformationalPo
               </div>
             </div>
 
-            <DialogFooter className="mt-4 md:mt-10 sm:justify-center shrink-0">
-              <Button 
-                type="button" 
-                onClick={onClose} 
-                className="w-full sm:w-auto bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest h-12 md:h-14 px-10 md:px-12 rounded-xl shadow-[0_10px_20px_-5px_rgba(14,165,233,0.4)] transition-all active:scale-95"
-              >
-                Entendi
-              </Button>
+            <DialogFooter className="mt-4 md:mt-10 sm:justify-center shrink-0 flex gap-3">
+              {onAccept ? (
+                <>
+                  <Button 
+                    type="button" 
+                    onClick={handleAccept} 
+                    className="w-full sm:w-auto bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest h-12 md:h-14 px-10 md:px-12 rounded-xl shadow-[0_10px_20px_-5px_rgba(14,165,233,0.4)] transition-all active:scale-95"
+                  >
+                    Aceitar e Continuar
+                  </Button>
+                  <Button 
+                    type="button" 
+                    onClick={onClose} 
+                    variant="ghost"
+                    className="w-full sm:w-auto bg-white/5 text-white font-black uppercase tracking-widest h-12 md:h-14 px-10 md:px-12 rounded-xl border border-white/5"
+                  >
+                    Fechar
+                  </Button>
+                </>
+              ) : (
+                <Button 
+                  type="button" 
+                  onClick={onClose} 
+                  className="w-full sm:w-auto bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest h-12 md:h-14 px-10 md:px-12 rounded-xl shadow-[0_10px_20px_-5px_rgba(14,165,233,0.4)] transition-all active:scale-95"
+                >
+                  Entendi
+                </Button>
+              )}
             </DialogFooter>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -123,7 +123,7 @@ IV. Portabilidade dos dados a outro fornecedor de serviço ou produto, mediante 
 
 V. Informação sobre o compartilhamento de dados com entidades públicas e privadas;
 
-VI. Informação sobre a possibilidade de não fornecer consentimento e sobre as consequências da negativa: a DK CWB está disponível para atender e auxiliar, de forma transparente, quaisquer dúvidas que possam existir em função do tratamento dos seus dados pessoais, inclusive sobre os possíveis impactos decorrentes do não fornecimento do consentimento;
+VI. Informação sobre a possibilidade de não fornecer consentimento e sobre as consequências da negativa: a DK CWB está disponível para atender e auxiliar, de forma transparente, quaisquer dúvidas que possam existir em função do tratamento dos dados pessoais, inclusive sobre os possíveis impactos decorrentes do não fornecimento do consentimento;
 
 VII. Revogação do consentimento: você pode retirar o seu consentimento em relação às atividades de tratamento que o requerem;
 
@@ -173,7 +173,7 @@ Trabalhamos com as melhores marcas proporcionando produtos com a melhor qualidad
 
 Solicitamos a atenção de todos quanto às solicitações iniciais dos fabricantes contidas nos manuais.
 
-Diversos aparelhos contém resistências que contém malha de algodão. A não realização dos passos iniciais contidos nos manuais dos aparelhos poderá danificar e/ou queimar o algodão inutilizando o aparelho.
+Diversos aparelhos contém resistências que contém malha de algodão. A não realização dos passos iniciais contidos nos manuais poderá danificar e/ou queimar o algodão inutilizando o aparelho.
 
 A garantia da loja não cobre resistências que forem mal utilizadas, pedimos a todos que fiquem atentos durante os primeiros passos evitando esse tipo de problema.
 
@@ -256,6 +256,40 @@ const CompleteProfilePage = () => {
   const { register, handleSubmit, control, setValue, getValues, watch, formState: { errors } } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
   });
+
+  // watch required fields to determine whether to enable submit and to show '*' markers
+  const watched = watch();
+
+  const requiredFieldsFilled = useMemo(() => {
+    const f = watched.first_name && watched.last_name;
+    const dob = watched.date_of_birth;
+    const phone = (watched.phone || '').replace(/\D/g, '');
+    const cpf = (watched.cpf_cnpj || '').replace(/\D/g, '');
+    const gender = watched.gender;
+    const cep = watched.cep;
+    const street = watched.street;
+    const number = watched.number;
+    const neighborhood = watched.neighborhood;
+    const city = watched.city;
+    const state = watched.state;
+
+    return Boolean(f && dob && phone && phone.length >= 10 && cpf && cpf.length >= 11 && gender && cep && street && number && neighborhood && city && state);
+  }, [watched]);
+
+  const passwordChecks = useMemo(() => {
+    const pwd = watched.password || '';
+    const conf = watched.password_confirm || '';
+    const isMinLength = pwd.length >= 8;
+    const hasUpper = /[A-Z]/.test(pwd);
+    const hasNumber = /\d/.test(pwd);
+    const hasSpecial = /[^A-Za-z0-9]/.test(pwd);
+    const passwordsMatch = pwd.length > 0 && pwd === conf;
+    return { isMinLength, hasUpper, hasNumber, hasSpecial, passwordsMatch };
+  }, [watched.password, watched.password_confirm]);
+
+  const accepted = Boolean(watched.accepted_terms);
+
+  const isReadyToSubmit = requiredFieldsFilled && Object.values(passwordChecks).every(Boolean) && accepted;
 
   const handleCepLookup = async () => {
     const cep = getValues('cep');
@@ -402,6 +436,23 @@ const CompleteProfilePage = () => {
     return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-sky-400" /></div>;
   }
 
+  const requiredStar = (fieldName: keyof ProfileFormData) => {
+    const val = (watched as any)[fieldName];
+    const missing = !val || (typeof val === 'string' && val.trim() === '');
+    if (fieldName === 'phone' && val) {
+      const digits = String(val).replace(/\D/g, '');
+      return digits.length < 10;
+    }
+    if (fieldName === 'cpf_cnpj' && val) {
+      const digits = String(val).replace(/\D/g, '');
+      return digits.length < 11;
+    }
+    if (fieldName === 'state' && val) {
+      return String(val).trim().length < 2;
+    }
+    return missing;
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-off-white p-4 relative overflow-hidden">
       {/* Background Elements */}
@@ -426,12 +477,12 @@ const CompleteProfilePage = () => {
               <h3 className="text-xs font-black uppercase tracking-[0.2em] text-stone-400 border-b border-stone-100 pb-2">Dados Pessoais</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="space-y-2">
-                  <Label htmlFor="first_name" className="text-charcoal-gray">Nome</Label>
+                  <Label htmlFor="first_name" className="text-charcoal-gray">Nome {requiredStar('first_name') && <span className="text-red-500">*</span>}</Label>
                   <Input id="first_name" {...register('first_name')} className="bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors" />
                   {errors.first_name && <p className="text-xs text-red-500 font-bold">{errors.first_name.message}</p>}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="last_name" className="text-charcoal-gray">Sobrenome</Label>
+                  <Label htmlFor="last_name" className="text-charcoal-gray">Sobrenome {requiredStar('last_name') && <span className="text-red-500">*</span>}</Label>
                   <Input id="last_name" {...register('last_name')} className="bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors" />
                   {errors.last_name && <p className="text-xs text-red-500 font-bold">{errors.last_name.message}</p>}
                 </div>
@@ -439,7 +490,7 @@ const CompleteProfilePage = () => {
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="space-y-2">
-                    <Label htmlFor="cpf_cnpj" className="text-charcoal-gray">CPF / CNPJ</Label>
+                    <Label htmlFor="cpf_cnpj" className="text-charcoal-gray">CPF / CNPJ {requiredStar('cpf_cnpj') && <span className="text-red-500">*</span>}</Label>
                     <Input 
                       id="cpf_cnpj" 
                       {...register('cpf_cnpj')} 
@@ -450,7 +501,7 @@ const CompleteProfilePage = () => {
                     {errors.cpf_cnpj && <p className="text-xs text-red-500 font-bold">{errors.cpf_cnpj.message}</p>}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="gender" className="text-charcoal-gray">Gênero</Label>
+                    <Label htmlFor="gender" className="text-charcoal-gray">Gênero {requiredStar('gender') && <span className="text-red-500">*</span>}</Label>
                     <Controller
                       name="gender"
                       control={control}
@@ -473,7 +524,7 @@ const CompleteProfilePage = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="space-y-2">
-                    <Label htmlFor="date_of_birth" className="text-charcoal-gray">Data de Nascimento</Label>
+                    <Label htmlFor="date_of_birth" className="text-charcoal-gray">Data de Nascimento {requiredStar('date_of_birth') && <span className="text-red-500">*</span>}</Label>
                     <div className="[&>button]:w-full [&>button]:h-12 [&>button]:bg-stone-50 [&>button]:border-stone-200 [&>button]:rounded-xl [&>button]:text-charcoal-gray">
                         <Controller 
                             name="date_of_birth" 
@@ -486,7 +537,7 @@ const CompleteProfilePage = () => {
                     {errors.date_of_birth && <p className="text-xs text-red-500 font-bold">{errors.date_of_birth.message}</p>}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="phone" className="text-charcoal-gray">Telefone</Label>
+                    <Label htmlFor="phone" className="text-charcoal-gray">Telefone {requiredStar('phone') && <span className="text-red-500">*</span>}</Label>
                     <Input id="phone" {...register('phone')} onChange={(e) => e.target.value = maskPhone(e.target.value)} placeholder="(48) 99999-9999" className="bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors" />
                     {errors.phone && <p className="text-xs text-red-500 font-bold">{errors.phone.message}</p>}
                   </div>
@@ -508,7 +559,7 @@ const CompleteProfilePage = () => {
                 )}
 
                 <div className="space-y-2">
-                  <Label htmlFor="cep" className="text-charcoal-gray">CEP</Label>
+                  <Label htmlFor="cep" className="text-charcoal-gray">CEP {requiredStar('cep') && <span className="text-red-500">*</span>}</Label>
                   <div className="flex items-center space-x-3">
                     <Input id="cep" {...register('cep')} onChange={(e) => e.target.value = maskCep(e.target.value)} className="bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors" />
                     <Button type="button" size="icon" onClick={handleCepLookup} disabled={isFetchingCep} className="bg-sky-500 hover:bg-sky-400 text-white h-12 w-14 rounded-xl shrink-0 shadow-md">
@@ -518,13 +569,13 @@ const CompleteProfilePage = () => {
                   {errors.cep && <p className="text-xs text-red-500 font-bold">{errors.cep.message}</p>}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="street" className="text-charcoal-gray">Rua</Label>
+                  <Label htmlFor="street" className="text-charcoal-gray">Rua {requiredStar('street') && <span className="text-red-500">*</span>}</Label>
                   <Input id="street" {...register('street')} className="bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors" />
                   {errors.street && <p className="text-xs text-red-500 font-bold">{errors.street.message}</p>}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                     <div className="md:col-span-1 space-y-2">
-                      <Label htmlFor="number" className="text-charcoal-gray">Número</Label>
+                      <Label htmlFor="number" className="text-charcoal-gray">Número {requiredStar('number') && <span className="text-red-500">*</span>}</Label>
                       <Input id="number" {...register('number')} className="bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors" />
                       {errors.number && <p className="text-xs text-red-500 font-bold">{errors.number.message}</p>}
                     </div>
@@ -534,18 +585,18 @@ const CompleteProfilePage = () => {
                     </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="neighborhood" className="text-charcoal-gray">Bairro</Label>
+                  <Label htmlFor="neighborhood" className="text-charcoal-gray">Bairro {requiredStar('neighborhood') && <span className="text-red-500">*</span>}</Label>
                   <Input id="neighborhood" {...register('neighborhood')} className="bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors" />
                   {errors.neighborhood && <p className="text-xs text-red-500 font-bold">{errors.neighborhood.message}</p>}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                     <div className="md:col-span-2 space-y-2">
-                      <Label htmlFor="city" className="text-charcoal-gray">Cidade</Label>
+                      <Label htmlFor="city" className="text-charcoal-gray">Cidade {requiredStar('city') && <span className="text-red-500">*</span>}</Label>
                       <Input id="city" {...register('city')} className="bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors" />
                       {errors.city && <p className="text-xs text-red-500 font-bold">{errors.city.message}</p>}
                     </div>
                     <div className="md:col-span-1 space-y-2">
-                      <Label htmlFor="state" className="text-charcoal-gray">Estado</Label>
+                      <Label htmlFor="state" className="text-charcoal-gray">Estado {requiredStar('state') && <span className="text-red-500">*</span>}</Label>
                       <Input id="state" {...register('state')} className="bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors" />
                       {errors.state && <p className="text-xs text-red-500 font-bold">{errors.state.message}</p>}
                     </div>
@@ -557,7 +608,7 @@ const CompleteProfilePage = () => {
               <h3 className="text-xs font-black uppercase tracking-[0.2em] text-stone-400 border-b border-stone-100 pb-2">Defina sua senha de acesso</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-end">
                 <div className="space-y-2">
-                  <Label htmlFor="password" className="text-charcoal-gray">Senha</Label>
+                  <Label htmlFor="password" className="text-charcoal-gray">Senha {((watched.password || '') === '') && <span className="text-red-500">*</span>}</Label>
                   <div className="flex items-center">
                     <Input id="password" type={showPassword ? 'text' : 'password'} {...register('password')} className="bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors" />
                   </div>
@@ -565,7 +616,7 @@ const CompleteProfilePage = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="password_confirm" className="text-charcoal-gray">Confirmar senha</Label>
+                  <Label htmlFor="password_confirm" className="text-charcoal-gray">Confirmar senha {((watched.password_confirm || '') === '') && <span className="text-red-500">*</span>}</Label>
                   <Input id="password_confirm" type={showPassword ? 'text' : 'password'} {...register('password_confirm')} className="bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors" />
                   {errors.password_confirm && <p className="text-xs text-red-500 font-bold">{(errors.password_confirm as any)?.message}</p>}
                 </div>
@@ -589,9 +640,12 @@ const CompleteProfilePage = () => {
               </div>
             </div>
 
-            <Button type="submit" size="lg" className="w-full bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest h-14 rounded-xl shadow-lg transition-all active:scale-95 text-sm" disabled={isSaving}>
+            <Button type="submit" size="lg" className="w-full bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest h-14 rounded-xl shadow-lg transition-all active:scale-95 text-sm" disabled={!isReadyToSubmit || isSaving}>
               {isSaving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : 'Finalizar Cadastro'}
             </Button>
+            {!isReadyToSubmit && (
+              <p className="text-xs text-rose-600 mt-2">Preencha todos os campos obrigatórios, defina uma senha válida e aceite os termos para habilitar o botão.</p>
+            )}
           </form>
         </CardContent>
       </Card>

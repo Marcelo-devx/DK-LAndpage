@@ -253,7 +253,7 @@ const CompleteProfilePage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isTermsOpen, setIsTermsOpen] = useState(false);
 
-  const { register, handleSubmit, control, setValue, getValues, formState: { errors } } = useForm<ProfileFormData>({
+  const { register, handleSubmit, control, setValue, getValues, watch, formState: { errors } } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
   });
 
@@ -575,7 +575,8 @@ const CompleteProfilePage = () => {
                   <Label htmlFor="show_pwd" className="text-sm">Mostrar senhas</Label>
                 </div>
 
-                <p className="md:col-span-2 text-xs text-slate-500">A senha deve ter no mínimo 8 caracteres, incluir pelo menos 1 letra maiúscula, 1 número e 1 caractere especial.</p>
+                <PasswordRules />
+
               </div>
             </div>
 
@@ -596,6 +597,78 @@ const CompleteProfilePage = () => {
       </Card>
 
       <InformationalPopup isOpen={isTermsOpen} onClose={handleCloseTerms} title="Termo de Uso e Responsabilidade" content={termsContent} onAccept={() => { handleAcceptTerms(); handleCloseTerms(); }} />
+    </div>
+  );
+};
+
+const PasswordRules: React.FC = () => {
+  // use the same watch hook from the form by creating a small wrapper that reads the form directly
+  // Since this component lives in the same file scope, we can call useFormContext alternatively.
+  // Simpler: read values from document via querySelector (not preferred). Instead, create a small inline hook using the form's watch by importing useFormContext.
+  // But useFormContext requires the FormProvider which we didn't set. To keep this file self-contained, we'll compute values using a small effect that reads the inputs by id.
+
+  const [pwd, setPwd] = React.useState('');
+  const [conf, setConf] = React.useState('');
+
+  React.useEffect(() => {
+    const onInput = () => {
+      const p = (document.getElementById('password') as HTMLInputElement)?.value || '';
+      const c = (document.getElementById('password_confirm') as HTMLInputElement)?.value || '';
+      setPwd(p);
+      setConf(c);
+    };
+
+    // attach listeners
+    const pEl = document.getElementById('password');
+    const cEl = document.getElementById('password_confirm');
+    pEl?.addEventListener('input', onInput);
+    cEl?.addEventListener('input', onInput);
+
+    // initialize
+    onInput();
+
+    return () => {
+      pEl?.removeEventListener('input', onInput);
+      cEl?.removeEventListener('input', onInput);
+    };
+  }, []);
+
+  const isMinLength = pwd.length >= 8;
+  const hasUpper = /[A-Z]/.test(pwd);
+  const hasNumber = /\d/.test(pwd);
+  const hasSpecial = /[^A-Za-z0-9]/.test(pwd);
+  const passwordsMatch = pwd.length > 0 && pwd === conf;
+
+  const item = (ok: boolean, text: string) => (
+    <div className="flex items-center gap-2">
+      <span className={ok ? 'text-emerald-600' : 'text-rose-500'} aria-hidden>
+        {ok ? '✔' : '✖'}
+      </span>
+      <span className={ok ? 'text-sm text-emerald-700' : 'text-sm text-rose-600'}>{text}</span>
+    </div>
+  );
+
+  return (
+    <div className="md:col-span-2 mt-2">
+      <div className="bg-stone-50 border border-stone-100 rounded-xl p-4 text-sm">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          {item(isMinLength, 'Mínimo 8 caracteres')}
+          {item(hasUpper, 'Pelo menos 1 letra maiúscula')}
+          {item(hasNumber, 'Pelo menos 1 número')}
+          {item(hasSpecial, 'Pelo menos 1 caractere especial')}
+        </div>
+        <div className="mt-3">
+          {conf.length > 0 ? (
+            passwordsMatch ? (
+              <div className="text-emerald-700 font-medium">As senhas coincidem.</div>
+            ) : (
+              <div className="text-rose-600 font-medium">As senhas não coincidem.</div>
+            )
+          ) : (
+            <div className="text-stone-500">Digite a confirmação para verificar se as senhas coincidem.</div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

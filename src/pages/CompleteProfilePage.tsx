@@ -602,15 +602,10 @@ const CompleteProfilePage = () => {
 };
 
 const PasswordRules: React.FC = () => {
-  // use the same watch hook from the form by creating a small wrapper that reads the form directly
-  // Since this component lives in the same file scope, we can call useFormContext alternatively.
-  // Simpler: read values from document via querySelector (not preferred). Instead, create a small inline hook using the form's watch by importing useFormContext.
-  // But useFormContext requires the FormProvider which we didn't set. To keep this file self-contained, we'll compute values using a small effect that reads the inputs by id.
+  const [pwd, setPwd] = useState('');
+  const [conf, setConf] = useState('');
 
-  const [pwd, setPwd] = React.useState('');
-  const [conf, setConf] = React.useState('');
-
-  React.useEffect(() => {
+  useEffect(() => {
     const onInput = () => {
       const p = (document.getElementById('password') as HTMLInputElement)?.value || '';
       const c = (document.getElementById('password_confirm') as HTMLInputElement)?.value || '';

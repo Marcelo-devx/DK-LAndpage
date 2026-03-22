@@ -3,7 +3,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,6 +16,7 @@ import { DatePicker } from '@/components/ui/DatePicker';
 import { format } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checkbox } from '@/components/ui/checkbox';
+import InformationalPopup from '@/components/InformationalPopup';
 
 const profileSchema = z.object({
   first_name: z.string().min(1, "Nome é obrigatório"),
@@ -59,6 +60,27 @@ const profileSchema = z.object({
 
 type ProfileFormData = z.infer<typeof profileSchema>;
 
+const termsContent = `Termo de Uso e Responsabilidade
+
+Prezado Cliente, leia com atenção os tópicos abaixo, antes de realizar a compra.
+
+Quase todos nossos produtos são importados, mas por possuírem nicotina, bateria que aquece o líquido interno, composto por aromatizante, nicotina, propilenoglicol e glicerina, não nos responsabilizamos pela composição do vapor e os danos à saúde, bem como sobre o papel destes produtos na redução de danos e no tratamento da dependência de nicotina, potencial de dependência, danos à saúde pulmonar, cardiovascular e neurológica.
+
+É de responsabilidade dos consumidores o uso, de forma correta indicada pelos fabricantes nos manuais dos mesmos, cientes dos riscos que pode causar, sendo permitida a venda e consumo somente para maiores de 18 anos.
+
+Co...
+
+
+POLÍTICA DE PRIVACIDADE DE DADOS
+
+A Loja DK CWB se compromete com a segurança de seus dados e é claro que aqui na nossa loja oficial não é diferente. Mantemos suas informações no mais absoluto sigilo!
+
+Priorizamos a privacidade e a segurança de nossos clientes durante todo o processo de navegação e compra pelo site. Todos os dados cadastrados (nome, endereço, CPF) nunca serão comercializados ou trocados. Alguns dados, necessários para que empresas de logística e meios de pagamento possam realizar a cobrança e envio de seu pedido, serão divulgados para terceiros, quando tais informações forem necessárias para o processo de entrega e cobrança. Seus dados pessoais são fundamentais para que seu pedido chegue em segurança.
+
+Utilizamos cookies e informações de sua navegação com o objetivo de traçar um perfil do público que visita o site e, assim, podermos aperfeiçoar nossos serviços, produtos e conteúdos, tudo conforme o regulamentado pela Lei Geral de Proteção de Dados. Durante todo este processo, mantemos suas informações em sigilo absoluto.
+
+...`;
+
 const CompleteProfilePage = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
@@ -67,6 +89,7 @@ const CompleteProfilePage = () => {
   const [isFetchingCep, setIsFetchingCep] = useState(false);
   const [deliveryType, setDeliveryType] = useState<'local' | 'correios' | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [isTermsOpen, setIsTermsOpen] = useState(false);
 
   const { register, handleSubmit, control, setValue, getValues, formState: { errors } } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -200,6 +223,12 @@ const CompleteProfilePage = () => {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleOpenTerms = () => setIsTermsOpen(true);
+  const handleCloseTerms = () => setIsTermsOpen(false);
+  const handleAcceptTerms = () => {
+    setValue('accepted_terms', true);
   };
 
   if (loading) {
@@ -387,7 +416,7 @@ const CompleteProfilePage = () => {
             <div className="flex items-start gap-3">
               <Checkbox id="accepted_terms" {...register('accepted_terms')} />
               <div className="text-sm text-slate-600">
-                <label htmlFor="accepted_terms" className="cursor-pointer">Li e aceito os <Link to="/terms" className="text-sky-500 underline">Termos de Uso e Política de Privacidade</Link>.</label>
+                <label htmlFor="accepted_terms" className="cursor-pointer">Li e aceito os <button type="button" onClick={handleOpenTerms} className="text-sky-500 underline">Termos de Uso e Política de Privacidade</button>.</label>
                 {errors.accepted_terms && <p className="text-xs text-red-500 font-bold">{(errors.accepted_terms as any)?.message}</p>}
               </div>
             </div>
@@ -398,6 +427,8 @@ const CompleteProfilePage = () => {
           </form>
         </CardContent>
       </Card>
+
+      <InformationalPopup isOpen={isTermsOpen} onClose={handleCloseTerms} title="Termo de Uso e Responsabilidade" content={termsContent} onAccept={() => { handleAcceptTerms(); handleCloseTerms(); }} />
     </div>
   );
 };

@@ -52,12 +52,27 @@ const LoyaltyClubPage = () => {
   const [redeemingId, setRedeemingId] = useState<number | null>(null);
   const [coupons, setCoupons] = useState<any[]>([]);
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [sessionUser, setSessionUser] = useState<any | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { navigate('/login'); return; }
+      setSessionUser(session?.user ?? null);
 
+      if (!session) {
+        // Public view: fetch tiers and coupons but don't require auth
+        const [tiersRes, couponsRes] = await Promise.all([
+          supabase.from('loyalty_tiers').select('*').order('min_spend', { ascending: true }),
+          supabase.from('coupons').select('*').eq('is_active', true).gt('stock_quantity', 0).order('points_cost')
+        ]);
+
+        if (tiersRes.data) setTiers(tiersRes.data);
+        if (couponsRes.data) setCoupons(couponsRes.data);
+        setLoading(false);
+        return;
+      }
+
+      // Authenticated: fetch full data
       const [tiersRes, profileRes, historyRes, couponsRes, ordersRes] = await Promise.all([
         supabase.from('loyalty_tiers').select('*').order('min_spend', { ascending: true }),
         supabase.from('profiles').select('points, spend_last_6_months, tier_id, current_tier_name, last_tier_update').eq('id', session.user.id).single(),
@@ -78,6 +93,7 @@ const LoyaltyClubPage = () => {
   }, [navigate]);
 
   const onRedeemCoupon = async (coupon: any) => {
+    if (!sessionUser) { showError('Faça login para resgatar cupons.'); return; }
     if (!profile || profile.points < coupon.points_cost) {
         showError("Saldo insuficiente.");
         return;
@@ -149,23 +165,32 @@ const LoyaltyClubPage = () => {
     };
   };
 
-  if (loading || !profile) return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-sky-400" /></div>;
+  if (loading) return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-sky-400" /></div>;
 
-  const currentTierIndex = tiers.findIndex(t => t.id === profile.tier_id);
-  const currentTier = tiers[currentTierIndex] || tiers[0];
+  // Use an effective profile for calculations so the page shows public info when not logged in
+  const effectiveProfile: LoyaltyProfile = profile || {
+    points: 0,
+    spend_last_6_months: 0,
+    tier_id: tiers[0]?.id ?? 0,
+    current_tier_name: tiers[0]?.name ?? 'Clube DK',
+    last_tier_update: new Date().toISOString(),
+  };
+
+  const currentTierIndex = tiers.findIndex(t => t.id === effectiveProfile.tier_id);
+  const currentTier = tiers[currentTierIndex] || tiers[0] || { id: 0, name: 'Clube', min_spend: 0, max_spend: null, points_multiplier: 1, benefits: [] };
   const nextTier = tiers[currentTierIndex + 1];
   
   let progress = 100;
   let remaining = 0;
   
   if (nextTier) {
-    const range = nextTier.min_spend - currentTier.min_spend;
-    const currentInLevel = profile.spend_last_6_months - currentTier.min_spend;
+    const range = nextTier.min_spend - currentTier.min_spend || 1;
+    const currentInLevel = effectiveProfile.spend_last_6_months - currentTier.min_spend;
     progress = Math.min(100, Math.max(0, (currentInLevel / range) * 100));
-    remaining = nextTier.min_spend - profile.spend_last_6_months;
+    remaining = Math.max(0, nextTier.min_spend - effectiveProfile.spend_last_6_months);
   }
 
-  const expirationDate = addMonths(new Date(profile.last_tier_update), 6);
+  const expirationDate = addMonths(new Date(effectiveProfile.last_tier_update), 6);
   const daysLeft = differenceInDays(expirationDate, new Date());
   const isExpiringSoon = daysLeft <= 30;
 
@@ -184,7 +209,7 @@ const LoyaltyClubPage = () => {
           <div className="mt-8 bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/10 max-w-lg mx-auto shadow-2xl">
             <div className="flex justify-between items-end mb-4">
                 <span className="text-xs font-bold uppercase tracking-widest text-white/70">Gasto em 6 meses</span>
-                <span className="text-2xl font-black">{profile.spend_last_6_months.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                <span className="text-2xl font-black">{effectiveProfile.spend_last_6_months.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
             </div>
             
             {nextTier ? (
@@ -193,7 +218,11 @@ const LoyaltyClubPage = () => {
                         <div className="h-full bg-sky-500 transition-all duration-1000" style={{ width: `${progress}%` }} />
                     </div>
                     <p className="text-sm font-medium text-white/90">
-                        Faltam <span className="text-white font-black">{remaining.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span> para o nível <span className="font-black uppercase text-sky-400">{nextTier.name}</span>
+                        {sessionUser ? (
+                          <>Faltam <span className="text-white font-black">{remaining.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span> para o nível <span className="font-black uppercase text-sky-400">{nextTier.name}</span></>
+                        ) : (
+                          <>Entre ou crie uma conta para acompanhar seu progresso e subir de nível.</>
+                        )}
                     </p>
                 </>
             ) : (
@@ -222,9 +251,14 @@ const LoyaltyClubPage = () => {
                 <CardContent>
                     <div className="flex items-center gap-3">
                         <Gem className="h-8 w-8 text-sky-500" />
-                        <span className="text-4xl font-black tracking-tighter">{profile.points}</span>
+                        <span className="text-4xl font-black tracking-tighter">{effectiveProfile.points}</span>
                     </div>
                     <p className="text-xs text-stone-500 mt-2 font-medium">Cada compra te leva mais longe.</p>
+                    {!sessionUser && (
+                      <div className="mt-4">
+                        <Button onClick={() => navigate('/login')} className="w-full bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest h-10 rounded-xl">Entrar para ver seu saldo</Button>
+                      </div>
+                    )}
                 </CardContent>
             </Card>
 
@@ -268,7 +302,7 @@ const LoyaltyClubPage = () => {
                 <h3 className="text-xl font-black italic uppercase tracking-tighter text-charcoal-gray">Troque seus pontos</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {coupons.map((coupon) => {
-                        const canAfford = profile.points >= coupon.points_cost;
+                        const canAfford = effectiveProfile.points >= coupon.points_cost && !!sessionUser;
                         return (
                             <div key={coupon.id} className={cn("group relative bg-white border border-stone-200 p-6 rounded-2xl transition-all overflow-hidden shadow-sm hover:shadow-md", canAfford ? "hover:border-sky-500/50" : "opacity-60 grayscale bg-stone-50")}>
                                 <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
@@ -285,7 +319,7 @@ const LoyaltyClubPage = () => {
                                         disabled={!canAfford || redeemingId === coupon.id}
                                         className={cn("w-full font-black uppercase tracking-widest h-12 rounded-xl", canAfford ? "bg-sky-500 hover:bg-sky-400 text-white" : "bg-stone-200 text-stone-400 cursor-not-allowed")}
                                     >
-                                        {redeemingId === coupon.id ? <Loader2 className="animate-spin h-4 w-4" /> : (canAfford ? 'Resgatar' : 'Faltam Pontos')}
+                                        {redeemingId === coupon.id ? <Loader2 className="animate-spin h-4 w-4" /> : (canAfford ? 'Resgatar' : (sessionUser ? 'Faltam Pontos' : 'Entre para resgatar'))}
                                     </Button>
                                 </div>
                             </div>
@@ -297,11 +331,11 @@ const LoyaltyClubPage = () => {
             <TabsContent value="tiers" className="mt-8">
                 <div className="space-y-4">
                     {tiers.map((tier) => {
-                        const isCurrent = tier.id === profile.tier_id;
+                        const isCurrent = tier.id === effectiveProfile.tier_id;
                         return (
                             <div key={tier.id} className={cn("flex flex-col md:flex-row items-start md:items-center gap-6 p-6 rounded-2xl border transition-all", isCurrent ? "bg-sky-50 border-sky-200 ring-1 ring-sky-100" : "bg-white border-stone-200 opacity-80 hover:opacity-100")}>
                                 <div className={cn("w-16 h-16 rounded-full flex items-center justify-center shrink-0 bg-gradient-to-br shadow-lg", TierColors[tier.name])}>
-                                    {isCurrent ? <Gem className="h-8 w-8 text-white" /> : (profile.spend_last_6_months > tier.min_spend ? <Unlock className="h-6 w-6 text-white/80" /> : <Lock className="h-6 w-6 text-white/80" />)}
+                                    {isCurrent ? <Gem className="h-8 w-8 text-white" /> : (effectiveProfile.spend_last_6_months > tier.min_spend ? <Unlock className="h-6 w-6 text-white/80" /> : <Lock className="h-6 w-6 text-white/80" />)}
                                 </div>
                                 <div className="flex-1">
                                     <div className="flex items-center gap-3 mb-1">
@@ -329,7 +363,8 @@ const LoyaltyClubPage = () => {
 
             <TabsContent value="history" className="mt-8">
                 <div className="bg-white border border-stone-200 rounded-2xl overflow-hidden shadow-sm">
-                    {history.length > 0 ? (
+                    {sessionUser ? (
+                      history.length > 0 ? (
                         <div className="divide-y divide-stone-100">
                             {history.map((item) => (
                                 <div key={item.id} className="p-4 flex items-center justify-between hover:bg-stone-50 transition-colors">
@@ -348,11 +383,17 @@ const LoyaltyClubPage = () => {
                                 </div>
                             ))}
                         </div>
-                    ) : (
+                      ) : (
                         <div className="p-12 text-center text-stone-400">
                             <History className="h-12 w-12 mx-auto mb-4 opacity-20" />
                             <p className="font-medium">Nenhum histórico disponível ainda.</p>
                         </div>
+                      )
+                    ) : (
+                      <div className="p-12 text-center text-stone-500">
+                        <p className="font-bold mb-4">Entre para ver seu extrato de pontos</p>
+                        <Button onClick={() => navigate('/login')} className="bg-sky-500 text-white font-black uppercase rounded-xl px-6 py-3">Entrar</Button>
+                      </div>
                     )}
                 </div>
             </TabsContent>

@@ -402,6 +402,14 @@ const CheckoutPage = () => {
             else console.info('[CheckoutPage] trigger-integration invoked (guest):', invokeData);
           } catch (invokeEx) {
             console.error('[CheckoutPage] error invoking trigger-integration (guest):', invokeEx);
+
+            // Ensure the integration log is queued for retries server-side
+            try {
+              await supabase.from('integration_logs').insert([{ event_type: 'order_created', status: 'queued', details: String(invokeEx), payload: { order_id: createdOrderId, guest_email: data.email } }]);
+              console.info('[CheckoutPage] queued integration_log for guest after invoke exception');
+            } catch (qlErr) {
+              console.error('[CheckoutPage] failed to insert fallback integration_log (guest):', qlErr);
+            }
           }
         })();
 

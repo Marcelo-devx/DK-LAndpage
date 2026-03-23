@@ -55,7 +55,15 @@ serve(async (req) => {
     }
 
     // 2. Autenticação (opcional para convidados)
-    const authHeader = req.headers.get('Authorization');
+    const authHeaderRaw = req.headers.get('Authorization') || req.headers.get('authorization');
+    console.log('[create-mercadopago-preference] Incoming Authorization header:', authHeaderRaw ? '[REDACTED]' : 'none');
+
+    // Normalize header: if token passed without 'Bearer ', add it
+    let authHeader: string | null = null;
+    if (authHeaderRaw) {
+      authHeader = authHeaderRaw.startsWith('Bearer ') ? authHeaderRaw : `Bearer ${authHeaderRaw}`;
+    }
+
     let userEmail: string | undefined;
     let isGuest = false;
 
@@ -66,12 +74,18 @@ serve(async (req) => {
         });
         const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
 
-        if (!userError && user && user.email) {
+        if (userError) {
+          // Log and continue - we will fallback to guest if possible
+          console.warn('[create-mercadopago-preference] supabase.auth.getUser returned an error:', userError.message || userError);
+        }
+
+        if (user && user.email) {
           userEmail = user.email;
           console.log('[create-mercadopago-preference] Usuário autenticado:', userEmail);
         }
-      } catch (e) {
-        console.warn('[create-mercadopago-preference] Erro na validação do token de sessão, prosseguindo como convidado se possível.');
+      } catch (e: any) {
+        // If auth request fails due to malformed header or similar, log and continue as guest when possible
+        console.warn('[create-mercadopago-preference] Erro na validação do token de sessão, prosseguindo como convidado se possível.', e?.message || e);
       }
     }
 
@@ -229,32 +243,50 @@ serve(async (req) => {
 
     console.log('[create-mercadopago-preference] Enviando requisição para Mercado Pago API...');
     
-    // 5. Chamada à API do Mercado Pago
-    const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${MP_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(preferencePayload),
-    }).catch((fetchErr) => {
-      console.error('[create-mercadopago-preference] Erro de rede ao chamar MP:', fetchErr);
+    // Helper para chamar a API do MP com um header Authorization dado
+    const callMp = async (authHeaderValue: string) => {
+      return await fetch('https://api.mercadopago.com/checkout/preferences', {
+        method: 'POST',
+        headers: {
+          'Authorization': authHeaderValue,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(preferencePayload),
+      });
+    };
+
+    // 5. Chamada à API do Mercado Pago (tenta com 'Bearer <token>' primeiro)
+    let mpResponse = await callMp(`Bearer ${MP_TOKEN}`).catch((fetchErr) => {
+      console.error('[create-mercadopago-preference] Erro de rede ao chamar MP (primeira tentativa):', fetchErr);
       throw new Error('Falha de conexão com o Mercado Pago.');
     });
 
-    const mpStatus = mpResponse.status;
+    let mpStatus = mpResponse.status;
     let mpData: any = {};
-    try {
-      mpData = await mpResponse.json();
-    } catch (e) {
-      console.warn('[create-mercadopago-preference] Resposta do MP não é JSON.');
+    try { mpData = await mpResponse.json(); } catch (e) { console.warn('[create-mercadopago-preference] Resposta do MP não é JSON.'); }
+
+    console.log('[create-mercadopago-preference] Status Resposta MP (primeira tentativa):', mpStatus);
+    console.log('[create-mercadopago-preference] Body Resposta MP (primeira tentativa):', JSON.stringify(mpData));
+
+    // If MP reported a missing Authorization header, try a safe fallback (no "Bearer " prefix or trimmed token)
+    const mpMissingAuth = (mpData && (mpData.message || '').toString().toLowerCase().includes('missing authorization')) || mpStatus === 401;
+    if (!mpResponse.ok && mpMissingAuth) {
+      console.warn('[create-mercadopago-preference] Mercado Pago respondeu faltando header de auth; tentando fallback sem prefixo Bearer (ou corrigindo token)');
+      // Try with raw token (in case the token already contained 'Bearer ' or MP expects no Bearer)
+      try {
+        const altToken = MP_TOKEN.replace(/^Bearer\s+/i, '');
+        mpResponse = await callMp(altToken);
+        mpStatus = mpResponse.status;
+        try { mpData = await mpResponse.json(); } catch (e) { mpData = {}; }
+        console.log('[create-mercadopago-preference] Status Resposta MP (fallback):', mpStatus);
+        console.log('[create-mercadopago-preference] Body Resposta MP (fallback):', JSON.stringify(mpData));
+      } catch (altErr) {
+        console.error('[create-mercadopago-preference] Fallback para chamada MP falhou:', altErr);
+      }
     }
 
-    console.log('[create-mercadopago-preference] Status Resposta MP:', mpStatus);
-    console.log('[create-mercadopago-preference] Body Resposta MP:', JSON.stringify(mpData));
-
     if (!mpResponse.ok) {
-      console.error('[create-mercadopago-preference] Mercado Pago retornou erro:', mpData);
+      console.error('[create-mercadopago-preference] Mercado Pago retornou erro (final):', mpData);
 
       // Attempt to log this failure to integration_logs using service role client
       try {

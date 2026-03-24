@@ -86,10 +86,19 @@ const CheckoutPage = () => {
   const [isFreeShippingApplied, setIsFreeShippingApplied] = useState(false);
   const [donationAmount, setDonationAmount] = useState<number>(0);
   const [tierName, setTierName] = useState<string>('');
+
+  // ADDED: missing state variables required by the component
+  const [isAddressComplete, setIsAddressComplete] = useState<boolean>(false);
+
+  // Tier benefits come from profile.loyalty_tiers.benefits (array of strings)
   const [tierBenefits, setTierBenefits] = useState<string[]>([]);
+
+  // Recent orders used for benefit calculations (created_at and benefits_used expected)
+  type RecentOrder = { created_at: string; benefits_used?: string | null };
+  const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
+
+  // Selected optional benefits (e.g. free shipping) that the user can toggle
   const [selectedBenefits, setSelectedBenefits] = useState<string[]>([]);
-  const [isAddressComplete, setIsAddressComplete] = useState(false);
-  const [recentOrders, setRecentOrders] = useState<any[]>([]);
 
   const isMountedRef = useRef(true);
 
@@ -328,36 +337,23 @@ const CheckoutPage = () => {
               console.warn('[CheckoutPage] failed to queue integration_log before invoke:', qlErr);
             }
 
-            const { data: { session } } = await supabase.auth.getSession();
-            const authToken = session?.access_token;
-            const invokeOptions: any = { body: { event_type: 'order_created', payload: { order_id: createdOrderId } } };
-            if (authToken) invokeOptions.headers = { Authorization: `Bearer ${authToken}` };
-
-            const { data: invokeData, error: invokeError } = await supabase.functions.invoke('trigger-integration', invokeOptions);
-            if (invokeError) {
-              console.error('[CheckoutPage] trigger-integration invoke error:', invokeError);
-
-              // Update log to queued/error so a server-side worker can retry
-              try {
-                if (logId) {
-                  await supabase.from('integration_logs').update({ status: 'queued', details: String(invokeError) }).eq('id', logId);
-                  console.info('[CheckoutPage] updated integration_log to queued', logId);
-                }
-              } catch (qlErr) {
-                console.error('[CheckoutPage] failed to update integration_log after invoke error:', qlErr);
-              }
-            } else {
-              console.info('[CheckoutPage] trigger-integration invoked:', invokeData);
-              try {
-                if (logId) {
-                  await supabase.from('integration_logs').update({ status: 'sent', details: `Invoked from client` }).eq('id', logId);
-                }
-              } catch (qlErr) {
-                console.warn('[CheckoutPage] failed to mark integration_log as sent:', qlErr);
-              }
+            // NOTE: Removed direct client invocation of the Edge Function (trigger-integration)
+            // to avoid CORS preflight 403 from browser. The DB trigger will dispatch the webhook
+            // server-side; here we simply mark a queued integration log so server-side workers can retry.
+            try {
+              await supabase.from('integration_logs').insert([{
+                event_type: 'order_created',
+                status: 'queued',
+                details: 'Queued from client (no direct invoke) for server-side dispatch',
+                payload: { order_id: createdOrderId }
+              }]);
+              console.info('[CheckoutPage] queued integration_log for server dispatch', createdOrderId);
+            } catch (qlErr) {
+              console.warn('[CheckoutPage] failed to insert queued integration_log:', qlErr);
             }
+
           } catch (invokeEx) {
-            console.error('[CheckoutPage] error invoking trigger-integration:', invokeEx);
+            console.error('[CheckoutPage] error preparing integration log:', invokeEx);
 
             // FALLBACK: persist an integration log so server-side can retry
             try {
@@ -396,10 +392,15 @@ const CheckoutPage = () => {
 
         (async () => {
           try {
-            const invokeOptions: any = { body: { event_type: 'order_created', payload: { order_id: createdOrderId, guest_email: data.email } } };
-            const { data: invokeData, error: invokeError } = await supabase.functions.invoke('trigger-integration', invokeOptions);
-            if (invokeError) console.error('[CheckoutPage] trigger-integration invoke error (guest):', invokeError);
-            else console.info('[CheckoutPage] trigger-integration invoked (guest):', invokeData);
+            // NOTE: Removed direct client invocation of the Edge Function to avoid CORS.
+            // Instead, queue a server-side integration_log for background dispatch.
+            await supabase.from('integration_logs').insert([{
+              event_type: 'order_created',
+              status: 'queued',
+              details: 'Guest order queued from client (no direct invoke)',
+              payload: { order_id: createdOrderId, guest_email: data.email }
+            }]);
+            console.info('[CheckoutPage] queued integration_log (guest) for server dispatch', createdOrderId);
           } catch (invokeEx) {
             console.error('[CheckoutPage] error invoking trigger-integration (guest):', invokeEx);
 

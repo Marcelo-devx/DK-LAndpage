@@ -311,10 +311,64 @@ const CheckoutPage = () => {
         dismissToast(toastId);
         clearLocalCart();
 
-        // REMOVIDO: Não chamar trigger-integration manualmente para PIX
-        // O trigger 'trigger_order_status_change_webhook' no banco vai disparar automaticamente
-        // quando o pagamento for confirmado (via finalize_order_payment)
-        
+        (async () => {
+          try {
+            // Persist a sending log before attempting to invoke so we can always retry server-side
+            let logId: number | null = null;
+            try {
+              const { data: inserted } = await supabase.from('integration_logs').insert([{
+                event_type: 'order_created',
+                status: 'sending',
+                details: 'Queued from client before invoking trigger-integration',
+                payload: { order_id: createdOrderId }
+              }]).select('id').limit(1).single();
+              logId = inserted?.id ?? null;
+              console.info('[CheckoutPage] queued integration_log id', logId);
+            } catch (qlErr) {
+              console.warn('[CheckoutPage] failed to queue integration_log before invoke:', qlErr);
+            }
+
+            const { data: { session } } = await supabase.auth.getSession();
+            const authToken = session?.access_token;
+            const invokeOptions: any = { body: { event_type: 'order_created', payload: { order_id: createdOrderId } } };
+            if (authToken) invokeOptions.headers = { Authorization: `Bearer ${authToken}` };
+
+            const { data: invokeData, error: invokeError } = await supabase.functions.invoke('trigger-integration', invokeOptions);
+            if (invokeError) {
+              console.error('[CheckoutPage] trigger-integration invoke error:', invokeError);
+
+              // Update log to queued/error so a server-side worker can retry
+              try {
+                if (logId) {
+                  await supabase.from('integration_logs').update({ status: 'queued', details: String(invokeError) }).eq('id', logId);
+                  console.info('[CheckoutPage] updated integration_log to queued', logId);
+                }
+              } catch (qlErr) {
+                console.error('[CheckoutPage] failed to update integration_log after invoke error:', qlErr);
+              }
+            } else {
+              console.info('[CheckoutPage] trigger-integration invoked:', invokeData);
+              try {
+                if (logId) {
+                  await supabase.from('integration_logs').update({ status: 'sent', details: `Invoked from client` }).eq('id', logId);
+                }
+              } catch (qlErr) {
+                console.warn('[CheckoutPage] failed to mark integration_log as sent:', qlErr);
+              }
+            }
+          } catch (invokeEx) {
+            console.error('[CheckoutPage] error invoking trigger-integration:', invokeEx);
+
+            // FALLBACK: persist an integration log so server-side can retry
+            try {
+              await supabase.from('integration_logs').insert([{ event_type: 'order_created', status: 'queued', details: String(invokeEx), payload: { order_id: createdOrderId } }]);
+              console.info('[CheckoutPage] fallback: queued integration_log after exception');
+            } catch (qlErr) {
+              console.error('[CheckoutPage] failed to insert fallback integration_log after exception:', qlErr);
+            }
+          }
+        })();
+
         if (isMountedRef.current) navigate(`/confirmacao-pedido/${createdOrderId}`);
       } else {
         // Convidado - usa a nova função
@@ -340,10 +394,25 @@ const CheckoutPage = () => {
         dismissToast(toastId);
         clearLocalCart();
 
-        // REMOVIDO: Não chamar trigger-integration manualmente para PIX
-        // O trigger 'trigger_order_status_change_webhook' no banco vai disparar automaticamente
-        // quando o pagamento for confirmado (via finalize_order_payment)
-        
+        (async () => {
+          try {
+            const invokeOptions: any = { body: { event_type: 'order_created', payload: { order_id: createdOrderId, guest_email: data.email } } };
+            const { data: invokeData, error: invokeError } = await supabase.functions.invoke('trigger-integration', invokeOptions);
+            if (invokeError) console.error('[CheckoutPage] trigger-integration invoke error (guest):', invokeError);
+            else console.info('[CheckoutPage] trigger-integration invoked (guest):', invokeData);
+          } catch (invokeEx) {
+            console.error('[CheckoutPage] error invoking trigger-integration (guest):', invokeEx);
+
+            // Ensure the integration log is queued for retries server-side
+            try {
+              await supabase.from('integration_logs').insert([{ event_type: 'order_created', status: 'queued', details: String(invokeEx), payload: { order_id: createdOrderId, guest_email: data.email } }]);
+              console.info('[CheckoutPage] queued integration_log for guest after invoke exception');
+            } catch (qlErr) {
+              console.error('[CheckoutPage] failed to insert fallback integration_log (guest):', qlErr);
+            }
+          }
+        })();
+
         if (isMountedRef.current) navigate(`/confirmacao-pedido/${createdOrderId}`);
       }
     } catch (e: any) {

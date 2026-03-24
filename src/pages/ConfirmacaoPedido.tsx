@@ -169,6 +169,7 @@ const ConfirmacaoPedido = () => {
         <p className="text-sm text-stone-500 mb-6">{errorMessage}</p>
         <div className="flex items-center justify-center gap-3">
           <Button onClick={fetchOrderDetails} className="bg-sky-500 hover:bg-sky-400 text-white">Tentar novamente</Button>
+          <Button onClick={handleForceCheckPayment} variant="outline" disabled={isCheckingPayment}>{isCheckingPayment ? 'Verificando...' : 'Verificar pagamento agora'}</Button>
         </div>
       </div>
     );

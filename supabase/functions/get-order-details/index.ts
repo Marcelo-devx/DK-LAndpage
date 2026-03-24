@@ -24,7 +24,6 @@ serve(async (req) => {
       })
     }
 
-    // Usa Service Role para garantir acesso a todos os dados se necessário
     const supabaseClient = createClient(
       // @ts-ignore
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -32,41 +31,63 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Busca o pedido com os perfis e itens relacionados
-    // Agora funcionará graças à correção do relacionamento
-    const { data, error } = await supabaseClient
-      .from('orders')
-      .select(`
-        *,
-        profiles (
-          first_name,
-          last_name,
-          email: id, 
-          phone,
-          cpf_cnpj
-        ),
-        order_items (*)
-      `)
-      .eq('id', orderId)
-      .single()
+    // SOLUÇÃO: Fazer o JOIN manual via SQL em vez de usar o select aninhado
+    const { data: orderData, error: orderError } = await supabaseClient
+      .rpc('get_order_details_with_profile', { p_order_id: orderId })
 
-    if (error) {
-      console.error("Erro ao buscar pedido:", error);
-      return new Response(JSON.stringify({ error: error.message }), {
+    if (orderError) {
+      console.error("Erro ao buscar pedido:", orderError);
+      
+      // FALLBACK: Se a função RPC não existe, buscar separadamente
+      const { data: order } = await supabaseClient
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single()
+      
+      if (!order) {
+        return new Response(JSON.stringify({ error: 'Pedido não encontrado.' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 404,
+        })
+      }
+      
+      // Buscar perfil separadamente se user_id existir
+      let profile = null
+      if (order.user_id) {
+        const { data: profileData } = await supabaseClient
+          .from('profiles')
+          .select('first_name, last_name, email: id, phone, cpf_cnpj')
+          .eq('id', order.user_id)
+          .single()
+        profile = profileData
+      }
+      
+      // Buscar itens do pedido
+      const { data: items } = await supabaseClient
+        .from('order_items')
+        .select('*')
+        .eq('order_id', orderId)
+      
+      const response = {
+        ...order,
+        profiles: profile ? [profile] : [],
+        order_items: items || []
+      }
+      
+      return new Response(JSON.stringify(response), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
+        status: 200,
       })
     }
 
-    // Formatação extra se necessário (ex: pegar email real de auth se profiles não tiver)
-    // Opcional: Buscar email da tabela auth se precisar, mas profiles deve ter dados suficientes
-
-    return new Response(JSON.stringify(data), {
+    return new Response(JSON.stringify(orderData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     })
 
   } catch (error) {
+    console.error("Erro inesperado:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,

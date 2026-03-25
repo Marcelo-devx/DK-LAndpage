@@ -305,6 +305,9 @@ const AdminCustomizer = () => {
                 <TabsTrigger value="categories" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-emerald-600 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider">
                   <Package className="h-3.5 w-3.5" /> Categorias
                 </TabsTrigger>
+                <TabsTrigger value="footer" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-sky-500 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider">
+                  <Save className="h-3.5 w-3.5" /> Footer
+                </TabsTrigger>
                 <TabsTrigger value="home" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-sky-500 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><Home className="h-3.5 w-3.5" /> Home</TabsTrigger>
                 <TabsTrigger value="login" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-indigo-500 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><LogIn className="h-3.5 w-3.5" /> Login</TabsTrigger>
               </TabsList>
@@ -468,6 +471,50 @@ const AdminCustomizer = () => {
                             </pre>
                         </div>
                     </div>
+                </div>
+              </TabsContent>
+
+              {/* --- ABA FOOTER --- */}
+              <TabsContent value="footer" className="space-y-6 mt-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Save className="h-5 w-5 text-emerald-600" />
+                    <h3 className="font-bold text-emerald-900 text-sm">Configurações do Rodapé</h3>
+                  </div>
+                  <p className="text-xs text-emerald-700 font-medium">
+                    Edite os contatos e links sociais exibidos no rodapé do site.
+                  </p>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-4">
+                  <div>
+                    <Label className="text-xs text-slate-500 mb-1">E-mail de Contato</Label>
+                    <Input value={settings.contactEmail} onChange={(e) => updateSetting('contact_email', e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-500 mb-1">Telefone</Label>
+                    <Input value={settings.contactPhone} onChange={(e) => updateSetting('contact_phone', e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-500 mb-1">Horário de Atendimento</Label>
+                    <Input value={settings.contactHours} onChange={(e) => updateSetting('contact_hours', e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-500 mb-1">Facebook (URL)</Label>
+                    <Input value={settings.socialFacebook} onChange={(e) => updateSetting('social_facebook', e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-500 mb-1">Instagram (URL)</Label>
+                    <Input value={settings.socialInstagram} onChange={(e) => updateSetting('social_instagram', e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-500 mb-1">Twitter (URL)</Label>
+                    <Input value={settings.socialTwitter} onChange={(e) => updateSetting('social_twitter', e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-500 mb-1">URL do Logo (opcional)</Label>
+                    <Input value={settings.logoUrl || ''} onChange={(e) => updateSetting('logo_url', e.target.value)} />
+                  </div>
                 </div>
               </TabsContent>
 

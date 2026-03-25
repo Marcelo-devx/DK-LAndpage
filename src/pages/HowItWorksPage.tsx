@@ -168,7 +168,7 @@ const HowItWorksPage = () => {
               <div className="relative group rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl aspect-[4/3] rotate-[-2deg] hover:rotate-0 transition-all duration-500">
                 <img 
                   src="https://jrlozhhvwqfmjtkmvukf.supabase.co/storage/v1/object/public/site_assets/WhatsApp%20Image%202026-03-25%20at%2020.13.27.jpeg" 
-                  alt="Clube Don DK" 
+                  alt="" 
                   className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-1000" 
                 />
               </div>
@@ -178,7 +178,7 @@ const HowItWorksPage = () => {
               <div className="relative group rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl aspect-[4/3] rotate-[2deg] hover:rotate-0 transition-all duration-500">
                 <img 
                   src="https://jrlozhhvwqfmjtkmvukf.supabase.co/storage/v1/object/public/site_assets/WhatsApp%20Image%202026-03-25%20at%2020.13.28.jpeg" 
-                  alt="Níveis DK" 
+                  alt="" 
                   className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-1000" 
                 />
               </div>

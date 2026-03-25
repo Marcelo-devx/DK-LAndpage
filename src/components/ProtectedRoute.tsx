@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
-
-const TERMS_VERSION = "1.0";
+import InformationalPopup from '@/components/InformationalPopup';
+import { TERMS_CONTENT, TERMS_VERSION } from '../data/terms';
 
 const ProtectedRoute = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [needsTerms, setNeedsTerms] = useState(false);
+  const [isTermsOpen, setIsTermsOpen] = useState(false);
 
   useEffect(() => {
     const checkTerms = async () => {
@@ -62,6 +63,7 @@ const ProtectedRoute = () => {
   // Se precisa aceitar os termos, mostra modal de aceitação
   if (needsTerms) {
     return (
+      <>
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
         <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
           <div className="p-8 space-y-6 overflow-y-auto max-h-[80vh]">
@@ -86,24 +88,14 @@ const ProtectedRoute = () => {
 
               <div className="space-y-2">
                 <h3 className="font-black uppercase tracking-tight">Termos de Uso</h3>
-                <p>
+                <p className="text-sm text-slate-600">
                   A Loja DK CWB se compromete com a segurança de seus dados. Mantemos suas informações 
                   no mais absoluto sigilo! Todos os dados cadastrados (nome, endereço, CPF) nunca serão 
                   comercializados ou trocados.
                 </p>
-                <p>
+                <p className="text-sm text-slate-600">
                   Utilizamos cookies e informações de sua navegação com o objetivo de traçar um perfil 
                   do público que visita o site, conforme regulamentado pela Lei Geral de Proteção de Dados (LGPD).
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="font-black uppercase tracking-tight">Política de Privacidade</h3>
-                <p>
-                  Seus dados pessoais são fundamentais para que seu pedido chegue em segurança. Alguns dados, 
-                  necessários para que empresas de logística e meios de pagamento possam realizar a cobrança 
-                  e envio de seu pedido, serão divulgados para terceiros, quando tais informações forem 
-                  necessárias para o processo de entrega e cobrança.
                 </p>
               </div>
             </div>
@@ -131,6 +123,13 @@ const ProtectedRoute = () => {
               </button>
               
               <button
+                onClick={() => setIsTermsOpen(true)}
+                className="w-full h-12 bg-white border border-stone-100 hover:bg-stone-50 text-slate-700 font-bold uppercase text-xs tracking-widest rounded-2xl transition-all"
+              >
+                Ver termos completos
+              </button>
+
+              <button
                 onClick={() => supabase.auth.signOut()}
                 className="w-full h-12 bg-stone-100 hover:bg-stone-200 text-slate-600 font-bold uppercase text-xs tracking-widest rounded-2xl transition-all"
               >
@@ -140,6 +139,30 @@ const ProtectedRoute = () => {
           </div>
         </div>
       </div>
+
+      <InformationalPopup
+        isOpen={isTermsOpen}
+        onClose={() => setIsTermsOpen(false)}
+        title="Termo de Uso e Responsabilidade"
+        content={TERMS_CONTENT}
+        onAccept={async () => {
+          try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+              await supabase.from('profiles').update({
+                accepted_terms_version: TERMS_VERSION,
+                accepted_terms_at: new Date().toISOString()
+              }).eq('id', user.id);
+              setNeedsTerms(false);
+            }
+          } catch (err) {
+            console.error('[ProtectedRoute] erro ao aceitar termos via popup', err);
+          } finally {
+            setIsTermsOpen(false);
+          }
+        }}
+      />
+      </>
     );
   }
 

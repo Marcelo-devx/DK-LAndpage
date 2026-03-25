@@ -320,11 +320,11 @@ const HowItWorksPage = () => {
         {/* Contêiner da Imagem com Movimento Parallax */}
         <motion.div 
             style={{ y }}
-            className="absolute inset-0 w-full h-[140%] -top-[20%]" // A imagem é mais alta que o contêiner para permitir o movimento
+            className="absolute inset-0 w-full h-[140%] -top-[20%]"
         >
             <img 
-            src="https://jrlozhhvwqfmjtkmvukf.supabase.co/storage/v1/object/public/site_assets/clube_dk_cta_banner.jpg" 
-            alt="Clube DK Banner" 
+            src="https://jrlozhhvwqfmjtkmvukf.supabase.co/storage/v1/object/public/site_assets/WhatsApp%20Image%202026-03-25%20at%2020.13.28.jpeg" 
+            alt="Cada compra te leva para um nível mais alto" 
             className="w-full h-full object-cover object-center grayscale-[0.2] contrast-[1.1]"
             />
         </motion.div>

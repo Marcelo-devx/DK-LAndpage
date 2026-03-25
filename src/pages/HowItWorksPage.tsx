@@ -167,7 +167,7 @@ const HowItWorksPage = () => {
             <ScrollAnimationWrapper className="w-full">
               <div className="relative group rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl aspect-[4/3] rotate-[-2deg] hover:rotate-0 transition-all duration-500">
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10" />
-                <img src="https://jrlozhhvwqfmjtkmvukf.supabase.co/storage/v1/object/public/site_assets/card_exclusividade_esquerda.jpg" alt="Clube DK Lifestyle" className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-1000" />
+                <img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop" alt="Clube DK Lifestyle" className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-1000" />
                 <div className="absolute bottom-0 left-0 p-8 z-20 text-left">
                   <div className="bg-sky-500/20 backdrop-blur-md border border-sky-500/30 p-3 rounded-xl inline-block mb-3"><Star className="h-6 w-6 text-sky-400" /></div>
                   <h3 className="text-2xl font-black italic uppercase tracking-tighter text-white mb-1">Exclusividade</h3>
@@ -178,7 +178,7 @@ const HowItWorksPage = () => {
             <ScrollAnimationWrapper className="w-full md:mt-24">
               <div className="relative group rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl aspect-[4/3] rotate-[2deg] hover:rotate-0 transition-all duration-500">
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10" />
-                <img src="https://jrlozhhvwqfmjtkmvukf.supabase.co/storage/v1/object/public/site_assets/card_recompensas_direita.jpg" alt="Clube DK Produtos" className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-1000" />
+                <img src="https://images.unsplash.com/photo-1520697517384-29928247471f?q=80&w=2670&auto=format&fit=crop" alt="Clube DK Produtos" className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-1000" />
                 <div className="absolute bottom-0 left-0 p-8 z-20 text-left">
                   <div className="bg-indigo-500/20 backdrop-blur-md border border-indigo-500/30 p-3 rounded-xl inline-block mb-3"><Gift className="h-6 w-6 text-indigo-400" /></div>
                   <h3 className="text-2xl font-black italic uppercase tracking-tighter text-white mb-1">Recompensas</h3>
@@ -211,40 +211,6 @@ const HowItWorksPage = () => {
               ))}
             </div>
           </ScrollAnimationWrapper>
-        </div>
-      </section>
-
-      {/* SEÇÃO DE FOTOS GRANDES - SEM TEXTO */}
-      <section className="py-24 bg-white relative overflow-hidden">
-        <div className="container mx-auto px-6">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-5xl font-black uppercase tracking-widest text-slate-900">Experiência</h2>
-            <div className="h-1 w-24 bg-slate-900 mx-auto mt-4" />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
-            <ScrollAnimationWrapper>
-              <div className="relative rounded-[2rem] overflow-hidden shadow-2xl aspect-[4/3] group cursor-pointer">
-                <img 
-                  src="https://images.unsplash.com/photo-1506157786151-b8491531f063?q=80&w=2670&auto=format&fit=crop" 
-                  alt="Experiência DKCWB 1" 
-                  className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-1000"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              </div>
-            </ScrollAnimationWrapper>
-
-            <ScrollAnimationWrapper>
-              <div className="relative rounded-[2rem] overflow-hidden shadow-2xl aspect-[4/3] group cursor-pointer">
-                <img 
-                  src="https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=2670&auto=format&fit=crop" 
-                  alt="Experiência DKCWB 2" 
-                  className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-1000"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              </div>
-            </ScrollAnimationWrapper>
-          </div>
         </div>
       </section>
 

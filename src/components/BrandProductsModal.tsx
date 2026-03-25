@@ -116,8 +116,8 @@ const BrandProductsModal = ({ brandName, isOpen, onOpenChange }: BrandProductsMo
             </div>
           ) : products.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {products.map((product: any) => (
-                <ProductCard key={product.id} product={{
+              {products.map((product: any, idx: number) => (
+                <ProductCard key={`${product.id}-${idx}`} product={{
                   id: product.id,
                   name: product.name,
                   price: product.price,

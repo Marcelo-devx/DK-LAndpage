@@ -166,24 +166,21 @@ const HowItWorksPage = () => {
           <div className="mt-20 w-full grid grid-cols-1 md:grid-cols-2 gap-8 items-center max-w-6xl">
             <ScrollAnimationWrapper className="w-full">
               <div className="relative group rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl aspect-[4/3] rotate-[-2deg] hover:rotate-0 transition-all duration-500">
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10" />
-                <img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop" alt="Clube DK Lifestyle" className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-1000" />
-                <div className="absolute bottom-0 left-0 p-8 z-20 text-left">
-                  <div className="bg-sky-500/20 backdrop-blur-md border border-sky-500/30 p-3 rounded-xl inline-block mb-3"><Star className="h-6 w-6 text-sky-400" /></div>
-                  <h3 className="text-2xl font-black italic uppercase tracking-tighter text-white mb-1">Exclusividade</h3>
-                  <p className="text-sm text-slate-300 font-medium">Produtos que só membros têm acesso.</p>
-                </div>
+                <img 
+                  src="https://jrlozhhvwqfmjtkmvukf.supabase.co/storage/v1/object/public/site_assets/WhatsApp%20Image%202026-03-25%20at%2020.13.27.jpeg" 
+                  alt="Clube Don DK" 
+                  className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-1000" 
+                />
               </div>
             </ScrollAnimationWrapper>
-            <ScrollAnimationWrapper className="w-full md:mt-24">
+
+            <ScrollAnimationWrapper className="w-full">
               <div className="relative group rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl aspect-[4/3] rotate-[2deg] hover:rotate-0 transition-all duration-500">
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10" />
-                <img src="https://images.unsplash.com/photo-1520697517384-29928247471f?q=80&w=2670&auto=format&fit=crop" alt="Clube DK Produtos" className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-1000" />
-                <div className="absolute bottom-0 left-0 p-8 z-20 text-left">
-                  <div className="bg-indigo-500/20 backdrop-blur-md border border-indigo-500/30 p-3 rounded-xl inline-block mb-3"><Gift className="h-6 w-6 text-indigo-400" /></div>
-                  <h3 className="text-2xl font-black italic uppercase tracking-tighter text-white mb-1">Recompensas</h3>
-                  <p className="text-sm text-slate-300 font-medium">Troque seus pontos por itens premium.</p>
-                </div>
+                <img 
+                  src="https://jrlozhhvwqfmjtkmvukf.supabase.co/storage/v1/object/public/site_assets/WhatsApp%20Image%202026-03-25%20at%2020.13.28.jpeg" 
+                  alt="Níveis DK" 
+                  className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-1000" 
+                />
               </div>
             </ScrollAnimationWrapper>
           </div>

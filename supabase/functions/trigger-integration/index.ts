@@ -149,6 +149,14 @@ serve(async (req) => {
       console.error('[trigger-integration] error enriching payload', enrichErr)
     }
 
+    // Fetch n8n integration token from app_settings
+    const { data: settings } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'n8n_integration_token')
+      .single()
+    const n8nToken = settings?.value
+
     // Fetch active webhook targets for this event (include auth fields)
     console.log('[trigger-integration] fetching webhook configs for', eventType)
     const { data: configs, error: configsErr } = await supabase.from('webhook_configs').select('id, trigger_event, target_url, is_active, api_key_header_name, api_key_value, additional_headers').eq('trigger_event', eventType).eq('is_active', true)
@@ -168,12 +176,17 @@ serve(async (req) => {
     const results = await Promise.allSettled(configs.map(async (cfg: any) => {
       const url = cfg.target_url
 
-      // Build headers: start with Content-Type, add auth key if configured, add additional headers
+      // Build headers: start with Content-Type
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       }
 
-      // Add API key header if configured (auth for n8n)
+      // Add n8n API key header if token is available from app_settings
+      if (n8nToken) {
+        headers['apikey'] = n8nToken
+      }
+
+      // Add custom API key from webhook_config if configured
       if (cfg.api_key_header_name && cfg.api_key_value) {
         headers[cfg.api_key_header_name] = cfg.api_key_value
       }
@@ -191,7 +204,7 @@ serve(async (req) => {
       const bodyToSend = JSON.stringify(payload && payload.event ? payload : { event: eventType, timestamp: new Date().toISOString(), data: payload })
 
       try {
-        console.log('[trigger-integration] dispatching to', url, 'with body preview:', { eventType, previewId: payload?.data?.id ?? payload?.order_id ?? null, hasAuth: !!cfg.api_key_value })
+        console.log('[trigger-integration] dispatching to', url, 'with body preview:', { eventType, previewId: payload?.data?.id ?? payload?.order_id ?? null, hasN8nToken: !!n8nToken })
         console.log('[trigger-integration] headers being sent:', { headersCount: Object.keys(headers).length, headerNames: Object.keys(headers) })
         const resp = await fetch(url, {
           method: 'POST',

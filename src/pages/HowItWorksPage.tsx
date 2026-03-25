@@ -312,10 +312,10 @@ const HowItWorksPage = () => {
         </div>
       </section>
 
-      {/* BANNER FINAL COM EFEITO PARALLAX */}
+      {/* BANNER FINAL QUE PREENCHE O ESPAÇO ANTES DO FOOTER */}
       <section 
         ref={parallaxRef}
-        className="relative w-full h-[400px] md:h-[650px] overflow-hidden bg-black flex items-center justify-center border-t border-white/5"
+        className="relative w-full h-[450px] md:h-[600px] overflow-hidden bg-black flex items-center justify-center"
       >
         {/* Contêiner da Imagem com Movimento Parallax */}
         <motion.div 
@@ -325,13 +325,13 @@ const HowItWorksPage = () => {
             <img 
             src="https://jrlozhhvwqfmjtkmvukf.supabase.co/storage/v1/object/public/site_assets/WhatsApp%20Image%202026-03-25%20at%2020.13.28.jpeg" 
             alt="Cada compra te leva para um nível mais alto" 
-            className="w-full h-full object-cover object-center grayscale-[0.2] contrast-[1.1]"
+            className="w-full h-full object-cover object-center contrast-[1.1]"
             />
         </motion.div>
         
-        {/* Overlays para transição e foco */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/40 opacity-60" />
-        <div className="absolute inset-0 bg-sky-500/5 mix-blend-overlay pointer-events-none" />
+        {/* Overlays para suavizar a transição com as seções vizinhas */}
+        <div className="absolute inset-0 bg-gradient-to-b from-white via-transparent to-transparent h-32 opacity-100" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent h-32 opacity-100" />
       </section>
 
     </div>

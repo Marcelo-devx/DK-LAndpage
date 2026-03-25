@@ -214,6 +214,40 @@ const HowItWorksPage = () => {
         </div>
       </section>
 
+      {/* SEÇÃO DE FOTOS GRANDES - SEM TEXTO */}
+      <section className="py-24 bg-white relative overflow-hidden">
+        <div className="container mx-auto px-6">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-5xl font-black uppercase tracking-widest text-slate-900">Experiência</h2>
+            <div className="h-1 w-24 bg-slate-900 mx-auto mt-4" />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
+            <ScrollAnimationWrapper>
+              <div className="relative rounded-[2rem] overflow-hidden shadow-2xl aspect-[4/3] group cursor-pointer">
+                <img 
+                  src="https://images.unsplash.com/photo-1506157786151-b8491531f063?q=80&w=2670&auto=format&fit=crop" 
+                  alt="Experiência DKCWB 1" 
+                  className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-1000"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              </div>
+            </ScrollAnimationWrapper>
+
+            <ScrollAnimationWrapper>
+              <div className="relative rounded-[2rem] overflow-hidden shadow-2xl aspect-[4/3] group cursor-pointer">
+                <img 
+                  src="https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=2670&auto=format&fit=crop" 
+                  alt="Experiência DKCWB 2" 
+                  className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-1000"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              </div>
+            </ScrollAnimationWrapper>
+          </div>
+        </div>
+      </section>
+
       {/* JORNADA DE EXCLUSIVIDADE */}
       <section className="py-24 bg-[#0a0f18] relative">
         <div className="container mx-auto px-6">

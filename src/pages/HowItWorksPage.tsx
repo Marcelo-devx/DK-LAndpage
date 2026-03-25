@@ -312,28 +312,6 @@ const HowItWorksPage = () => {
         </div>
       </section>
 
-      {/* BANNER FINAL QUE PREENCHE O ESPAÇO ANTES DO FOOTER */}
-      <section 
-        ref={parallaxRef}
-        className="relative w-full h-[450px] md:h-[600px] overflow-hidden bg-black flex items-center justify-center"
-      >
-        {/* Contêiner da Imagem com Movimento Parallax */}
-        <motion.div 
-            style={{ y }}
-            className="absolute inset-0 w-full h-[140%] -top-[20%]"
-        >
-            <img 
-            src="https://jrlozhhvwqfmjtkmvukf.supabase.co/storage/v1/object/public/site_assets/WhatsApp%20Image%202026-03-25%20at%2020.13.28.jpeg" 
-            alt="Cada compra te leva para um nível mais alto" 
-            className="w-full h-full object-cover object-center contrast-[1.1]"
-            />
-        </motion.div>
-        
-        {/* Overlays para suavizar a transição com as seções vizinhas */}
-        <div className="absolute inset-0 bg-gradient-to-b from-white via-transparent to-transparent h-32 opacity-100" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent h-32 opacity-100" />
-      </section>
-
     </div>
   );
 };

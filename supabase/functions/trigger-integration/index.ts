@@ -149,9 +149,9 @@ serve(async (req) => {
       console.error('[trigger-integration] error enriching payload', enrichErr)
     }
 
-    // Fetch active webhook targets for this event
+    // Fetch active webhook targets for this event (include auth fields)
     console.log('[trigger-integration] fetching webhook configs for', eventType)
-    const { data: configs, error: configsErr } = await supabase.from('webhook_configs').select('id, trigger_event, target_url, is_active').eq('trigger_event', eventType).eq('is_active', true)
+    const { data: configs, error: configsErr } = await supabase.from('webhook_configs').select('id, trigger_event, target_url, is_active, api_key_header_name, api_key_value, additional_headers').eq('trigger_event', eventType).eq('is_active', true)
     if (configsErr) {
       console.error('[trigger-integration] error fetching webhook_configs', { error: configsErr })
       return new Response(JSON.stringify({ error: 'Failed to load webhook configs' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
@@ -168,14 +168,34 @@ serve(async (req) => {
     const results = await Promise.allSettled(configs.map(async (cfg: any) => {
       const url = cfg.target_url
 
+      // Build headers: start with Content-Type, add auth key if configured, add additional headers
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+
+      // Add API key header if configured (auth for n8n)
+      if (cfg.api_key_header_name && cfg.api_key_value) {
+        headers[cfg.api_key_header_name] = cfg.api_key_value
+      }
+
+      // Add any additional headers from the config
+      if (cfg.additional_headers) {
+        Object.entries(cfg.additional_headers).forEach(([key, value]) => {
+          if (key && typeof value === 'string') {
+            headers[key] = value
+          }
+        })
+      }
+
       // Build the exact body to send: if we've already constructed outgoing payload (for orders), send that, otherwise wrap generic
       const bodyToSend = JSON.stringify(payload && payload.event ? payload : { event: eventType, timestamp: new Date().toISOString(), data: payload })
 
       try {
-        console.log('[trigger-integration] dispatching to', url, 'with body preview:', { eventType, previewId: payload?.data?.id ?? payload?.order_id ?? null })
+        console.log('[trigger-integration] dispatching to', url, 'with body preview:', { eventType, previewId: payload?.data?.id ?? payload?.order_id ?? null, hasAuth: !!cfg.api_key_value })
+        console.log('[trigger-integration] headers being sent:', { headersCount: Object.keys(headers).length, headerNames: Object.keys(headers) })
         const resp = await fetch(url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: headers,
           body: bodyToSend,
           signal: AbortSignal.timeout(10000)
         })

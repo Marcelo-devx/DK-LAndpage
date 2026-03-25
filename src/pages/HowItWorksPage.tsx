@@ -161,29 +161,6 @@ const HowItWorksPage = () => {
               <Link to="/login">Já sou membro</Link>
             </Button>
           </div>
-
-          {/* GALERIA DE IMAGENS */}
-          <div className="mt-20 w-full grid grid-cols-1 md:grid-cols-2 gap-8 items-center max-w-6xl">
-            <ScrollAnimationWrapper className="w-full">
-              <div className="relative group rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl aspect-[4/3] rotate-[-2deg] hover:rotate-0 transition-all duration-500">
-                <img 
-                  src="https://jrlozhhvwqfmjtkmvukf.supabase.co/storage/v1/object/public/site_assets/WhatsApp%20Image%202026-03-25%20at%2020.13.27.jpeg" 
-                  alt="" 
-                  className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-1000" 
-                />
-              </div>
-            </ScrollAnimationWrapper>
-
-            <ScrollAnimationWrapper className="w-full">
-              <div className="relative group rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl aspect-[4/3] rotate-[2deg] hover:rotate-0 transition-all duration-500">
-                <img 
-                  src="https://jrlozhhvwqfmjtkmvukf.supabase.co/storage/v1/object/public/site_assets/WhatsApp%20Image%202026-03-25%20at%2020.13.28.jpeg" 
-                  alt="" 
-                  className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-1000" 
-                />
-              </div>
-            </ScrollAnimationWrapper>
-          </div>
         </div>
       </section>
 

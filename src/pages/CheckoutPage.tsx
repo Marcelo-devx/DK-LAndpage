@@ -55,7 +55,6 @@ const checkoutSchema = z.object({
   city: z.string().min(1, "Cidade é obrigatória"),
   state: z.string().min(2, "Estado inválido").max(2, "Use a sigla do estado (ex: SC)"),
   payment_method: z.enum(['mercadopago', 'pix'], { required_error: "Selecione um método de pagamento." }),
-  accepted_terms: z.boolean().refine(val => val === true, "Você precisa aceitar os Termos de Uso e Política de Privacidade"),
 });
 
 type CheckoutFormData = z.infer<typeof checkoutSchema>;
@@ -544,20 +543,6 @@ const CheckoutPage = () => {
   const onSubmit = async (data: CheckoutFormData) => {
     if (!isMountedRef.current) return;
     setIsSubmitting(true);
-
-    // Atualizar perfil com termos aceitos se o usuário estiver logado
-    if (user && data.accepted_terms) {
-      try {
-        await supabase.from('profiles').update({
-          accepted_terms_version: '1.0',
-          accepted_terms_at: new Date().toISOString()
-        }).eq('id', user.id);
-      } catch (err) {
-        console.error('[CheckoutPage] Erro ao atualizar termos aceitos:', err);
-        // Não bloqueia o fluxo se falhar a atualização do perfil
-      }
-    }
-
     if (data.payment_method === 'pix') await handlePixPayment(data);
     else await handleMercadoPagoRedirect();
     if (isMountedRef.current) setIsSubmitting(false);
@@ -581,43 +566,6 @@ const CheckoutPage = () => {
               <div><Label className="text-[10px] uppercase text-slate-400">CEP</Label><div className="flex gap-2"><Input {...register('cep')} onChange={e => e.target.value = maskCep(e.target.value)} /><Button type="button" size="icon" onClick={handleCepLookup} className="bg-sky-500 h-10 w-12 shrink-0">{isFetchingCep ? <Loader2 className="animate-spin h-4 w-4" /> : <Search className="h-4 w-4" />}</Button></div></div>
               <div className="grid grid-cols-3 gap-4"><div className="col-span-2"><Label className="text-[10px] uppercase text-slate-500">Rua</Label><Input {...register('street')} /></div><div><Label className="text-[10px] uppercase text-slate-500">Número</Label><Input {...register('number')} /></div></div>
               <div className="grid grid-cols-2 gap-4"><div><Label className="text-[10px] uppercase text-slate-500">Bairro</Label><Input {...register('neighborhood')} /></div><div><Label className="text-[10px] uppercase text-slate-500">Cidade</Label><Input {...register('city')} /></div></div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white border-stone-200 shadow-xl rounded-[2rem] overflow-hidden">
-            <CardHeader className="bg-stone-50 border-b border-stone-100 p-8">
-              <div className="flex items-center space-x-4">
-                <div className="p-3 bg-amber-100 rounded-2xl">
-                  <AlertTriangle className="h-6 w-6 text-amber-600" />
-                </div>
-                <CardTitle className="font-black text-2xl uppercase tracking-tighter italic">Termos de Uso.</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="p-8 space-y-4">
-              <div className="flex items-start space-x-3">
-                <Checkbox
-                  id="accepted_terms"
-                  checked={watch('accepted_terms')}
-                  onCheckedChange={(checked) => setValue('accepted_terms', checked as boolean)}
-                  className="mt-1 h-5 w-5 border-stone-300 data-[state=checked]:bg-sky-500 data-[state=checked]:border-sky-500"
-                />
-                <div className="flex-1 space-y-2">
-                  <Label htmlFor="accepted_terms" className="text-xs font-bold text-slate-700 cursor-pointer">
-                    Li e aceito os <span className="text-red-500">Termos de Uso</span> e a <span className="text-red-500">Política de Privacidade</span> *
-                  </Label>
-                  <p className="text-[10px] text-slate-500 leading-relaxed">
-                    Ao continuar, você declara que é maior de 18 anos e está ciente de que nossos produtos podem conter nicotina, que é uma substância causadora de dependência. Os produtos são destinados exclusivamente para uso por adultos.
-                  </p>
-                  <p className="text-[10px] text-slate-500 leading-relaxed">
-                    Seus dados pessoais serão utilizados conforme nossa Política de Privacidade para processamento de pedidos, entrega e comunicação sobre sua compra.
-                  </p>
-                </div>
-              </div>
-              {errors.accepted_terms && (
-                <p className="text-xs text-red-500 font-bold mt-2">
-                  {errors.accepted_terms.message}
-                </p>
-              )}
             </CardContent>
           </Card>
 

@@ -294,23 +294,35 @@ const ProductPage = () => {
                     <div className="flex items-center justify-between">
                       <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Quantidade</p>
                       <div className="flex items-center bg-stone-100 rounded-2xl p-1">
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           onClick={() => setQuantity(q => Math.max(1, q - 1))}
-                          className="bg-stone-100 hover:bg-stone-200 text-black h-14 w-14 rounded-xl border border-stone-200 transition-all active:scale-95 shadow-lg min-w-[140px]"
+                          className="bg-stone-100 hover:bg-stone-200 text-black h-12 w-12 rounded-xl border border-stone-200 transition-all active:scale-95 shadow-sm"
                           disabled={isOutOfStock}
                         >
                           <Minus className="h-4 w-4" />
-                          <span className="w-14 text-center font-black text-xl tracking-tighter">{quantity}</span>
+                        </Button>
+
+                        <div className="w-16 text-center font-black text-xl mx-3 select-none">
+                          {quantity}
+                        </div>
+
+                        <Button
+                          variant="outline"
+                          onClick={() => setQuantity(q => q + 1)}
+                          className="bg-stone-100 hover:bg-stone-200 text-black h-12 w-12 rounded-xl border border-stone-200 transition-all active:scale-95 shadow-sm"
+                          disabled={isOutOfStock}
+                        >
                           <Plus className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
                   </div>
 
-                  <Button 
-                    size="lg" 
+                  <Button
+                    size="lg"
                     variant={isOutOfStock ? "secondary" : "default"}
+                    onClick={handleAddToCart}
                     className={cn(
                       "w-full font-black uppercase tracking-[0.2em] h-16 md:h-14 text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95",
                       !isOutOfStock && "bg-sky-500 hover:bg-sky-400 text-white shadow-[0_20px_40px_-10px_rgba(14,165,233,0.0,0.05)]",

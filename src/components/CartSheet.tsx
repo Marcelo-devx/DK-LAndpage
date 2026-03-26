@@ -223,12 +223,12 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
             <p className="text-xl font-bold text-stone-400 uppercase italic">Carrinho Vazio</p>
           </div>
         ) : (
-          <div className="flex-grow overflow-y-auto pr-4 -mr-4 space-y-4 custom-scrollbar">
+          <div className="flex-grow overflow-y-auto pr-4 -mr-4 space-y-4 custom-scrollbar bg-slate-50/30">
             {items.map(item => {
               const key = `${item.itemType}-${item.itemId}-${item.variantId || 'no-var'}`;
               return (
                 <div key={key} className="flex items-start space-x-4 bg-stone-50 p-5 rounded-2xl border border-stone-100">
-                  <div className="flex-grow">
+                  <div className="flex-grow min-w-0">
                     <ProductImage src={item.image_url} alt={item.name} className="h-20 w-20 object-cover rounded-xl border border-stone-200" />
                     <div className="flex-grow min-w-0">
                       <p className="font-bold text-charcoal-gray text-sm tracking-tight leading-tight">{item.name}</p>
@@ -239,26 +239,18 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
                     </div>
 
                     <div className="flex items-center gap-3 mt-3">
-                      <div className="bg-stone-200 p-2 rounded-xl">
+                      <div className="bg-white p-3 rounded-2xl border border-stone-200">
                         <Button 
                           variant="outline" 
                           onClick={() => updateQuantity(item, item.quantity - 1)}
-                          className="h-10 w-10 text-stone-700 hover:bg-stone-300 hover:text-stone-900 rounded-lg transition-all active:scale-98"
+                          className="h-14 w-10 text-stone-700 hover:bg-stone-300 hover:text-stone-900 text-stone-700 rounded-lg transition-all active:mobile:active:scale-98"
                           disabled={updatingId === key}
                         >
-                          <Minus className="h-4 w-4" />
+                          <Minus className="h-4 w-4 touch-manipulation-none" />
                         </Button>
                         <div className="w-8 text-center text-stone-900 font-bold">
                           {updatingId === key ? <Loader2 className="h-3 w-3 animate-spin" /> : item.quantity}
                         </div>
-                        <Button 
-                          variant="outline"
-                          onClick={() => updateQuantity(item, item.quantity + 1)}
-                          className="h-10 w-10 text-stone-700 hover:bg-stone-300 hover:text-stone-900 rounded-lg transition-all active:scale-98"
-                          disabled={updatingId === key}
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
                       </div>
                     </div>
 

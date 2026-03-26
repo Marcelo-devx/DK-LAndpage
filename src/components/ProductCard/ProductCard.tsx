@@ -112,9 +112,16 @@ const ProductCard = ({ product }: ProductCardProps) => {
             <Button 
               className="w-full font-black uppercase text-[10px] tracking-[0.2em] mt-6 h-11 rounded-xl transition-all duration-300 shadow-md group-hover:translate-y-[-2px] bg-slate-950 hover:bg-sky-500 text-white"
               onClick={handleViewOptions}
+              aria-label="Escolher opções"
             >
               <Eye className="mr-2 h-4 w-4" />
-              Escolher Opções
+              {/* Desktop / larger screens: single-line */}
+              <span className="hidden sm:inline">Escolher Opções</span>
+              {/* Mobile: stacked words to avoid clipping */}
+              <span className="inline sm:hidden leading-tight text-[11px] whitespace-normal text-center">
+                <span className="block">Escolher</span>
+                <span className="block">Opções</span>
+              </span>
             </Button>
           ) : (
             <Button 

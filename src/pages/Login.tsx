@@ -6,9 +6,10 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, LogIn, UserPlus } from 'lucide-react';
+import { ArrowLeft, LogIn, UserPlus, RefreshCw } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { showError, showSuccess } from '@/utils/toast';
+import { InputOTP } from '@/components/ui/input-otp';
 
 const customTheme: Theme = {
   default: {
@@ -74,7 +75,11 @@ const Login = () => {
   const [view, setView] = useState<ViewType>((params.get('view') as ViewType) || 'sign_in');
 
   const [emailForSignup, setEmailForSignup] = useState('');
-  const [isSendingMagicLink, setIsSendingMagicLink] = useState(false);
+  const [isSendingCode, setIsSendingCode] = useState(false);
+  const [codeSent, setCodeSent] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   useEffect(() => {
     const refCode = params.get('ref');
@@ -84,6 +89,7 @@ const Login = () => {
   }, [location.search]);
 
   useEffect(() => {
+    // Handle SIGNED_IN events for the Auth component (keeps current behavior)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('[Login] Auth state changed:', event, session?.user?.id);
       
@@ -144,34 +150,155 @@ const Login = () => {
     return () => subscription.unsubscribe();
   }, [navigate, from]);
 
-  const sendMagicLink = async (e?: React.FormEvent) => {
+  // cooldown timer for resend
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = setInterval(() => {
+      setResendCooldown((c) => {
+        if (c <= 1) {
+          clearInterval(t);
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+    return () => clearInterval(t);
+  }, [resendCooldown]);
+
+  const sendOtpToEmail = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    const email = emailForSignup.trim();
+    const email = emailForSignup.trim().toLowerCase();
     if (!email) {
       showError('Informe um e-mail válido');
       return;
     }
 
-    setIsSendingMagicLink(true);
+    setIsSendingCode(true);
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: { emailRedirectTo: `${window.location.origin}/auth/confirm` }
-      } as any);
+      // signInWithOtp will send an email with a token/otp depending on Supabase configuration.
+      // We do not set redirect here — user will verify using the token.
+      const { error } = await supabase.auth.signInWithOtp({ email } as any);
 
       if (error) {
         console.error('[Login] signInWithOtp error:', error);
-        showError('Não foi possível enviar o link. Tente novamente.');
+        showError('Não foi possível enviar o código. Tente novamente.');
       } else {
-        showSuccess('Enviamos um link para o seu e-mail. Acesse para finalizar o cadastro.');
-        // optionally switch back to sign_in view
-        setView('sign_in');
+        setCodeSent(true);
+        setResendCooldown(60); // 60s cooldown
+        showSuccess('Enviamos um código de 6 dígitos para seu e-mail. Verifique e insira abaixo.');
       }
     } catch (err) {
-      console.error('[Login] Unexpected error sending magic link:', err);
+      console.error('[Login] Unexpected error sending OTP:', err);
       showError('Erro inesperado. Tente novamente mais tarde.');
     } finally {
-      setIsSendingMagicLink(false);
+      setIsSendingCode(false);
+    }
+  };
+
+  const verifyOtpCode = async () => {
+    if (otp.trim().length < 6) {
+      showError('Insira o código de 6 dígitos recebido por e-mail.');
+      return;
+    }
+    setIsVerifying(true);
+    try {
+      // verifyOtp is the Supabase client method to verify an email token/otp.
+      const { data, error } = await (supabase.auth as any).verifyOtp({
+        email: emailForSignup.trim().toLowerCase(),
+        token: otp.trim(),
+        type: 'email'
+      });
+
+      if (error) {
+        console.error('[Login] verifyOtp error:', error);
+        showError('Código inválido ou expirado. Tente reenviar.');
+        return;
+      }
+
+      // If verification succeeded, a session should now exist in the client.
+      showSuccess('Código verificado! Entrando...');
+
+      // Handle referral linking (if present) similar to SIGNED_IN flow
+      try {
+        const storedRefCode = sessionStorage.getItem('referral_code');
+        if (storedRefCode) {
+          await supabase.rpc('link_referral', { referral_code_input: storedRefCode });
+          sessionStorage.removeItem('referral_code');
+        }
+      } catch (err) {
+        console.error('[Login] Error linking referral after OTP verify:', err);
+      }
+
+      // Fetch session and profile, then redirect accordingly
+      const { data: sessionData } = await supabase.auth.getSession();
+      const session = sessionData?.session;
+      if (session) {
+        try {
+          const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('first_name, last_name, phone, cpf_cnpj, gender, date_of_birth, cep, street, number, neighborhood, city, state')
+            .eq('id', session.user.id)
+            .single();
+
+          const isProfileComplete = profile && 
+            profile.first_name && 
+            profile.last_name && 
+            profile.phone && 
+            profile.cpf_cnpj &&
+            profile.gender &&
+            profile.date_of_birth &&
+            profile.cep &&
+            profile.street &&
+            profile.number &&
+            profile.neighborhood &&
+            profile.city &&
+            profile.state;
+
+          if (!isProfileComplete && window.location.pathname !== '/complete-profile') {
+            navigate('/complete-profile', { replace: true });
+          } else {
+            navigate(from, { replace: true });
+          }
+          return;
+        } catch (err) {
+          console.error('[Login] Error checking profile after OTP verify:', err);
+          navigate(from, { replace: true });
+          return;
+        }
+      }
+
+      // fallback
+      navigate(from, { replace: true });
+    } catch (err) {
+      console.error('[Login] Unexpected error verifying OTP:', err);
+      showError('Erro ao verificar o código. Tente novamente.');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const resendOtp = async () => {
+    if (resendCooldown > 0) return;
+    setIsSendingCode(true);
+    try {
+      const email = emailForSignup.trim().toLowerCase();
+      if (!email) {
+        showError('Informe um e-mail válido');
+        return;
+      }
+      const { error } = await supabase.auth.signInWithOtp({ email } as any);
+      if (error) {
+        console.error('[Login] resend signInWithOtp error:', error);
+        showError('Não foi possível reenviar o código. Tente novamente.');
+      } else {
+        setResendCooldown(60);
+        showSuccess('Código reenviado para seu e-mail.');
+      }
+    } catch (err) {
+      console.error('[Login] Unexpected error resending OTP:', err);
+      showError('Erro inesperado. Tente novamente mais tarde.');
+    } finally {
+      setIsSendingCode(false);
     }
   };
 
@@ -192,7 +319,13 @@ const Login = () => {
 
         <Card className="bg-white border border-stone-200 shadow-2xl rounded-[2rem] overflow-hidden">
           <CardContent className="p-0">
-            <Tabs value={view} onValueChange={(v) => setView(v as ViewType)} className="w-full">
+            <Tabs value={view} onValueChange={(v) => {
+              // reset OTP UI when switching tabs
+              setView(v as ViewType);
+              setCodeSent(false);
+              setOtp('');
+              setEmailForSignup('');
+            }} className="w-full">
               <TabsList className="grid w-full grid-cols-2 bg-slate-50 rounded-none h-14 p-1 border-b border-stone-100">
                 <TabsTrigger value="sign_in" className="data-[state=active]:bg-white data-[state=active]:text-sky-600 font-black uppercase text-[10px] tracking-widest gap-2">
                   <LogIn className="h-3.5 w-3.5" /> Entrar
@@ -204,31 +337,74 @@ const Login = () => {
               
               <div className="p-8">
                 {view === 'sign_up' ? (
-                  // Custom magic link signup form (only email)
-                  <form onSubmit={sendMagicLink} className="flex flex-col gap-4">
-                    <div className="text-center">
-                      <p className="text-sm text-slate-500">Digite seu e-mail e enviaremos um link para finalizar o cadastro.</p>
-                    </div>
-                    <input
-                      type="email"
-                      placeholder="seu@email.com"
-                      value={emailForSignup}
-                      onChange={(e) => setEmailForSignup(e.target.value)}
-                      className="w-full h-12 px-4 rounded-xl border border-stone-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-sky-300"
-                    />
-                    <Button type="submit" className="h-12 uppercase font-black tracking-widest" disabled={isSendingMagicLink}>
-                      {isSendingMagicLink ? 'Enviando...' : 'Enviar Link por E-mail'}
-                    </Button>
-                    <div className="text-center">
-                      <button 
-                        type="button"
-                        onClick={() => setView('sign_in')}
-                        className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-sky-500 transition-colors"
-                      >
-                        Voltar para Entrar
-                      </button>
-                    </div>
-                  </form>
+                  // OTP signup flow
+                  <div className="flex flex-col gap-4">
+                    {!codeSent ? (
+                      <>
+                        <div className="text-center">
+                          <p className="text-sm text-slate-500">Digite seu e-mail e enviaremos um código de 6 dígitos para validar seu acesso.</p>
+                        </div>
+                        <input
+                          type="email"
+                          placeholder="seu@email.com"
+                          value={emailForSignup}
+                          onChange={(e) => setEmailForSignup(e.target.value)}
+                          className="w-full h-12 px-4 rounded-xl border border-stone-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-sky-300"
+                        />
+                        <Button onClick={sendOtpToEmail} className="h-12 uppercase font-black tracking-widest" disabled={isSendingCode}>
+                          {isSendingCode ? 'Enviando...' : 'Enviar Código por E-mail'}
+                        </Button>
+                        <div className="text-center">
+                          <button 
+                            type="button"
+                            onClick={() => setView('sign_in')}
+                            className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-sky-500 transition-colors"
+                          >
+                            Voltar para Entrar
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      // OTP entry UI
+                      <>
+                        <div className="text-center">
+                          <p className="text-sm text-slate-500">Insira o código de 6 dígitos enviado para <span className="font-bold text-sky-600">{emailForSignup}</span></p>
+                        </div>
+
+                        <div className="flex items-center justify-center">
+                          <InputOTP length={6} value={otp} onChange={(val: string) => setOtp(val)} className="gap-2" />
+                        </div>
+
+                        <div className="flex gap-2 mt-2">
+                          <Button onClick={verifyOtpCode} className="flex-1 h-12 uppercase font-black tracking-widest" disabled={isVerifying}>
+                            {isVerifying ? 'Verificando...' : 'Verificar Código'}
+                          </Button>
+
+                          <Button
+                            variant="ghost"
+                            onClick={resendOtp}
+                            className="h-12 px-3"
+                            disabled={isSendingCode || resendCooldown > 0}
+                          >
+                            <div className="flex items-center gap-2">
+                              <RefreshCw className="h-4 w-4" />
+                              {resendCooldown > 0 ? `Reenviar (${resendCooldown}s)` : 'Reenviar'}
+                            </div>
+                          </Button>
+                        </div>
+
+                        <div className="text-center mt-2">
+                          <button 
+                            type="button"
+                            onClick={() => { setCodeSent(false); setOtp(''); }}
+                            className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-sky-500 transition-colors"
+                          >
+                            Use outro e-mail
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 ) : (
                   <>
                     <Auth

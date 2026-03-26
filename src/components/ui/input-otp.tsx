@@ -4,10 +4,13 @@ import { Dot } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-const InputOTP = React.forwardRef<
-  React.ElementRef<typeof OTPInput>,
-  React.ComponentPropsWithoutRef<typeof OTPInput>
->(({ className, containerClassName, ...props }, ref) => (
+// Updated typing: make the underlying OTPInput props optional so callers can pass only the props they need (like length, value, onChange)
+type OTPProps = Partial<React.ComponentPropsWithoutRef<typeof OTPInput>> & {
+  length?: number;
+  containerClassName?: string;
+};
+
+const InputOTP = React.forwardRef<any, OTPProps>(({ className, containerClassName, ...props }, ref) => (
   <OTPInput
     ref={ref}
     containerClassName={cn(
@@ -15,7 +18,7 @@ const InputOTP = React.forwardRef<
       containerClassName,
     )}
     className={cn("disabled:cursor-not-allowed", className)}
-    {...props}
+    {...(props as any)}
   />
 ));
 InputOTP.displayName = "InputOTP";

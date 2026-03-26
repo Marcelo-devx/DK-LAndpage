@@ -670,6 +670,19 @@ const CheckoutPage = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Payment submit button - Reduced size for mobile */}
+        <div className="order-last mt-8">
+          {paymentMethod === 'pix' && (
+            <Button 
+              type="submit"
+              disabled={isSubmitting || !isAddressComplete}
+              className="w-full h-14 md:h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-xl shadow-xl transition-all active:scale-98"
+            >
+              {isSubmitting ? <Loader2 className="h-6 w-6" /> : 'Finalizar com PIX'}
+            </Button>
+          )}
+        </div>
       </form>
       <CouponsModal isOpen={isCouponsModalOpen} onOpenChange={setIsCouponsModalOpen} userPoints={userPoints} onRedemption={handleRedemption} />
     </div>

@@ -227,37 +227,51 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
             {items.map(item => {
               const key = `${item.itemType}-${item.itemId}-${item.variantId || 'no-var'}`;
               return (
-                <div key={key} className="flex items-start space-x-4 bg-stone-50 p-4 rounded-2xl border border-stone-100">
-                  <ProductImage src={item.image_url} alt={item.name} className="h-20 w-20 object-cover rounded-xl border border-stone-200" />
+                <div key={key} className="flex items-start space-x-4 bg-stone-50 p-5 rounded-2xl border border-stone-100">
                   <div className="flex-grow">
-                    <p className="font-bold text-charcoal-gray text-sm tracking-tight leading-tight">{item.name}</p>
-                    {item.variant_label && <p className="text-[10px] font-black text-sky-600 uppercase mt-1 tracking-widest">{item.variant_label}</p>}
-                    <p className="text-stone-600 font-bold text-sm mt-1">R$ {item.price.toFixed(2).replace('.', ',')}</p>
-                    <div className="flex items-center space-x-3 mt-3">
+                    <ProductImage src={item.image_url} alt={item.name} className="h-20 w-20 object-cover rounded-xl border border-stone-200" />
+                    <div className="flex-grow min-w-0">
+                      <p className="font-bold text-charcoal-gray text-sm tracking-tight leading-tight">{item.name}</p>
+                      {item.variant_label && (
+                        <p className="text-[10px] font-bold text-sky-600 uppercase tracking-widest mt-1">{item.variant_label}</p>
+                      )}
+                      <p className="text-stone-600 font-bold text-sm">R$ {item.price.toFixed(2).replace('.', ',')}</p>
+                    </div>
+
+                    <div className="flex items-center gap-3 mt-3">
+                      <div className="bg-stone-200 p-2 rounded-xl">
+                        <Button 
+                          variant="outline" 
+                          onClick={() => updateQuantity(item, item.quantity - 1)}
+                          className="h-10 w-10 text-stone-700 hover:bg-stone-300 hover:text-stone-900 rounded-lg transition-all active:scale-98"
+                          disabled={updatingId === key}
+                        >
+                          <Minus className="h-4 w-4" />
+                        </Button>
+                        <div className="w-8 text-center text-stone-900 font-bold">
+                          {updatingId === key ? <Loader2 className="h-3 w-3 animate-spin" /> : item.quantity}
+                        </div>
+                        <Button 
+                          variant="outline"
+                          onClick={() => updateQuantity(item, item.quantity + 1)}
+                          className="h-10 w-10 text-stone-700 hover:bg-stone-300 hover:text-stone-900 rounded-lg transition-all active:scale-98"
+                          disabled={updatingId === key}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="pt-2">
                       <Button 
-                        variant="outline" 
-                        size="icon" 
-                        className="h-7 w-7 border-stone-200 hover:bg-stone-200 text-charcoal-gray" 
-                        onClick={() => updateQuantity(item, item.quantity - 1)}
-                        disabled={updatingId === key}
+                        variant="ghost" 
+                        onClick={() => removeItem(item)}
+                        className="h-10 w-10 text-red-500 p-2 rounded-lg"
                       >
-                        <Minus className="h-3 w-3" />
-                      </Button>
-                      <span className="text-xs font-black w-4 text-center">
-                        {updatingId === key ? <Loader2 className="animate-spin h-3 w-3 inline" /> : item.quantity}
-                      </span>
-                      <Button 
-                        variant="outline" 
-                        size="icon" 
-                        className="h-7 w-7 border-stone-200 hover:bg-stone-200 text-charcoal-gray" 
-                        onClick={() => updateQuantity(item, item.quantity + 1)}
-                        disabled={updatingId === key}
-                      >
-                        <Plus className="h-3 w-3" />
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
-                  <Button variant="ghost" size="icon" className="text-stone-400 hover:text-red-500" onClick={() => removeItem(item)}><Trash2 className="h-4 w-4" /></Button>
                 </div>
               );
             })}

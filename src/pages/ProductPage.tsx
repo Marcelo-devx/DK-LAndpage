@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, Minus, ChevronLeft, Loader2, FileText, ShoppingCart, Zap, Palette, Droplets } from "lucide-react";
+import { Plus, Minus, ChevronLeft, Loader2, FileText, ShoppingCart, Zap, Palette, Droplets, ArrowLeft } from "lucide-react";
 import { addToCart } from '@/utils/cart';
 import { cn } from '@/lib/utils';
 import { showError } from '@/utils/toast';
@@ -171,9 +171,12 @@ const ProductPage = () => {
   return (
     <div className="bg-off-white min-h-screen text-charcoal-gray pb-20">
       <div className="container mx-auto px-6 py-6 md:py-12">
-        <Button variant="ghost" onClick={() => navigate(-1)} className="mb-6 text-stone-500 hover:text-charcoal-gray group">
-          <ChevronLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Voltar
-        </Button>
+        <div className="md:hidden mb-4">
+          <Button variant="ghost" onClick={() => navigate(-1)} className="text-stone-500 hover:text-charcoal-gray transition-colors">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Voltar
+          </Button>
+        </div>
 
         <div className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-start mb-16">
           <div className="relative group lg:sticky lg:top-32">
@@ -282,34 +285,62 @@ const ProductPage = () => {
               </div>
             )}
 
-            <div className="bg-slate-950 p-8 md:p-10 rounded-[2.5rem] space-y-8 shadow-2xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-sky-500/10 blur-[60px] rounded-full" />
-              
-              <div className="flex items-center justify-between relative z-10">
-                <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Quantidade</p>
-                <div className="flex items-center bg-white/5 rounded-2xl p-1.5 border border-white/10">
-                  <Button variant="ghost" size="icon" onClick={() => setQuantity(q => Math.max(1, q - 1))} className="h-12 w-12 text-white hover:bg-white/10 rounded-xl" disabled={isOutOfStock}><Minus className="h-5 w-5" /></Button>
-                  <span className="w-14 text-center font-black text-2xl text-white tracking-tighter">{quantity}</span>
-                  <Button variant="ghost" size="icon" onClick={() => setQuantity(q => q + 1)} className="h-12 w-12 text-white hover:bg-white/10 rounded-xl" disabled={isOutOfStock}><Plus className="h-5 w-5" /></Button>
+            <div className="bg-slate-950 p-6 md:p-8 rounded-[2rem] space-y-6 shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-sky-500/10 blur-[40px] rounded-full" />
+
+              <div className="relative z-10 space-y-6">
+                <div className="space-y-1">
+                  <div className="bg-white p-6 rounded-2xl border border-stone-100 relative z-10">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Quantidade</p>
+                      <div className="flex items-center bg-stone-100 rounded-2xl p-1">
+                        <Button 
+                          variant="outline" 
+                          onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                          className="bg-stone-100 hover:bg-stone-200 text-black h-14 w-14 rounded-xl border border-stone-200 transition-all active:scale-95 shadow-lg min-w-[140px]"
+                          disabled={isOutOfStock}
+                        >
+                          <Minus className="h-4 w-4" />
+                          <span className="w-14 text-center font-black text-xl tracking-tighter">{quantity}</span>
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Button 
+                    size="lg" 
+                    variant={isOutOfStock ? "secondary" : "default"}
+                    className={cn(
+                      "w-full font-black uppercase tracking-[0.2em] h-16 md:h-14 text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95",
+                      !isOutOfStock && "bg-sky-500 hover:bg-sky-400 text-white shadow-[0_20px_40px_-10px_rgba(14,165,233,0.0,0.05)]",
+                      isOutOfStock && "bg-stone-800 text-stone-500 opacity-70"
+                    )}
+                    disabled={isAdding || isOutOfStock}
+                  >
+                    {isAdding ? <Loader2 className="animate-spin h-6 w-6" /> : (
+                      <span className="flex items-center gap-2">
+                        <ShoppingCart className="h-6 w-6" />
+                        <span className={cn(
+                          isOutOfStock ? 'text-stone-500' : 'text-white',
+                          "text-xs font-black uppercase tracking-widest"
+                        )}>
+                          {isOutOfStock ? 'ESGOTADO' : 'ADICIONAR AO CARRINHO'}
+                        </span>
+                      </span>
+                    )}
+                  </Button>
                 </div>
               </div>
 
-              <Button 
-                size="lg" 
-                className={cn(
-                    "w-full font-black uppercase tracking-[0.2em] h-18 text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95 py-8",
-                    isOutOfStock ? "bg-stone-800 text-stone-500 cursor-not-allowed" : "bg-sky-500 hover:bg-sky-400 text-white shadow-[0_20px_40px_-10px_rgba(14,165,233,0.5)]"
+              <div className="space-y-4">
+                <p className="text-lg md:text-2xl font-black tracking-tighter leading-tight">{product.name}</p>
+                {selectedVariant && (
+                  <span className="block text-2xl md:text-4xl text-slate-400 mt-2 italic">
+                    {getVariantLabel(selectedVariant)} {selectedVariant.volume_ml && selectedVariant.flavor_name ? `${selectedVariant.volume_ml}ml` : ''}
+                  </span>
                 )}
-                onClick={handleAddToCart}
-                disabled={isAdding || isOutOfStock}
-              >
-                {isAdding ? <Loader2 className="animate-spin h-6 w-6" /> : (
-                    <span className="flex items-center gap-3">
-                        <ShoppingCart className="h-6 w-6" />
-                        {isOutOfStock ? 'ESGOTADO' : 'ADICIONAR AO CARRINHO'}
-                    </span>
-                )}
-              </Button>
+              </div>
             </div>
           </div>
         </div>

@@ -17,6 +17,7 @@ interface Promotion {
   price: number;
   description: string | null;
   image_url: string | null;
+  stock_quantity?: number | null;
 }
 
 interface RelatedPromotion {
@@ -24,6 +25,7 @@ interface RelatedPromotion {
     name: string;
     price: number;
     image_url: string | null;
+    stock_quantity?: number | null;
 }
 
 const PromotionPage = () => {
@@ -45,7 +47,7 @@ const PromotionPage = () => {
 
       const { data, error } = await supabase
         .from('promotions')
-        .select('id, name, description, price, image_url')
+        .select('id, name, description, price, image_url, stock_quantity')
         .eq('id', id)
         .single();
 
@@ -62,7 +64,7 @@ const PromotionPage = () => {
 
       const { data: relatedData, error: relatedError } = await supabase
         .from('promotions')
-        .select('id, name, price, image_url')
+        .select('id, name, price, image_url, stock_quantity')
         .eq('is_active', true)
         .neq('id', id)
         .limit(3);
@@ -83,9 +85,10 @@ const PromotionPage = () => {
   const handleDecrease = () => setQuantity(prev => Math.max(1, prev - 1));
 
   const handleAddToCart = () => {
-    if (promotion) {
-      addToCart(promotion.id, quantity, 'promotion');
-    }
+    if (!promotion) return;
+    const isOutOfStock = typeof promotion.stock_quantity === 'number' && promotion.stock_quantity <= 0;
+    if (isOutOfStock) return;
+    addToCart(promotion.id, quantity, 'promotion');
   };
 
   if (loading) {
@@ -118,6 +121,8 @@ const PromotionPage = () => {
       </div>
     );
   }
+
+  const isOutOfStockMain = typeof promotion.stock_quantity === 'number' && promotion.stock_quantity <= 0;
 
   return (
     <>
@@ -156,7 +161,7 @@ const PromotionPage = () => {
               </div>
             </div>
 
-            <Button size="lg" className="w-full bg-gold-accent hover:bg-gold-accent/90 text-charcoal-gray font-bold text-lg py-6" onClick={handleAddToCart}>
+            <Button size="lg" className={`w-full ${isOutOfStockMain ? 'bg-stone-200 text-stone-500 cursor-not-allowed' : 'bg-gold-accent hover:bg-gold-accent/90 text-charcoal-gray font-bold'} py-6`} onClick={handleAddToCart} disabled={isOutOfStockMain}>
               Adicionar ao Carrinho
             </Button>
 
@@ -201,6 +206,7 @@ const PromotionPage = () => {
                       price: `R$ ${promo.price.toFixed(2).replace('.', ',')}`,
                       imageUrl: promo.image_url || 'https://picsum.photos/600/800',
                       url: `/promocao/${promo.id}`,
+                      stockQuantity: promo.stock_quantity ?? null,
                     }} />
                   ))
                 )}

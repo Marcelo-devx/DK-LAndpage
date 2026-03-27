@@ -91,95 +91,9 @@ O que são cookies?
 
 São pequenos arquivos de texto enviados para seu navegador, contendo registros sobre seu comportamento ao acessar um site, mas que não armazenam dados pessoais ou afetam o sistema do seu dispositivo. Utilizamos cookies, pixels e outras tecnologias para reconhecer seu navegador ou dispositivo, aprender mais sobre seus interesses, apresentar serviços essenciais, aperfeiçoar a sua experiência de navegação e, ainda, para impedir atividades fraudulentas e melhorar a sua segurança no processo de compra em nossa loja.
 
-Cookies da Sessão
-
-Cookies da sessão são cookies temporários que são utilizados para lembrar de você durante o curso da sua visita ao site, e eles perdem a validade quando você fecha o navegador.
-
-Cookies Persistentes
-
-Cookies persistentes são utilizados para medir a eficácia de nosso site, bem como lembrar suas preferências do site, e permanecem no seu desktop ou dispositivo móvel mesmo depois de você fechar o seu navegador ou efetuar uma reinicialização. Utilizamos tais cookies para analisar o comportamento do usuário e estabelecer padrões, de modo a melhorar a funcionalidade do nosso site para você e outros que o visitam. Estes cookies também nos permitem oferecer os anúncios segmentados e medir a eficácia do nosso site, além da funcionalidade de tais anúncios.
-
 Como usamos os dados pessoais que coletamos?
 
 Você está ciente de que fornece informação de forma consciente e voluntária por meio de aceite dos cookies da página, bem como no momento de realização de um pedido no site e/ou cadastro em nosso site. Quando você o realiza o cadastro e/ou preenche formulário oferecido pela DK CWB, inclusive nos sites por ela operados, determinados Dados Pessoais solicitados serão mantidos em sigilo e serão utilizados apenas para o propósito que motivou o cadastro, não sendo divulgados a terceiros, a não ser no cumprimento de ordens judiciais e/ou emitidas por autoridades públicas.
-
-Para que estes dados permaneçam seguros, recomendamos que você jamais forneça seus dados de acesso ao site (login e senha) a terceiros, mesmo que sejam amigos e parentes. Em caso de suspeita ou confirmação de acesso indevido, entre imediatamente em sua área de cliente e altere a senha.
-
-Por quanto tempo usamos os dados pessoais que coletamos?
-
-Os Dados Pessoais são armazenados somente pelo tempo necessário para cumprir com as finalidades para as quais foram coletados, salvo se houver outra razão para a sua manutenção, a exemplo do cumprimento de quaisquer obrigações legais, regulatórias, contratuais, entre outras.
-
-Quais os seus direitos?
-
-Você tem direito de solicitar à DK CWB informações referentes ao tratamento de seus dados pessoais, por meio dos pedidos abaixo:
-
-I. Confirmação da existência de tratamento de dados pessoais seus e acesso aos dados;
-
-II. Correção de dados incompletos, inexatos ou desatualizados - é importante que os dados pessoais sejam precisos e atuais e cabe a você mantê-los corretos e atualizados;
-
-III. Anonimização, bloqueio ou eliminação de dados desnecessários, excessivos ou tratados em desconformidade com a LGPD - você poderá solicitar o bloqueio e a eliminação de seus dados pessoais, salvo nos casos previstos em lei;
-
-IV. Portabilidade dos dados a outro fornecedor de serviço ou produto, mediante requisição expressa, de acordo com a regulamentação da Autoridade Nacional, observados os segredos comercial e industrial - a portabilidade dos dados pessoais não inclui dados já anonimizados pela DK CWB;
-
-V. Informação sobre o compartilhamento de dados com entidades públicas e privadas;
-
-VI. Informação sobre a possibilidade de não fornecer consentimento e sobre as consequências da negativa: a DK CWB está disponível para atender e auxiliar, de forma transparente, quaisquer dúvidas que possam existir em função do tratamento de dados pessoais, inclusive sobre os possíveis impactos decorrentes do não fornecimento do consentimento;
-
-VII. Revogação do consentimento: você pode retirar o seu consentimento em relação às atividades de tratamento que o requerem;
-
-Para qualquer dos pedidos elencados acima, você deverá entrar em contato com a DK CWB por meio das informações de contato disponibilizadas.
-
-Cadastre-se e compre com tranquilidade, sem preocupações.
-
-As alterações sobre nossa política de privacidade serão devidamente informadas neste espaço.
-
-A DK CWB garante que utiliza os seus dados pessoais de endereçamento, pagamento e conteúdo do pedido, apenas para fins de processamento dos pedidos realizados, não sendo, portanto, divulgados em hipótese alguma. Em relação à segurança no tráfego de dados, toda a navegação realizada em nosso site, bem como as transações que envolverem pagamento, seja por cartão de crédito ou não, estarão criptografadas com a tecnologia SSL (Secure Socket Layer). Isso significa que só a loja tem acesso a suas informações pessoais e mais ninguém. Quando você preenche os dados e nos envia, essas informações são tratadas com total segurança e confidencialidade.
-
-Garantia / Política de Trocas e Devoluções
-
-Garantia / Trocas e Devoluções:
-
-Prezado Cliente, leia com atenção os tópicos abaixo, antes de realizar a compra.
-
-Todos os produtos que comercializamos são originais, entregues nas respectivas caixas lacradas e com código de verificação de autenticidade do fabricante. O fabricante, reserva-se ao direito de fazer alterações nas embalagens e produtos a qualquer tempo, sem prévio aviso e sem que comprometa o funcionamento do mesmo.
-
-Dispomos de uma equipe comprometida em proporcionar a melhor entrega, buscamos sempre garantir que o seu produto chegue sempre em perfeitas condições.
-
-Ao receber sua encomenda:
-
-Observe se a embalagem encontra-se fechada e em perfeitas condições, caso não esteja de acordo, recuse o recebimento e assinale no verso do comprovante de entrega os motivos da recusa.
-
-Desembale a compra e verifique se está em conformidade com o pedido realizado, caso não esteja de acordo, entre em contato conosco informando o ocorrido.
-
-Termos e condições para utilização da Garantia:
-
-A garantia oferecida pela loja DK CWB nos produtos anunciados é de 30 dias para defeitos de fabricação, que serão contados a partir da data de entrega do pedido. Não há garantia contra mau uso (quedas, deixar ligado intermitentemente, uso de líquido de má qualidade, utilização de produtos paralelos e não recomendados pela fabricante, falta de conhecimento ou informação).
-
-A DK CWB se reserva ao direto de avaliar individualmente cada solicitação, passando por análise da equipe técnica, aprovando ou não a realização do procedimento de troca dos produtos.
-
-Não será aprovado em nenhuma hipótese produtos que contenham sinais de má utilização como:
-
-Botões afundados por pressão excessiva.
-
-Conexões Micro USB ou USB C danificadas por conexão inversa ou forçados além do necessário ou por sinais de umidade (água/líquidos).
-
-Sinais de quedas.
-
-Derrubamento de qualquer tipo de líquido que danifique o aparelho, incluindo deixar vazamento excessivo de juice sem a devida manutenção diária.
-
-Produtos com defeito de fabricação:
-
-Trabalhamos com as melhores marcas proporcionando produtos com a melhor qualidade disponível no mercado.
-
-Solicitamos a atenção de todos quanto às solicitações iniciais dos fabricantes contidas nos manuais dos mesmos.
-
-Diversos aparelhos contém resistências que contém malha de algodão. A não realização dos passos iniciais contidos nos manuais poderá danificar e/ou queimar o algodão inutilizando o aparelho.
-
-A garantia da loja não cobre resistências que forem mal utilizadas, pedimos a todos que fiquem atentos durante os primeiros passos evitando esse tipo de problema.
-
-Após a leitura do manual e realização dos procedimentos necessários, caso tenha algum problema na utilização do produto recebido, entre em contato conosco e solicite auxílio.
-
-A DK CWB entende que, a partir do ato da compra, o comprador se informou sobre o produto que está adquirindo (seja no site do fabricante, nos vários textos disponíveis na internet, nas dezenas de reviews no YouTube, que explicam o funcionamento do produto and so on)`;
 
 const CompleteProfilePage = () => {
   const navigate = useNavigate();
@@ -362,7 +276,7 @@ const CompleteProfilePage = () => {
         .from('profiles')
         .update({
           ...profileData,
-          accepted_terms: true,
+          // accepted_terms column may not exist in some DBs; only store version + timestamp
           accepted_terms_version: TERMS_VERSION,
           accepted_terms_at: new Date().toISOString(),
           phone: profileData.phone.replace(/\D/g, ''),
@@ -372,11 +286,9 @@ const CompleteProfilePage = () => {
         .eq('id', user.id);
 
       if (error) {
-        // If column doesn't exist, retry without terms tracking columns
-        if (String(error.message || '').toLowerCase().includes('column "accepted_terms"') || 
-            String(error.code || '').includes('42703') ||
-            String(error.message || '').toLowerCase().includes('column "accepted_terms_version"') ||
-            String(error.message || '').toLowerCase().includes('column "accepted_terms_at"')) {
+        // If some of the accepted_terms_* columns don't exist, retry without them
+        const msg = String(error.message || '').toLowerCase();
+        if (msg.includes('column "accepted_terms_version"') || msg.includes('column "accepted_terms_at"') || String(error.code || '').includes('42703')) {
           await supabase.from('profiles').update({
             ...profileData,
             phone: profileData.phone.replace(/\D/g, ''),

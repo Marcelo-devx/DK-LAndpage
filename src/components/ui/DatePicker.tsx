@@ -2,7 +2,6 @@ import * as React from "react"
 import { format } from "date-fns"
 import { Calendar as CalendarIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
 
 interface DatePickerProps {
   value?: Date
@@ -11,16 +10,32 @@ interface DatePickerProps {
 }
 
 export function DatePicker({ value, onChange, className }: DatePickerProps) {
-  // Converte a data para o formato YYYY-MM-DD exigido pelo input type="date"
-  const dateString = value ? format(value, "yyyy-MM-dd") : ""
+  // internal string state to avoid controlled-value jumping while typing
+  const initial = value ? format(value, "yyyy-MM-dd") : ""
+  const [inputValue, setInputValue] = React.useState<string>(initial)
+
+  // keep internal state in sync when external value prop changes
+  React.useEffect(() => {
+    const newVal = value ? format(value, "yyyy-MM-dd") : ""
+    setInputValue(newVal)
+  }, [value])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value
+    setInputValue(val)
+
+    // Only propagate when we have a full yyyy-mm-dd string
+    const fullDateMatch = /^\d{4}-\d{2}-\d{2}$/.test(val)
     if (!val) {
       onChange?.(undefined)
       return
     }
-    // Cria a data ajustando o timezone para evitar que mude o dia
+    if (!fullDateMatch) {
+      // don't call onChange yet to avoid overwriting while user types
+      return
+    }
+
+    // parse and emit
     const [year, month, day] = val.split('-').map(Number)
     const date = new Date(year, month - 1, day)
     onChange?.(date)
@@ -33,9 +48,9 @@ export function DatePicker({ value, onChange, className }: DatePickerProps) {
           type="date"
           className={cn(
             "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 appearance-none",
-            !value && "text-muted-foreground"
+            !inputValue && "text-muted-foreground"
           )}
-          value={dateString}
+          value={inputValue}
           onChange={handleChange}
           max={format(new Date(), "yyyy-MM-dd")} // Não permite datas futuras
         />

@@ -45,6 +45,9 @@ const saveLocalCart = (cart: LocalCartItem[]) => {
       // Se é o primeiro item, marcamos o início
       localStorage.setItem(CART_TIME_KEY, new Date().toISOString());
     }
+
+    // Notify other parts of the app that the cart changed
+    try { window.dispatchEvent(new CustomEvent('cartUpdated')); } catch (e) { /* noop */ }
   } catch (error) {
     console.error("Erro ao salvar carrinho:", error);
   }
@@ -94,4 +97,5 @@ export const removeFromLocalCart = (itemId: number, itemType: ItemType, variantI
 export const clearLocalCart = () => {
   localStorage.removeItem(LOCAL_CART_KEY);
   localStorage.removeItem(CART_TIME_KEY);
+  try { window.dispatchEvent(new CustomEvent('cartUpdated')); } catch (e) { /* noop */ }
 };

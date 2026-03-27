@@ -138,6 +138,11 @@ const ConfirmacaoPedido = () => {
     fetchOrderDetails();
   }, [id]);
 
+  // Ensure header/cart badge reflects the current (cleared) local cart
+  useEffect(() => {
+    try { window.dispatchEvent(new CustomEvent('cartUpdated')); } catch (e) { /* noop */ }
+  }, []);
+
   const handleForceCheckPayment = async () => {
     if (!id) return;
     setIsCheckingPayment(true);

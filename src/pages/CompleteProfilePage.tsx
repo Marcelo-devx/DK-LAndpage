@@ -612,7 +612,14 @@ const CompleteProfilePage = () => {
 
             {/* Terms */}
             <div className="flex items-start gap-3">
-              <Checkbox id="accepted_terms" {...register('accepted_terms')} />
+              <Controller
+                name="accepted_terms"
+                control={control}
+                defaultValue={false}
+                render={({ field }) => (
+                  <Checkbox id="accepted_terms" checked={!!field.value} onCheckedChange={(v) => field.onChange(Boolean(v))} />
+                )}
+              />
               <div className="text-sm text-slate-600">
                 <label htmlFor="accepted_terms" className="cursor-pointer">Li e aceito os <button type="button" onClick={handleOpenTerms} className="text-sky-500 underline">Termos de Uso e Política de Privacidade</button>.</label>
                 {errors.accepted_terms && <p className="text-xs text-red-500 font-bold">{(errors.accepted_terms as any)?.message}</p>}

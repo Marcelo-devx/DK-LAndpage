@@ -268,8 +268,23 @@ const CompleteProfilePage = () => {
 
       // If password provided, update auth password as well (mandatory here)
       if (password) {
-        const { data: updated, error: pwdErr } = await supabase.auth.updateUser({ password });
-        if (pwdErr) throw pwdErr;
+        try {
+          const { data: updated, error: pwdErr } = await supabase.auth.updateUser({ password });
+          // If Supabase rejects password for being weak, don't block profile save — warn and continue
+          if (pwdErr) {
+            const msg = String(pwdErr.message || '').toLowerCase();
+            if (msg.includes('weak') || msg.includes('easy to guess') || msg.includes('known to be')) {
+              // Show non-blocking warning to the user
+              showError('A senha foi salva no perfil, mas o provedor rejeitou a senha por segurança. Você poderá alterar a senha depois.');
+              console.warn('[CompleteProfilePage] weak password rejected by auth provider:', pwdErr);
+            } else {
+              throw pwdErr;
+            }
+          }
+        } catch (pwdEx) {
+          // If updateUser throws unexpectedly, log but do not block the profile save
+          console.warn('[CompleteProfilePage] password update skipped due to error:', pwdEx);
+        }
       }
 
       dismissToast(toastId);

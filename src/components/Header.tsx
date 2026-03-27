@@ -278,7 +278,7 @@ const Header = ({ onCartClick }: HeaderProps) => {
       </div>
 
       {/* Desktop Header */}
-      <div className="hidden md:flex items-center gap-4">
+      <div className="hidden md:flex items-center gap-4 relative">
         {/* Logo Area & Mobile Menu */}
         <div className="flex items-center space-x-2 shrink-0">
           <Sheet>
@@ -335,8 +335,8 @@ const Header = ({ onCartClick }: HeaderProps) => {
           </Link>
         </div>
 
-        {/* Search Bar (Center) */}
-        <div className="hidden lg:flex flex-1 max-w-xl mx-8">
+        {/* Search Bar (Centered on Desktop) */}
+        <div className="hidden lg:flex absolute left-1/2 transform -translate-x-1/2 w-full max-w-2xl px-8">
           <form onSubmit={handleSearch} className="w-full relative">
             <Input 
               type="text" 
@@ -352,52 +352,52 @@ const Header = ({ onCartClick }: HeaderProps) => {
         </div>
 
         {/* Icons Area (Right) */}
-        <div className="flex items-center space-x-3 md:space-x-6 shrink-0">
-          
-          <Link to="/como-funciona" className="hidden sm:flex items-center gap-2 group">
-            <Trophy className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
-            <div className="hidden lg:flex flex-col leading-none">
-                <span className="text-[9px] text-slate-400 font-black uppercase">Clube</span>
-                <span className="text-[11px] text-white font-black uppercase tracking-tighter">Vantagens</span>
-            </div>
-          </Link>
+        <div className="flex items-center space-x-3 md:space-x-6 shrink-0 ml-auto">
+           
+           <Link to="/como-funciona" className="hidden sm:flex items-center gap-2 group">
+             <Trophy className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
+             <div className="hidden lg:flex flex-col leading-none">
+                 <span className="text-[9px] text-slate-400 font-black uppercase">Clube</span>
+                 <span className="text-[11px] text-white font-black uppercase tracking-tighter">Vantagens</span>
+             </div>
+           </Link>
 
-          <Link to="/compras" className="hidden sm:flex items-center gap-2 group">
-            <Package className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
-            <div className="hidden lg:flex flex-col leading-none">
-                <span className="text-[9px] text-slate-400 font-black uppercase">Meus</span>
-                <span className="text-[11px] text-white font-black uppercase tracking-tighter">Pedidos</span>
-            </div>
-          </Link>
+           <Link to="/compras" className="hidden sm:flex items-center gap-2 group">
+             <Package className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
+             <div className="hidden lg:flex flex-col leading-none">
+                 <span className="text-[9px] text-slate-400 font-black uppercase">Meus</span>
+                 <span className="text-[11px] text-white font-black uppercase tracking-tighter">Pedidos</span>
+             </div>
+           </Link>
 
-          <Link to={session ? "/dashboard" : "/login"} className="flex items-center gap-2 group relative">
-            <User className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
-            <div className="hidden lg:flex flex-col leading-none">
-                <span className="text-[9px] text-slate-400 font-black uppercase">
-                    {session ? 'Olá, Membro' : 'Acesse'}
-                </span>
-                <span className="text-[11px] text-white font-black uppercase tracking-tighter">
-                    {session ? 'Sua Conta' : 'Sua Conta'}
-                </span>
-            </div>
-          </Link>
+           <Link to={session ? "/dashboard" : "/login"} className="flex items-center gap-2 group relative">
+             <User className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
+             <div className="hidden lg:flex flex-col leading-none">
+                 <span className="text-[9px] text-slate-400 font-black uppercase">
+                     {session ? 'Olá, Membro' : 'Acesse'}
+                 </span>
+                 <span className="text-[11px] text-white font-black uppercase tracking-tighter">
+                     {session ? 'Sua Conta' : 'Sua Conta'}
+                 </span>
+             </div>
+           </Link>
 
-          <button onClick={onCartClick} className="flex items-center gap-2 group relative">
-            <div className="relative">
-                <ShoppingCart className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
-                {cartCount > 0 && (
-                    <span className="absolute -top-2 -right-2 bg-sky-500 text-white text-[9px] font-black h-4.5 w-4.5 min-w-[18px] flex items-center justify-center rounded-full shadow-lg ring-2 ring-black">
-                    {cartCount}
-                    </span>
-                )}
-            </div>
-            <div className="hidden lg:flex flex-col leading-none">
-                <span className="text-[9px] text-slate-400 font-black uppercase">Meu</span>
-                <span className="text-[11px] text-white font-black uppercase tracking-tighter">Carrinho</span>
-            </div>
-          </button>
-        </div>
-      </div>
+           <button onClick={onCartClick} className="flex items-center gap-2 group relative">
+             <div className="relative">
+                 <ShoppingCart className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
+                 {cartCount > 0 && (
+                     <span className="absolute -top-2 -right-2 bg-sky-500 text-white text-[9px] font-black h-4.5 w-4.5 min-w-[18px] flex items-center justify-center rounded-full shadow-lg ring-2 ring-black">
+                     {cartCount}
+                     </span>
+                 )}
+             </div>
+             <div className="hidden lg:flex flex-col leading-none">
+                 <span className="text-[9px] text-slate-400 font-black uppercase">Meu</span>
+                 <span className="text-[11px] text-white font-black uppercase tracking-tighter">Carrinho</span>
+             </div>
+           </button>
+         </div>
+       </div>
 
       {/* CATEGORY BAR (DESKTOP) - Permitindo quebra de linha */}
       <div className="hidden md:block border-t border-white/10 bg-black">

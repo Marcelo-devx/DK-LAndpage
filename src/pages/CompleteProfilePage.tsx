@@ -504,15 +504,15 @@ const CompleteProfilePage = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="space-y-2">
                     <Label htmlFor="date_of_birth" className="text-charcoal-gray">Data de Nascimento {requiredStar('date_of_birth') && <span className="text-red-500">*</span>}</Label>
-                    <div className="[&>button]:w-full [&>button]:h-12 [&>button]:bg-stone-50 [&>button]:border-stone-200 [&>button]:rounded-xl [&>button]:text-charcoal-gray">
-                        <Controller 
-                            name="date_of_birth" 
-                            control={control} 
-                            render={({ field }) => (
-                            <DatePicker value={field.value} onChange={field.onChange} />
-                            )} 
-                        />
-                    </div>
+                    <div>
+                                            <Controller
+                                                name="date_of_birth"
+                                                control={control}
+                                                render={({ field }) => (
+                                                  <DatePicker value={field.value} onChange={field.onChange} className="w-full" />
+                                                )}
+                                            />
+                                        </div>
                     {errors.date_of_birth && <p className="text-xs text-red-500 font-bold">{errors.date_of_birth.message}</p>}
                   </div>
                   <div className="space-y-2">

@@ -270,19 +270,32 @@ const CompleteProfilePage = () => {
       if (password) {
         try {
           const { data: updated, error: pwdErr } = await supabase.auth.updateUser({ password });
-          // If Supabase rejects password for being weak, don't block profile save — warn and continue
           if (pwdErr) {
             const msg = String(pwdErr.message || '').toLowerCase();
             if (msg.includes('weak') || msg.includes('easy to guess') || msg.includes('known to be')) {
-              // Show non-blocking warning to the user
-              showError('A senha foi salva no perfil, mas o provedor rejeitou a senha por segurança. Você poderá alterar a senha depois.');
-              console.warn('[CompleteProfilePage] weak password rejected by auth provider:', pwdErr);
+              // Password was rejected by provider. Attempt to send a password reset email so user can set it.
+              try {
+                const userEmail = user?.email;
+                if (userEmail) {
+                  const { data: resetData, error: resetErr } = await supabase.auth.resetPasswordForEmail(userEmail);
+                  if (!resetErr) {
+                    showSuccess('A senha não pôde ser atualizada pelo provedor. Enviamos um e-mail para redefinição de senha. Verifique sua caixa de entrada.');
+                  } else {
+                    console.error('[CompleteProfilePage] failed to send reset email after weak password:', resetErr);
+                    showError('A senha foi rejeitada pelo provedor e não foi possível enviar o e-mail de redefinição automaticamente. Contate suporte.');
+                  }
+                } else {
+                  showError('A senha foi rejeitada pelo provedor; contate o suporte para atualizar a senha.');
+                }
+              } catch (sendErr) {
+                console.error('[CompleteProfilePage] failed to send reset email after weak password (exception):', sendErr);
+                showError('A senha foi rejeitada pelo provedor e não foi possível enviar o e-mail de redefinição automaticamente. Contate suporte.');
+              }
             } else {
               throw pwdErr;
             }
           }
         } catch (pwdEx) {
-          // If updateUser throws unexpectedly, log but do not block the profile save
           console.warn('[CompleteProfilePage] password update skipped due to error:', pwdEx);
         }
       }

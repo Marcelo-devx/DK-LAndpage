@@ -665,21 +665,28 @@ const CheckoutPage = () => {
               <div className="space-y-3 bg-stone-50 p-6 rounded-2xl border border-stone-100"><div className="flex justify-between text-[10px] font-bold uppercase text-slate-500"><span>Subtotal</span><span>R$ {subtotal.toFixed(2)}</span></div>{selectedCoupon && <div className="flex justify-between text-[10px] font-bold uppercase text-green-600"><span>Desconto</span><span>- R$ {discount.toFixed(2)}</span></div>}<div className="flex justify-between text-[10px] font-bold uppercase text-slate-500"><span>Frete</span><span className={isFreeShippingApplied ? "text-green-600" : ""}>{isFreeShippingApplied ? "GRÁTIS" : `R$ ${shippingCost.toFixed(2)}`}</span></div>{donationAmount > 0 && <div className="flex justify-between text-[10px] font-bold uppercase text-rose-600"><span>Doação</span><span>+ R$ {donationAmount.toFixed(2)}</span></div>}<Separator /><div className="flex justify-between font-black text-3xl italic uppercase tracking-tighter"><span>Total</span><span className="text-sky-600">R$ {total.toFixed(2).replace('.', ',')}</span></div></div>
               <div className="space-y-3"><Label className="text-[10px] uppercase text-slate-400">Doação Solidária</Label><div className="flex flex-wrap items-center gap-2">{[2, 5, 10].map(val => (<Button key={val} type="button" variant={donationAmount === val ? 'default' : 'outline'} onClick={() => setDonationAmount(prev => (prev === val ? 0 : val))} className={cn("rounded-lg h-10 text-xs font-bold", donationAmount === val && "bg-rose-500 hover:bg-rose-600")}>R$ {val.toFixed(2)}</Button>))}{donationAmount > 0 && (<Button type="button" variant="ghost" size="icon" onClick={() => setDonationAmount(0)} className="text-rose-500 hover:text-rose-700"><X className="h-4 w-4" /></Button>)}</div></div>
               <div className="space-y-3"><Label className="text-[10px] uppercase text-slate-400">Método de Pagamento</Label>{!isAddressComplete && (<Alert variant="destructive" className="bg-red-50 border-red-100 text-red-700"><AlertTriangle className="h-4 w-4" /><AlertTitle className="font-bold">Endereço Incompleto</AlertTitle><AlertDescription className="text-xs">Preencha todos os seus dados de entrega para liberar as opções de pagamento.</AlertDescription></Alert>)}<div className="grid grid-cols-2 gap-3"><Button type="button" onClick={() => setValue('payment_method', 'mercadopago')} disabled={!isCreditCardEnabled || !isAddressComplete} className={cn("h-16 flex-col gap-1 rounded-xl border", paymentMethod === 'mercadopago' ? "bg-sky-500 text-white border-sky-400" : "bg-stone-50 text-slate-500")}><CreditCard className="h-4 w-4" /><span className="text-[9px] uppercase font-black">Cartão</span></Button><Button type="button" onClick={() => setValue('payment_method', 'pix')} disabled={!isAddressComplete} className={cn("h-16 flex-col gap-1 rounded-xl border", paymentMethod === 'pix' ? "bg-sky-500 text-white border-sky-400" : "bg-stone-50 text-slate-500")}><MessageSquare className="h-4 w-4" /><span className="text-[9px] uppercase font-black">PIX WhatsApp</span></Button></div>{paymentMethod === 'mercadopago' && (<Alert className="mt-4 bg-amber-50 border-amber-100"><AlertTitle className="text-sm">Atenção</AlertTitle><AlertDescription className="text-sm text-stone-600">O cartão de crédito deve estar no mesmo nome e CPF/CNPJ cadastrados no site para evitar recusas no pagamento.</AlertDescription></Alert>)}</div>
-              {paymentMethod === 'pix' && (<Button type="submit" disabled={isSubmitting || !isAddressComplete} className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95">{isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : "Finalizar com PIX"}</Button>)}
-              {paymentMethod === 'mercadopago' && (<Button type="submit" disabled={isSubmitting || !isCreditCardEnabled || !isAddressComplete} className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95">{isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : "Pagar com Mercado Pago"}</Button>)}
             </CardContent>
           </Card>
         </div>
 
-        {/* Payment submit button - Reduced size for mobile */}
+        {/* Single submit button for all screen sizes */}
         <div className="order-last mt-8">
           {paymentMethod === 'pix' && (
             <Button 
               type="submit"
               disabled={isSubmitting || !isAddressComplete}
-              className="w-full h-14 md:h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-xl shadow-xl transition-all active:scale-98"
+              className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-98 flex items-center justify-center"
             >
               {isSubmitting ? <Loader2 className="h-6 w-6" /> : 'Finalizar com PIX'}
+            </Button>
+          )}
+          {paymentMethod === 'mercadopago' && (
+            <Button 
+              type="submit"
+              disabled={isSubmitting || !isCreditCardEnabled || !isAddressComplete}
+              className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-98 flex items-center justify-center"
+            >
+              {isSubmitting ? <Loader2 className="h-6 w-6" /> : 'Pagar com Mercado Pago'}
             </Button>
           )}
         </div>

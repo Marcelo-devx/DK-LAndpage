@@ -203,6 +203,13 @@ const AdminCustomizer = () => {
   const handleSimulateWebhook = async (eventType: string) => {
     if (!webhooks[eventType]) { showError("Configure uma URL primeiro."); return; }
     
+    // If targeting n8n, ensure apikey param present (common n8n security)
+    const targetUrl = webhooks[eventType] || '';
+    if (/n8n/i.test(targetUrl) && !/apikey=/.test(targetUrl)) {
+      showError('O webhook configurado aponta para o N8N e não contém uma API key. Atualize a URL no painel de webhooks adicionando ?apikey=SEU_TOKEN ou configure o header `apikey`.');
+      return;
+    }
+
     setIsSimulating(eventType);
     const toastId = showLoading(`Testando ${eventType}...`);
 
@@ -222,24 +229,18 @@ const AdminCustomizer = () => {
       // Tenta capturar detalhes retornados pelo supabase error object
       const detailed = error?.message || (error && typeof error === 'object' ? JSON.stringify(error) : String(error));
 
-      // Fallback diagnóstico: tentar chamar a URL direta da Edge Function (apenas para debug no console)
-      try {
-        const debugResp = await fetch(`${PROJECT_URL}/functions/v1/trigger-integration`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ event_type: eventType, simulate: true })
-        });
-        if (!debugResp.ok) {
-          console.warn('[AdminCustomizer] direct function fetch response not ok:', debugResp.status, debugResp.statusText);
-        } else {
-          console.info('[AdminCustomizer] direct function fetch succeeded (for debug).');
-        }
-      } catch (fetchErr) {
-        console.error('[AdminCustomizer] direct function fetch error (CORS/network):', fetchErr);
+      // Improved handling for missing apikey errors (common with n8n webhooks)
+      if (detailed && detailed.toLowerCase().includes('no api key')) {
+        showError('Falha ao enviar para o N8N: API key ausente. Verifique a URL do webhook ou as configurações do N8N (header `apikey` ou param `apikey`).');
+      } else if (detailed && detailed.toLowerCase().includes('no `apikey`')) {
+        showError('Falha ao enviar para o N8N: cabeçalho `apikey` não encontrado. Configure o webhook no N8N ou adicione `?apikey=...` à URL.');
+      } else {
+        // General error message
+        showError(detailed || "Falha na simulação. Verifique o console para mais detalhes.");
       }
 
       dismissToast(toastId);
-      showError(detailed || "Falha na simulação. Verifique o console para mais detalhes.");
+      setIsSimulating(null);
     } finally {
       setIsSimulating(null);
     }

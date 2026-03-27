@@ -83,14 +83,12 @@ serve(async (req) => {
 
           const subtotal_products = mappedItems.reduce((s: number, it: any) => s + (it.price * it.quantity), 0)
 
-          // DEBUG: Log dos valores brutos do banco
-          console.log('[trigger-integration] DEBUG - Valores brutos do pedido', {
-            orderId,
-            subtotal_products,
-            shipping_cost_raw: order.shipping_cost,
-            donation_amount_raw: order.donation_amount,
-            coupon_discount_raw: order.coupon_discount
-          })
+          // CORRECTED: Calculate FINAL total including items, shipping, donation and discount
+          const shippingCost = Number(order.shipping_cost ?? 0)
+          const donationAmount = Number(order.donation_amount ?? 0)
+          const couponDiscount = Number(order.coupon_discount ?? 0)
+          const totalFinal = (subtotal_products + shippingCost + donationAmount - couponDiscount)
+          const total_price = isNaN(totalFinal) ? subtotal_products : totalFinal
 
           // Customer info: prefer shipping_address fields, fallback to profile if available
           const shipping = order.shipping_address || {}
@@ -101,23 +99,6 @@ serve(async (req) => {
             email: shipping.email || order.guest_email || null,
             cpf: shipping.cpf_cnpj ? String(shipping.cpf_cnpj).replace(/\D/g, '') : (shipping.cpf_cnpj || null)
           }
-
-          // CORRECTED: Calculate FINAL total including items, shipping, donation and discount
-          const shippingCost = Number(order.shipping_cost ?? 0)
-          const donationAmount = Number(order.donation_amount ?? 0)
-          const couponDiscount = Number(order.coupon_discount ?? 0)
-          const totalFinal = (subtotal_products + shippingCost + donationAmount - couponDiscount)
-          const total_price = isNaN(totalFinal) ? subtotal_products : totalFinal
-
-          // DEBUG: Log do cálculo final
-          console.log('[trigger-integration] DEBUG - Cálculo do total', {
-            orderId,
-            subtotal: subtotal_products,
-            shipping: shippingCost,
-            donation: donationAmount,
-            discount: couponDiscount,
-            total_calculado: total_price
-          })
 
           // Assemble the standardized payload required by n8n
           const outgoing = {
@@ -174,7 +155,7 @@ serve(async (req) => {
 
     // Dispatch to each configured URL in parallel
     const results = await Promise.allSettled(configs.map(async (cfg: any) => {
-      const url = cfg.target_url
+      let url = cfg.target_url
 
       // Build headers: start with Content-Type
       const headers: Record<string, string> = {
@@ -198,6 +179,24 @@ serve(async (req) => {
             headers[key] = value
           }
         })
+      }
+
+      // If n8nToken present and URL lacks apikey param, append it (more reliable than relying on headers)
+      try {
+        if (n8nToken && !/apikey=/.test(url)) {
+          try {
+            const u = new URL(url)
+            u.searchParams.set('apikey', n8nToken)
+            url = u.toString()
+            console.log('[trigger-integration] appended apikey as query param for target')
+          } catch (uErr) {
+            // If URL constructor fails (e.g., relative URL), fallback to simple append
+            url = url + (url.includes('?') ? '&' : '?') + `apikey=${encodeURIComponent(n8nToken)}`
+            console.log('[trigger-integration] appended apikey fallback for target')
+          }
+        }
+      } catch (apErr) {
+        console.warn('[trigger-integration] error while attempting to append apikey param', apErr)
       }
 
       // Build the exact body to send: if we've already constructed outgoing payload (for orders), send that, otherwise wrap generic

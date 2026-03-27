@@ -123,7 +123,7 @@ IV. Portabilidade dos dados a outro fornecedor de serviço ou produto, mediante 
 
 V. Informação sobre o compartilhamento de dados com entidades públicas e privadas;
 
-VI. Informação sobre a possibilidade de não fornecer consentimento e sobre as consequências da negativa: a DK CWB está disponível para atender e auxiliar, de forma transparente, quaisquer dúvidas que possam existir em função do tratamento dos dados pessoais, inclusive sobre os possíveis impactos decorrentes do não fornecimento do consentimento;
+VI. Informação sobre a possibilidade de não fornecer consentimento e sobre as consequências da negativa: a DK CWB está disponível para atender e auxiliar, de forma transparente, quaisquer dúvidas que possam existir em função do tratamento de dados pessoais, inclusive sobre os possíveis impactos decorrentes do não fornecimento do consentimento;
 
 VII. Revogação do consentimento: você pode retirar o seu consentimento em relação às atividades de tratamento que o requerem;
 
@@ -171,7 +171,7 @@ Produtos com defeito de fabricação:
 
 Trabalhamos com as melhores marcas proporcionando produtos com a melhor qualidade disponível no mercado.
 
-Solicitamos a atenção de todos quanto às solicitações iniciais dos fabricantes contidas nos manuais.
+Solicitamos a atenção de todos quanto às solicitações iniciais dos fabricantes contidas nos manuais dos mesmos.
 
 Diversos aparelhos contém resistências que contém malha de algodão. A não realização dos passos iniciais contidos nos manuais poderá danificar e/ou queimar o algodão inutilizando o aparelho.
 
@@ -179,69 +179,7 @@ A garantia da loja não cobre resistências que forem mal utilizadas, pedimos a 
 
 Após a leitura do manual e realização dos procedimentos necessários, caso tenha algum problema na utilização do produto recebido, entre em contato conosco e solicite auxílio.
 
-A DK CWB entende que, a partir do ato da compra, o comprador se informou sobre o produto que está adquirindo (seja no site do fabricante, nos vários textos disponíveis na internet, nas dezenas de reviews no YouTube, que explicam o funcionamento do produto e também através de contatos com usuários) e que está à par de todos os procedimentos necessários para o perfeito funcionamento do produto.
-
-Se for identificado através do nosso atendimento pela equipe técnica que produto está em desconformidade, providenciaremos a substituição no menor tempo possível, neste caso a loja arcará com os custos de transporte dos produtos.
-
-Termos e condições para realização do procedimento de Troca e/ou Devolução:
-
-O cancelamento da compra e a realização de troca de produtos somente será realizada mediante prévio contato com atendimento da loja. Será avaliado o prazo legal, conforme o Código de Defesa do Consumidor.
-
-Toda troca será realizada no local de origem, e o cliente arcará com os custos de transporte dos produtos. A mesma regra valerá para cancelamento de compras que já tiverem sido remetidas.
-
-Para realizar a solicitação de troca é importante que você forneça os dados do produto adquirido, número de compra, e-mail cadastrado e telefone para contato para o registro correto de sua solicitação.
-
-Ao devolver a mercadoria, deverá ser entregue em sua embalagem original e lacrada, com todos os manuais e acessórios.
-
-Nossos produtos são de uso pessoal, não vendemos produtos utilizados, portanto a solicitação de troca ou cancelamento não será aprovada se for constatado:
-
-Sinais de utilização do produto;
-
-Falta de algum acessório ou componente;
-
-Sinais de quedas e/ou líquidos.
-
-A devolução de produto sem autorização ou que apresente uma das opções acima não será aceita em nenhuma hipótese, e nesse caso o produto será enviado mediante pagamento de frete pelo comprador/cliente.
-
-O prazo para desistir ou trocar sua compra é de 7 (sete) dias corridos, a contar da data do recebimento do produto.
-
-O produto deverá estar na embalagem original, sem indícios de uso, sem violação do lacre original do fabricante, contendo o manual e todos os acessórios que possui.
-
-Os valores ressarcidos serão os preços efetivamente pagos pela(s) mercadoria(s), subtraindo-se o valor do frete e demais encargos tributários gerados pela desistência.
-
-TROCAS DE PODs DESCARTÁVEIS
-
-Não efetuamos trocas/estornos de pods descartáveis após serem abertos e usados. A quantidade de puffs é apenas exemplar e variam de acordo com a intensidade da puxada. Trocas só poderão ser solicitadas em caso de bateria descarregada (quando o aparelho não funciona nem uma vez), para isso, todos os pods recebidos no pedido devem ser testados no ato da entrega e, caso não funcione, o cliente deverá entrar em contato via WhatsApp imediatamente, informando o não funcionamento do produto, fazendo o envio de vídeos que mostrem o defeito do produto.
-
-Reclamações posteriores a data de entrega não serão válidas.
-
-Ressarcimento do valor da compra
-
-O prazo para ressarcimento do valor pago é de até 7 dias úteis após a chegada do item em nosso endereço. Será realizado tão breve quanto possível, assim que o produto for avaliado por nossa equipe técnica.
-
-Só serão realizados estornos ao titular da compra. O crédito não será concedido a terceiros em nenhuma hipótese.
-
-Em caso de compras no cartão de crédito o estorno será realizado pelo sistema e poderá ocorrer apenas na próxima fatura do cartão de crédito. Este procedimento é de responsabilidade exclusiva do sistema de pagamento e da sua administradora do cartão de crédito.
-
-Esta política de trocas e devoluções restringe-se aos produtos adquiridos através do site: www.dkcwb.com
-
-Perguntas Frequentes sobre garantia
-
-Perguntas Frequentes!
-
-Prezado Cliente, leia com atenção os tópicos abaixo, antes de realizar a compra.
-
-CASOS DE CLIENTE QUE QUEIRAM A TROCA DO PRODUTO FORA DA GARANTIA:
-
-Considerando que o prazo de garantia conforme estabelecido no site e no CDC já transcorreu, sem a comunicação prévia através dos canais oficiais da DK (WhatsApp, Instagram ou através do site), a empresa não tem como efetuar o reembolso/devolução dos valores pagos pelo produto. Desde logo, a empresa fica a disposição, ressaltando que os prazos e regras estabelecidos são de extrema importância para resguardar os direitos dos consumidores e dos fornecedores, devendo o cliente ficar atento aos prazos estabelecidos.
-
-CASOS DE CLIENTE QUE TENHAM ABERTO O PRODUTO:
-
-Considerando o produto foi utilizado, contrariando as regras estabelecidas no site, a empresa não tem como efetuar o reembolso/devolução dos valores pagos pelo produto. Desde logo, a empresa fica a disposição, ressaltando que as normas e condições de uso estabelecidas são de extrema importância para resguardar os direitos dos consumidores e dos fornecedores, devendo o cliente ficar atento às normas estabelecidas no site.
-
-CASOS DE CLIENTE QUE TENHAM DEVOLVIDO O PRODUTO COM DANOS/AVARIAS:
-
-Considerando o produto devolvido foi entregue com danos/avarias, contrariando as regras estabelecidas no site, a empresa não tem como efetuar o reembolso/devolução dos valores pagos pelo produto por estarem em desacordo com às normas estabelecidas no site devido ao mal uso do aparelho. Desde logo, a empresa fica a disposição, ressaltando que as normas e condições de uso estabelecidas são de extrema importância para resguardar os direitos dos consumidores e dos fornecedores, devendo o cliente ficar atento às normas estabelecidas no site.`;
+A DK CWB entende que, a partir do ato da compra, o comprador se informou sobre o produto que está adquirindo (seja no site do fabricante, nos vários textos disponíveis na internet, nas dezenas de reviews no YouTube, que explicam o funcionamento do produto and so on)`;
 
 const CompleteProfilePage = () => {
   const navigate = useNavigate();
@@ -300,14 +238,49 @@ const CompleteProfilePage = () => {
     }
     setIsFetchingCep(true);
     setDeliveryType(null);
+
+    // Timeout wrapper to avoid hanging in case the function invocation stalls
+    const TIMEOUT_MS = 10000; // 10 seconds
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
     try {
-      const { data, error } = await supabase.functions.invoke('validate-cep', {
+      const invokePromise = supabase.functions.invoke('validate-cep', {
         body: { cep: cleanedCep },
       });
 
+      const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error('timeout')), TIMEOUT_MS);
+      });
+
+      // Race the invoke against the timeout
+      const result: any = await Promise.race([invokePromise, timeoutPromise]);
+
+      // Clear timeout if resolved
+      if (timeoutId) clearTimeout(timeoutId);
+
+      const { data, error } = result || {};
+
       if (error) {
-        const errorBody = JSON.parse(error.context.responseText);
-        showError(errorBody.error || "Não foi possível buscar o endereço.");
+        // Try to safely extract a message
+        let msg = 'Não foi possível buscar o endereço.';
+        try {
+          if (error?.context?.responseText) {
+            const parsed = JSON.parse(error.context.responseText);
+            msg = parsed.error || msg;
+          } else if (error?.message) msg = error.message;
+        } catch (e) {
+          // ignore parse errors
+        }
+        showError(msg);
+        setValue('street', '');
+        setValue('neighborhood', '');
+        setValue('city', '');
+        setValue('state', '');
+        return;
+      }
+
+      if (!data) {
+        showError('Não foi possível buscar o endereço.');
         setValue('street', '');
         setValue('neighborhood', '');
         setValue('city', '');
@@ -327,9 +300,15 @@ const CompleteProfilePage = () => {
         setDeliveryType('local');
       }
 
-    } catch (e) {
-      showError("Ocorreu um erro inesperado ao buscar o CEP.");
+    } catch (e: any) {
+      if (String(e?.message || '').toLowerCase().includes('timeout')) {
+        showError('A busca pelo CEP está demorando. Tente novamente mais tarde.');
+      } else {
+        showError("Ocorreu um erro inesperado ao buscar o CEP.");
+        console.error('[CompleteProfilePage] handleCepLookup error:', e);
+      }
     } finally {
+      if (timeoutId) clearTimeout(timeoutId);
       setIsFetchingCep(false);
     }
   };

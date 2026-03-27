@@ -172,24 +172,46 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
     }
 
     // Verifica se o usuário está logado
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session || !session.user) {
-      // Se não estiver logado, mostra aviso e redireciona para login
-      showError("Você precisa estar logado para finalizar a compra.");
-      onOpenChange(false);
-      
-      // Redireciona para login após um pequeno delay para o usuário ver o aviso
-      setTimeout(() => {
-        navigate('/login', { 
-          state: { from: '/checkout' } 
-        });
-      }, 1500);
-      return;
-    }
+    try {
+      // get session and user in a robust way
+      const sessionRes = await supabase.auth.getSession();
+      const userRes = await supabase.auth.getUser();
+      const session = sessionRes?.data?.session;
+      const authUser = session?.user || userRes?.data?.user || null;
 
-    navigate('/checkout');
-    onOpenChange(false);
+      console.debug('[CartSheet] handleCheckout session:', session);
+      console.debug('[CartSheet] handleCheckout authUser:', authUser);
+
+      if (!authUser) {
+        showError('Você precisa estar logado para finalizar a compra. Redirecionando para login...');
+        window.dispatchEvent(new CustomEvent('authRequired', { detail: { from: window.location.pathname } }));
+        setTimeout(() => navigate('/login', { state: { from: '/checkout' } }), 600);
+        return;
+      }
+
+      // Optionally ensure profile is complete before checkout
+      try {
+        const { data: profile } = await supabase.from('profiles').select('id, first_name, last_name, date_of_birth, phone, cpf_cnpj, gender, cep, street, number, neighborhood, city, state').eq('id', authUser.id).single();
+        const isComplete = profile && profile.first_name && profile.last_name && profile.date_of_birth && profile.phone && profile.cpf_cnpj && profile.gender && profile.cep && profile.street && profile.number && profile.neighborhood && profile.city && profile.state;
+        if (!isComplete) {
+                  // Redirect to complete profile with return to checkout
+                  navigate('/complete-profile', { state: { from: '/checkout' } });
+                  onOpenChange(false);
+                  return;
+                }
+      } catch (profileErr) {
+        console.warn('[CartSheet] profile check failed:', profileErr);
+        // If profile query fails, allow checkout to proceed to show auth errors later
+      }
+
+      navigate('/checkout');
+      onOpenChange(false);
+    } catch (e) {
+      console.error('[CartSheet] Error during handleCheckout:', e);
+      showError('Erro ao verificar sessão. Tente entrar novamente.');
+      window.dispatchEvent(new CustomEvent('authRequired', { detail: { from: window.location.pathname } }));
+      setTimeout(() => navigate('/login', { state: { from: '/checkout' } }), 600);
+    }
   };
 
   return (

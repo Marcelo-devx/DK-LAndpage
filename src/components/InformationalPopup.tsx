@@ -20,10 +20,32 @@ interface InformationalPopupProps {
   onAccept?: () => void;
 }
 
+// Helper: sanitize and decode HTML so raw tags like <p> don't appear in the UI
+const sanitizeText = (input: string) => {
+  if (!input) return '';
+  // If running in browser, use a temporary element to decode entities and strip tags
+  try {
+    if (typeof document !== 'undefined') {
+      const tmp = document.createElement('div');
+      // Set as HTML to allow decoding entities
+      tmp.innerHTML = input;
+      // textContent gives decoded text with tags removed
+      return tmp.textContent || tmp.innerText || '';
+    }
+  } catch (e) {
+    // fallback to a simple regex removal if DOM unavailable
+    return input.replace(/<[^>]*>/g, '');
+  }
+  return input.replace(/<[^>]*>/g, '');
+};
+
 const renderContent = (text: string) => {
   if (!text) return null;
 
-  const sections = text.split('---');
+  // First sanitize the incoming content so HTML tags (e.g. <p>) don't show raw
+  const cleaned = sanitizeText(text);
+
+  const sections = cleaned.split('---');
   
   return sections.map((section, sectionIndex) => (
     <React.Fragment key={sectionIndex}>

@@ -189,7 +189,9 @@ const ConfirmacaoPedido = () => {
   const isPix = (order.payment_method || '').toString().toLowerCase().includes('pix');
   const addr = order.shipping_address || {};
 
-  const finalTotal = (Number(order.total_price) || 0) + (Number(order.shipping_cost) || 0) + (Number(order.donation_amount) || 0);
+  // CALCULAR SUBTOTAL DOS PRODUTOS A PARTIR DOS ITEMS (EVITA DUPLICAR FRETE/DOAÇÃO)
+  const productsTotal = items.reduce((acc, i) => acc + (Number(i.price_at_purchase || 0) * Number(i.quantity || 1)), 0);
+  const finalTotal = Number(order.total_price) || 0; // total final já gravado no pedido
 
   return (
     <div className="bg-off-white min-h-screen py-12 md:py-20 text-charcoal-gray">
@@ -286,11 +288,11 @@ const ConfirmacaoPedido = () => {
             <div className="space-y-3 bg-stone-50 p-6 rounded-2xl border border-stone-100">
               <div className="flex justify-between text-stone-500 text-sm font-medium">
                 <p>Subtotal</p>
-                <p>R$ {(order.total_price || 0).toFixed(2).replace('.', ',')}</p>
+                <p>R$ {productsTotal.toFixed(2).replace('.', ',')}</p>
               </div>
               <div className="flex justify-between text-stone-500 text-sm font-medium">
                 <p>Frete Especial</p>
-                <p className="text-green-600 font-black uppercase text-[10px] tracking-widest">Grátis</p>
+                <p className="text-green-600 font-black uppercase text-[10px] tracking-widest">{Number(order.shipping_cost) > 0 ? `R$ ${Number(order.shipping_cost).toFixed(2).replace('.', ',')}` : 'Grátis'}</p>
               </div>
               {Number(order.donation_amount) > 0 && (
                 <div className="flex justify-between text-rose-500 text-sm font-medium">

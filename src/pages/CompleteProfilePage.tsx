@@ -302,8 +302,41 @@ const CompleteProfilePage = () => {
 
       dismissToast(toastId);
       showSuccess("Cadastro completo!");
+      // Notify other parts of the app that profile changed
       window.dispatchEvent(new CustomEvent('profileUpdated'));
-      navigate('/');
+
+      // Ensure the client has a valid session. If the session was invalidated
+      // try to sign the user back in with the provided password (best-effort).
+      try {
+        const sessionResp: any = await supabase.auth.getSession();
+        const existingSession = sessionResp?.data?.session;
+        if (existingSession) {
+          navigate('/');
+          return;
+        }
+
+        // If we have a password and an email, attempt a sign-in (silent, best-effort).
+        if (password && user?.email) {
+          try {
+            const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ email: user.email, password });
+            if (!signInErr && signInData?.session) {
+              // session restored
+              window.dispatchEvent(new CustomEvent('profileUpdated'));
+              navigate('/');
+              return;
+            }
+            // fallthrough to navigate home (user may need to login manually)
+          } catch (siErr) {
+            console.warn('[CompleteProfilePage] silent sign-in failed:', siErr);
+          }
+        }
+
+        // Fallback: navigate to home anyway. If user isn't authenticated they will see public view.
+        navigate('/');
+      } catch (sessErr) {
+        console.error('[CompleteProfilePage] session check after profile save failed:', sessErr);
+        navigate('/');
+      }
     } catch (err: any) {
       dismissToast(toastId);
       showError(err.message || "Erro ao salvar. Tente novamente.");

@@ -118,38 +118,19 @@ const CompleteProfilePage = () => {
       showError("Por favor, insira um CEP válido com 8 dígitos.");
       return;
     }
+
     setIsFetchingCep(true);
     setDeliveryType(null);
 
-    // Timeout wrapper to avoid hanging in case the function invocation stalls
-    const TIMEOUT_MS = 10000; // 10 seconds
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
     try {
-      console.debug('[CompleteProfilePage] Starting CEP lookup for', cleanedCep);
-      const invokePromise = supabase.functions.invoke('validate-cep', {
-        body: { cep: cleanedCep },
-      });
-
-      const timeoutPromise = new Promise((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error('timeout')), TIMEOUT_MS);
-      });
-
-      // Race the invoke against the timeout
-      const result: any = await Promise.race([invokePromise, timeoutPromise]);
-
-      // Clear timeout if resolved
-      if (timeoutId) clearTimeout(timeoutId);
-
-      console.debug('[CompleteProfilePage] validate-cep result raw:', result);
-
-      const { data, error } = result || {};
-
-      if (error) {
-        console.error('[CompleteProfilePage] validate-cep returned error object:', error);
-        // Try to extract message from supabase error shape
-        const errMsg = (error?.message) ? String(error.message) : (error?.toString ? String(error) : 'Erro ao buscar CEP');
-        showError(errMsg);
+      console.debug('[CompleteProfilePage] Performing client-side ViaCEP lookup for', cleanedCep);
+      const resp = await fetch(`https://viacep.com.br/ws/${cleanedCep}/json/`);
+      if (!resp.ok) {
+        throw new Error('Falha ao consultar o serviço de CEP (ViaCEP).');
+      }
+      const data = await resp.json();
+      if (!data || data.erro) {
+        showError('CEP não encontrado.');
         setValue('street', '');
         setValue('neighborhood', '');
         setValue('city', '');
@@ -157,69 +138,37 @@ const CompleteProfilePage = () => {
         return;
       }
 
-      if (!data) {
-        // Some runtimes return { data: null } or the function returned an error
-        console.warn('[CompleteProfilePage] validate-cep returned no data', result);
-        showError('Não foi possível buscar o endereço.');
-        setValue('street', '');
-        setValue('neighborhood', '');
-        setValue('city', '');
-        setValue('state', '');
-        return;
-      }
+      setValue('street', data.logradouro || '');
+      setValue('neighborhood', data.bairro || '');
+      setValue('city', data.localidade || '');
+      setValue('state', data.uf || '');
 
-      console.debug('[CompleteProfilePage] validate-cep resolved data:', data);
-
-      setValue('street', data.logradouro);
-      setValue('neighborhood', data.bairro);
-      setValue('city', data.localidade);
-      setValue('state', data.uf);
-      
-      if (data.deliveryType === 'correios') {
-        setDeliveryType('correios');
-        showSuccess("Endereço localizado (Entrega via Correios)");
-      } else {
-        setDeliveryType('local');
-      }
-
+      const city = (data.localidade || '').trim().toLowerCase();
+      const localDeliveryCities = [
+        'curitiba',
+        'pinhais',
+        'são josé dos pinhais',
+        'sao jose dos pinhais',
+        'colombo',
+        'piraquara',
+        'araucária',
+        'arauceria',
+        'almirante tamandaré',
+        'almirante tamandare',
+        'campo largo',
+        'fazenda rio grande'
+      ];
+      const isLocal = localDeliveryCities.includes(city);
+      setDeliveryType(isLocal ? 'local' : 'correios');
+      showSuccess('Endereço localizado.');
     } catch (e: any) {
-      console.error('[CompleteProfilePage] handleCepLookup caught error:', e);
-
-      // Fallback: try client-side ViaCEP if Edge Function is failing or timed out
-      try {
-        console.debug('[CompleteProfilePage] attempting client-side ViaCEP fallback for', cleanedCep);
-        const viaResp = await fetch(`https://viacep.com.br/ws/${cleanedCep}/json/`);
-        if (viaResp.ok) {
-          const viaData = await viaResp.json();
-          if (viaData && !viaData.erro) {
-            setValue('street', viaData.logradouro || '');
-            setValue('neighborhood', viaData.bairro || '');
-            setValue('city', viaData.localidade || '');
-            setValue('state', viaData.uf || '');
-
-            const city = (viaData.localidade || '').trim().toLowerCase();
-            const localDeliveryCities = [
-              'curitiba', 'pinhais', 'são josé dos pinhais', 'colombo', 'piraquara', 'araucária', 'almirante tamandaré', 'campo largo', 'fazenda rio grande'
-            ];
-            const isLocal = localDeliveryCities.includes(city);
-            setDeliveryType(isLocal ? 'local' : 'correios');
-            showSuccess('Endereço localizado (ViaCEP)');
-            return;
-          }
-        }
-      } catch (vfErr) {
-        console.warn('[CompleteProfilePage] ViaCEP fallback failed:', vfErr);
-      }
-
-      if (String(e?.message || '').toLowerCase().includes('timeout')) {
-        showError('A busca pelo CEP está demorando. Tente novamente mais tarde.');
-      } else if (e?.message) {
-        showError(e.message);
-      } else {
-        showError("Ocorreu um erro inesperado ao buscar o CEP.");
-      }
+      console.error('[CompleteProfilePage] ViaCEP lookup failed:', e);
+      showError(e?.message || 'Ocorreu um erro ao buscar o CEP. Tente novamente.');
+      setValue('street', '');
+      setValue('neighborhood', '');
+      setValue('city', '');
+      setValue('state', '');
     } finally {
-      if (timeoutId) clearTimeout(timeoutId);
       setIsFetchingCep(false);
     }
   };

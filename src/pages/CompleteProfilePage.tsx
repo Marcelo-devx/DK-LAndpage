@@ -261,14 +261,35 @@ const CompleteProfilePage = () => {
   }, [navigate]);
 
   const onSubmit = async (data: ProfileFormData) => {
-    if (!user) return;
     setIsSaving(true);
     const toastId = showLoading("Salvando informações...");
 
-    // Separate password fields from profile data
-    const { password, password_confirm, accepted_terms, ...profileData } = data as any;
+    // If user not loaded (session missing), try to refresh session first
+    if (!user) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          dismissToast(toastId);
+          setIsSaving(false);
+          showError('Sessão inválida. Faça login novamente.');
+          navigate('/login');
+          return;
+        }
+        setUser(session.user);
+      } catch (sessErr) {
+        dismissToast(toastId);
+        setIsSaving(false);
+        showError('Erro verificando sessão. Faça login novamente.');
+        navigate('/login');
+        return;
+      }
+    }
 
+    // Now we can proceed safely (user is defined)
     try {
+      // Separate password fields from profile data
+      const { password, password_confirm, accepted_terms, ...profileData } = data as any;
+
       const { error } = await supabase
         .from('profiles')
         .update({
@@ -283,7 +304,6 @@ const CompleteProfilePage = () => {
         .eq('id', user.id);
 
       if (error) {
-        // If some of the accepted_terms_* columns don't exist, retry without them
         const msg = String(error.message || '').toLowerCase();
         if (msg.includes('column "accepted_terms_version"') || msg.includes('column "accepted_terms_at"') || String(error.code || '').includes('42703')) {
           await supabase.from('profiles').update({
@@ -296,29 +316,23 @@ const CompleteProfilePage = () => {
       }
 
       // If password provided, update auth password as well (mandatory here)
-      if (password) {
+      if ((data as any).password) {
         try {
-          const { data: updated, error: pwdErr } = await supabase.auth.updateUser({ password });
+          const { data: updated, error: pwdErr } = await supabase.auth.updateUser({ password: (data as any).password });
           if (pwdErr) {
             const msg = String(pwdErr.message || '').toLowerCase();
             if (msg.includes('weak') || msg.includes('easy to guess') || msg.includes('known to be')) {
-              // Password was rejected by provider. Attempt to send a password reset email so user can set it.
-              try {
-                const userEmail = user?.email;
-                if (userEmail) {
-                  const { data: resetData, error: resetErr } = await supabase.auth.resetPasswordForEmail(userEmail);
-                  if (!resetErr) {
-                    showSuccess('A senha não pôde ser atualizada pelo provedor. Enviamos um e-mail para redefinição de senha. Verifique sua caixa de entrada.');
-                  } else {
-                    console.error('[CompleteProfilePage] failed to send reset email after weak password:', resetErr);
-                    showError('A senha foi rejeitada pelo provedor e não foi possível enviar o e-mail de redefinição automaticamente. Contate suporte.');
-                  }
-                } else {
-                  showError('A senha foi rejeitada pelo provedor; contate o suporte para atualizar a senha.');
+              const userEmail = user?.email;
+              if (userEmail) {
+                const { data: resetData, error: resetErr } = await supabase.auth.resetPasswordForEmail(userEmail);
+                if (!resetErr) {
+                  dismissToast(toastId);
+                  showSuccess('A senha não pôde ser atualizada pelo provedor. Enviamos um e-mail para redefinição de senha. Verifique sua caixa de entrada.');
+                  window.dispatchEvent(new CustomEvent('profileUpdated'));
+                  setIsSaving(false);
+                  navigate('/perfil');
+                  return;
                 }
-              } catch (sendErr) {
-                console.error('[CompleteProfilePage] failed to send reset email after weak password (exception):', sendErr);
-                showError('A senha foi rejeitada pelo provedor e não foi possível enviar o e-mail de redefinição automaticamente. Contate suporte.');
               }
             } else {
               throw pwdErr;
@@ -331,40 +345,28 @@ const CompleteProfilePage = () => {
 
       dismissToast(toastId);
       showSuccess("Cadastro completo!");
-      // Notify other parts of the app that profile changed
       window.dispatchEvent(new CustomEvent('profileUpdated'));
 
-      // Ensure the client has a valid session. If the session was invalidated
-      // try to sign the user back in with the provided password (best-effort).
+      // Ensure the client has a valid session. If session missing attempt sign-in silently
       try {
         const sessionResp: any = await supabase.auth.getSession();
         const existingSession = sessionResp?.data?.session;
-        if (existingSession) {
-          navigate('/');
-          return;
-        }
-
-        // If we have a password and an email, attempt a sign-in (silent, best-effort).
-        if (password && user?.email) {
+        if (!existingSession && (data as any).password && user?.email) {
           try {
-            const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ email: user.email, password });
+            const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ email: user.email, password: (data as any).password });
             if (!signInErr && signInData?.session) {
-              // session restored
               window.dispatchEvent(new CustomEvent('profileUpdated'));
-              navigate('/');
-              return;
             }
-            // fallthrough to navigate home (user may need to login manually)
           } catch (siErr) {
             console.warn('[CompleteProfilePage] silent sign-in failed:', siErr);
           }
         }
 
-        // Fallback: navigate to home anyway. If user isn't authenticated they will see public view.
-        navigate('/');
+        // Navigate to profile page after success
+        navigate('/perfil');
       } catch (sessErr) {
         console.error('[CompleteProfilePage] session check after profile save failed:', sessErr);
-        navigate('/');
+        navigate('/perfil');
       }
     } catch (err: any) {
       dismissToast(toastId);

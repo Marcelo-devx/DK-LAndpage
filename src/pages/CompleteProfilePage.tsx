@@ -272,7 +272,25 @@ const CompleteProfilePage = () => {
           const identities = (user && (user.identities || (user.raw && user.raw.identities))) || null;
           const isOAuth = Array.isArray(identities) && identities.some((id: any) => id?.provider && id.provider !== 'email');
           if (isOAuth) {
-            showError('Sua conta está vinculada a um provedor externo (ex: OAuth). Não é possível definir senha por aqui. Use "Enviar recuperação de senha" via painel do Supabase ou peça para eu configurar via Admin se autorizar.');
+            // For OAuth accounts, we cannot set a password directly. Send a password recovery
+            // email so the user can create a local password via the official flow.
+            try {
+              const userEmail = user?.email;
+              if (userEmail) {
+                const { data: resetData, error: resetErr } = await supabase.auth.resetPasswordForEmail(userEmail);
+                if (!resetErr) {
+                  showSuccess('Sua conta está vinculada a um provedor externo. Enviamos um e-mail para que você possa criar uma senha local. Verifique sua caixa de entrada.');
+                } else {
+                  console.error('[CompleteProfilePage] failed to send reset email for OAuth user:', resetErr);
+                  showError('Não foi possível enviar o e-mail de criação de senha. Contate o suporte.');
+                }
+              } else {
+                showError('Conta OAuth detectada, mas não foi possível obter o e-mail do usuário. Contate suporte.');
+              }
+            } catch (ex) {
+              console.error('[CompleteProfilePage] exception while sending reset for OAuth user:', ex);
+              showError('Erro ao enviar e-mail de criação de senha.');
+            }
           } else {
             const { data: updated, error: pwdErr } = await supabase.auth.updateUser({ password });
             if (pwdErr) {

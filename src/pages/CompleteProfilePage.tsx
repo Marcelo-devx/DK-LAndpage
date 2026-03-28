@@ -265,26 +265,48 @@ const CompleteProfilePage = () => {
       }
 
       // If password provided, update auth password as well (mandatory here)
-      if ((data as any).password) {
+      if (password) {
         try {
-          const { data: updated, error: pwdErr } = await supabase.auth.updateUser({ password: (data as any).password });
+          const { data: updated, error: pwdErr } = await supabase.auth.updateUser({ password });
           if (pwdErr) {
             const msg = String(pwdErr.message || '').toLowerCase();
             if (msg.includes('weak') || msg.includes('easy to guess') || msg.includes('known to be')) {
-              const userEmail = user?.email;
-              if (userEmail) {
-                const { data: resetData, error: resetErr } = await supabase.auth.resetPasswordForEmail(userEmail);
-                if (!resetErr) {
-                  dismissToast(toastId);
-                  showSuccess('A senha não pôde ser atualizada pelo provedor. Enviamos um e-mail para redefinição de senha. Verifique sua caixa de entrada.');
-                  window.dispatchEvent(new CustomEvent('profileUpdated'));
-                  setIsSaving(false);
-                  navigate('/perfil');
-                  return;
+              // Password was rejected by provider. Attempt to send a password reset email so user can set it.
+              try {
+                const userEmail = user?.email;
+                if (userEmail) {
+                  const { data: resetData, error: resetErr } = await supabase.auth.resetPasswordForEmail(userEmail);
+                  if (!resetErr) {
+                    showSuccess('A senha não pôde ser atualizada pelo provedor. Enviamos um e-mail para redefinição de senha. Verifique sua caixa de entrada.');
+                  } else {
+                    console.error('[CompleteProfilePage] failed to send reset email after weak password:', resetErr);
+                    showError('A senha foi rejeitada pelo provedor e não foi possível enviar o e-mail de redefinição automaticamente. Contate suporte.');
+                  }
+                } else {
+                  showError('A senha foi rejeitada pelo provedor; contate o suporte para atualizar a senha.');
                 }
+              } catch (sendErr) {
+                console.error('[CompleteProfilePage] failed to send reset email after weak password (exception):', sendErr);
+                showError('A senha foi rejeitada pelo provedor e não foi possível enviar o e-mail de redefinição automaticamente. Contate suporte.');
               }
             } else {
               throw pwdErr;
+            }
+          } else {
+            // Password updated successfully on provider. Attempt to re-authenticate with new password
+            try {
+              if (user?.email) {
+                const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ email: user.email, password });
+                if (signInErr) {
+                  console.warn('[CompleteProfilePage] re-authentication after password update failed:', signInErr);
+                  // still allow flow to proceed; user may need to login manually
+                } else {
+                  // re-authentication succeeded; update local user var
+                  setUser(signInData.user ?? user);
+                }
+              }
+            } catch (reAuthEx) {
+              console.warn('[CompleteProfilePage] re-authentication error after password update:', reAuthEx);
             }
           }
         } catch (pwdEx) {

@@ -172,11 +172,26 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     dbTimeouts.current[key] = setTimeout(async () => {
+      // Use onConflict so the upsert merges with existing rows that have the same key.
       const { error } = await supabase
         .from('app_settings')
-        .upsert({ key, value });
+        .upsert([{ key, value }], { onConflict: 'key' });
 
-      if (error) console.error(`Erro ao salvar ${key}:`, error);
+      if (error) {
+        // Log the full error for debugging. If duplicate key still occurs, try an update fallback.
+        console.error(`Erro ao salvar ${key}:`, error);
+
+        // Fallback: attempt update if upsert failed with duplicate key
+        if ((error as any)?.code === '23505') {
+          const { error: updateError } = await supabase
+            .from('app_settings')
+            .update({ value })
+            .eq('key', key);
+
+          if (updateError) console.error(`Erro ao atualizar ${key} após conflito:`, updateError);
+        }
+      }
+
       delete dbTimeouts.current[key];
     }, 1000);
   };

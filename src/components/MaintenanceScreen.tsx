@@ -1,6 +1,10 @@
-import { Wrench } from 'lucide-react';
+import { Wrench, LogIn } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 
 const MaintenanceScreen = () => {
+  const navigate = useNavigate();
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
       <div className="max-w-md w-full text-center space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -23,6 +27,16 @@ const MaintenanceScreen = () => {
           <p className="text-lg text-slate-600 font-medium leading-relaxed">
             Estamos trabalhando para melhorar sua experiência. Voltaremos em breve.
           </p>
+
+          <div className="mt-4">
+            <Button
+              onClick={() => navigate('/login')}
+              className="inline-flex items-center gap-2 bg-slate-900 text-white hover:bg-black"
+            >
+              <LogIn className="h-4 w-4" />
+              Entrar
+            </Button>
+          </div>
         </div>
 
         {/* Decorative Elements */}

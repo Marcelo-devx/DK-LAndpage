@@ -1,6 +1,10 @@
 import { Wrench, LogIn } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Auth } from '@supabase/auth-ui-react';
+import { ThemeSupa } from '@supabase/auth-ui-shared';
+import { supabase } from '@/integrations/supabase/client';
 
 const MaintenanceScreen = () => {
   const navigate = useNavigate();
@@ -29,13 +33,36 @@ const MaintenanceScreen = () => {
           </p>
 
           <div className="mt-4">
-            <Button
-              onClick={() => navigate('/login')}
-              className="inline-flex items-center gap-2 bg-slate-900 text-white hover:bg-black"
-            >
-              <LogIn className="h-4 w-4" />
-              Entrar
-            </Button>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button
+                  onClick={() => navigate('/login')}
+                  className="inline-flex items-center gap-2 bg-slate-900 text-white hover:bg-black"
+                >
+                  <LogIn className="h-4 w-4" />
+                  Entrar
+                </Button>
+              </DialogTrigger>
+
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle className="text-lg font-black">Entrar</DialogTitle>
+                </DialogHeader>
+
+                <div className="mt-2">
+                  <Auth
+                    supabaseClient={supabase}
+                    providers={[]}
+                    appearance={{ theme: ThemeSupa }}
+                    theme="light"
+                  />
+                </div>
+
+                <div className="mt-4 text-right">
+                  <Button variant="ghost" onClick={() => navigate('/')}>Fechar</Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
 

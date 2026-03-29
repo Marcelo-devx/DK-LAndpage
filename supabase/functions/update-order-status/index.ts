@@ -5,6 +5,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 
 // Importar CORS utils do shared
 import { getCorsHeaders, createPreflightResponse } from '../_shared/cors.ts';
+// Importar logger sanitizado
+import { safeLog, safeErrorLog, sanitizeLogObject } from '../_shared/logger.ts';
 
 serve(async (req) => {
   // CORS preflight com validação de origem
@@ -18,7 +20,7 @@ serve(async (req) => {
       // @ts-ignore
       Deno.env.get('SUPABASE_URL') ?? '',
       // @ts-ignore
-      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '' // Usar ANON_KEY para validação, não SERVICE_ROLE diretamente
     )
 
     // Segurança: Verificar Header
@@ -36,7 +38,7 @@ serve(async (req) => {
         const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token)
         
         if (authError || !user) {
-            console.warn('[update-order-status] Token inválido:', authError?.message)
+            safeErrorLog('[update-order-status] Token inválido:', authError)
             return new Response(JSON.stringify({ error: 'Token de autenticação inválido.' }), {
                 status: 401,
                 headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' }
@@ -51,7 +53,7 @@ serve(async (req) => {
             .single()
         
         if (profileError || !profile) {
-            console.warn('[update-order-status] Perfil não encontrado para usuário:', user.id)
+            safeErrorLog('[update-order-status] Perfil não encontrado para usuário:', { userId: user.id, error: profileError })
             return new Response(JSON.stringify({ error: 'Perfil não encontrado.' }), {
                 status: 404,
                 headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' }
@@ -59,16 +61,16 @@ serve(async (req) => {
         }
 
         if (profile.role !== 'adm') {
-            console.warn('[update-order-status] Usuário não é admin:', user.id, profile.role)
+            safeLog('[update-order-status] Usuário não é admin:', { userId: user.id, role: profile.role })
             return new Response(JSON.stringify({ error: 'Acesso negado. Permissões insuficientes.' }), {
                 status: 403,
                 headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' }
             })
         }
 
-        console.log('[update-order-status] Usuário autorizado:', user.email)
+        safeLog('[update-order-status] Usuário autorizado:', { email: user.email })
     } catch (validationError) {
-        console.error('[update-order-status] Erro na validação:', validationError)
+        safeErrorLog('[update-order-status] Erro na validação:', validationError)
         return new Response(JSON.stringify({ error: 'Erro na validação de autenticação.' }), {
             status: 401,
             headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' }
@@ -126,7 +128,7 @@ serve(async (req) => {
         await supabaseAdmin.from('integration_logs').insert({
             event_type: 'api_payment_confirmed',
             status: 'success',
-            payload: { order_id, input_status: status, method: 'api_manual' },
+            payload: sanitizeLogObject({ order_id, input_status: status, method: 'api_manual' }),
             details: `Pedido #${order_id} finalizado e pontos concedidos.`
         });
 
@@ -156,7 +158,7 @@ serve(async (req) => {
         await supabaseAdmin.from('integration_logs').insert({
             event_type: 'api_update_order',
             status: 'success',
-            payload: { order_id, updates },
+            payload: sanitizeLogObject({ order_id, updates }),
             details: `Pedido #${order_id} atualizado (campos simples).`
         })
     }
@@ -171,7 +173,7 @@ serve(async (req) => {
     })
 
   } catch (error) {
-    console.error("[update-order-status] Erro:", error);
+    safeErrorLog("[update-order-status] Erro:", error)
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' },
       status: 500,

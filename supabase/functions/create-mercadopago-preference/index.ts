@@ -5,6 +5,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 
 // Importar CORS utils do shared
 import { getCorsHeaders, createPreflightResponse } from '../_shared/cors.ts';
+// Importar logger sanitizado
+import { safeErrorLog } from '../_shared/logger.ts';
 
 serve(async (req) => {
   // CORS preflight com validação de origem
@@ -14,8 +16,6 @@ serve(async (req) => {
   }
 
   try {
-    console.log('[create-mercadopago-preference] Iniciando processamento...');
-
     // 1. Recuperação das variáveis de ambiente
     // @ts-ignore
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL') as string;
@@ -28,7 +28,6 @@ serve(async (req) => {
     
     // Verificação robusta do token - SE ESTIVER VAZIO, VAI DAR ERRO AQUI ANTES DE CHAMAR O MP
     if (!RAW_MP_TOKEN || RAW_MP_TOKEN.trim() === '') {
-      console.error('[create-mercadopago-preference] ERRO CRÍTICO: Variável MERCADOPAGO_ACCESS_TOKEN não encontrada ou está VAZIA no ambiente.');
       return new Response(JSON.stringify({
         success: false,
         error: 'Configuração do Mercado Pago incompleta. Token não encontrado ou vazio.',
@@ -41,22 +40,17 @@ serve(async (req) => {
 
     const MP_TOKEN = RAW_MP_TOKEN.trim();
     const IS_SANDBOX = MP_TOKEN.startsWith('TEST-');
-    const MODE = IS_SANDBOX ? 'SANDBOX' : 'PRODUÇÃO';
-
-    console.log('[create-mercadopago-preference] Modo de operação:', MODE);
-    console.log('[create-mercadopago-preference] Token carregado com sucesso (primeiros 8 chars):', MP_TOKEN.substring(0, 8) + '...');
 
     // create service-role supabase client for logging (bypasses RLS)
     let supabaseService: any = null;
     try {
       if (SERVICE_ROLE_KEY) supabaseService = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
     } catch (e) {
-      console.warn('[create-mercadopago-preference] Não foi possível criar supabase service client para logging:', e);
+      // Ignora erro de logging
     }
 
     // 2. Autenticação (opcional para convidados)
     const authHeaderRaw = req.headers.get('Authorization') || req.headers.get('authorization');
-    console.log('[create-mercadopago-preference] Incoming Authorization header:', authHeaderRaw ? '[REDACTED]' : 'none');
 
     // Normalize header: if token passed without 'Bearer ', add it
     let authHeader: string | null = null;
@@ -76,16 +70,13 @@ serve(async (req) => {
 
         if (userError) {
           // Log and continue - we will fallback to guest if possible
-          console.warn('[create-mercadopago-preference] supabase.auth.getUser returned an error:', userError.message || userError);
         }
 
         if (user && user.email) {
           userEmail = user.email;
-          console.log('[create-mercadopago-preference] Usuário autenticado:', userEmail);
         }
       } catch (e: any) {
         // If auth request fails due to malformed header or similar, log and continue as guest when possible
-        console.warn('[create-mercadopago-preference] Erro na validação do token de sessão, prosseguindo como convidado se possível.', e?.message || e);
       }
     }
 
@@ -99,18 +90,15 @@ serve(async (req) => {
     if (!userEmail && body.guest_email) {
       userEmail = body.guest_email;
       isGuest = true;
-      console.log('[create-mercadopago-preference] Identificado como convidado (guest_email):', userEmail);
     }
 
     const shipping_address = body.shipping_address || body.shippingAddress || null;
     if (!userEmail && shipping_address?.email) {
       userEmail = shipping_address.email;
       isGuest = true;
-      console.log('[create-mercadopago-preference] Identificado como convidado (shipping_address):', userEmail);
     }
 
     if (!userEmail) {
-      console.error('[create-mercadopago-preference] Erro: E-mail do comprador não fornecido.');
       return new Response(JSON.stringify({
         success: false,
         error: 'E-mail do comprador é obrigatório.'
@@ -129,8 +117,6 @@ serve(async (req) => {
       : '';
 
     const totalPriceNum = Number(totalPriceRaw);
-
-    console.log('[create-mercadopago-preference] Dados do pedido:', { order_id: orderIdStr, total: totalPriceNum });
 
     if (!orderIdStr) {
       throw new Error('Order ID is required');
@@ -201,15 +187,15 @@ serve(async (req) => {
         });
       }
     } catch (e) {
-      console.warn('[create-mercadopago-preference] Falha ao ler app_settings, usando fallback.');
+      // Ignora erro de app_settings
     }
 
-    const configuredBase = (IS_SANDBOX 
-      ? (settingsBaseUrlSandbox || // @ts-ignore
-        Deno.env.get('FRONTEND_BASE_URL_SANDBOX'))
-      : (settingsBaseUrl || // @ts-ignore
-        Deno.env.get('FRONTEND_BASE_URL')))
-    ) || undefined;
+    const sandboxBase = Deno.env.get('FRONTEND_BASE_URL_SANDBOX') as string | undefined;
+    const prodBase = Deno.env.get('FRONTEND_BASE_URL') as string | undefined;
+
+    const configuredBase = IS_SANDBOX 
+      ? (settingsBaseUrlSandbox || sandboxBase)
+      : (settingsBaseUrl || prodBase);
 
     const chosenBase = (configuredBase || clientOrigin || '').toString().trim();
     
@@ -218,7 +204,6 @@ serve(async (req) => {
     }
 
     const backUrlBase = chosenBase.replace(/\/$/, '');
-    console.log('[create-mercadopago-preference] Base de retorno configurada:', backUrlBase);
 
     const preferencePayload = {
       items: [{
@@ -240,8 +225,6 @@ serve(async (req) => {
       statement_descriptor: "DKCWB",
       binary_mode: false
     };
-
-    console.log('[create-mercadopago-preference] Enviando requisição para Mercado Pago API...');
     
     // Helper para chamar a API do MP com um header Authorization dado
     const callMp = async (authHeaderValue: string) => {
@@ -257,53 +240,27 @@ serve(async (req) => {
 
     // 5. Chamada à API do Mercado Pago (tenta com 'Bearer <token>' primeiro)
     let mpResponse = await callMp(`Bearer ${MP_TOKEN}`).catch((fetchErr) => {
-      console.error('[create-mercadopago-preference] Erro de rede ao chamar MP (primeira tentativa):', fetchErr);
       throw new Error('Falha de conexão com o Mercado Pago.');
     });
 
     let mpStatus = mpResponse.status;
     let mpData: any = {};
-    try { mpData = await mpResponse.json(); } catch (e) { console.warn('[create-mercadopago-preference] Resposta do MP não é JSON.'); }
-
-    console.log('[create-mercadopago-preference] Status Resposta MP (primeira tentativa):', mpStatus);
-    console.log('[create-mercadopago-preference] Body Resposta MP (primeira tentativa):', JSON.stringify(mpData));
+    try { mpData = await mpResponse.json(); } catch (e) { mpData = {}; }
 
     // If MP reported a missing Authorization header, try a safe fallback (no "Bearer " prefix or trimmed token)
     const mpMissingAuth = (mpData && (mpData.message || '').toString().toLowerCase().includes('missing authorization')) || mpStatus === 401;
     if (!mpResponse.ok && mpMissingAuth) {
-      console.warn('[create-mercadopago-preference] Mercado Pago respondeu faltando header de auth; tentando fallback sem prefixo Bearer (ou corrigindo token)');
-      // Try with raw token (in case the token already contained 'Bearer ' or MP expects no Bearer)
       try {
         const altToken = MP_TOKEN.replace(/^Bearer\s+/i, '');
         mpResponse = await callMp(altToken);
         mpStatus = mpResponse.status;
         try { mpData = await mpResponse.json(); } catch (e) { mpData = {}; }
-        console.log('[create-mercadopago-preference] Status Resposta MP (fallback):', mpStatus);
-        console.log('[create-mercadopago-preference] Body Resposta MP (fallback):', JSON.stringify(mpData));
       } catch (altErr) {
-        console.error('[create-mercadopago-preference] Fallback para chamada MP falhou:', altErr);
+        // Ignora erro de fallback
       }
     }
 
     if (!mpResponse.ok) {
-      console.error('[create-mercadopago-preference] Mercado Pago retornou erro (final):', mpData);
-
-      // Attempt to log this failure to integration_logs using service role client
-      try {
-        if (supabaseService) {
-          await supabaseService.from('integration_logs').insert({
-            event_type: 'mercadopago_preference',
-            status: 'error',
-            response_code: mpStatus,
-            details: JSON.stringify(mpData),
-            payload: { order_id: orderIdStr, total_price: totalPriceNum, email: userEmail }
-          });
-          console.log('[create-mercadopago-preference] Erro registrado em integration_logs');
-        }
-      } catch (logErr) {
-        console.warn('[create-mercadopago-preference] Falha ao salvar integration_log:', logErr);
-      }
-
       return new Response(JSON.stringify({
         success: false,
         error: 'Erro ao processar pagamento no Mercado Pago',
@@ -315,8 +272,6 @@ serve(async (req) => {
       });
     }
 
-    console.log('[create-mercadopago-preference] Preferência criada com sucesso!');
-    
     return new Response(JSON.stringify({
       success: true,
       order_id: orderIdStr,
@@ -328,27 +283,7 @@ serve(async (req) => {
     });
 
   } catch (error: any) {
-    console.error("[create-mercadopago-preference] Erro interno:", error);
-
-    // Log unexpected internal errors as well
-    try {
-      // @ts-ignore
-      const SUPABASE_URL = Deno.env.get('SUPABASE_URL') as string;
-      // @ts-ignore
-      const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
-      if (SERVICE_ROLE_KEY) {
-        const supabaseService = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-        await supabaseService.from('integration_logs').insert({
-          event_type: 'mercadopago_preference',
-          status: 'error',
-          details: error?.message || String(error),
-        });
-        console.log('[create-mercadopago-preference] Erro interno registrado em integration_logs');
-      }
-    } catch (logErr) {
-      console.warn('[create-mercadopago-preference] Falha ao salvar log interno:', logErr);
-    }
-
+    safeErrorLog('Error in MP integration', error);
     return new Response(JSON.stringify({
       success: false,
       error: error?.message || 'Erro interno do servidor'

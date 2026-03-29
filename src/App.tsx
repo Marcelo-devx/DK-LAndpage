@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -28,21 +28,59 @@ import AdminCustomizer from "./components/AdminCustomizer";
 import EmailConfirm from "./pages/EmailConfirm";
 import { AgeVerificationProvider } from "./context/AgeVerificationContext";
 import MaintenanceScreen from "./components/MaintenanceScreen";
+import { supabase } from "./integrations/supabase/client";
 
 const queryClient = new QueryClient();
 
 const AppContent = () => {
   const { settings } = useTheme();
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [checkingRole, setCheckingRole] = useState(true);
 
-  if (settings.maintenanceMode) {
-    return (
-      <>
-        <MaintenanceScreen />
-        <AdminCustomizer />
-      </>
-    );
+  useEffect(() => {
+    let sub: any;
+
+    const checkAdmin = async () => {
+      setCheckingRole(true);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setIsAdmin(false);
+          return;
+        }
+
+        const { data, error } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+        if (!error && data?.role === 'adm') setIsAdmin(true);
+        else setIsAdmin(false);
+      } catch (e) {
+        console.error('[App] failed to determine admin role', e);
+        setIsAdmin(false);
+      } finally {
+        setCheckingRole(false);
+      }
+    };
+
+    checkAdmin();
+
+    const { data } = supabase.auth.onAuthStateChange(() => {
+      checkAdmin();
+    });
+    sub = data?.subscription;
+
+    return () => sub?.unsubscribe();
+  }, []);
+
+  // While we're determining role, don't prematurely show maintenance screen
+  if (settings.maintenanceMode && checkingRole) {
+    return null;
   }
 
+  // If maintenance is active and the user is NOT admin -> show maintenance screen only
+  if (settings.maintenanceMode && !isAdmin) {
+    return <MaintenanceScreen />;
+  }
+
+  // Otherwise render the full app (admins and normal operation)
   return (
     <>
       <AdminCustomizer />

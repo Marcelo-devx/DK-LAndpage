@@ -337,63 +337,19 @@ const CheckoutPage = () => {
               console.warn('[CheckoutPage] failed to queue integration_log before invoke:', qlErr);
             }
 
-            // Try to invoke the Edge Function directly so it can dispatch to n8n immediately.
-            // Include the user's access token when present so the function has context if needed.
+            // NOTE: Removed direct client invocation of the Edge Function (trigger-integration)
+            // to avoid CORS preflight 403 from browser. The DB trigger will dispatch the webhook
+            // server-side; here we simply mark a queued integration log so server-side workers can retry.
             try {
-              const { data: { session } } = await supabase.auth.getSession();
-              const authToken = session?.access_token;
-              const invokeOptions: any = {
-                body: {
-                  event_type: 'order_created',
-                  payload: { order_id: createdOrderId }
-                }
-              };
-              if (authToken) invokeOptions.headers = { Authorization: `Bearer ${authToken}` };
-
-              const { data: invokeData, error: invokeErr } = await supabase.functions.invoke('trigger-integration', invokeOptions);
-
-              if (invokeErr) {
-                console.warn('[CheckoutPage] trigger-integration invoke failed:', invokeErr);
-                // Fallback: persist a queued integration_log for server-side dispatch
-                try {
-                  await supabase.from('integration_logs').insert([{
-                    event_type: 'order_created',
-                    status: 'queued',
-                    details: `Invoke failed, queued for server dispatch: ${String(invokeErr.message || invokeErr)}`,
-                    payload: { order_id: createdOrderId }
-                  }]);
-                  console.info('[CheckoutPage] queued integration_log for server dispatch after invoke failure', createdOrderId);
-                } catch (qlErr) {
-                  console.error('[CheckoutPage] failed to insert queued integration_log after invoke failure:', qlErr);
-                }
-              } else {
-                console.info('[CheckoutPage] trigger-integration invoked successfully', invokeData);
-                // Persist a success log (best-effort)
-                try {
-                  await supabase.from('integration_logs').insert([{
-                    event_type: 'order_created',
-                    status: 'sent',
-                    details: 'Dispatched via client invoke to trigger-integration',
-                    payload: { order_id: createdOrderId }
-                  }]);
-                } catch (logErr) {
-                  console.warn('[CheckoutPage] could not persist sent integration_log:', logErr);
-                }
-              }
-            } catch (invokeEx) {
-              console.error('[CheckoutPage] error invoking trigger-integration:', invokeEx);
-              // Ensure the integration log is queued for retries server-side
-              try {
-                await supabase.from('integration_logs').insert([{
-                  event_type: 'order_created',
-                  status: 'queued',
-                  details: `Client invoke exception: ${String(invokeEx)}`,
-                  payload: { order_id: createdOrderId }
-                }]);
-                console.info('[CheckoutPage] queued integration_log for server dispatch after invoke exception');
-              } catch (qlErr) {
-                console.error('[CheckoutPage] failed to insert fallback integration_log after invoke exception:', qlErr);
-              }
+              await supabase.from('integration_logs').insert([{
+                event_type: 'order_created',
+                status: 'queued',
+                details: 'Queued from client (no direct invoke) for server-side dispatch',
+                payload: { order_id: createdOrderId }
+              }]);
+              console.info('[CheckoutPage] queued integration_log for server dispatch', createdOrderId);
+            } catch (qlErr) {
+              console.warn('[CheckoutPage] failed to insert queued integration_log:', qlErr);
             }
 
           } catch (invokeEx) {
@@ -709,28 +665,21 @@ const CheckoutPage = () => {
               <div className="space-y-3 bg-stone-50 p-6 rounded-2xl border border-stone-100"><div className="flex justify-between text-[10px] font-bold uppercase text-slate-500"><span>Subtotal</span><span>R$ {subtotal.toFixed(2)}</span></div>{selectedCoupon && <div className="flex justify-between text-[10px] font-bold uppercase text-green-600"><span>Desconto</span><span>- R$ {discount.toFixed(2)}</span></div>}<div className="flex justify-between text-[10px] font-bold uppercase text-slate-500"><span>Frete</span><span className={isFreeShippingApplied ? "text-green-600" : ""}>{isFreeShippingApplied ? "GRÁTIS" : `R$ ${shippingCost.toFixed(2)}`}</span></div>{donationAmount > 0 && <div className="flex justify-between text-[10px] font-bold uppercase text-rose-600"><span>Doação</span><span>+ R$ {donationAmount.toFixed(2)}</span></div>}<Separator /><div className="flex justify-between font-black text-3xl italic uppercase tracking-tighter"><span>Total</span><span className="text-sky-600">R$ {total.toFixed(2).replace('.', ',')}</span></div></div>
               <div className="space-y-3"><Label className="text-[10px] uppercase text-slate-400">Doação Solidária</Label><div className="flex flex-wrap items-center gap-2">{[2, 5, 10].map(val => (<Button key={val} type="button" variant={donationAmount === val ? 'default' : 'outline'} onClick={() => setDonationAmount(prev => (prev === val ? 0 : val))} className={cn("rounded-lg h-10 text-xs font-bold", donationAmount === val && "bg-rose-500 hover:bg-rose-600")}>R$ {val.toFixed(2)}</Button>))}{donationAmount > 0 && (<Button type="button" variant="ghost" size="icon" onClick={() => setDonationAmount(0)} className="text-rose-500 hover:text-rose-700"><X className="h-4 w-4" /></Button>)}</div></div>
               <div className="space-y-3"><Label className="text-[10px] uppercase text-slate-400">Método de Pagamento</Label>{!isAddressComplete && (<Alert variant="destructive" className="bg-red-50 border-red-100 text-red-700"><AlertTriangle className="h-4 w-4" /><AlertTitle className="font-bold">Endereço Incompleto</AlertTitle><AlertDescription className="text-xs">Preencha todos os seus dados de entrega para liberar as opções de pagamento.</AlertDescription></Alert>)}<div className="grid grid-cols-2 gap-3"><Button type="button" onClick={() => setValue('payment_method', 'mercadopago')} disabled={!isCreditCardEnabled || !isAddressComplete} className={cn("h-16 flex-col gap-1 rounded-xl border", paymentMethod === 'mercadopago' ? "bg-sky-500 text-white border-sky-400" : "bg-stone-50 text-slate-500")}><CreditCard className="h-4 w-4" /><span className="text-[9px] uppercase font-black">Cartão</span></Button><Button type="button" onClick={() => setValue('payment_method', 'pix')} disabled={!isAddressComplete} className={cn("h-16 flex-col gap-1 rounded-xl border", paymentMethod === 'pix' ? "bg-sky-500 text-white border-sky-400" : "bg-stone-50 text-slate-500")}><MessageSquare className="h-4 w-4" /><span className="text-[9px] uppercase font-black">PIX WhatsApp</span></Button></div>{paymentMethod === 'mercadopago' && (<Alert className="mt-4 bg-amber-50 border-amber-100"><AlertTitle className="text-sm">Atenção</AlertTitle><AlertDescription className="text-sm text-stone-600">O cartão de crédito deve estar no mesmo nome e CPF/CNPJ cadastrados no site para evitar recusas no pagamento.</AlertDescription></Alert>)}</div>
+              {paymentMethod === 'pix' && (<Button type="submit" disabled={isSubmitting || !isAddressComplete} className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95">{isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : "Finalizar com PIX"}</Button>)}
+              {paymentMethod === 'mercadopago' && (<Button type="submit" disabled={isSubmitting || !isCreditCardEnabled || !isAddressComplete} className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95">{isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : "Pagar com Mercado Pago"}</Button>)}
             </CardContent>
           </Card>
         </div>
 
-        {/* Single submit button for all screen sizes */}
+        {/* Payment submit button - Reduced size for mobile */}
         <div className="order-last mt-8">
           {paymentMethod === 'pix' && (
             <Button 
               type="submit"
               disabled={isSubmitting || !isAddressComplete}
-              className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-98 flex items-center justify-center"
+              className="w-full h-14 md:h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-xl shadow-xl transition-all active:scale-98"
             >
               {isSubmitting ? <Loader2 className="h-6 w-6" /> : 'Finalizar com PIX'}
-            </Button>
-          )}
-          {paymentMethod === 'mercadopago' && (
-            <Button 
-              type="submit"
-              disabled={isSubmitting || !isCreditCardEnabled || !isAddressComplete}
-              className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-98 flex items-center justify-center"
-            >
-              {isSubmitting ? <Loader2 className="h-6 w-6" /> : 'Pagar com Mercado Pago'}
             </Button>
           )}
         </div>

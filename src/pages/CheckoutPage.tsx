@@ -337,19 +337,63 @@ const CheckoutPage = () => {
               console.warn('[CheckoutPage] failed to queue integration_log before invoke:', qlErr);
             }
 
-            // NOTE: Removed direct client invocation of the Edge Function (trigger-integration)
-            // to avoid CORS preflight 403 from browser. The DB trigger will dispatch the webhook
-            // server-side; here we simply mark a queued integration log so server-side workers can retry.
+            // Try to invoke the Edge Function directly so it can dispatch to n8n immediately.
+            // Include the user's access token when present so the function has context if needed.
             try {
-              await supabase.from('integration_logs').insert([{
-                event_type: 'order_created',
-                status: 'queued',
-                details: 'Queued from client (no direct invoke) for server-side dispatch',
-                payload: { order_id: createdOrderId }
-              }]);
-              console.info('[CheckoutPage] queued integration_log for server dispatch', createdOrderId);
-            } catch (qlErr) {
-              console.warn('[CheckoutPage] failed to insert queued integration_log:', qlErr);
+              const { data: { session } } = await supabase.auth.getSession();
+              const authToken = session?.access_token;
+              const invokeOptions: any = {
+                body: {
+                  event_type: 'order_created',
+                  payload: { order_id: createdOrderId }
+                }
+              };
+              if (authToken) invokeOptions.headers = { Authorization: `Bearer ${authToken}` };
+
+              const { data: invokeData, error: invokeErr } = await supabase.functions.invoke('trigger-integration', invokeOptions);
+
+              if (invokeErr) {
+                console.warn('[CheckoutPage] trigger-integration invoke failed:', invokeErr);
+                // Fallback: persist a queued integration_log for server-side dispatch
+                try {
+                  await supabase.from('integration_logs').insert([{
+                    event_type: 'order_created',
+                    status: 'queued',
+                    details: `Invoke failed, queued for server dispatch: ${String(invokeErr.message || invokeErr)}`,
+                    payload: { order_id: createdOrderId }
+                  }]);
+                  console.info('[CheckoutPage] queued integration_log for server dispatch after invoke failure', createdOrderId);
+                } catch (qlErr) {
+                  console.error('[CheckoutPage] failed to insert queued integration_log after invoke failure:', qlErr);
+                }
+              } else {
+                console.info('[CheckoutPage] trigger-integration invoked successfully', invokeData);
+                // Persist a success log (best-effort)
+                try {
+                  await supabase.from('integration_logs').insert([{
+                    event_type: 'order_created',
+                    status: 'sent',
+                    details: 'Dispatched via client invoke to trigger-integration',
+                    payload: { order_id: createdOrderId }
+                  }]);
+                } catch (logErr) {
+                  console.warn('[CheckoutPage] could not persist sent integration_log:', logErr);
+                }
+              }
+            } catch (invokeEx) {
+              console.error('[CheckoutPage] error invoking trigger-integration:', invokeEx);
+              // Ensure the integration log is queued for retries server-side
+              try {
+                await supabase.from('integration_logs').insert([{
+                  event_type: 'order_created',
+                  status: 'queued',
+                  details: `Client invoke exception: ${String(invokeEx)}`,
+                  payload: { order_id: createdOrderId }
+                }]);
+                console.info('[CheckoutPage] queued integration_log for server dispatch after invoke exception');
+              } catch (qlErr) {
+                console.error('[CheckoutPage] failed to insert fallback integration_log after invoke exception:', qlErr);
+              }
             }
 
           } catch (invokeEx) {

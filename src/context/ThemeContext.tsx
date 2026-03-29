@@ -26,6 +26,7 @@ interface ThemeSettings {
   dashboardSubtitle: string;
   dashboardPointsLabel: string;
   dashboardButtonText: string;
+  maintenanceMode: boolean;
 }
 
 interface ThemeContextType {
@@ -59,6 +60,7 @@ const defaultSettings: ThemeSettings = {
   dashboardSubtitle: 'Bem-vindo à sua conta exclusiva DKCWB.',
   dashboardPointsLabel: 'Saldo acumulado',
   dashboardButtonText: 'Resgatar Cupons',
+  maintenanceMode: false,
 };
 
 const ThemeContext = createContext<ThemeContextType>({
@@ -114,6 +116,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
         if (item.key === 'dashboard_subtitle') newSettings.dashboardSubtitle = item.value || 'Bem-vindo à sua conta exclusiva DKCWB.';
         if (item.key === 'dashboard_points_label') newSettings.dashboardPointsLabel = item.value || 'Saldo acumulado';
         if (item.key === 'dashboard_button_text') newSettings.dashboardButtonText = item.value || 'Resgatar Cupons';
+        if (item.key === 'maintenance_mode') newSettings.maintenanceMode = item.value === 'true';
       });
 
       setSettings(newSettings);
@@ -148,12 +151,13 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
       'dashboard_subtitle': 'dashboardSubtitle',
       'dashboard_points_label': 'dashboardPointsLabel',
       'dashboard_button_text': 'dashboardButtonText',
+      'maintenance_mode': 'maintenanceMode',
     };
 
     const settingKey = mapKey[key];
     if (settingKey) {
         let finalValue: any = value;
-        if (['showHero', 'showInfo', 'showPromotions', 'showBrands'].includes(settingKey)) {
+        if (['showHero', 'showInfo', 'showPromotions', 'showBrands', 'maintenanceMode'].includes(settingKey)) {
             finalValue = value === 'true';
         }
 

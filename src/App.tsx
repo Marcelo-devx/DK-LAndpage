@@ -23,12 +23,55 @@ import HowItWorksPage from "./pages/HowItWorksPage";
 import AdminLogistics from "./pages/AdminLogistics";
 import UpdatePassword from "./pages/UpdatePassword";
 import AuthEventHandler from "./components/AuthEventHandler";
-import { ThemeProvider } from "./context/ThemeContext";
+import { ThemeProvider, useTheme } from "./context/ThemeContext";
 import AdminCustomizer from "./components/AdminCustomizer";
 import EmailConfirm from "./pages/EmailConfirm";
 import { AgeVerificationProvider } from "./context/AgeVerificationContext";
+import MaintenanceScreen from "./components/MaintenanceScreen";
 
 const queryClient = new QueryClient();
+
+const AppContent = () => {
+  const { settings } = useTheme();
+
+  if (settings.maintenanceMode) {
+    return (
+      <>
+        <MaintenanceScreen />
+        <AdminCustomizer />
+      </>
+    );
+  }
+
+  return (
+    <>
+      <AdminCustomizer />
+      <Routes>
+        <Route element={<MainLayout />}>
+          <Route path="/" element={<Index />} />
+          <Route path="/produtos" element={<AllProductsPage />} />
+          <Route path="/produto/:id" element={<ProductPage />} />
+          <Route path="/promocao/:id" element={<PromotionPage />} />
+          <Route path="/perfil" element={<ProfilePage />} />
+          <Route path="/checkout" element={<CheckoutPage />} />
+          <Route path="/compras" element={<OrdersPage />} />
+          <Route path="/pedidos" element={<Navigate to="/compras" replace />} />
+          <Route path="/confirmacao-pedido/:id" element={<ConfirmacaoPedido />} />
+          <Route path="/indicacoes" element={<ReferralsPage />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/clube-dk" element={<LoyaltyClubPage />} />
+          <Route path="/como-funciona" element={<HowItWorksPage />} />
+        </Route>
+        <Route path="/login" element={<Login />} />
+        <Route path="/complete-profile" element={<CompleteProfilePage />} />
+        <Route path="/update-password" element={<UpdatePassword />} />
+        <Route path="/admin/logistica" element={<AdminLogistics />} />
+        <Route path="/auth/confirm" element={<EmailConfirm />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </>
+  );
+};
 
 const App = () => {
   return (
@@ -40,30 +83,7 @@ const App = () => {
           <BrowserRouter>
             <AgeVerificationProvider>
               <AuthEventHandler />
-              <AdminCustomizer />
-              <Routes>
-                <Route element={<MainLayout />}>
-                  <Route path="/" element={<Index />} />
-                  <Route path="/produtos" element={<AllProductsPage />} />
-                  <Route path="/produto/:id" element={<ProductPage />} />
-                  <Route path="/promocao/:id" element={<PromotionPage />} />
-                  <Route path="/perfil" element={<ProfilePage />} />
-                  <Route path="/checkout" element={<CheckoutPage />} />
-                  <Route path="/compras" element={<OrdersPage />} />
-                  <Route path="/pedidos" element={<Navigate to="/compras" replace />} />
-                  <Route path="/confirmacao-pedido/:id" element={<ConfirmacaoPedido />} />
-                  <Route path="/indicacoes" element={<ReferralsPage />} />
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/clube-dk" element={<LoyaltyClubPage />} />
-                  <Route path="/como-funciona" element={<HowItWorksPage />} />
-                </Route>
-                <Route path="/login" element={<Login />} />
-                <Route path="/complete-profile" element={<CompleteProfilePage />} />
-                <Route path="/update-password" element={<UpdatePassword />} />
-                <Route path="/admin/logistica" element={<AdminLogistics />} />
-                <Route path="/auth/confirm" element={<EmailConfirm />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
+              <AppContent />
             </AgeVerificationProvider>
           </BrowserRouter>
         </ThemeProvider>

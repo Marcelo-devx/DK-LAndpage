@@ -19,7 +19,9 @@ import {
   Loader2,
   Zap,
   Trash2,
-  Package
+  Package,
+  Wrench,
+  AlertTriangle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -138,10 +140,10 @@ const AdminCustomizer = () => {
     setWebhooks(prev => ({ ...prev, [event]: url }));
 
     if (webhookTimeouts.current[event]) clearTimeout(webhookTimeouts.current[event]);
-    
+
     webhookTimeouts.current[event] = setTimeout(async () => {
       const isActive = url.trim().length > 0;
-      
+
       const { error, count } = await supabase
         .from('webhook_configs')
         .update({ target_url: url, is_active: isActive })
@@ -169,12 +171,12 @@ const AdminCustomizer = () => {
     setCategories(prev => prev.map(cat => 
       cat.id === categoryId ? { ...cat, show_age_restriction: value } : cat
     ));
-    
+
     const { error } = await supabase
       .from('categories')
       .update({ show_age_restriction: value })
       .eq('id', categoryId);
-    
+
     if (error) {
       console.error('Erro ao atualizar categoria:', error);
       showError('Erro ao salvar categoria');
@@ -202,7 +204,7 @@ const AdminCustomizer = () => {
 
   const handleSimulateWebhook = async (eventType: string) => {
     if (!webhooks[eventType]) { showError("Configure uma URL primeiro."); return; }
-    
+
     setIsSimulating(eventType);
     const toastId = showLoading(`Testando ${eventType}...`);
 
@@ -213,7 +215,7 @@ const AdminCustomizer = () => {
 
       dismissToast(toastId);
       if (error) throw error;
-      
+
       if (data?.success) showSuccess("Teste enviado com sucesso!");
       else showError(data?.error || "Erro no teste.");
     } catch (error: any) {
@@ -310,6 +312,7 @@ const AdminCustomizer = () => {
                 </TabsTrigger>
                 <TabsTrigger value="home" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-sky-500 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><Home className="h-3.5 w-3.5" /> Home</TabsTrigger>
                 <TabsTrigger value="login" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-indigo-500 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><LogIn className="h-3.5 w-3.5" /> Login</TabsTrigger>
+                <TabsTrigger value="maintenance" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-orange-600 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><Wrench className="h-3.5 w-3.5" /> Manutenção</TabsTrigger>
               </TabsList>
             </div>
 
@@ -457,7 +460,7 @@ const AdminCustomizer = () => {
                         </div>
                         <div className="flex gap-2">
                             <Input readOnly value={`${PROJECT_URL}/functions/v1/update-order-status`} className="bg-slate-800 border-slate-700 text-slate-300 font-mono text-[10px] h-8" />
-                            <Button size="icon" className="h-8 w-8 bg-slate-700 hover:bg-slate-600 shrink-0" onClick={() => copyToClipboard(`${PROJECT_URL}/functions/v1/update-order-status`)}>
+                            <Button size="icon" className="h-8 w-8 bg-slate-700 hover:bg-slate-600 shrink-0" onClick={() => copyToClipboard(`${PROJECT_URL}/functions/v1/update-order-status`)} >
                                 <Copy className="h-3.5 w-3.5 text-white" />
                             </Button>
                         </div>
@@ -553,6 +556,60 @@ const AdminCustomizer = () => {
                     <div><Label className="text-xs">Título</Label><Input value={settings.loginTitle} onChange={(e) => updateSetting('login_title', e.target.value)} /></div>
                     <div><Label className="text-xs">Subtítulo</Label><Input value={settings.loginSubtitle} onChange={(e) => updateSetting('login_subtitle', e.target.value)} /></div>
                  </div>
+              </TabsContent>
+
+              {/* --- ABA MANUTENÇÃO --- */}
+              <TabsContent value="maintenance" className="space-y-6 mt-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="bg-orange-50 border border-orange-200 p-4 rounded-xl">
+                  <div className="flex items-center gap-3 mb-2">
+                    <AlertTriangle className="h-5 w-5 text-orange-600" />
+                    <h3 className="font-bold text-orange-900 text-sm">Modo de Manutenção</h3>
+                  </div>
+                  <p className="text-xs text-orange-800 font-medium leading-relaxed">
+                    <strong>⚠️ ATENÇÃO:</strong> Ao ativar, <strong>TODOS</strong> os usuários (incluindo você) verão a tela de manutenção. O painel administrativo continuará visível para desativar o modo.
+                  </p>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-slate-100 rounded-lg">
+                        <Wrench className="h-5 w-5 text-slate-900" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-900 text-sm">Ativar Manutenção</h4>
+                        <p className="text-[10px] text-slate-500 mt-0.5">
+                          {settings.maintenanceMode ? 'O site está em manutenção' : 'O site está normal'}
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={settings.maintenanceMode}
+                      onCheckedChange={(checked) => updateSetting('maintenance_mode', String(checked))}
+                    />
+                  </div>
+
+                  {settings.maintenanceMode && (
+                    <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-orange-600 rounded-full animate-pulse" />
+                        <p className="text-[10px] font-bold text-orange-800 uppercase tracking-wider">
+                          Manutenção Ativa - O site está bloqueado para todos os usuários
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl">
+                  <div className="flex items-center gap-3 mb-2">
+                    <CheckCircle2 className="h-4 w-4 text-blue-600" />
+                    <h4 className="font-bold text-blue-900 text-xs uppercase tracking-wider">Dica de Uso</h4>
+                  </div>
+                  <p className="text-[10px] text-blue-700 font-medium leading-relaxed">
+                    Se você ativar acidentalmente, basta acessar o painel AdminCustomizer (botão flutuante) e desativar o switch. O site voltará ao normal imediatamente.
+                  </p>
+                </div>
               </TabsContent>
 
             </div>

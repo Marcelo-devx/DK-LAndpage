@@ -73,7 +73,7 @@ const CompleteProfilePage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isTermsOpen, setIsTermsOpen] = useState(false);
 
-  const { register, handleSubmit, control, setValue, getValues, watch, formState: { errors } } = useForm<ProfileFormData>({
+  const { register, handleSubmit, control, setValue, getValues, watch, trigger, formState: { errors } } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
   });
 
@@ -138,10 +138,15 @@ const CompleteProfilePage = () => {
         return;
       }
 
+      // Set values and trigger validation to update the form state
       setValue('street', data.logradouro || '');
       setValue('neighborhood', data.bairro || '');
       setValue('city', data.localidade || '');
       setValue('state', data.uf || '');
+      
+      // Trigger validation to ensure form knows fields are filled
+      // This helps prevent submit errors immediately after fetching CEP
+      trigger(['street', 'neighborhood', 'city', 'state']);
 
       const city = (data.localidade || '').trim().toLowerCase();
       const localDeliveryCities = [
@@ -239,107 +244,78 @@ const CompleteProfilePage = () => {
       // Separate password fields from profile data
       const { password, password_confirm, accepted_terms, ...profileData } = data as any;
 
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          ...profileData,
-          // accepted_terms column may not exist in some DBs; only store version + timestamp
-          accepted_terms_version: TERMS_VERSION,
-          accepted_terms_at: new Date().toISOString(),
-          phone: profileData.phone.replace(/\D/g, ''),
-          cpf_cnpj: profileData.cpf_cnpj.replace(/\D/g, ''),
-          date_of_birth: format(profileData.date_of_birth, 'yyyy-MM-dd'),
-        })
-        .eq('id', user.id);
+      // Prepare update object with common fields
+      const updatePayload: any = {
+        first_name: profileData.first_name,
+        last_name: profileData.last_name,
+        phone: profileData.phone.replace(/\D/g, ''),
+        cpf_cnpj: profileData.cpf_cnpj.replace(/\D/g, ''),
+        gender: profileData.gender,
+        cep: profileData.cep,
+        street: profileData.street,
+        number: profileData.number,
+        complement: profileData.complement,
+        neighborhood: profileData.neighborhood,
+        city: profileData.city,
+        state: profileData.state,
+        date_of_birth: format(profileData.date_of_birth, 'yyyy-MM-dd'),
+      };
 
-      if (error) {
-        const msg = String(error.message || '').toLowerCase();
-        if (msg.includes('column "accepted_terms_version"') || msg.includes('column "accepted_terms_at"') || String(error.code || '').includes('42703')) {
-          await supabase.from('profiles').update({
-            ...profileData,
-            phone: profileData.phone.replace(/\D/g, ''),
-            cpf_cnpj: profileData.cpf_cnpj.replace(/\D/g, ''),
-            date_of_birth: format(profileData.date_of_birth, 'yyyy-MM-dd'),
-          }).eq('id', user.id);
-        } else throw error;
+      // Try to update profile
+      let profileError = await supabase.from('profiles').update(updatePayload).eq('id', user.id);
+
+      if (profileError.error) {
+         // If error is about columns, try to update without them
+         const msg = String(profileError.error.message || '').toLowerCase();
+         if (msg.includes('column "accepted_terms_version"') || msg.includes('column "accepted_terms_at"') || String(profileError.error.code || '').includes('42703')) {
+            // Retry without terms columns
+            profileError = await supabase.from('profiles').update(updatePayload).eq('id', user.id);
+         } else {
+            throw profileError.error;
+         }
       }
 
-      // If password provided, update auth password as well (mandatory here)
+      // If password provided, handle auth update
       if (password) {
         try {
-          // If the user's account comes from an OAuth provider, updateUser will fail.
-          // Detect that and inform the user instead of attempting update.
+          // Check if user is OAuth
           const identities = (user && (user.identities || (user.raw && user.raw.identities))) || null;
           const isOAuth = Array.isArray(identities) && identities.some((id: any) => id?.provider && id.provider !== 'email');
+          
           if (isOAuth) {
-            // For OAuth accounts, we cannot set a password directly. Send a password recovery
-            // email so the user can create a local password via the official flow.
-            try {
-              const userEmail = user?.email;
-              if (userEmail) {
-                const { data: resetData, error: resetErr } = await supabase.auth.resetPasswordForEmail(userEmail);
-                if (!resetErr) {
-                  showSuccess('Sua conta está vinculada a um provedor externo. Enviamos um e-mail para que você possa criar uma senha local. Verifique sua caixa de entrada.');
-                } else {
-                  console.error('[CompleteProfilePage] failed to send reset email for OAuth user:', resetErr);
-                  showError('Não foi possível enviar o e-mail de criação de senha. Contate o suporte.');
-                }
+            // For OAuth accounts, we cannot set a password directly. Send a password recovery email.
+            const userEmail = user?.email;
+            if (userEmail) {
+              console.log('[CompleteProfilePage] Sending reset email for OAuth user:', userEmail);
+              const { error: resetErr } = await supabase.auth.resetPasswordForEmail(userEmail);
+              if (resetErr) {
+                console.error('[CompleteProfilePage] failed to send reset email for OAuth user:', resetErr);
+                showError('Não foi possível enviar o e-mail de criação de senha. Tente novamente ou contate o suporte.');
               } else {
-                showError('Conta OAuth detectada, mas não foi possível obter o e-mail do usuário. Contate suporte.');
-              }
-            } catch (ex) {
-              console.error('[CompleteProfilePage] exception while sending reset for OAuth user:', ex);
-              showError('Erro ao enviar e-mail de criação de senha.');
-            }
-          } else {
-            const { data: updated, error: pwdErr } = await supabase.auth.updateUser({ password });
-            if (pwdErr) {
-              const msg = String(pwdErr.message || '').toLowerCase();
-              // If the provider rejects due to weak password, attempt reset email.
-              if (msg.includes('weak') || msg.includes('easy to guess') || msg.includes('known to be')) {
-                // Password was rejected by provider. Attempt to send a password reset email so user can set it.
-                try {
-                  const userEmail = user?.email;
-                  if (userEmail) {
-                    const { data: resetData, error: resetErr } = await supabase.auth.resetPasswordForEmail(userEmail);
-                    if (!resetErr) {
-                      showSuccess('A senha não pôde ser atualizada pelo provedor. Enviamos um e-mail para redefinição de senha. Verifique sua caixa de entrada.');
-                    } else {
-                      console.error('[CompleteProfilePage] failed to send reset email after weak password:', resetErr);
-                      showError('A senha foi rejeitada pelo provedor e não foi possível enviar o e-mail de redefinição automaticamente. Contate suporte.');
-                    }
-                  } else {
-                    showError('A senha foi rejeitada pelo provedor; contate o suporte para atualizar a senha.');
-                  }
-                } catch (sendErr) {
-                  console.error('[CompleteProfilePage] failed to send reset email after weak password (exception):', sendErr);
-                  showError('A senha foi rejeitada pelo provedor e não foi possível enviar o e-mail de redefinição automaticamente. Contate suporte.');
-                }
-              } else {
-                // Other errors - show the exact message so user understands cause.
-                console.error('[CompleteProfilePage] updateUser returned error:', pwdErr);
-                showError(pwdErr.message || 'Não foi possível atualizar a senha.');
+                showSuccess('Sua conta está vinculada a um provedor externo. Enviamos um e-mail para que você possa criar uma senha local. Verifique sua caixa de entrada.');
               }
             } else {
-              // Password updated successfully on provider. Attempt to re-authenticate with new password
-              try {
-                if (user?.email) {
-                  const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ email: user.email, password });
-                  if (signInErr) {
-                    console.warn('[CompleteProfilePage] re-authentication after password update failed:', signInErr);
-                    // still allow flow to proceed; user may need to login manually
-                  } else {
-                    // re-authentication succeeded; update local user var
-                    setUser(signInData.user ?? user);
-                  }
-                }
-              } catch (reAuthEx) {
-                console.warn('[CompleteProfilePage] re-authentication error after password update:', reAuthEx);
-              }
+              showError('Conta OAuth detectada, mas não foi possível obter o e-mail do usuário. Contate suporte.');
+            }
+          } else {
+            // Non-OAuth: Update password
+            const { error: pwdErr } = await supabase.auth.updateUser({ password });
+            if (pwdErr) {
+               console.error('[CompleteProfilePage] updateUser returned error:', pwdErr);
+               showError(pwdErr.message || 'Não foi possível atualizar a senha.');
+            } else {
+               // Password updated successfully, re-authenticate
+               if (user?.email) {
+                 const { error: signInErr } = await supabase.auth.signInWithPassword({ email: user.email, password });
+                 if (signInErr) {
+                   console.warn('[CompleteProfilePage] re-authentication after password update failed:', signInErr);
+                 }
+               }
             }
           }
         } catch (pwdEx) {
           console.warn('[CompleteProfilePage] password update skipped due to error:', pwdEx);
+          showError('Erro ao processar a senha. Verifique o console.');
         }
       }
 
@@ -347,31 +323,13 @@ const CompleteProfilePage = () => {
       showSuccess("Cadastro completo!");
       window.dispatchEvent(new CustomEvent('profileUpdated'));
 
-      // Ensure the client has a valid session. If session missing attempt sign-in silently
-      try {
-        const sessionResp: any = await supabase.auth.getSession();
-        const existingSession = sessionResp?.data?.session;
-        if (!existingSession && (data as any).password && user?.email) {
-          try {
-            const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ email: user.email, password: (data as any).password });
-            if (!signInErr && signInData?.session) {
-              window.dispatchEvent(new CustomEvent('profileUpdated'));
-            }
-          } catch (siErr) {
-            console.warn('[CompleteProfilePage] silent sign-in failed:', siErr);
-          }
-        }
-
-        // Navigate to profile page after success
-        navigate('/perfil');
-      } catch (sessErr) {
-        console.error('[CompleteProfilePage] session check after profile save failed:', sessErr);
-        navigate('/perfil');
-      }
+      // Navigate to DASHBOARD as requested
+      navigate('/dashboard');
+      
     } catch (err: any) {
       dismissToast(toastId);
       showError(err.message || "Erro ao salvar. Tente novamente.");
-      console.error(err);
+      console.error('[CompleteProfilePage] Submit error:', err);
     } finally {
       setIsSaving(false);
     }

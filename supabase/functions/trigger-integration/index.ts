@@ -1,6 +1,9 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 
+// Importar CORS utils do shared
+import { getCorsHeaders, createPreflightResponse } from '../_shared/cors.ts';
+
 // Use the service role key inside Edge Function so we can read webhook_configs despite RLS
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || 'https://jrlozhhvwqfmjtkmvukf.supabase.co'
 const SUPABASE_SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -9,23 +12,17 @@ if (!SUPABASE_SERVICE_ROLE) console.warn('[trigger-integration] WARNING: SUPABAS
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE)
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-}
-
 serve(async (req) => {
-  // CORS preflight
+  // CORS preflight com validação de origem
   if (req.method === 'OPTIONS') {
-    console.log('[trigger-integration] OPTIONS preflight received')
-    return new Response(null, { status: 204, headers: corsHeaders })
+    const origin = req.headers.get('origin');
+    return createPreflightResponse(origin);
   }
 
   try {
     if (req.method !== 'POST') {
       console.log('[trigger-integration] method not allowed')
-      return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' } })
     }
 
     const body = await req.json().catch(() => null)
@@ -36,13 +33,13 @@ serve(async (req) => {
 
     if (!eventType) {
       console.log('[trigger-integration] missing event_type')
-      return new Response(JSON.stringify({ error: 'event_type is required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      return new Response(JSON.stringify({ error: 'event_type is required' }), { status: 400, headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' } })
     }
 
     // If simulate flag present, short-circuit (for admin tests)
     if (body?.simulate) {
       console.log('[trigger-integration] simulate flag detected — returning success')
-      return new Response(JSON.stringify({ success: true }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      return new Response(JSON.stringify({ success: true }), { status: 200, headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' } })
     }
 
     // If this is an order_created event and payload includes order_id, enrich payload with full order data
@@ -162,14 +159,14 @@ serve(async (req) => {
     const { data: configs, error: configsErr } = await supabase.from('webhook_configs').select('id, trigger_event, target_url, is_active, api_key_header_name, api_key_value, additional_headers').eq('trigger_event', eventType).eq('is_active', true)
     if (configsErr) {
       console.error('[trigger-integration] error fetching webhook_configs', { error: configsErr })
-      return new Response(JSON.stringify({ error: 'Failed to load webhook configs' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      return new Response(JSON.stringify({ error: 'Failed to load webhook configs' }), { status: 500, headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' } })
     }
 
     console.log('[trigger-integration] webhook configs count:', configs?.length ?? 0)
 
     if (!configs || configs.length === 0) {
       console.log('[trigger-integration] no active webhook configs for', eventType)
-      return new Response(JSON.stringify({ success: true, dispatched: [] }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      return new Response(JSON.stringify({ success: true, dispatched: [] }), { status: 200, headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' } })
     }
 
     // Dispatch to each configured URL in parallel
@@ -244,9 +241,9 @@ serve(async (req) => {
       console.error('[trigger-integration] failed to persist integration_logs', logErr)
     }
 
-    return new Response(JSON.stringify({ success: true, dispatched }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    return new Response(JSON.stringify({ success: true, dispatched }), { status: 200, headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' } })
   } catch (err) {
     console.error('[trigger-integration] error', err)
-    return new Response(JSON.stringify({ error: 'Internal server error' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    return new Response(JSON.stringify({ error: 'Internal server error' }), { status: 500, headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' } })
   }
 })

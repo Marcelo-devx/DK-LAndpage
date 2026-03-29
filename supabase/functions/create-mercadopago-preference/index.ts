@@ -3,14 +3,14 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 // @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+// Importar CORS utils do shared
+import { getCorsHeaders, createPreflightResponse } from '../_shared/cors.ts';
 
 serve(async (req) => {
+  // CORS preflight com validação de origem
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    const origin = req.headers.get('origin');
+    return createPreflightResponse(origin);
   }
 
   try {
@@ -34,7 +34,7 @@ serve(async (req) => {
         error: 'Configuração do Mercado Pago incompleta. Token não encontrado ou vazio.',
         details: 'Verifique a variável de ambiente MERCADOPAGO_ACCESS_TOKEN no Supabase e cole o token correto.'
       }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' },
         status: 500,
       });
     }
@@ -115,7 +115,7 @@ serve(async (req) => {
         success: false,
         error: 'E-mail do comprador é obrigatório.'
       }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' },
         status: 400,
       });
     }
@@ -208,7 +208,7 @@ serve(async (req) => {
       ? (settingsBaseUrlSandbox || // @ts-ignore
         Deno.env.get('FRONTEND_BASE_URL_SANDBOX'))
       : (settingsBaseUrl || // @ts-ignore
-        Deno.env.get('FRONTEND_BASE_URL'))
+        Deno.env.get('FRONTEND_BASE_URL')))
     ) || undefined;
 
     const chosenBase = (configuredBase || clientOrigin || '').toString().trim();
@@ -310,7 +310,7 @@ serve(async (req) => {
         mp_error: mpData,
         statusCode: mpStatus
       }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' },
         status: 200,
       });
     }
@@ -323,7 +323,7 @@ serve(async (req) => {
       init_point: mpData.init_point,
       sandbox_init_point: mpData.sandbox_init_point
     }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' },
       status: 200,
     });
 
@@ -353,7 +353,7 @@ serve(async (req) => {
       success: false,
       error: error?.message || 'Erro interno do servidor'
     }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' },
       status: 200,
     });
   }

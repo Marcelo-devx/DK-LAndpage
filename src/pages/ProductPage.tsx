@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { showError } from '@/utils/toast';
 import { Card, CardContent } from "@/components/ui/card";
 import ProductImage from '@/components/ProductImage';
+import DOMPurify from 'dompurify';
 
 interface Product {
   id: number;
@@ -370,7 +371,7 @@ const ProductPage = () => {
               </div>
               
               <div className="prose prose-stone prose-lg max-w-none text-slate-600 leading-relaxed font-medium">
-                <div dangerouslySetInnerHTML={{ __html: product.description || 'Sem descrição disponível.' }} />
+                <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(product.description || 'Sem descrição disponível.') }} />
               </div>
             </CardContent>
           </Card>

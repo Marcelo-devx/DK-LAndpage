@@ -2,9 +2,19 @@ import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import ScrollAnimationWrapper from "./ScrollAnimationWrapper";
 import { useTheme } from "@/context/ThemeContext";
+import DOMPurify from 'dompurify';
 
 const FooterBanner = () => {
   const { settings } = useTheme();
+
+  // Sanitiza o HTML para evitar XSS antes de renderizar
+  const sanitizedTitle = DOMPurify.sanitize(
+    settings.footerBannerTitle.replace(/\./g, '<span class="text-sky-500">.</span>'),
+    { 
+      ALLOWED_TAGS: ['span'],
+      ALLOWED_ATTR: ['class']
+    }
+  );
 
   return (
     <ScrollAnimationWrapper>
@@ -17,7 +27,7 @@ const FooterBanner = () => {
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#00000005_1px,transparent_1px),linear-gradient(to_bottom,#00000005_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)]" />
 
         <div className="container mx-auto px-6 text-center relative z-10">
-          <h2 className="text-5xl md:text-7xl font-black tracking-tighter text-charcoal-gray mb-8 leading-none" dangerouslySetInnerHTML={{ __html: settings.footerBannerTitle.replace(/\./g, '<span class="text-sky-500">.</span>') }} />
+          <h2 className="text-5xl md:text-7xl font-black tracking-tighter text-charcoal-gray mb-8 leading-none" dangerouslySetInnerHTML={{ __html: sanitizedTitle }} />
           
           <p className="mt-4 max-w-2xl mx-auto text-xl text-stone-600 font-medium">
             {settings.footerBannerSubtitle}

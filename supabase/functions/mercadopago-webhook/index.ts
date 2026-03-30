@@ -2,8 +2,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 // @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
-// Importar logger sanitizado
-import { safeLog, safeErrorLog, sanitizeLogObject } from '../_shared/logger.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,91 +9,12 @@ const corsHeaders = {
 }
 
 // Initialize Supabase client with Service Role Key for secure database updates
-const SUPABASE_URL = // @ts-ignore
-  Deno.env.get('SUPABASE_URL') ?? 'https://jrlozhhvwqfmjtkmvukf.supabase.co'
-const SERVICE_ROLE = // @ts-ignore
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+// @ts-ignore
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? 'https://jrlozhhvwqfmjtkmvukf.supabase.co'
+// @ts-ignore
+const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 
 const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE)
-
-/**
- * Valida a assinatura do webhook do Mercado Pago
- * Verifica se a requisição realmente veio do Mercado Pago
- */
-function validateWebhookSignature(
-  requestId: string | null,
-  signature: string | null,
-  secret: string
-): boolean {
-  // Se não tiver assinatura ou requestId, rejeita (em produção)
-  // Em sandbox/teste pode ser mais flexível
-  if (!requestId || !signature) {
-    safeLog('[mercadopago-webhook] Assinatura ou requestId ausentes - aceitando para compatibilidade', {})
-    return true; // Temporariamente aceita para não quebrar fluxos existentes
-  }
-
-  // Mercado Pago usa HMAC SHA256 com a chave secreta
-  // A assinatura deve ser: x-signature: ts=timestamp;v1=signature
-  
-  try {
-    // Extrair timestamp e assinatura do header
-    const parts = signature.split(';');
-    let timestamp = '';
-    let v1Signature = '';
-    
-    parts.forEach(part => {
-      const [key, value] = part.split('=');
-      if (key === 'ts') timestamp = value;
-      if (key === 'v1') v1Signature = value;
-    });
-
-    if (!timestamp || !v1Signature) {
-      safeErrorLog('[mercadopago-webhook] Formato de assinatura inválido', { signature })
-      return false;
-    }
-
-    // Verificar se o timestamp não é muito antigo (5 minutos)
-    const now = Math.floor(Date.now() / 1000);
-    const timestampNum = parseInt(timestamp, 10);
-    if (Math.abs(now - timestampNum) > 300) { // 5 minutos
-      safeErrorLog('[mercadopago-webhook] Timestamp muito antigo', { timestamp: timestampNum, now })
-      return false;
-    }
-
-    // Criar string para assinar: {requestId}{timestamp}
-    const dataToSign = `${requestId}${timestamp}`;
-    
-    // Criar HMAC SHA256
-    const encoder = new TextEncoder();
-    const keyData = encoder.encode(secret);
-    const messageData = encoder.encode(dataToSign);
-    
-    return crypto.subtle
-      .importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
-      .then(key => crypto.subtle.sign('HMAC', key, messageData))
-      .then(signature => {
-        const signatureArray = Array.from(new Uint8Array(signature));
-        const signatureHex = signatureArray.map(b => b.toString(16).padStart(2, '0')).join('');
-        const expectedSignature = `v1=${signatureHex}`;
-        
-        const isValid = expectedSignature === v1Signature;
-        if (!isValid) {
-          safeErrorLog('[mercadopago-webhook] Assinatura inválida', { 
-            expected: expectedSignature.substring(0, 20) + '...', 
-            received: v1Signature.substring(0, 20) + '...' 
-          });
-        }
-        return isValid;
-      })
-      .catch(err => {
-        safeErrorLog('[mercadopago-webhook] Erro ao validar assinatura', err)
-        return false;
-      });
-  } catch (error) {
-    safeErrorLog('[mercadopago-webhook] Erro na validação de assinatura', error)
-    return false;
-  }
-}
 
 serve(async (req) => {
   // Respond to preflight
@@ -103,177 +22,246 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders })
   }
 
-  // Accept only POST from MP but always return 200 to acknowledge receipt
+  // Always return 200 to acknowledge receipt (MP retries if it gets non-200)
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ received: true, note: 'method ignored' }), {
+    return new Response(JSON.stringify({ received: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     })
   }
 
+  // Parse body
   let rawBody: any = null
   try {
     rawBody = await req.json()
   } catch (e) {
-    rawBody = { raw: 'invalid_json' }
+    rawBody = {}
   }
 
-  // Verificar assinatura do webhook
-  const xSignature = req.headers.get('x-signature');
-  const xRequestId = req.headers.get('x-request-id');
-  // @ts-ignore
-  const MP_WEBHOOK_SECRET = Deno.env.get('MERCADOPAGO_WEBHOOK_SECRET') as string || '';
+  // Extract payment ID - MP sends it in multiple ways:
+  // 1. Query string: ?id=123&topic=payment (modern format)
+  // 2. Body: { data: { id: "123" }, type: "payment" }
+  // 3. Body: { id: "123", topic: "payment" }
+  const url = new URL(req.url)
+  const queryId = url.searchParams.get('id') || url.searchParams.get('data.id')
+  const queryTopic = url.searchParams.get('topic') || url.searchParams.get('type')
 
-  // Se tiver secret configurado, validar assinatura
-  let isValidSignature = true;
-  if (MP_WEBHOOK_SECRET) {
-    isValidSignature = await validateWebhookSignature(xRequestId, xSignature, MP_WEBHOOK_SECRET);
-    if (!isValidSignature) {
-      safeErrorLog('[mercadopago-webhook] Webhook rejeitado: assinatura inválida', {})
-      return new Response(JSON.stringify({ received: false, error: 'Invalid signature' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 403,
-      })
-    }
-    safeLog('[mercadopago-webhook] Assinatura validada com sucesso', {})
-  } else {
-    safeLog('[mercadopago-webhook] Webhook secret não configurado - pulando validação de assinatura', {})
-  }
+  const bodyId = rawBody?.data?.id || rawBody?.id
+  const bodyTopic = rawBody?.type || rawBody?.topic
 
-  // Fire-and-forget: record that we received a webhook (helps debugging)
+  const resourceId = queryId || bodyId
+  const topic = queryTopic || bodyTopic
+
+  console.log('[mercadopago-webhook] Received notification', {
+    url: req.url,
+    queryId,
+    queryTopic,
+    bodyId,
+    bodyTopic,
+    resourceId,
+    topic,
+    bodyKeys: Object.keys(rawBody || {})
+  })
+
+  // Log receipt
   try {
-    await supabaseAdmin.from('integration_logs').insert([{ event_type: 'mercadopago_notification', status: 'received', details: 'Webhook received', payload: sanitizeLogObject(rawBody) }])
+    await supabaseAdmin.from('integration_logs').insert([{
+      event_type: 'mercadopago_notification',
+      status: 'received',
+      details: `topic=${topic} resourceId=${resourceId}`,
+      payload: { rawBody, queryId, queryTopic, resourceId, topic }
+    }])
   } catch (logErr) {
-    safeErrorLog('[mercadopago-webhook] failed to record received integration_log', logErr)
+    console.error('[mercadopago-webhook] failed to record log', logErr)
   }
 
-  // Load MP token
+  // Only process payment notifications
+  if (topic && topic !== 'payment' && topic !== 'merchant_order') {
+    console.log('[mercadopago-webhook] Ignoring non-payment topic:', topic)
+    return new Response(JSON.stringify({ received: true }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    })
+  }
+
+  if (!resourceId) {
+    console.log('[mercadopago-webhook] No resource ID found, acknowledging')
+    return new Response(JSON.stringify({ received: true }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    })
+  }
+
   // @ts-ignore
   const MERCADOPAGO_ACCESS_TOKEN = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') as string || ''
 
-  const topic = rawBody?.topic || rawBody?.type || null
-  const resourceId = rawBody?.data?.id || rawBody?.id || (rawBody?.data && rawBody.data.id)
-
-  // Helper to safe-insert to webhook_retry_queue
-  const queueForRetry = async (reason: string) => {
-    try {
-      await supabaseAdmin.from('webhook_retry_queue').insert([{ event_type: 'mercadopago_payment', order_id: null, payload: sanitizeLogObject(rawBody), status: 'pending', error_message: reason }])
-      safeLog('[mercadopago-webhook] queued webhook for retry', { reason })
-    } catch (qErr) {
-      safeErrorLog('[mercadopago-webhook] failed to queue webhook retry', qErr)
-      // fallback: record in integration_logs
-      try { await supabaseAdmin.from('integration_logs').insert([{ event_type: 'mercadopago_notification', status: 'error', details: 'Failed to queue retry: ' + String(qErr), payload: sanitizeLogObject(rawBody) }]) } catch (e) { /* ignore */ }
-    }
+  if (!MERCADOPAGO_ACCESS_TOKEN) {
+    console.error('[mercadopago-webhook] Missing MERCADOPAGO_ACCESS_TOKEN')
+    return new Response(JSON.stringify({ received: true }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    })
   }
 
   try {
-    if (!resourceId) {
-      safeLog('[mercadopago-webhook] no resource id in payload, nothing to process', {})
-      // We still return 200 to acknowledge
-      return new Response(JSON.stringify({ received: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
-    }
+    // Fetch payment details from Mercado Pago
+    console.log('[mercadopago-webhook] Fetching payment from MP:', resourceId)
+    const mpResp = await fetch(`https://api.mercadopago.com/v1/payments/${resourceId}`, {
+      headers: { 'Authorization': `Bearer ${MERCADOPAGO_ACCESS_TOKEN}` }
+    })
+    const paymentData: any = await mpResp.json()
 
-    if (!MERCADOPAGO_ACCESS_TOKEN) {
-      safeErrorLog('[mercadopago-webhook] missing MERCADOPAGO_ACCESS_TOKEN env var', {})
-      // queue for manual inspection
-      await supabaseAdmin.from('integration_logs').insert([{ event_type: 'mercadopago_notification', status: 'error', details: 'Missing MP token', payload: sanitizeLogObject(rawBody) }])
-      return new Response(JSON.stringify({ received: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
-    }
+    console.log('[mercadopago-webhook] MP payment response:', {
+      status: paymentData?.status,
+      status_detail: paymentData?.status_detail,
+      external_reference: paymentData?.external_reference,
+      id: paymentData?.id
+    })
 
-    // Fetch payment details from Mercado Pago to confirm status and external_reference
-    let paymentData: any = null
+    // Log the fetch
     try {
-      const mpResp = await fetch(`https://api.mercadopago.com/v1/payments/${resourceId}`, { headers: { 'Authorization': `Bearer ${MERCADOPAGO_ACCESS_TOKEN}` } })
-      paymentData = await mpResp.json()
-    } catch (mpErr) {
-      safeErrorLog('[mercadopago-webhook] failed to fetch payment details from MP', mpErr)
-      // queue for reprocessing (transient network or API error)
-      await queueForRetry('Failed to fetch MP payment details: ' + String(mpErr))
-      return new Response(JSON.stringify({ received: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
-    }
+      await supabaseAdmin.from('integration_logs').insert([{
+        event_type: 'mercadopago_payment_fetch',
+        status: 'fetched',
+        details: `payment_status=${paymentData?.status} external_ref=${paymentData?.external_reference}`,
+        payload: {
+          payment_id: resourceId,
+          status: paymentData?.status,
+          status_detail: paymentData?.status_detail,
+          external_reference: paymentData?.external_reference
+        }
+      }])
+    } catch (e) { /* ignore log errors */ }
 
-    // Basic validation of paymentData
-    const paymentStatus = (paymentData && (paymentData.status || paymentData.status_detail)) ? (paymentData.status || paymentData.status_detail) : null
-    const externalReference = paymentData?.external_reference || paymentData?.order?.external_reference || null
-
-    // Log the payment fetch
-    try { await supabaseAdmin.from('integration_logs').insert([{ event_type: 'mercadopago_payment_fetch', status: 'fetched', details: 'Fetched MP payment', payload: sanitizeLogObject(paymentData) }]) } catch (e) { safeErrorLog('[mercadopago-webhook] failed to log mp fetch', e) }
+    const paymentStatus = paymentData?.status
+    const externalReference = paymentData?.external_reference
 
     if (!externalReference) {
-      safeLog('[mercadopago-webhook] payment has no external_reference, queuing for manual handling', {})
-      await queueForRetry('No external_reference in MP payment')
-      return new Response(JSON.stringify({ received: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+      console.log('[mercadopago-webhook] No external_reference in payment data')
+      return new Response(JSON.stringify({ received: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      })
     }
 
-    // Idempotency: check if this payment id was already processed
-    try {
-      const { data: existing } = await supabaseAdmin.from('integration_logs').select('id').eq('event_type', 'mercadopago_payment_processed').filter('payload->>payment_id', 'eq', String(resourceId)).limit(1).single()
-      if (existing) {
-        safeLog('[mercadopago-webhook] payment already processed, ignoring', { resourceId })
-        return new Response(JSON.stringify({ received: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
-      }
-    } catch (e) {
-      // ignore query errors and continue
-    }
-
-    // Try to find the order by external_reference
     const orderId = parseInt(String(externalReference))
     if (isNaN(orderId)) {
-      safeLog('[mercadopago-webhook] external_reference is not numeric, queuing for manual handling', { externalReference })
-      await queueForRetry('external_reference not numeric: ' + String(externalReference))
-      return new Response(JSON.stringify({ received: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+      console.log('[mercadopago-webhook] external_reference is not numeric:', externalReference)
+      return new Response(JSON.stringify({ received: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      })
     }
 
-    const { data: orderRow, error: orderErr } = await supabaseAdmin.from('orders').select('id, status').eq('id', orderId).single()
+    // Idempotency check
+    try {
+      const { data: existing } = await supabaseAdmin
+        .from('integration_logs')
+        .select('id')
+        .eq('event_type', 'mercadopago_payment_processed')
+        .filter('payload->>payment_id', 'eq', String(resourceId))
+        .limit(1)
+        .single()
+
+      if (existing) {
+        console.log('[mercadopago-webhook] Payment already processed, ignoring:', resourceId)
+        return new Response(JSON.stringify({ received: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        })
+      }
+    } catch (e) {
+      // ignore - single() throws if no row found
+    }
+
+    // Find the order
+    const { data: orderRow, error: orderErr } = await supabaseAdmin
+      .from('orders')
+      .select('id, status')
+      .eq('id', orderId)
+      .single()
+
     if (orderErr || !orderRow) {
-      safeErrorLog('[mercadopago-webhook] order not found, queuing for retry', orderErr)
-      await queueForRetry('Order not found for external_reference: ' + String(externalReference))
-      return new Response(JSON.stringify({ received: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+      console.error('[mercadopago-webhook] Order not found:', orderId, orderErr)
+      return new Response(JSON.stringify({ received: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      })
     }
 
-    // If payment approved and order awaiting payment, finalize
-    if (paymentStatus === 'approved' || (String(paymentStatus).toLowerCase().includes('approved'))) {
-      try {
-        if (orderRow.status === 'Aguardando Pagamento' || orderRow.status === 'pending' || orderRow.status === null) {
-          const { error: finalizeError } = await supabaseAdmin.rpc('finalize_order_payment', { p_order_id: orderId })
-          if (finalizeError) {
-            safeErrorLog('[mercadopago-webhook] finalize_order_payment returned error', finalizeError)
-            // queue for retry
-            await queueForRetry('RPC finalize_order_payment error: ' + String(finalizeError))
-            return new Response(JSON.stringify({ received: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
-          }
-          // Record processed payment
-          try {
-            await supabaseAdmin.from('integration_logs').insert([{ event_type: 'mercadopago_payment_processed', status: 'processed', details: 'Payment approved and order finalized', payload: sanitizeLogObject({ payment_id: resourceId, external_reference, paymentStatus }) }])
-          } catch (logE) { safeErrorLog('[mercadopago-webhook] failed to log processed payment', logE) }
+    console.log('[mercadopago-webhook] Order found:', { orderId, currentStatus: orderRow.status, paymentStatus })
 
-          safeLog('[mercadopago-webhook] order finalized for', { orderId })
-          return new Response(JSON.stringify({ received: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+    // Process approved payment
+    if (paymentStatus === 'approved') {
+      if (orderRow.status === 'Aguardando Pagamento' || orderRow.status === 'Pendente') {
+        console.log('[mercadopago-webhook] Finalizing order:', orderId)
+        const { error: finalizeError } = await supabaseAdmin.rpc('finalize_order_payment', {
+          p_order_id: orderId
+        })
+
+        if (finalizeError) {
+          console.error('[mercadopago-webhook] finalize_order_payment error:', finalizeError)
+          try {
+            await supabaseAdmin.from('integration_logs').insert([{
+              event_type: 'mercadopago_payment_processed',
+              status: 'error',
+              details: `finalize_order_payment failed: ${finalizeError.message}`,
+              payload: { payment_id: resourceId, order_id: orderId, error: finalizeError.message }
+            }])
+          } catch (e) { /* ignore */ }
         } else {
-          // Order already in different status — record and ignore
-          try { await supabaseAdmin.from('integration_logs').insert([{ event_type: 'mercadopago_payment_processed', status: 'no_action', details: `Order status is ${orderRow.status}; no action taken`, payload: sanitizeLogObject({ payment_id: resourceId, external_reference, paymentStatus }) }]) } catch (e) { /* ignore */ }
-          safeLog('[mercadopago-webhook] payment approved but no action needed for order', { orderId, status: orderRow.status })
-          return new Response(JSON.stringify({ received: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+          console.log('[mercadopago-webhook] Order finalized successfully:', orderId)
+          try {
+            await supabaseAdmin.from('integration_logs').insert([{
+              event_type: 'mercadopago_payment_processed',
+              status: 'processed',
+              details: `Order ${orderId} finalized`,
+              payload: { payment_id: resourceId, order_id: orderId, paymentStatus }
+            }])
+          } catch (e) { /* ignore */ }
         }
-      } catch (procErr) {
-        safeErrorLog('[mercadopago-webhook] unexpected error processing payment', procErr)
-        await queueForRetry('Unexpected processing error: ' + String(procErr))
-        return new Response(JSON.stringify({ received: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+      } else {
+        console.log('[mercadopago-webhook] Order already in status:', orderRow.status, '- no action needed')
+        try {
+          await supabaseAdmin.from('integration_logs').insert([{
+            event_type: 'mercadopago_payment_processed',
+            status: 'no_action',
+            details: `Order ${orderId} already in status: ${orderRow.status}`,
+            payload: { payment_id: resourceId, order_id: orderId, paymentStatus, orderStatus: orderRow.status }
+          }])
+        } catch (e) { /* ignore */ }
       }
     } else {
-      // Payment not approved — record state and ignore
+      console.log('[mercadopago-webhook] Payment not approved:', paymentStatus)
       try {
-        await supabaseAdmin.from('integration_logs').insert([{ event_type: 'mercadopago_payment_processed', status: 'ignored', details: `Payment status: ${paymentStatus}`, payload: sanitizeLogObject({ payment_id: resourceId, externalReference, paymentStatus }) }])
-      } catch (e) { safeErrorLog('[mercadopago-webhook] failed to log non-approved payment', e) }
-      safeLog('[mercadopago-webhook] payment status is not approved', { paymentStatus })
-      return new Response(JSON.stringify({ received: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+        await supabaseAdmin.from('integration_logs').insert([{
+          event_type: 'mercadopago_payment_processed',
+          status: 'ignored',
+          details: `Payment status: ${paymentStatus}`,
+          payload: { payment_id: resourceId, order_id: orderId, paymentStatus }
+        }])
+      } catch (e) { /* ignore */ }
     }
 
-  } catch (err) {
-    // Catch-all: log and acknowledge so MP won't retry repeatedly
-    safeErrorLog('[mercadopago-webhook] fatal handler error', err)
-    try { await supabaseAdmin.from('integration_logs').insert([{ event_type: 'mercadopago_notification', status: 'error', details: String(err), payload: sanitizeLogObject(rawBody) }]) } catch (e) { /* ignore */ }
+    return new Response(JSON.stringify({ received: true }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    })
 
-    return new Response(JSON.stringify({ received: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+  } catch (err: any) {
+    console.error('[mercadopago-webhook] Fatal error:', err?.message || err)
+    try {
+      await supabaseAdmin.from('integration_logs').insert([{
+        event_type: 'mercadopago_notification',
+        status: 'error',
+        details: String(err?.message || err),
+        payload: { rawBody, resourceId }
+      }])
+    } catch (e) { /* ignore */ }
+
+    return new Response(JSON.stringify({ received: true }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    })
   }
 })

@@ -40,6 +40,7 @@ const AllProductsPage = () => {
   const [selectedBrands, setSelectedBrands] = useState<string[]>(initialBrand ? [initialBrand] : []);
   const [selectedFlavors, setSelectedFlavors] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState('created_at-desc');
+  const [shouldRefresh, setShouldRefresh] = useState(0);
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
@@ -53,6 +54,9 @@ const AllProductsPage = () => {
     if (queryCategory) setSelectedCategories([queryCategory]); else setSelectedCategories([]);
     if (querySubCategory) setSelectedSubCategories([querySubCategory]); else setSelectedSubCategories([]);
     if (queryBrand) setSelectedBrands([queryBrand]); else setSelectedBrands([]);
+
+    // Trigger initial fetch after setting filters
+    setShouldRefresh(1);
   }, [searchParams]);
 
   const fetchFilterOptions = useCallback(async () => {
@@ -191,7 +195,7 @@ const AllProductsPage = () => {
     };
 
     fetchProducts();
-  }, [debouncedSearchTerm, selectedCategories, selectedSubCategories, selectedBrands, selectedFlavors, sortBy]);
+  }, [debouncedSearchTerm, selectedCategories, selectedSubCategories, selectedBrands, selectedFlavors, sortBy, shouldRefresh]);
 
   const handleClearFilters = () => {
     setSearchTerm('');

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -31,59 +31,57 @@ const CategoryProductsModal = ({ categoryName, isOpen, onOpenChange }: CategoryP
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-      if (!categoryName || !isOpen) {
-        setProducts([]);
-        return;
-      };
-      setLoading(true);
-
-      try {
-        // Fetch category map to determine show_age_restriction
-        const { data: categoriesData } = await supabase
-          .from('categories')
-          .select('name, show_age_restriction')
-          .eq('is_visible', true);
-
-        const normalizeCategory = (s?: string) => (typeof s === 'string' ? s.trim().toLowerCase() : '');
-        const categoryMap: Record<string, boolean> = {};
-        if (categoriesData) {
-          categoriesData.forEach((c: any) => {
-            if (c.name) categoryMap[normalizeCategory(c.name)] = c.show_age_restriction !== false;
-          });
-        }
-
-        // Fetch products WITHOUT joining categories (the relation doesn't exist)
-        const { data, error } = await supabase
-          .from('products')
-          .select('id, name, price, pix_price, image_url, category, sub_category, stock_quantity')
-          .eq('category', categoryName)
-          .eq('is_visible', true);
-
-        if (error) {
-          console.error("Error fetching products for category:", error);
-          setProducts([]);
-        } else if (data) {
-          // Attach showAgeBadge flag to each product via the category map
-          const processed = (data as Product[]).map(p => ({
-            ...p,
-            // if category undefined, default to true (show badge)
-            show_age_restriction: undefined, // keep shape minimal; ProductCard reads category map separately
-            _showAgeBadge: p.category ? (categoryMap[normalizeCategory(p.category)] ?? true) : true
-          })) as any[];
-          setProducts(processed);
-        }
-      } catch (err) {
-        console.error("Error fetching products for category:", err);
-        setProducts([]);
-      } finally {
-        setLoading(false);
-      }
+  const fetchProducts = useCallback(async () => {
+    if (!categoryName || !isOpen) {
+      setProducts([]);
+      return;
     };
+    setLoading(true);
 
-    fetchProducts();
+    try {
+      // Fetch category map to determine show_age_restriction
+      const { data: categoriesData } = await supabase
+        .from('categories')
+        .select('name, show_age_restriction')
+        .eq('is_visible', true);
+
+      const normalizeCategory = (s?: string) => (typeof s === 'string' ? s.trim().toLowerCase() : '');
+      const categoryMap: Record<string, boolean> = {};
+      if (categoriesData) {
+        categoriesData.forEach((c: any) => {
+          if (c.name) categoryMap[normalizeCategory(c.name)] = c.show_age_restriction !== false;
+        });
+      }
+
+      // Fetch products WITHOUT joining categories (the relation doesn't exist)
+      const { data, error } = await supabase
+        .from('products')
+        .select('id, name, price, pix_price, image_url, category, sub_category, stock_quantity')
+        .eq('category', categoryName)
+        .eq('is_visible', true);
+
+      if (error) {
+        console.error("Error fetching products for category:", error);
+        setProducts([]);
+      } else if (data) {
+        // Attach showAgeBadge flag to each product via category map
+        const processed = (data as Product[]).map(p => ({
+          ...p,
+          // if category undefined, default to true (show badge)
+          show_age_restriction: undefined, // keep shape minimal; ProductCard reads category map separately
+          _showAgeBadge: p.category ? (categoryMap[normalizeCategory(p.category)] ?? true) : true
+        })) as any[];
+        setProducts(processed);
+      }
+    } catch (err) {
+      console.error("Error fetching products for category:", err);
+      setProducts([]);
+    } finally {
+      setLoading(false);
+    }
   }, [categoryName, isOpen]);
+
+  useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>

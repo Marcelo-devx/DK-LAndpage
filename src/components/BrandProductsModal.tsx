@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -31,65 +31,63 @@ const BrandProductsModal = ({ brandName, isOpen, onOpenChange }: BrandProductsMo
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-      if (!brandName || !isOpen) {
-        setProducts([]);
-        return;
-      };
-      setLoading(true);
-
-      try {
-        // Fetch category map to determine show_age_restriction
-        const { data: categoriesData } = await supabase
-          .from('categories')
-          .select('name, show_age_restriction')
-          .eq('is_visible', true);
-
-        const normalizeCategory = (s?: string) => (typeof s === 'string' ? s.trim().toLowerCase() : '');
-        const categoryMap: Record<string, boolean> = {};
-        if (categoriesData) {
-          categoriesData.forEach((c: any) => {
-            if (c.name) categoryMap[normalizeCategory(c.name)] = c.show_age_restriction !== false;
-          });
-        }
-        // DEBUG: inspect category map for brand modal
-        // eslint-disable-next-line no-console
-        console.debug("[BrandProductsModal] categoryMap:", categoryMap);
-
-        // Fetch products WITHOUT joining categories
-        const { data, error } = await supabase
-          .from('products')
-          .select('id, name, price, pix_price, image_url, category, sub_category, stock_quantity')
-          .eq('brand', brandName)
-          .eq('is_visible', true);
-
-        if (error) {
-          console.error("Error fetching products for brand:", error);
-          setProducts([]);
-        } else if (data) {
-          const processed = (data as Product[]).map(p => {
-            const _showAge = p.category ? (categoryMap[normalizeCategory(p.category)] ?? true) : true;
-            try {
-              if (p.name && String(p.name).toLowerCase().includes('ginger')) {
-                // eslint-disable-next-line no-console
-                console.debug("[BrandProductsModal] suspected product:", { id: p.id, name: p.name, category: p.category, resolvedShowAge: _showAge });
-              }
-            } catch (e) { /* ignore */ }
-            return { ...p, _showAgeBadge: _showAge };
-          }) as any[];
-          setProducts(processed);
-        }
-      } catch (err) {
-        console.error("Error fetching products for brand:", err);
-        setProducts([]);
-      } finally {
-        setLoading(false);
-      }
+  const fetchProducts = useCallback(async () => {
+    if (!brandName || !isOpen) {
+      setProducts([]);
+      return;
     };
+    setLoading(true);
 
-    fetchProducts();
+    try {
+      // Fetch category map to determine show_age_restriction
+      const { data: categoriesData } = await supabase
+        .from('categories')
+        .select('name, show_age_restriction')
+        .eq('is_visible', true);
+
+      const normalizeCategory = (s?: string) => (typeof s === 'string' ? s.trim().toLowerCase() : '');
+      const categoryMap: Record<string, boolean> = {};
+      if (categoriesData) {
+        categoriesData.forEach((c: any) => {
+          if (c.name) categoryMap[normalizeCategory(c.name)] = c.show_age_restriction !== false;
+        });
+      }
+      // DEBUG: inspect category map for brand modal
+      // eslint-disable-next-line no-console
+      console.debug("[BrandProductsModal] categoryMap:", categoryMap);
+
+      // Fetch products WITHOUT joining categories
+      const { data, error } = await supabase
+        .from('products')
+        .select('id, name, price, pix_price, image_url, category, sub_category, stock_quantity')
+        .eq('brand', brandName)
+        .eq('is_visible', true);
+
+      if (error) {
+        console.error("Error fetching products for brand:", error);
+        setProducts([]);
+      } else if (data) {
+        const processed = (data as Product[]).map(p => {
+          const _showAge = p.category ? (categoryMap[normalizeCategory(p.category)] ?? true) : true;
+          try {
+            if (p.name && String(p.name).toLowerCase().includes('ginger')) {
+              // eslint-disable-next-line no-console
+              console.debug("[BrandProductsModal] suspected product:", { id: p.id, name: p.name, category: p.category, resolvedShowAge: _showAge });
+            }
+          } catch (e) { /* ignore */ }
+          return { ...p, _showAgeBadge: _showAge };
+        }) as any[];
+        setProducts(processed);
+      }
+    } catch (err) {
+      console.error("Error fetching products for brand:", err);
+      setProducts([]);
+    } finally {
+      setLoading(false);
+    }
   }, [brandName, isOpen]);
+
+  useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>

@@ -23,26 +23,28 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_ANON_KEY') ?? '' // Usar ANON_KEY para validação, não SERVICE_ROLE diretamente
     )
 
-    // Segurança: Verificar Header
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader || !authHeader.includes('Bearer')) {
-        return new Response(JSON.stringify({ error: 'Acesso negado. Requer autenticação.' }), {
+    // Segurança: aceitar autorização via 1) Bearer JWT OR 2) webhook secret header
+    const authHeader = req.headers.get('Authorization') || req.headers.get('authorization');
+    const webhookSecretHeader = req.headers.get('x-webhook-secret') || req.headers.get('x-webhook-token');
+    const expectedWebhookSecret = (Deno.env.get('UPDATE_ORDER_WEBHOOK_SECRET') || Deno.env.get('WEBHOOK_SECRET') || '').trim();
+
+    let authorizedVia = null as null | 'webhook' | 'jwt';
+    let validatedUser: any = null;
+
+    if (webhookSecretHeader && expectedWebhookSecret && webhookSecretHeader === expectedWebhookSecret) {
+      authorizedVia = 'webhook';
+      safeLog('[update-order-status] Authorized via webhook secret');
+    } else if (authHeader && authHeader.includes('Bearer')) {
+      // Melhoria: Validar o token JWT
+      const token = authHeader.replace('Bearer ', '').trim();
+      try {
+        const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token as any);
+        if (authError || !user) {
+          safeErrorLog('[update-order-status] Token inválido:', authError);
+          return new Response(JSON.stringify({ error: 'Token de autenticação inválido.' }), {
             status: 401,
             headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' }
-        })
-    }
-
-    // Melhoria: Validar o token JWT
-    const token = authHeader.replace('Bearer ', '').trim()
-    try {
-        const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token)
-        
-        if (authError || !user) {
-            safeErrorLog('[update-order-status] Token inválido:', authError)
-            return new Response(JSON.stringify({ error: 'Token de autenticação inválido.' }), {
-                status: 401,
-                headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' }
-            })
+          });
         }
 
         // Verificar se o usuário é admin
@@ -50,31 +52,39 @@ serve(async (req) => {
             .from('profiles')
             .select('role')
             .eq('id', user.id)
-            .single()
-        
+            .single();
+
         if (profileError || !profile) {
-            safeErrorLog('[update-order-status] Perfil não encontrado para usuário:', { userId: user.id, error: profileError })
+            safeErrorLog('[update-order-status] Perfil não encontrado para usuário:', { userId: user.id, error: profileError });
             return new Response(JSON.stringify({ error: 'Perfil não encontrado.' }), {
                 status: 404,
                 headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' }
-            })
+            });
         }
 
         if (profile.role !== 'adm') {
-            safeLog('[update-order-status] Usuário não é admin:', { userId: user.id, role: profile.role })
+            safeLog('[update-order-status] Usuário não é admin:', { userId: user.id, role: profile.role });
             return new Response(JSON.stringify({ error: 'Acesso negado. Permissões insuficientes.' }), {
                 status: 403,
                 headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' }
-            })
+            });
         }
 
-        safeLog('[update-order-status] Usuário autorizado:', { email: user.email })
-    } catch (validationError) {
-        safeErrorLog('[update-order-status] Erro na validação:', validationError)
+        safeLog('[update-order-status] Usuário autorizado via JWT:', { email: user.email });
+        authorizedVia = 'jwt';
+        validatedUser = user;
+      } catch (validationError) {
+        safeErrorLog('[update-order-status] Erro na validação:', validationError);
         return new Response(JSON.stringify({ error: 'Erro na validação de autenticação.' }), {
             status: 401,
             headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' }
-        })
+        });
+      }
+    } else {
+      return new Response(JSON.stringify({ error: 'Acesso negado. Requer autenticação.' }), {
+        status: 401,
+        headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' }
+      });
     }
 
     const { order_id, status, delivery_status, tracking_code, delivery_info } = await req.json()
@@ -128,7 +138,7 @@ serve(async (req) => {
         await supabaseAdmin.from('integration_logs').insert({
             event_type: 'api_payment_confirmed',
             status: 'success',
-            payload: sanitizeLogObject({ order_id, input_status: status, method: 'api_manual' }),
+            payload: sanitizeLogObject({ order_id, input_status: status, method: authorizedVia === 'webhook' ? 'webhook' : 'api_manual' }),
             details: `Pedido #${order_id} finalizado e pontos concedidos.`
         });
 

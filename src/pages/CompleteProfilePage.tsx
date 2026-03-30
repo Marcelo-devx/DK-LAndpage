@@ -236,7 +236,7 @@ const CompleteProfilePage = () => {
       dismissToast(toastId);
       showSuccess("Cadastro completo!");
       window.dispatchEvent(new CustomEvent('profileUpdated'));
-      navigate('/');
+      navigate('/dashboard');
     } catch (err: any) {
       dismissToast(toastId);
       showError(err.message || "Erro ao salvar. Tente novamente.");

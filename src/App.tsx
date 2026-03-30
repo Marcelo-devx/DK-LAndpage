@@ -29,6 +29,7 @@ import EmailConfirm from "./pages/EmailConfirm";
 import { AgeVerificationProvider } from "./context/AgeVerificationContext";
 import MaintenanceScreen from "./components/MaintenanceScreen";
 import { supabase } from "./integrations/supabase/client";
+import DashboardSecurity from "./pages/DashboardSecurity";
 
 const queryClient = new QueryClient();
 
@@ -97,6 +98,7 @@ const AppContent = () => {
           <Route path="/confirmacao-pedido/:id" element={<ConfirmacaoPedido />} />
           <Route path="/indicacoes" element={<ReferralsPage />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard/security" element={<DashboardSecurity />} />
           <Route path="/clube-dk" element={<LoyaltyClubPage />} />
           <Route path="/como-funciona" element={<HowItWorksPage />} />
         </Route>

@@ -9,13 +9,29 @@ import { getCorsHeaders, createPreflightResponse } from '../_shared/cors.ts';
 import { safeErrorLog } from '../_shared/logger.ts';
 
 serve(async (req) => {
+  // TEMPORARY: enable wildcard CORS for testing only
+  const TEMP_ALLOW_ALL_ORIGINS = true; // <-- REMOVE / set to false after test
+  const origin = req.headers.get('origin');
+  const wildcardHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-webhook-secret, x-webhook-token',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+    'Access-Control-Max-Age': '86400'
+  };
+
   // CORS preflight com validação de origem
   if (req.method === 'OPTIONS') {
+    if (TEMP_ALLOW_ALL_ORIGINS) {
+      return new Response(null, { status: 204, headers: wildcardHeaders });
+    }
     const origin = req.headers.get('origin');
     return createPreflightResponse(origin);
   }
 
   try {
+    // Determine CORS headers to use for responses
+    const corsHeaders = TEMP_ALLOW_ALL_ORIGINS ? wildcardHeaders : getCorsHeaders(origin);
+
     // 1. Recuperação das variáveis de ambiente
     // @ts-ignore
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL') as string;
@@ -33,7 +49,7 @@ serve(async (req) => {
         error: 'Configuração do Mercado Pago incompleta. Token não encontrado ou vazio.',
         details: 'Verifique a variável de ambiente MERCADOPAGO_ACCESS_TOKEN no Supabase e cole o token correto.'
       }), {
-        headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
       });
     }
@@ -103,7 +119,7 @@ serve(async (req) => {
         success: false,
         error: 'E-mail do comprador é obrigatório.'
       }), {
-        headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
       });
     }
@@ -267,7 +283,7 @@ serve(async (req) => {
         mp_error: mpData,
         statusCode: mpStatus
       }), {
-        headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       });
     }
@@ -278,7 +294,7 @@ serve(async (req) => {
       init_point: mpData.init_point,
       sandbox_init_point: mpData.sandbox_init_point
     }), {
-      headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });
 

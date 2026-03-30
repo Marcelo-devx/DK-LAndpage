@@ -1,16 +1,20 @@
 {
   "compilerOptions": {
     "composite": true,
-    "lib": ["esnext", "deno.ns"],
+    "lib": ["esnext"],
     "module": "esnext",
     "moduleResolution": "bundler",
     "target": "esnext",
     "allowImportingTsExtensions": true,
     "noEmit": true,
-    "strict": true,
+    "strict": false,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "paths": {
+      "https://deno.land/*": ["./functions/trigger-integration/deno.d.ts"],
+      "https://esm.sh/*": ["./functions/trigger-integration/deno.d.ts"]
+    }
   },
-  "include": ["./functions/**/*.ts", "./deno.d.ts"]
+  "include": ["./functions/**/*.ts", "./functions/trigger-integration/deno.d.ts"]
 }

@@ -1,249 +1,326 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 
-// Importar CORS utils do shared
-import { getCorsHeaders, createPreflightResponse } from '../_shared/cors.ts';
-
-// Use the service role key inside Edge Function so we can read webhook_configs despite RLS
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || 'https://jrlozhhvwqfmjtkmvukf.supabase.co'
 const SUPABASE_SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 
-if (!SUPABASE_SERVICE_ROLE) console.warn('[trigger-integration] WARNING: SUPABASE_SERVICE_ROLE_KEY is not set; webhook_configs RLS may block reads')
+// Always use wildcard CORS — this function is called server-to-server (DB trigger) and from admin UI
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-webhook-secret',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+}
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE)
 
-serve(async (req) => {
-  // CORS preflight com validação de origem
-  if (req.method === 'OPTIONS') {
-    const origin = req.headers.get('origin');
-    return createPreflightResponse(origin);
+// Dispatch with retry (up to maxRetries attempts)
+async function dispatchWithRetry(
+  url: string,
+  headers: Record<string, string>,
+  body: string,
+  maxRetries = 3,
+  timeoutMs = 15000
+): Promise<{ ok: boolean; status?: number; body?: string; error?: string; attempts: number }> {
+  let lastError = ''
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`[trigger-integration] dispatch attempt ${attempt}/${maxRetries} to ${url}`)
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers,
+        body,
+        signal: AbortSignal.timeout(timeoutMs),
+      })
+      const text = await resp.text().catch(() => '')
+      console.log(`[trigger-integration] attempt ${attempt} response: status=${resp.status} body=${text.substring(0, 200)}`)
+      if (resp.ok) {
+        return { ok: true, status: resp.status, body: text, attempts: attempt }
+      }
+      lastError = `HTTP ${resp.status}: ${text.substring(0, 300)}`
+      // Don't retry on 4xx (client errors) — only on 5xx or network issues
+      if (resp.status >= 400 && resp.status < 500) {
+        console.warn(`[trigger-integration] 4xx error, not retrying: ${lastError}`)
+        return { ok: false, status: resp.status, body: text, error: lastError, attempts: attempt }
+      }
+    } catch (err: any) {
+      lastError = String(err?.message || err)
+      console.error(`[trigger-integration] attempt ${attempt} threw: ${lastError}`)
+    }
+    // Wait before retry: 1s, 2s, 4s
+    if (attempt < maxRetries) {
+      const delay = Math.pow(2, attempt - 1) * 1000
+      console.log(`[trigger-integration] waiting ${delay}ms before retry...`)
+      await new Promise(r => setTimeout(r, delay))
+    }
+  }
+  return { ok: false, error: lastError, attempts: maxRetries }
+}
+
+// Build enriched order payload for n8n
+async function buildOrderPayload(orderId: number, eventType: string): Promise<any> {
+  console.log(`[trigger-integration] fetching order ${orderId} from DB`)
+
+  const { data: order, error: orderErr } = await supabase
+    .from('orders')
+    .select('id, total_price, shipping_cost, donation_amount, coupon_discount, payment_method, status, created_at, user_id, shipping_address, benefits_used, guest_email, guest_phone, guest_cpf_cnpj')
+    .eq('id', orderId)
+    .single()
+
+  if (orderErr || !order) {
+    console.error('[trigger-integration] failed to fetch order', orderErr)
+    return null
   }
 
+  // Fetch order items
+  const { data: items } = await supabase
+    .from('order_items')
+    .select('item_id, item_type, name_at_purchase, quantity, price_at_purchase, image_url_at_purchase')
+    .eq('order_id', orderId)
+
+  const mappedItems = (items || []).map((it: any) => {
+    const price = Number(it.price_at_purchase ?? 0)
+    const qty = Number(it.quantity ?? 0)
+    return {
+      name: it.name_at_purchase || '',
+      quantity: qty,
+      price: price,
+      total: +(price * qty).toFixed(2),
+      image: it.image_url_at_purchase || null,
+      type: it.item_type || 'product',
+    }
+  })
+
+  // Use total_price directly from DB — it already includes shipping + donation - discount
+  const totalPrice = Number(order.total_price ?? 0)
+  const shippingCost = Number(order.shipping_cost ?? 0)
+  const donationAmount = Number(order.donation_amount ?? 0)
+  const couponDiscount = Number(order.coupon_discount ?? 0)
+  const subtotalProducts = mappedItems.reduce((s: number, it: any) => s + it.total, 0)
+
+  console.log('[trigger-integration] order values from DB', {
+    orderId,
+    total_price: totalPrice,
+    shipping_cost: shippingCost,
+    donation_amount: donationAmount,
+    coupon_discount: couponDiscount,
+    subtotal_products: subtotalProducts,
+  })
+
+  // Build customer info from shipping_address or guest fields
+  const shipping = order.shipping_address || {}
+  const customer = {
+    id: order.user_id || null,
+    full_name: [shipping.first_name, shipping.last_name].filter(Boolean).join(' ') || shipping.full_name || null,
+    phone: (shipping.phone || order.guest_phone || '').replace(/\D/g, '') || null,
+    email: shipping.email || order.guest_email || null,
+    cpf: (shipping.cpf_cnpj || order.guest_cpf_cnpj || '').replace(/\D/g, '') || null,
+  }
+
+  return {
+    event: eventType,
+    timestamp: new Date().toISOString(),
+    data: {
+      id: Number(order.id),
+      total_price: totalPrice,
+      subtotal_products: +subtotalProducts.toFixed(2),
+      shipping_cost: shippingCost,
+      donation_amount: donationAmount,
+      discount_applied: couponDiscount,
+      payment_method: order.payment_method || 'Pix',
+      status: order.status,
+      created_at: order.created_at,
+      benefits_used: order.benefits_used || null,
+      customer,
+      shipping_address: shipping,
+      items: mappedItems,
+    },
+  }
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders })
+  }
+
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
+  let body: any = null
   try {
-    if (req.method !== 'POST') {
-      console.log('[trigger-integration] method not allowed')
-      return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' } })
+    body = await req.json()
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
+  console.log('[trigger-integration] received body', JSON.stringify(body).substring(0, 500))
+
+  // Support simulate flag for admin tests
+  if (body?.simulate) {
+    console.log('[trigger-integration] simulate mode — returning success without dispatching')
+    return new Response(JSON.stringify({ success: true, simulated: true }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
+  // Extract event_type from various payload shapes
+  const eventType: string =
+    body?.event_type ||
+    body?.payload?.event_type ||
+    body?.event ||
+    null
+
+  if (!eventType) {
+    console.error('[trigger-integration] missing event_type in body')
+    return new Response(JSON.stringify({ error: 'event_type is required' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
+  console.log('[trigger-integration] processing event_type:', eventType)
+
+  // Extract order_id from various payload shapes
+  const orderId: number | null =
+    Number(body?.payload?.order_id || body?.order_id || body?.data?.order_id || 0) || null
+
+  // Build enriched payload for order events
+  let outgoingPayload: any = null
+  if (eventType === 'order_created' && orderId) {
+    outgoingPayload = await buildOrderPayload(orderId, eventType)
+    if (!outgoingPayload) {
+      console.error('[trigger-integration] could not build order payload for order', orderId)
+      // Still try to dispatch with raw body as fallback
+      outgoingPayload = { event: eventType, timestamp: new Date().toISOString(), data: body?.payload ?? body }
     }
-
-    const body = await req.json().catch(() => null)
-    console.log('[trigger-integration] payload received', { body })
-
-    const eventType = body?.event_type || (body?.payload && body.payload.event_type) || null
-    let payload = body?.payload ?? body ?? null
-
-    if (!eventType) {
-      console.log('[trigger-integration] missing event_type')
-      return new Response(JSON.stringify({ error: 'event_type is required' }), { status: 400, headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' } })
+  } else {
+    // Generic event — wrap as-is
+    outgoingPayload = {
+      event: eventType,
+      timestamp: new Date().toISOString(),
+      data: body?.payload ?? body?.data ?? body,
     }
+  }
 
-    // If simulate flag present, short-circuit (for admin tests)
-    if (body?.simulate) {
-      console.log('[trigger-integration] simulate flag detected — returning success')
-      return new Response(JSON.stringify({ success: true }), { status: 200, headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' } })
-    }
+  // Fetch n8n token from app_settings
+  const { data: tokenSetting } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('key', 'n8n_integration_token')
+    .maybeSingle()
+  const n8nToken: string = tokenSetting?.value || ''
 
-    // If this is an order_created event and payload includes order_id, enrich payload with full order data
-    try {
-      if (eventType === 'order_created' && payload && payload.order_id) {
-        console.log('[trigger-integration] enriching order_created payload with order details for', payload.order_id)
-        const orderId = Number(payload.order_id)
-        const { data: orderData, error: orderErr } = await supabase
-          .from('orders')
-          .select('*, order_items(*), user_id, shipping_address, shipping_cost, donation_amount, coupon_discount')
-          .eq('id', orderId)
-          .single()
-        if (orderErr) {
-          console.warn('[trigger-integration] could not fetch order details', { orderErr })
-        } else if (orderData) {
-          // Normalize order and items
-          const order = orderData
-          let items = order.order_items || []
-          // If items are empty, try to fetch explicitly
-          if (!items || items.length === 0) {
-            const { data: fetchedItems } = await supabase.from('order_items').select('*').eq('order_id', orderId)
-            items = fetchedItems || []
-          }
+  // Fetch active webhook configs for this event
+  const { data: configs, error: configsErr } = await supabase
+    .from('webhook_configs')
+    .select('id, trigger_event, target_url, is_active, api_key_header_name, api_key_value, additional_headers')
+    .eq('trigger_event', eventType)
+    .eq('is_active', true)
 
-          // Build items array in the required shape
-          const mappedItems = items.map((it: any) => {
-            const price = Number(it.price_at_purchase ?? it.price ?? 0)
-            const qty = Number(it.quantity ?? 0)
-            return {
-              name: it.name_at_purchase || it.name || '',
-              quantity: qty,
-              price: price,
-              total: +(price * qty).toFixed(2),
-              image: it.image_url_at_purchase || it.image_url || null,
-              type: it.item_type || 'product'
-            }
-          })
+  if (configsErr) {
+    console.error('[trigger-integration] error fetching webhook_configs', configsErr)
+    return new Response(JSON.stringify({ error: 'Failed to load webhook configs' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
 
-          const subtotal_products = mappedItems.reduce((s: number, it: any) => s + (it.price * it.quantity), 0)
+  console.log(`[trigger-integration] found ${configs?.length ?? 0} active webhook(s) for event "${eventType}"`)
 
-          // DEBUG: Log dos valores brutos do banco
-          console.log('[trigger-integration] DEBUG - Valores brutos do pedido', {
-            orderId,
-            subtotal_products,
-            shipping_cost_raw: order.shipping_cost,
-            donation_amount_raw: order.donation_amount,
-            coupon_discount_raw: order.coupon_discount
-          })
+  if (!configs || configs.length === 0) {
+    console.warn(`[trigger-integration] no active webhook configs for event "${eventType}" — nothing to dispatch`)
+    // Log this so admin can see it
+    await supabase.from('integration_logs').insert({
+      event_type: eventType,
+      status: 'no_config',
+      details: `Nenhum webhook ativo configurado para o evento "${eventType}"`,
+      payload: outgoingPayload,
+      response_code: null,
+    }).catch(() => {})
+    return new Response(JSON.stringify({ success: true, dispatched: [], warning: 'no active webhook configs' }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
 
-          // Customer info: prefer shipping_address fields, fallback to profile if available
-          const shipping = order.shipping_address || {}
-          const customer = {
-            id: order.user_id || null,
-            full_name: (shipping.first_name && shipping.last_name) ? `${shipping.first_name} ${shipping.last_name}` : (shipping.full_name || null),
-            phone: shipping.phone ? String(shipping.phone).replace(/\D/g, '') : (shipping.phone || null),
-            email: shipping.email || order.guest_email || null,
-            cpf: shipping.cpf_cnpj ? String(shipping.cpf_cnpj).replace(/\D/g, '') : (shipping.cpf_cnpj || null)
-          }
+  const bodyToSend = JSON.stringify(outgoingPayload)
 
-          // CORRECTED: Calculate FINAL total including items, shipping, donation and discount
-          const shippingCost = Number(order.shipping_cost ?? 0)
-          const donationAmount = Number(order.donation_amount ?? 0)
-          const couponDiscount = Number(order.coupon_discount ?? 0)
-          const totalFinal = (subtotal_products + shippingCost + donationAmount - couponDiscount)
-          const total_price = isNaN(totalFinal) ? subtotal_products : totalFinal
+  // Dispatch to all configured URLs in parallel
+  const results = await Promise.allSettled(
+    configs.map(async (cfg: any) => {
+      const url: string = cfg.target_url
 
-          // DEBUG: Log do cálculo final
-          console.log('[trigger-integration] DEBUG - Cálculo do total', {
-            orderId,
-            subtotal: subtotal_products,
-            shipping: shippingCost,
-            donation: donationAmount,
-            discount: couponDiscount,
-            total_calculado: total_price
-          })
-
-          // Assemble the standardized payload required by n8n
-          const outgoing = {
-            event: eventType,
-            timestamp: new Date().toISOString(),
-            data: {
-              id: Number(order.id),
-              total_price: total_price,
-              subtotal_products: +subtotal_products.toFixed(2),
-              discount_applied: Number(order.coupon_discount ?? 0),
-              shipping_cost: Number(order.shipping_cost ?? 0),
-              donation_amount: Number(order.donation_amount ?? 0),
-              payment_method: order.payment_method || (shipping.payment_method || 'pix'),
-              status: order.status,
-              created_at: order.created_at,
-              coupon_name: order.coupon_name || null,
-              benefits_used: order.benefits_used || null,
-              customer,
-              shipping_address: shipping,
-              items: mappedItems
-            }
-          }
-
-          payload = outgoing
-          console.log('[trigger-integration] built outgoing payload for n8n', { orderId, outgoingPreview: { id: outgoing.data.id, total_price: outgoing.data.total_price, items_count: outgoing.data.items.length } })
-        }
-      }
-    } catch (enrichErr) {
-      console.error('[trigger-integration] error enriching payload', enrichErr)
-    }
-
-    // Fetch n8n integration token from app_settings
-    const { data: settings } = await supabase
-      .from('app_settings')
-      .select('value')
-      .eq('key', 'n8n_integration_token')
-      .single()
-    const n8nToken = settings?.value
-
-    // Fetch active webhook targets for this event (include auth fields)
-    console.log('[trigger-integration] fetching webhook configs for', eventType)
-    const { data: configs, error: configsErr } = await supabase.from('webhook_configs').select('id, trigger_event, target_url, is_active, api_key_header_name, api_key_value, additional_headers').eq('trigger_event', eventType).eq('is_active', true)
-    if (configsErr) {
-      console.error('[trigger-integration] error fetching webhook_configs', { error: configsErr })
-      return new Response(JSON.stringify({ error: 'Failed to load webhook configs' }), { status: 500, headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' } })
-    }
-
-    console.log('[trigger-integration] webhook configs count:', configs?.length ?? 0)
-
-    if (!configs || configs.length === 0) {
-      console.log('[trigger-integration] no active webhook configs for', eventType)
-      return new Response(JSON.stringify({ success: true, dispatched: [] }), { status: 200, headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' } })
-    }
-
-    // Dispatch to each configured URL in parallel
-    const results = await Promise.allSettled(configs.map(async (cfg: any) => {
-      const url = cfg.target_url
-
-      // Build headers: start with Content-Type
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       }
 
-      // Add n8n API key header if token is available from app_settings
+      // n8n token from app_settings
       if (n8nToken) {
         headers['apikey'] = n8nToken
       }
 
-      // Add custom API key from webhook_config if configured
+      // Custom API key from webhook_config
       if (cfg.api_key_header_name && cfg.api_key_value) {
         headers[cfg.api_key_header_name] = cfg.api_key_value
       }
 
-      // Add any additional headers from the config
-      if (cfg.additional_headers) {
-        Object.entries(cfg.additional_headers).forEach(([key, value]) => {
-          if (key && typeof value === 'string') {
-            headers[key] = value
-          }
-        })
+      // Additional headers from config
+      if (cfg.additional_headers && typeof cfg.additional_headers === 'object') {
+        for (const [k, v] of Object.entries(cfg.additional_headers)) {
+          if (k && typeof v === 'string') headers[k] = v
+        }
       }
 
-      // Build the exact body to send: if we've already constructed outgoing payload (for orders), send that, otherwise wrap generic
-      const bodyToSend = JSON.stringify(payload && payload.event ? payload : { event: eventType, timestamp: new Date().toISOString(), data: payload })
+      console.log(`[trigger-integration] dispatching to ${url}`, {
+        event: eventType,
+        orderId,
+        headerNames: Object.keys(headers),
+        bodyPreview: bodyToSend.substring(0, 200),
+      })
 
-      try {
-        console.log('[trigger-integration] dispatching to', url, 'with body preview:', { eventType, previewId: payload?.data?.id ?? payload?.order_id ?? null, hasN8nToken: !!n8nToken })
-        console.log('[trigger-integration] headers being sent:', { headersCount: Object.keys(headers).length, headerNames: Object.keys(headers) })
-        const resp = await fetch(url, {
-          method: 'POST',
-          headers: headers,
-          body: bodyToSend,
-          signal: AbortSignal.timeout(10000)
-        })
+      const result = await dispatchWithRetry(url, headers, bodyToSend, 3, 15000)
+      return { url, cfg_id: cfg.id, ...result }
+    })
+  )
 
-        const text = await resp.text().catch(() => null)
-        console.log('[trigger-integration] response from', url, { status: resp.status, ok: resp.ok, body: text })
-        return { url, ok: resp.ok, status: resp.status, statusText: resp.statusText, body: text }
-      } catch (err: any) {
-        console.error('[trigger-integration] dispatch error to', url, 'Error details:', {
-          name: err?.name,
-          message: err?.message,
-          cause: err?.cause
-        })
-        return { url, ok: false, error: String(err), details: err?.message }
-      }
+  const dispatched = results.map(r =>
+    r.status === 'fulfilled' ? r.value : { ok: false, error: String((r as any).reason) }
+  )
+
+  console.log('[trigger-integration] dispatch summary', dispatched.map(d => ({
+    url: (d as any).url,
+    ok: (d as any).ok,
+    status: (d as any).status,
+    attempts: (d as any).attempts,
+    error: (d as any).error,
+  })))
+
+  // Persist logs
+  try {
+    const logRows = dispatched.map((d: any) => ({
+      event_type: eventType,
+      status: d.ok ? 'sent' : 'error',
+      details: d.ok
+        ? `✅ Enviado para ${d.url} em ${d.attempts} tentativa(s)`
+        : `❌ Falha ao enviar para ${d.url}: ${d.error || d.body || 'unknown error'}`,
+      payload: outgoingPayload,
+      response_code: d.status ?? null,
     }))
-
-    const dispatched = results.map(r => r.status === 'fulfilled' ? r.value : { ok: false, error: (r as any).reason })
-    console.log('[trigger-integration] dispatch results', { dispatched })
-
-    // Persist dispatch results into integration_logs for auditing
-    try {
-      const logRows = dispatched.map((d: any) => ({
-        event_type: eventType,
-        status: d.ok ? 'sent' : 'error',
-        details: d.ok ? `Disparado para ${d.url}` : `Erro ao disparar para ${d.url}: ${d.error || d.statusText}`,
-        payload: payload ? payload : null,
-        response_code: d.status ?? null
-      }));
-      await supabase.from('integration_logs').insert(logRows);
-      console.log('[trigger-integration] persisted dispatch logs to integration_logs')
-    } catch (logErr) {
-      console.error('[trigger-integration] failed to persist integration_logs', logErr)
-    }
-
-    return new Response(JSON.stringify({ success: true, dispatched }), { status: 200, headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' } })
-  } catch (err) {
-    console.error('[trigger-integration] error', err)
-    return new Response(JSON.stringify({ error: 'Internal server error' }), { status: 500, headers: { ...getCorsHeaders(req.headers.get('origin')), 'Content-Type': 'application/json' } })
+    await supabase.from('integration_logs').insert(logRows)
+  } catch (logErr) {
+    console.error('[trigger-integration] failed to persist integration_logs', logErr)
   }
+
+  const allOk = dispatched.every((d: any) => d.ok)
+  return new Response(JSON.stringify({ success: allOk, dispatched }), {
+    status: 200,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
 })

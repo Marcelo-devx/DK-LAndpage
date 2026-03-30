@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Facebook, Instagram, Twitter } from 'lucide-react';
+import { Instagram } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 
 const Footer = () => {
@@ -44,9 +44,9 @@ const Footer = () => {
           <div>
             <h4 className="font-bold text-slate-900 uppercase text-xs tracking-[0.2em] mb-6">Siga-nos</h4>
             <div className="flex space-x-6">
-              <a href={settings.socialFacebook} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-sky-500 transition-all hover:scale-110"><Facebook size={22} /></a>
-              <a href={settings.socialInstagram} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-sky-500 transition-all hover:scale-110"><Instagram size={22} /></a>
-              <a href={settings.socialTwitter} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-sky-500 transition-all hover:scale-110"><Twitter size={22} /></a>
+              {settings.socialInstagram && (
+                <a href={settings.socialInstagram} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-sky-500 transition-all hover:scale-110"><Instagram size={22} /></a>
+              )}
             </div>
           </div>
         </div>

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
 import { addToCart } from "@/utils/cart";
 import { ShoppingCart, Loader2, Eye } from "lucide-react";
-import { useState } from "react";
+import { useState, memo } from "react";
 import { ProductCardProps } from "./ProductCard.types";
 import { cn } from "@/lib/utils";
 import ProductImage from "@/components/ProductImage";
@@ -15,7 +15,7 @@ const PixIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const ProductCard = ({ product }: ProductCardProps) => {
+const ProductCard = memo(({ product }: ProductCardProps) => {
   const [isAdding, setIsAdding] = useState(false);
   const navigate = useNavigate();
 
@@ -144,6 +144,6 @@ const ProductCard = ({ product }: ProductCardProps) => {
       </Card>
     </Link>
   );
-};
+});
 
 export default ProductCard;

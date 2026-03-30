@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
@@ -24,34 +24,54 @@ const LoyaltyWidget = ({ onClose }: LoyaltyWidgetProps) => {
   const [redeemingId, setRedeemingId] = useState<number | null>(null);
 
   useEffect(() => {
+    let mounted = true;
+    
     const fetchData = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!mounted) return;
+        setSession(session);
 
-      if (session) {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('points, date_of_birth')
-          .eq('id', session.user.id)
-          .single();
-        setProfile(profileData);
+        if (session) {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('points, date_of_birth')
+            .eq('id', session.user.id)
+            .single();
+          
+          if (mounted && profileData) {
+            setProfile(profileData);
+          }
+        }
+
+        const { data: couponsData } = await supabase
+          .from('coupons')
+          .select('*')
+          .eq('is_active', true)
+          .gt('stock_quantity', 0)
+          .order('points_cost', { ascending: true });
+        
+        if (mounted) {
+          setCoupons(couponsData || []);
+        }
+      } catch (error) {
+        console.error("Error fetching loyalty data:", error);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
       }
-
-      const { data: couponsData } = await supabase
-        .from('coupons')
-        .select('*')
-        .eq('is_active', true)
-        .gt('stock_quantity', 0)
-        .order('points_cost', { ascending: true });
-      
-      setCoupons(couponsData || []);
-      setLoading(false);
     };
 
     fetchData();
+    
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  const handleUpdateBirthDate = async () => {
+  const handleUpdateBirthDate = useCallback(async () => {
     if (!birthDate) return;
     const toastId = showLoading("Salvando...");
     try {
@@ -65,9 +85,9 @@ const LoyaltyWidget = ({ onClose }: LoyaltyWidgetProps) => {
       dismissToast(toastId);
       showError(error.message || "Erro ao salvar.");
     }
-  };
+  }, [birthDate, profile]);
 
-  const handleRedeem = async (coupon: any) => {
+  const handleRedeem = useCallback(async (coupon: any) => {
     if (!profile || profile.points < coupon.points_cost) return;
     setRedeemingId(coupon.id);
     const toastId = showLoading("Resgatando...");
@@ -83,7 +103,7 @@ const LoyaltyWidget = ({ onClose }: LoyaltyWidgetProps) => {
     } finally {
         setRedeemingId(null);
     }
-  };
+  }, [profile]);
 
   if (loading) return <div className="p-12 flex flex-col items-center justify-center h-full bg-white"><Loader2 className="animate-spin text-sky-500 h-8 w-8" /><p className="text-[10px] font-black uppercase tracking-widest mt-4 text-slate-400">Carregando Clube...</p></div>;
 

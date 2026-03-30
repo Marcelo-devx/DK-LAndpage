@@ -1,6 +1,6 @@
 import { Outlet, useOutletContext } from "react-router-dom";
 import Header from "./Header";
-import { useState } from "react";
+import { useState, memo, useCallback } from "react";
 import CategoryProductsModal from "./CategoryProductsModal";
 import BrandProductsModal from "./BrandProductsModal";
 import { CartSheet } from "./CartSheet";
@@ -17,6 +17,12 @@ export interface OutletContextType {
 
 export const useAppOutletContext = () => useOutletContext<OutletContextType>();
 
+// Memoizar componentes fixos para evitar re-renderizações desnecessárias
+const MemoizedDeliveryTimerBar = memo(DeliveryTimerBar);
+const MemoizedSocialProofPopup = memo(SocialProofPopup);
+const MemoizedLoyaltyButton = memo(LoyaltyButton);
+const MemoizedSupportChatWidget = memo(SupportChatWidget);
+
 const MainLayout = () => {
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -26,21 +32,23 @@ const MainLayout = () => {
 
   const [isCartOpen, setIsCartOpen] = useState(false);
 
-  const handleCategoryClick = (categoryName: string) => {
+  const handleCategoryClick = useCallback((categoryName: string) => {
     setSelectedCategory(categoryName);
     setIsCategoryModalOpen(true);
-  };
+  }, []);
 
-  const handleBrandClick = (brandName: string) => {
+  const handleBrandClick = useCallback((brandName: string) => {
     setSelectedBrand(brandName);
     setIsBrandModalOpen(true);
-  };
+  }, []);
+
+  const handleCartClick = useCallback(() => setIsCartOpen(true), []);
 
   return (
     <div className="flex flex-col min-h-screen bg-off-white text-charcoal-gray transition-colors duration-500">
       <div className="sticky top-0 z-40 w-full">
-        <DeliveryTimerBar />
-        <Header onCartClick={() => setIsCartOpen(true)} />
+        <MemoizedDeliveryTimerBar />
+        <Header onCartClick={handleCartClick} />
       </div>
       <main className="flex-grow">
         <Outlet context={{ handleCategoryClick, handleBrandClick }} />
@@ -57,13 +65,13 @@ const MainLayout = () => {
         brandName={selectedBrand}
       />
       <CartSheet isOpen={isCartOpen} onOpenChange={setIsCartOpen} />
-      <SocialProofPopup />
+      <MemoizedSocialProofPopup />
       
       {/* Botões Flutuantes */}
-      <LoyaltyButton />
-      <SupportChatWidget />
+      <MemoizedLoyaltyButton />
+      <MemoizedSupportChatWidget />
     </div>
   );
 };
 
-export default MainLayout;
+export default memo(MainLayout);

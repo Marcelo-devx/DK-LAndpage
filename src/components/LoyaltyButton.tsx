@@ -3,6 +3,10 @@ import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import LoyaltyWidget from './LoyaltyWidget';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { memo } from 'react';
+
+const LoyaltyButtonContent = memo(() => <LoyaltyWidget />);
+LoyaltyButtonContent.displayName = 'LoyaltyButtonContent';
 
 const LoyaltyButton = () => {
   const isMobile = useIsMobile();
@@ -38,10 +42,10 @@ const LoyaltyButton = () => {
         sideOffset={16}
         collisionPadding={16}
       >
-        <LoyaltyWidget />
+        <LoyaltyButtonContent />
       </PopoverContent>
     </Popover>
   );
 };
 
-export default LoyaltyButton;
+export default memo(LoyaltyButton);

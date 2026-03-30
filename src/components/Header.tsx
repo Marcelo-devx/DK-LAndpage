@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, memo, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { User, ShoppingCart, Menu, Search, Package, ChevronDown, ArrowRight, X, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -35,7 +35,7 @@ interface HeaderProps {
   onCartClick: () => void;
 }
 
-const Header = ({ onCartClick }: HeaderProps) => {
+const Header = memo(({ onCartClick }: HeaderProps) => {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
@@ -54,9 +54,9 @@ const Header = ({ onCartClick }: HeaderProps) => {
     if (subs) setSubCategories(subs);
   };
 
-  const updateCartCount = () => {
+  const updateCartCount = useCallback(() => {
     setCartCount(getCartTotalItems());
-  };
+  }, []);
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -437,6 +437,6 @@ const Header = ({ onCartClick }: HeaderProps) => {
       </div>
     </header>
   );
-};
+});
 
 export default Header;

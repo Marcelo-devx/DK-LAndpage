@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, memo } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { 
@@ -17,11 +17,13 @@ interface CategoryProductCarouselProps {
   showAgeBadge?: boolean;
 }
 
-const CategoryProductCarousel = ({ categoryName, showAgeBadge = true }: CategoryProductCarouselProps) => {
+const CategoryProductCarousel = memo(({ categoryName, showAgeBadge = true }: CategoryProductCarouselProps) => {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
+    
     const fetchProducts = async () => {
       setLoading(true);
       try {
@@ -37,6 +39,8 @@ const CategoryProductCarousel = ({ categoryName, showAgeBadge = true }: Category
           Promise.resolve(null),
         ]);
 
+        if (!mounted) return;
+
         const parentProducts = productsRes.data || [];
         if (productsRes.error || parentProducts.length === 0) {
           setProducts([]);
@@ -50,6 +54,8 @@ const CategoryProductCarousel = ({ categoryName, showAgeBadge = true }: Category
           .select('id, product_id, price, pix_price, stock_quantity')
           .in('product_id', productIds)
           .eq('is_active', true);
+
+        if (!mounted) return;
 
         const finalList: any[] = [];
         parentProducts.forEach((prod: any) => {
@@ -82,16 +88,26 @@ const CategoryProductCarousel = ({ categoryName, showAgeBadge = true }: Category
           }
         });
 
-        setProducts(finalList);
+        if (mounted) {
+          setProducts(finalList);
+        }
       } catch (err) {
         console.error('[CategoryProductCarousel] error:', err);
-        setProducts([]);
+        if (mounted) {
+          setProducts([]);
+        }
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
     fetchProducts();
+    
+    return () => {
+      mounted = false;
+    };
   }, [categoryName, showAgeBadge]);
 
   return (
@@ -150,6 +166,6 @@ const CategoryProductCarousel = ({ categoryName, showAgeBadge = true }: Category
       </div>
     </section>
   );
-};
+});
 
 export default CategoryProductCarousel;

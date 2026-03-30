@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X, ShoppingBag } from 'lucide-react';
@@ -18,37 +18,47 @@ const SocialProofPopup = () => {
   
   const [displayDuration, setDisplayDuration] = useState(6000);
   const [displayInterval, setDisplayInterval] = useState(10000);
+  
+  const hasFetchedRef = useRef(false);
 
   useEffect(() => {
+    // Evita queries duplicadas se o componente for re-montado
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
+    
     const fetchData = async () => {
-      const { data: settings } = await supabase
-        .from('app_settings')
-        .select('key, value')
-        .or('key.eq.sales_popup_duration,key.eq.sales_popup_interval');
+      try {
+        const { data: settings } = await supabase
+          .from('app_settings')
+          .select('key, value')
+          .or('key.eq.sales_popup_duration,key.eq.sales_popup_interval');
 
-      if (settings) {
-        const duration = settings.find(s => s.key === 'sales_popup_duration');
-        const interval = settings.find(s => s.key === 'sales_popup_interval');
-        
-        if (duration?.value) setDisplayDuration(parseInt(duration.value) * 1000);
-        if (interval?.value) setDisplayInterval(parseInt(interval.value) * 1000);
-      }
+        if (settings) {
+          const duration = settings.find(s => s.key === 'sales_popup_duration');
+          const interval = settings.find(s => s.key === 'sales_popup_interval');
+          
+          if (duration?.value) setDisplayDuration(parseInt(duration.value) * 1000);
+          if (interval?.value) setDisplayInterval(parseInt(interval.value) * 1000);
+        }
 
-      const { data, error } = await supabase
-        .from('sales_popups')
-        .select('id, customer_name, product_name, product_image_url, time_ago')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false })
-        .limit(20);
+        const { data, error } = await supabase
+          .from('sales_popups')
+          .select('id, customer_name, product_name, product_image_url, time_ago')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(20);
 
-      if (error) {
-        console.error("Error fetching sales popups:", error);
-        return;
-      }
+        if (error) {
+          console.error("Error fetching sales popups:", error);
+          return;
+        }
 
-      if (data && data.length > 0) {
-        setItems(data);
-        setTimeout(() => setIsVisible(true), 3000);
+        if (data && data.length > 0) {
+          setItems(data);
+          setTimeout(() => setIsVisible(true), 3000);
+        }
+      } catch (error) {
+        console.error("Error in SocialProofPopup:", error);
       }
     };
 

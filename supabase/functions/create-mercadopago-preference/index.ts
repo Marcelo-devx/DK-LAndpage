@@ -242,9 +242,9 @@ serve(async (req) => {
       external_reference: orderIdStr,
       payer: payerInfo,
       back_urls: {
-        success: `${backUrlBase}/dashboard`,
+        success: `${backUrlBase}/`,
         failure: `${backUrlBase}/compras`,
-        pending: `${backUrlBase}/dashboard`
+        pending: `${backUrlBase}/`
       },
       auto_return: "approved",
       notification_url: `${SUPABASE_URL}/functions/v1/mercadopago-webhook`,

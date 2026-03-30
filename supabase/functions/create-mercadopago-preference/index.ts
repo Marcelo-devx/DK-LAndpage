@@ -32,7 +32,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({
         success: false,
         error: 'Configuração do Mercado Pago incompleta. Token não encontrado.',
-      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 });
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
 
     const MP_TOKEN = RAW_MP_TOKEN.trim();
@@ -57,17 +57,17 @@ serve(async (req) => {
 
     if (!orderIdStr) {
       return new Response(JSON.stringify({ success: false, error: 'Order ID é obrigatório.' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,
       });
     }
     if (!shipping_address) {
       return new Response(JSON.stringify({ success: false, error: 'Endereço de entrega é obrigatório.' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,
       });
     }
     if (!Number.isFinite(totalPriceNum) || totalPriceNum <= 0) {
       return new Response(JSON.stringify({ success: false, error: `Total inválido: ${totalPriceRaw}` }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,
       });
     }
 
@@ -131,7 +131,7 @@ serve(async (req) => {
 
     if (!userEmail) {
       return new Response(JSON.stringify({ success: false, error: 'E-mail do comprador é obrigatório.' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,
       });
     }
 
@@ -224,7 +224,7 @@ serve(async (req) => {
 
     if (!backUrlBase) {
       return new Response(JSON.stringify({ success: false, error: 'URL de retorno não configurada.' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,
       });
     }
 

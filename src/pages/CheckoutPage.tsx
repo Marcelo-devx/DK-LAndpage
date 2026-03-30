@@ -511,6 +511,10 @@ const CheckoutPage = () => {
       if (prefError) throw new Error(prefError.message || 'Erro ao criar preferência de pagamento.');
       if (!isMountedRef.current) return;
 
+      if (!pref?.success && pref?.error) {
+        throw new Error(pref.error);
+      }
+
       if (pref?.mp_error) {
         const mpErr = pref.mp_error;
         const userMsg = pref.error || (mpErr && (mpErr.message || JSON.stringify(mpErr))) || 'Erro no Mercado Pago.';

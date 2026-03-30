@@ -88,38 +88,60 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const refreshSettings = async () => {
-    const { data } = await supabase.from('app_settings').select('key, value');
+    // order by newest first so we pick the latest value when duplicates exist
+    const { data } = await supabase.from('app_settings').select('key, value, created_at').order('created_at', { ascending: false });
     
     if (data) {
       const newSettings = { ...defaultSettings };
-      
-      data.forEach(item => {
-        if (item.key === 'site_background_color') newSettings.backgroundColor = item.value || '#F4EEE3';
-        if (item.key === 'site_primary_color') newSettings.primaryColor = item.value || '#0ea5e9';
-        if (item.key === 'site_text_color') newSettings.textColor = item.value || '#0f172a';
-        if (item.key === 'show_hero_banner') newSettings.showHero = item.value === 'true';
-        if (item.key === 'show_info_section') newSettings.showInfo = item.value === 'true';
-        if (item.key === 'show_promotions') newSettings.showPromotions = item.value === 'true';
-        if (item.key === 'show_brands') newSettings.showBrands = item.value === 'true';
-        if (item.key === 'header_announcement_text') newSettings.headerAnnouncement = item.value || '';
-        if (item.key === 'logo_url') newSettings.logoUrl = item.value;
-        if (item.key === 'footer_banner_title') newSettings.footerBannerTitle = item.value || '';
-        if (item.key === 'footer_banner_subtitle') newSettings.footerBannerSubtitle = item.value || '';
-        if (item.key === 'footer_banner_button_text') newSettings.footerBannerButtonText = item.value || '';
-        if (item.key === 'contact_email') newSettings.contactEmail = item.value || '';
-        if (item.key === 'contact_phone') newSettings.contactPhone = item.value || '';
-        if (item.key === 'contact_hours') newSettings.contactHours = item.value || '';
-        if (item.key === 'social_facebook') newSettings.socialFacebook = item.value || '';
-        if (item.key === 'social_instagram') newSettings.socialInstagram = item.value || '';
-        if (item.key === 'social_twitter') newSettings.socialTwitter = item.value || '';
-        if (item.key === 'login_title') newSettings.loginTitle = item.value || 'DKCWB';
-        if (item.key === 'login_subtitle') newSettings.loginSubtitle = item.value || 'Acesso Exclusivo';
-        if (item.key === 'dashboard_greeting') newSettings.dashboardGreeting = item.value || 'Olá';
-        if (item.key === 'dashboard_subtitle') newSettings.dashboardSubtitle = item.value || 'Bem-vindo à sua conta exclusiva DKCWB.';
-        if (item.key === 'dashboard_points_label') newSettings.dashboardPointsLabel = item.value || 'Saldo acumulado';
-        if (item.key === 'dashboard_button_text') newSettings.dashboardButtonText = item.value || 'Resgatar Cupons';
-        if (item.key === 'maintenance_mode') newSettings.maintenanceMode = item.value === 'true';
-      });
+
+      // Build a map of latest values per key to avoid duplicate-row ambiguity
+      const latest: Record<string, string> = {};
+      for (const row of data) {
+        if (!(row.key in latest)) latest[row.key] = row.value;
+      }
+
+      // If there's a footer_config (atomic JSON) use it first
+      if (latest['footer_config']) {
+        try {
+          const parsed = JSON.parse(latest['footer_config']);
+          if (parsed.contactEmail) newSettings.contactEmail = parsed.contactEmail;
+          if (parsed.contactPhone) newSettings.contactPhone = parsed.contactPhone;
+          if (parsed.contactHours) newSettings.contactHours = parsed.contactHours;
+          if (parsed.socialFacebook) newSettings.socialFacebook = parsed.socialFacebook;
+          if (parsed.socialInstagram) newSettings.socialInstagram = parsed.socialInstagram;
+          if (parsed.socialTwitter) newSettings.socialTwitter = parsed.socialTwitter;
+          if (parsed.logoUrl) newSettings.logoUrl = parsed.logoUrl;
+        } catch (e) {
+          console.warn('Invalid footer_config JSON', e);
+        }
+      }
+
+      // Individual keys (only apply when footer_config not overriding)
+      if (latest['site_background_color']) newSettings.backgroundColor = latest['site_background_color'] || '#F4EEE3';
+      if (latest['site_primary_color']) newSettings.primaryColor = latest['site_primary_color'] || '#0ea5e9';
+      if (latest['site_text_color']) newSettings.textColor = latest['site_text_color'] || '#0f172a';
+      if (latest['show_hero_banner']) newSettings.showHero = latest['show_hero_banner'] === 'true';
+      if (latest['show_info_section']) newSettings.showInfo = latest['show_info_section'] === 'true';
+      if (latest['show_promotions']) newSettings.showPromotions = latest['show_promotions'] === 'true';
+      if (latest['show_brands']) newSettings.showBrands = latest['show_brands'] === 'true';
+      if (latest['header_announcement_text']) newSettings.headerAnnouncement = latest['header_announcement_text'] || '';
+      if (latest['logo_url'] && !latest['footer_config']) newSettings.logoUrl = latest['logo_url'];
+      if (latest['footer_banner_title']) newSettings.footerBannerTitle = latest['footer_banner_title'] || '';
+      if (latest['footer_banner_subtitle']) newSettings.footerBannerSubtitle = latest['footer_banner_subtitle'] || '';
+      if (latest['footer_banner_button_text']) newSettings.footerBannerButtonText = latest['footer_banner_button_text'] || '';
+      if (latest['contact_email'] && !latest['footer_config']) newSettings.contactEmail = latest['contact_email'] || '';
+      if (latest['contact_phone'] && !latest['footer_config']) newSettings.contactPhone = latest['contact_phone'] || '';
+      if (latest['contact_hours'] && !latest['footer_config']) newSettings.contactHours = latest['contact_hours'] || '';
+      if (latest['social_facebook'] && !latest['footer_config']) newSettings.socialFacebook = latest['social_facebook'] || '';
+      if (latest['social_instagram'] && !latest['footer_config']) newSettings.socialInstagram = latest['social_instagram'] || '';
+      if (latest['social_twitter'] && !latest['footer_config']) newSettings.socialTwitter = latest['social_twitter'] || '';
+      if (latest['login_title']) newSettings.loginTitle = latest['login_title'] || 'DKCWB';
+      if (latest['login_subtitle']) newSettings.loginSubtitle = latest['login_subtitle'] || 'Acesso Exclusivo';
+      if (latest['dashboard_greeting']) newSettings.dashboardGreeting = latest['dashboard_greeting'] || 'Olá';
+      if (latest['dashboard_subtitle']) newSettings.dashboardSubtitle = latest['dashboard_subtitle'] || 'Bem-vindo à sua conta exclusiva DKCWB.';
+      if (latest['dashboard_points_label']) newSettings.dashboardPointsLabel = latest['dashboard_points_label'] || 'Saldo acumulado';
+      if (latest['dashboard_button_text']) newSettings.dashboardButtonText = latest['dashboard_button_text'] || 'Resgatar Cupons';
+      if (latest['maintenance_mode']) newSettings.maintenanceMode = latest['maintenance_mode'] === 'true';
 
       setSettings(newSettings);
       applyColors(newSettings);
@@ -180,10 +202,8 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
         .upsert([{ key, value }], { onConflict: 'key' });
 
       if (error) {
-        // Log the full error for debugging. If duplicate key still occurs, try an update fallback.
         console.error(`Erro ao salvar ${key}:`, error);
 
-        // Fallback: attempt update if upsert failed with duplicate key
         if ((error as any)?.code === '23505') {
           const { error: updateError } = await supabase
             .from('app_settings')
@@ -201,6 +221,17 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   // Persist all settings at once (called by Save button to ensure a concrete write)
   const saveAllSettings = async (s?: ThemeSettings) => {
     const toSave = s || settings;
+    // create an atomic footer config to ensure footer updates are saved together
+    const footerConfig = {
+      contactEmail: toSave.contactEmail,
+      contactPhone: toSave.contactPhone,
+      contactHours: toSave.contactHours,
+      socialFacebook: toSave.socialFacebook,
+      socialInstagram: toSave.socialInstagram,
+      socialTwitter: toSave.socialTwitter,
+      logoUrl: toSave.logoUrl || '',
+    };
+
     const payload = [
       { key: 'site_background_color', value: toSave.backgroundColor },
       { key: 'site_primary_color', value: toSave.primaryColor },
@@ -214,6 +245,9 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
       { key: 'footer_banner_title', value: toSave.footerBannerTitle },
       { key: 'footer_banner_subtitle', value: toSave.footerBannerSubtitle },
       { key: 'footer_banner_button_text', value: toSave.footerBannerButtonText },
+      // footer atomic entry
+      { key: 'footer_config', value: JSON.stringify(footerConfig) },
+      // keep individual footer keys as compatibility fallback (they will be ignored if footer_config exists)
       { key: 'contact_email', value: toSave.contactEmail },
       { key: 'contact_phone', value: toSave.contactPhone },
       { key: 'contact_hours', value: toSave.contactHours },
@@ -229,16 +263,28 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
       { key: 'maintenance_mode', value: String(toSave.maintenanceMode) },
     ];
 
-    // Perform batched upsert. If the database doesn't have a unique constraint on `key`,
-    // this may insert duplicates; in that case we fall back to updating each key individually.
-    const { error } = await supabase.from('app_settings').upsert(payload, { onConflict: 'key' });
-    if (error) {
-      console.error('saveAllSettings upsert error, falling back to individual updates', error);
-      // fallback: update/insert per key
+    // To avoid duplicate rows for the same key (which causes flaky restores),
+    // delete any existing entries for these keys first, then insert fresh rows.
+    const keys = payload.map(p => p.key);
+    try {
+      await supabase.from('app_settings').delete().in('key', keys);
+      const { error: insertError } = await supabase.from('app_settings').insert(payload);
+      if (insertError) {
+        console.error('saveAllSettings insert error', insertError);
+        // fallback to upsert per key
+        for (const row of payload) {
+          const { error: uErr } = await supabase.from('app_settings').upsert([row], { onConflict: 'key' });
+          if (uErr) {
+            await supabase.from('app_settings').update({ value: row.value }).eq('key', row.key);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('saveAllSettings transactional fallback error', e);
+      // best-effort fallback
       for (const row of payload) {
         const { error: uErr } = await supabase.from('app_settings').upsert([row], { onConflict: 'key' });
         if (uErr) {
-          // try update as last resort
           await supabase.from('app_settings').update({ value: row.value }).eq('key', row.key);
         }
       }

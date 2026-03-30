@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -21,33 +21,11 @@ import { showError } from '@/utils/toast';
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const { settings } = useTheme();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-
-  // Handle Mercado Pago redirects that may land on /dashboard with query params
-  useEffect(() => {
-    try {
-      const params = new URLSearchParams(location.search);
-      const status = (params.get('status') || params.get('collection_status') || '').toLowerCase();
-      const externalRef = params.get('external_reference')
-        || params.get('external-reference')
-        || params.get('externalReference')
-        || params.get('external_reference_id')
-        || params.get('collection_id')
-        || params.get('payment_id');
-
-      if (externalRef && status === 'approved') {
-        // Redirect to the confirmation page and remove query params from history
-        navigate(`/confirmacao-pedido/${externalRef}`, { replace: true });
-      }
-    } catch (e) {
-      console.error('[Dashboard] Error parsing Mercado Pago redirect params:', e);
-    }
-  }, [location.search, navigate]);
 
   const fetchDashboardData = useCallback(async () => {
     setLoading(true);

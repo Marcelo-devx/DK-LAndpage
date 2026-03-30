@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, Package, ChevronRight, CreditCard, MessageSquare, Clock, CheckCircle2, Truck, AlertCircle, Calendar, Heart } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -55,28 +55,12 @@ const getDeliveryBadge = (status: string) => {
 
 const OrdersPage = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [reviewingItem, setReviewingItem] = useState<{ productId: number; orderId: number; productName: string } | null>(null);
 
-  // New effect: handle Mercado Pago redirect query params
-  useEffect(() => {
-    try {
-      const params = new URLSearchParams(location.search);
-      const status = (params.get('status') || params.get('collection_status') || '').toLowerCase();
-      const externalRef = params.get('external_reference') || params.get('external-reference') || params.get('externalReference');
-
-      if (externalRef && status === 'approved') {
-        // Redirect user to the confirmation page for the given external reference (order id)
-        // Use replace to remove query params from history and avoid loops
-        navigate(`/confirmacao-pedido/${externalRef}`, { replace: true });
-      }
-    } catch (e) {
-      // silently ignore any parsing errors
-      console.error('[OrdersPage] Error parsing query params for MP redirect:', e);
-    }
-  }, [location.search, navigate]);
+  // REMOVIDO: A verificação de MP params agora é feita no App.tsx
+  // O OrdersPage sempre buscará os pedidos normalmente
 
   const fetchOrders = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();

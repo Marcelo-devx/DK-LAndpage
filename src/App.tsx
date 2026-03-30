@@ -30,10 +30,14 @@ import { AgeVerificationProvider } from "./context/AgeVerificationContext";
 import MaintenanceScreen from "./components/MaintenanceScreen";
 import { supabase } from "./integrations/supabase/client";
 import DashboardSecurity from "./pages/DashboardSecurity";
+import { useMercadoPagoRedirect } from "./hooks/useMercadoPagoRedirect";
 
 const queryClient = new QueryClient();
 
 const AppContent = () => {
+  // Tratar redirecionamentos do Mercado Pago de forma centralizada
+  useMercadoPagoRedirect();
+
   const { settings } = useTheme();
   const [isAdmin, setIsAdmin] = useState(false);
   const [checkingRole, setCheckingRole] = useState(true);

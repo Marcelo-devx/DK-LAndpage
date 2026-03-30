@@ -104,7 +104,14 @@ const AllProductsPage = () => {
         .select('id, name, price, pix_price, image_url, category, sub_category, stock_quantity, created_at')
         .eq('is_visible', true);
 
-      if (debouncedSearchTerm) query = query.ilike('name', `%${debouncedSearchTerm}%`);
+      if (debouncedSearchTerm) {
+        // Search across multiple string fields so searching for a category/subcategory/brand also finds products
+        const term = `%${debouncedSearchTerm}%`;
+        // Use supabase.or to match any of these columns (case-insensitive)
+        query = query.or(
+          `name.ilike.${term},category.ilike.${term},sub_category.ilike.${term},brand.ilike.${term}`
+        );
+      }
       if (selectedCategories.length > 0) query = query.in('category', selectedCategories);
       if (selectedSubCategories.length > 0) query = query.in('sub_category', selectedSubCategories);
       if (selectedBrands.length > 0) query = query.in('brand', selectedBrands);

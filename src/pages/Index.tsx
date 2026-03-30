@@ -61,6 +61,25 @@ const Index = () => {
       try {
         setLoadingProducts(true);
 
+        // If Mercado Pago redirect params exist on the URL, skip the main fetch
+        // — we want to redirect to the confirmation page instead of running heavy home queries.
+        const mpParams = new URLSearchParams(location.search || '');
+        const isMpRedirect = mpParams.has('collection_id')
+          || mpParams.has('collection_status')
+          || mpParams.has('payment_id')
+          || mpParams.has('status')
+          || mpParams.has('external_reference')
+          || mpParams.has('external-reference')
+          || mpParams.has('externalReference')
+          || mpParams.has('external_ref')
+          || mpParams.has('external_reference_id');
+
+        if (isMpRedirect) {
+          // Prevent running the rest of the fetch flow while redirect logic handles the route.
+          setLoadingProducts(false);
+          return;
+        }
+
         const normalizeCategory = (s?: string) => (typeof s === 'string' ? s.trim().toLowerCase() : '');
 
         // Busca tudo em paralelo — UMA única vez

@@ -1,10 +1,11 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import ProductCard from '@/components/ProductCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import ProductFilters from '@/components/ProductFilters';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useSearchParams } from 'react-router-dom';
+import { PackageSearch, Sparkles, X } from 'lucide-react';
 
 interface DisplayProduct {
   id: number;
@@ -46,15 +47,10 @@ const AllProductsPage = () => {
 
   // Sync filters when URL params change
   useEffect(() => {
-    const querySearch = searchParams.get('search');
-    const queryCategory = searchParams.get('category');
-    const querySubCategory = searchParams.get('sub_category');
-    const queryBrand = searchParams.get('brand');
-
-    setSearchTerm(querySearch ?? '');
-    setSelectedCategories(queryCategory ? [queryCategory] : []);
-    setSelectedSubCategories(querySubCategory ? [querySubCategory] : []);
-    setSelectedBrands(queryBrand ? [queryBrand] : []);
+    setSearchTerm(searchParams.get('search') ?? '');
+    setSelectedCategories(searchParams.get('category') ? [searchParams.get('category')!] : []);
+    setSelectedSubCategories(searchParams.get('sub_category') ? [searchParams.get('sub_category')!] : []);
+    setSelectedBrands(searchParams.get('brand') ? [searchParams.get('brand')!] : []);
   }, [searchParams]);
 
   const fetchFilterOptions = useCallback(async () => {
@@ -74,7 +70,6 @@ const AllProductsPage = () => {
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
-
     try {
       const normalizeCategory = (s?: string) => (typeof s === 'string' ? s.trim().toLowerCase() : '');
 
@@ -87,7 +82,6 @@ const AllProductsPage = () => {
       }
 
       let productIdsFromFlavors: number[] | null = null;
-
       if (selectedFlavors.length > 0) {
         const { data: flavorIdsData } = await supabase.from('flavors').select('id').in('name', selectedFlavors);
         if (flavorIdsData && flavorIdsData.length > 0) {
@@ -120,45 +114,26 @@ const AllProductsPage = () => {
       query = query.order(sortField, { ascending: sortOrder === 'asc' });
 
       const { data: parentProducts, error } = await query;
-
-      if (error) {
-        console.error('Error fetching products:', error);
-        setDisplayProducts([]);
-        return;
-      }
+      if (error) { console.error('Error fetching products:', error); setDisplayProducts([]); return; }
 
       const products = parentProducts || [];
       const productIds = products.map(p => p.id);
 
       const { data: variants } = productIds.length > 0
-        ? await supabase
-            .from('product_variants')
-            .select('id, product_id, price, pix_price, stock_quantity')
-            .in('product_id', productIds)
-            .eq('is_active', true)
+        ? await supabase.from('product_variants').select('id, product_id, price, pix_price, stock_quantity').in('product_id', productIds).eq('is_active', true)
         : { data: [] };
 
       const finalDisplayList: DisplayProduct[] = [];
-
       products.forEach(prod => {
         const prodVariants = variants?.filter(v => v.product_id === prod.id) || [];
         const showAge = prod.category ? (categoriesMap[normalizeCategory(prod.category)] ?? true) : true;
-
         if (prodVariants.length > 0) {
           const minPrice = Math.min(...prodVariants.map(v => v.price));
           const minPixPrice = Math.min(...prodVariants.map(v => v.pix_price || v.price));
           const totalStock = prodVariants.reduce((acc, v) => acc + (v.stock_quantity || 0), 0);
-          finalDisplayList.push({
-            id: prod.id, name: prod.name, price: minPrice, pixPrice: minPixPrice,
-            imageUrl: prod.image_url || '', stockQuantity: totalStock,
-            hasMultipleVariants: true, showAgeBadge: showAge,
-          });
+          finalDisplayList.push({ id: prod.id, name: prod.name, price: minPrice, pixPrice: minPixPrice, imageUrl: prod.image_url || '', stockQuantity: totalStock, hasMultipleVariants: true, showAgeBadge: showAge });
         } else {
-          finalDisplayList.push({
-            id: prod.id, name: prod.name, price: prod.price, pixPrice: prod.pix_price,
-            imageUrl: prod.image_url || '', stockQuantity: prod.stock_quantity,
-            hasMultipleVariants: false, showAgeBadge: showAge,
-          });
+          finalDisplayList.push({ id: prod.id, name: prod.name, price: prod.price, pixPrice: prod.pix_price, imageUrl: prod.image_url || '', stockQuantity: prod.stock_quantity, hasMultipleVariants: false, showAgeBadge: showAge });
         }
       });
 
@@ -172,14 +147,10 @@ const AllProductsPage = () => {
     }
   }, [debouncedSearchTerm, selectedCategories, selectedSubCategories, selectedBrands, selectedFlavors, sortBy]);
 
-  // Fetch on filter/sort change
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
-  // Re-fetch when user returns to this tab
   useEffect(() => {
-    const handleVisibility = () => {
-      if (!document.hidden) fetchProducts();
-    };
+    const handleVisibility = () => { if (!document.hidden) fetchProducts(); };
     document.addEventListener('visibilitychange', handleVisibility);
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [fetchProducts]);
@@ -193,72 +164,165 @@ const AllProductsPage = () => {
     window.history.pushState({}, '', '/produtos');
   };
 
+  const totalActiveFilters =
+    selectedCategories.length + selectedSubCategories.length +
+    selectedBrands.length + selectedFlavors.length;
+
   return (
-    <div className="container mx-auto px-4 py-4 md:py-8">
-      <header className="mb-6 text-center">
-        <h1 className="font-serif text-3xl md:text-5xl text-charcoal-gray">Nossos Produtos</h1>
-        <p className="mt-1 text-base text-stone-600">Explore nossa linha completa.</p>
-      </header>
-      <div className="grid grid-cols-1 lg:grid-cols-4 lg:gap-8">
-        <div className="lg:col-span-1 mb-6 lg:mb-0">
-          <ProductFilters
-            categories={allCategories}
-            subCategories={allSubCategories}
-            brands={allBrands}
-            flavors={allFlavors}
-            selectedCategories={selectedCategories}
-            selectedSubCategories={selectedSubCategories}
-            selectedBrands={selectedBrands}
-            selectedFlavors={selectedFlavors}
-            onSearchChange={setSearchTerm}
-            onCategoryChange={setSelectedCategories}
-            onSubCategoryChange={setSelectedSubCategories}
-            onBrandChange={setSelectedBrands}
-            onFlavorChange={setSelectedFlavors}
-            onSortChange={setSortBy}
-            onClearFilters={handleClearFilters}
-          />
+    <div className="min-h-screen bg-off-white">
+      {/* Hero Header */}
+      <div className="bg-slate-950 text-white py-12 md:py-16 px-4">
+        <div className="container mx-auto text-center">
+          <div className="flex items-center justify-center gap-2 mb-3">
+            <Sparkles className="h-4 w-4 text-sky-400" />
+            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-sky-400">Catálogo Completo</span>
+            <Sparkles className="h-4 w-4 text-sky-400" />
+          </div>
+          <h1 className="text-4xl md:text-7xl font-black tracking-tighter italic uppercase text-white leading-none">
+            Nossos<br />
+            <span className="text-sky-400">Produtos.</span>
+          </h1>
+          <p className="mt-4 text-stone-400 font-medium text-sm md:text-base max-w-md mx-auto">
+            Explore nossa linha completa com os melhores produtos do mercado.
+          </p>
         </div>
-        <main className="lg:col-span-3">
-          {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-              {Array.from({ length: 9 }).map((_, index) => (
-                <div key={index} className="flex flex-col space-y-3">
-                  <Skeleton className="w-full rounded-lg aspect-[4/5]" />
-                  <div className="space-y-2 bg-charcoal-gray p-4 rounded-b-lg">
-                    <Skeleton className="h-6 w-3/4 mx-auto" />
-                    <Skeleton className="h-6 w-1/2 mx-auto" />
-                    <Skeleton className="h-10 w-full" />
+      </div>
+
+      <div className="container mx-auto px-4 py-8 md:py-10">
+        {/* Active filters bar */}
+        {totalActiveFilters > 0 && (
+          <div className="mb-6 flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-black uppercase tracking-widest text-stone-400">Filtros ativos:</span>
+            {selectedCategories.map(c => (
+              <span key={c} className="flex items-center gap-1 bg-sky-100 text-sky-700 text-[10px] font-black uppercase tracking-wide px-2.5 py-1 rounded-full border border-sky-200">
+                {c}
+                <button onClick={() => setSelectedCategories(prev => prev.filter(x => x !== c))} className="hover:text-sky-900">
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </span>
+            ))}
+            {selectedBrands.map(b => (
+              <span key={b} className="flex items-center gap-1 bg-purple-100 text-purple-700 text-[10px] font-black uppercase tracking-wide px-2.5 py-1 rounded-full border border-purple-200">
+                {b}
+                <button onClick={() => setSelectedBrands(prev => prev.filter(x => x !== b))} className="hover:text-purple-900">
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </span>
+            ))}
+            {selectedSubCategories.map(s => (
+              <span key={s} className="flex items-center gap-1 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-wide px-2.5 py-1 rounded-full border border-emerald-200">
+                {s}
+                <button onClick={() => setSelectedSubCategories(prev => prev.filter(x => x !== s))} className="hover:text-emerald-900">
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </span>
+            ))}
+            {selectedFlavors.map(f => (
+              <span key={f} className="flex items-center gap-1 bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-wide px-2.5 py-1 rounded-full border border-amber-200">
+                {f}
+                <button onClick={() => setSelectedFlavors(prev => prev.filter(x => x !== f))} className="hover:text-amber-900">
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </span>
+            ))}
+            <button
+              onClick={handleClearFilters}
+              className="text-[10px] font-black uppercase tracking-widest text-red-500 hover:text-red-700 transition-colors ml-1"
+            >
+              Limpar tudo
+            </button>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-4 lg:gap-8">
+          {/* Sidebar */}
+          <div className="lg:col-span-1 mb-6 lg:mb-0">
+            <ProductFilters
+              categories={allCategories}
+              subCategories={allSubCategories}
+              brands={allBrands}
+              flavors={allFlavors}
+              selectedCategories={selectedCategories}
+              selectedSubCategories={selectedSubCategories}
+              selectedBrands={selectedBrands}
+              selectedFlavors={selectedFlavors}
+              onSearchChange={setSearchTerm}
+              onCategoryChange={setSelectedCategories}
+              onSubCategoryChange={setSelectedSubCategories}
+              onBrandChange={setSelectedBrands}
+              onFlavorChange={setSelectedFlavors}
+              onSortChange={setSortBy}
+              onClearFilters={handleClearFilters}
+            />
+          </div>
+
+          {/* Products grid */}
+          <main className="lg:col-span-3">
+            {/* Results count */}
+            {!loading && (
+              <div className="flex items-center justify-between mb-5">
+                <p className="text-xs font-bold text-stone-400 uppercase tracking-widest">
+                  {displayProducts.length > 0
+                    ? <><span className="text-charcoal-gray font-black text-sm">{displayProducts.length}</span> produto{displayProducts.length !== 1 ? 's' : ''} encontrado{displayProducts.length !== 1 ? 's' : ''}</>
+                    : 'Nenhum resultado'
+                  }
+                </p>
+              </div>
+            )}
+
+            {loading ? (
+              <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-5">
+                {Array.from({ length: 9 }).map((_, index) => (
+                  <div key={index} className="flex flex-col space-y-2">
+                    <Skeleton className="w-full rounded-2xl aspect-[4/5] bg-stone-200" />
+                    <Skeleton className="h-4 w-3/4 rounded-lg bg-stone-200" />
+                    <Skeleton className="h-4 w-1/2 rounded-lg bg-stone-200" />
+                    <Skeleton className="h-10 w-full rounded-xl bg-stone-200" />
                   </div>
+                ))}
+              </div>
+            ) : displayProducts.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-5">
+                {displayProducts.map((product, idx) => (
+                  <ProductCard
+                    key={`${product.id}-${idx}`}
+                    product={{
+                      id: product.id,
+                      name: product.name,
+                      price: product.price,
+                      pixPrice: product.pixPrice,
+                      imageUrl: product.imageUrl,
+                      stockQuantity: product.stockQuantity,
+                      variantId: product.variantId,
+                      hasMultipleVariants: product.hasMultipleVariants,
+                      showAgeBadge: product.showAgeBadge,
+                    }}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-24 text-center">
+                <div className="bg-stone-100 rounded-full p-6 mb-6">
+                  <PackageSearch className="h-12 w-12 text-stone-400" />
                 </div>
-              ))}
-            </div>
-          ) : displayProducts.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-              {displayProducts.map((product, idx) => (
-                <ProductCard
-                  key={`${product.id}-${idx}`}
-                  product={{
-                    id: product.id,
-                    name: product.name,
-                    price: product.price,
-                    pixPrice: product.pixPrice,
-                    imageUrl: product.imageUrl,
-                    stockQuantity: product.stockQuantity,
-                    variantId: product.variantId,
-                    hasMultipleVariants: product.hasMultipleVariants,
-                    showAgeBadge: product.showAgeBadge,
-                  }}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <h3 className="font-serif text-2xl text-charcoal-gray">Nenhum produto encontrado</h3>
-              <p className="text-stone-600 mt-1">Tente ajustar seus filtros ou limpar a busca.</p>
-            </div>
-          )}
-        </main>
+                <h3 className="font-black text-2xl uppercase tracking-tighter italic text-charcoal-gray mb-2">
+                  Nenhum produto encontrado
+                </h3>
+                <p className="text-stone-500 text-sm font-medium max-w-xs">
+                  Tente ajustar seus filtros ou limpar a busca para ver mais resultados.
+                </p>
+                {totalActiveFilters > 0 && (
+                  <button
+                    onClick={handleClearFilters}
+                    className="mt-6 px-6 py-3 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-xs rounded-2xl transition-all active:scale-95"
+                  >
+                    Limpar filtros
+                  </button>
+                )}
+              </div>
+            )}
+          </main>
+        </div>
       </div>
     </div>
   );

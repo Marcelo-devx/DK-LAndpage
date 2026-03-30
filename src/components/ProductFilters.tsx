@@ -1,13 +1,11 @@
 import { useState } from "react";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Filter, Search, X } from "lucide-react";
+import { Filter, Search, X, ChevronDown, ChevronUp, SlidersHorizontal, ArrowUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ProductFiltersProps {
   categories: string[];
@@ -27,164 +25,207 @@ interface ProductFiltersProps {
   onClearFilters: () => void;
 }
 
+const SORT_OPTIONS = [
+  { value: 'created_at-desc', label: 'Mais Recentes' },
+  { value: 'price-asc', label: 'Menor Preço' },
+  { value: 'price-desc', label: 'Maior Preço' },
+];
+
+const FilterSection = ({
+  title,
+  items,
+  selected,
+  onToggle,
+  maxVisible = 6,
+}: {
+  title: string;
+  items: string[];
+  selected: string[];
+  onToggle: (item: string) => void;
+  maxVisible?: number;
+}) => {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? items : items.slice(0, maxVisible);
+  const hasMore = items.length > maxVisible;
+
+  if (items.length === 0) return null;
+
+  return (
+    <div className="space-y-2">
+      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">{title}</p>
+      <div className="flex flex-wrap gap-1.5">
+        {visible.map((item) => {
+          const active = selected.includes(item);
+          return (
+            <button
+              key={item}
+              onClick={() => onToggle(item)}
+              className={cn(
+                "px-3 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wide transition-all duration-200 border",
+                active
+                  ? "bg-sky-500 text-white border-sky-400 shadow-[0_0_12px_rgba(14,165,233,0.4)]"
+                  : "bg-white text-stone-600 border-stone-200 hover:border-sky-300 hover:text-sky-600"
+              )}
+            >
+              {item}
+            </button>
+          );
+        })}
+      </div>
+      {hasMore && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-sky-500 hover:text-sky-400 transition-colors mt-1"
+        >
+          {expanded ? (
+            <><ChevronUp className="h-3 w-3" /> Ver menos</>
+          ) : (
+            <><ChevronDown className="h-3 w-3" /> +{items.length - maxVisible} mais</>
+          )}
+        </button>
+      )}
+    </div>
+  );
+};
+
 const ProductFilters = (props: ProductFiltersProps) => {
   const {
-    categories,
-    subCategories,
-    brands,
-    flavors,
-    selectedCategories,
-    selectedSubCategories,
-    selectedBrands,
-    selectedFlavors,
-    onSearchChange,
-    onCategoryChange,
-    onSubCategoryChange,
-    onBrandChange,
-    onFlavorChange,
-    onSortChange,
-    onClearFilters,
+    categories, subCategories, brands, flavors,
+    selectedCategories, selectedSubCategories, selectedBrands, selectedFlavors,
+    onSearchChange, onCategoryChange, onSubCategoryChange, onBrandChange, onFlavorChange,
+    onSortChange, onClearFilters,
   } = props;
+
   const isMobile = useIsMobile();
-  const [showAllFlavors, setShowAllFlavors] = useState(false);
+  const [activeSort, setActiveSort] = useState('created_at-desc');
+  const [searchValue, setSearchValue] = useState('');
 
-  const handleCategoryToggle = (category: string) => {
-    const newSelection = selectedCategories.includes(category)
-      ? selectedCategories.filter((c) => c !== category)
-      : [...selectedCategories, category];
-    onCategoryChange(newSelection);
+  const totalActive =
+    selectedCategories.length + selectedSubCategories.length +
+    selectedBrands.length + selectedFlavors.length;
+
+  const handleSortChange = (val: string) => {
+    setActiveSort(val);
+    onSortChange(val);
   };
 
-  const handleSubCategoryToggle = (subCategory: string) => {
-    const newSelection = selectedSubCategories.includes(subCategory)
-      ? selectedSubCategories.filter((sc) => sc !== subCategory)
-      : [...selectedSubCategories, subCategory];
-    onSubCategoryChange(newSelection);
+  const handleSearchChange = (val: string) => {
+    setSearchValue(val);
+    onSearchChange(val);
   };
 
-  const handleBrandToggle = (brand: string) => {
-    const newSelection = selectedBrands.includes(brand)
-      ? selectedBrands.filter((b) => b !== brand)
-      : [...selectedBrands, brand];
-    onBrandChange(newSelection);
+  const handleClearAll = () => {
+    setSearchValue('');
+    setActiveSort('created_at-desc');
+    onClearFilters();
   };
-
-  const handleFlavorToggle = (flavor: string) => {
-    const newSelection = selectedFlavors.includes(flavor)
-      ? selectedFlavors.filter((f) => f !== flavor)
-      : [...selectedFlavors, flavor];
-    onFlavorChange(newSelection);
-  };
-
-  const hasActiveFilters = selectedCategories.length > 0 || selectedSubCategories.length > 0 || selectedBrands.length > 0 || selectedFlavors.length > 0;
-  const displayedFlavors = showAllFlavors ? flavors : flavors.slice(0, 5);
 
   const FiltersContent = () => (
     <div className="space-y-6">
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
+        <Input
+          placeholder="Buscar produto..."
+          value={searchValue}
+          onChange={(e) => handleSearchChange(e.target.value)}
+          className="pl-10 h-11 rounded-xl border-stone-200 bg-white text-sm font-medium focus:border-sky-400 focus:ring-sky-400/20"
+        />
+        {searchValue && (
+          <button
+            onClick={() => handleSearchChange('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+
+      {/* Sort */}
       <div className="space-y-2">
-        <Label htmlFor="search">Buscar Produto</Label>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            id="search"
-            placeholder="Nome do produto..."
-            className="pl-10"
-            onChange={(e) => onSearchChange(e.target.value)}
-          />
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400 flex items-center gap-1.5">
+          <ArrowUpDown className="h-3 w-3" /> Ordenar
+        </p>
+        <div className="flex flex-col gap-1.5">
+          {SORT_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => handleSortChange(opt.value)}
+              className={cn(
+                "w-full text-left px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all duration-200 border",
+                activeSort === opt.value
+                  ? "bg-slate-950 text-white border-slate-800"
+                  : "bg-white text-stone-600 border-stone-200 hover:border-slate-300"
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label>Ordenar por</Label>
-        <Select onValueChange={onSortChange} defaultValue="created_at-desc">
-          <SelectTrigger>
-            <SelectValue placeholder="Selecione a ordem" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="created_at-desc">Mais Recentes</SelectItem>
-            <SelectItem value="price-asc">Preço: Menor para Maior</SelectItem>
-            <SelectItem value="price-desc">Preço: Maior para Menor</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      {/* Divider */}
+      <div className="border-t border-stone-100" />
 
-      <Accordion type="multiple" defaultValue={["categories", "sub-categories", "brands", "flavors"]} className="w-full">
-        <AccordionItem value="categories">
-          <AccordionTrigger className="font-serif text-lg">Categorias</AccordionTrigger>
-          <AccordionContent className="space-y-2 pt-2">
-            {categories.map((category) => (
-              <div key={category} className="flex items-center space-x-2">
-                <Checkbox
-                  id={`cat-${category}`}
-                  checked={selectedCategories.includes(category)}
-                  onCheckedChange={() => handleCategoryToggle(category)}
-                />
-                <Label htmlFor={`cat-${category}`} className="font-normal cursor-pointer">{category}</Label>
-              </div>
-            ))}
-          </AccordionContent>
-        </AccordionItem>
-        <AccordionItem value="sub-categories">
-          <AccordionTrigger className="font-serif text-lg">Sub-Categorias</AccordionTrigger>
-          <AccordionContent className="space-y-2 pt-2">
-            {subCategories.map((subCategory) => (
-              <div key={subCategory} className="flex items-center space-x-2">
-                <Checkbox
-                  id={`subcat-${subCategory}`}
-                  checked={selectedSubCategories.includes(subCategory)}
-                  onCheckedChange={() => handleSubCategoryToggle(subCategory)}
-                />
-                <Label htmlFor={`subcat-${subCategory}`} className="font-normal cursor-pointer">{subCategory}</Label>
-              </div>
-            ))}
-          </AccordionContent>
-        </AccordionItem>
-        <AccordionItem value="brands">
-          <AccordionTrigger className="font-serif text-lg">Marcas</AccordionTrigger>
-          <AccordionContent className="space-y-2 pt-2">
-            {brands.map((brand) => (
-              <div key={brand} className="flex items-center space-x-2">
-                <Checkbox
-                  id={`brand-${brand}`}
-                  checked={selectedBrands.includes(brand)}
-                  onCheckedChange={() => handleBrandToggle(brand)}
-                />
-                <Label htmlFor={`brand-${brand}`} className="font-normal cursor-pointer">{brand}</Label>
-              </div>
-            ))}
-          </AccordionContent>
-        </AccordionItem>
-        <AccordionItem value="flavors">
-          <AccordionTrigger className="font-serif text-lg">Sabores</AccordionTrigger>
-          <AccordionContent className="space-y-2 pt-2">
-            {displayedFlavors.map((flavor) => (
-              <div key={flavor} className="flex items-center space-x-2">
-                <Checkbox
-                  id={`flavor-${flavor}`}
-                  checked={selectedFlavors.includes(flavor)}
-                  onCheckedChange={() => handleFlavorToggle(flavor)}
-                />
-                <Label htmlFor={`flavor-${flavor}`} className="font-normal cursor-pointer">{flavor}</Label>
-              </div>
-            ))}
-            {flavors.length > 5 && (
-              <Button
-                variant="link"
-                className="p-0 h-auto text-gold-accent"
-                onClick={() => setShowAllFlavors(!showAllFlavors)}
-              >
-                {showAllFlavors ? 'Ver menos' : `Ver mais ${flavors.length - 5}`}
-              </Button>
-            )}
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
+      {/* Filter sections */}
+      <FilterSection
+        title="Categorias"
+        items={categories}
+        selected={selectedCategories}
+        onToggle={(item) => {
+          const next = selectedCategories.includes(item)
+            ? selectedCategories.filter(c => c !== item)
+            : [...selectedCategories, item];
+          onCategoryChange(next);
+        }}
+      />
 
-      {hasActiveFilters && (
-        <Button variant="ghost" onClick={onClearFilters} className="w-full text-destructive hover:text-destructive">
-          <X className="mr-2 h-4 w-4" />
-          Limpar Filtros
-        </Button>
+      <FilterSection
+        title="Sub-Categorias"
+        items={subCategories}
+        selected={selectedSubCategories}
+        onToggle={(item) => {
+          const next = selectedSubCategories.includes(item)
+            ? selectedSubCategories.filter(c => c !== item)
+            : [...selectedSubCategories, item];
+          onSubCategoryChange(next);
+        }}
+      />
+
+      <FilterSection
+        title="Marcas"
+        items={brands}
+        selected={selectedBrands}
+        onToggle={(item) => {
+          const next = selectedBrands.includes(item)
+            ? selectedBrands.filter(b => b !== item)
+            : [...selectedBrands, item];
+          onBrandChange(next);
+        }}
+      />
+
+      <FilterSection
+        title="Sabores"
+        items={flavors}
+        selected={selectedFlavors}
+        onToggle={(item) => {
+          const next = selectedFlavors.includes(item)
+            ? selectedFlavors.filter(f => f !== item)
+            : [...selectedFlavors, item];
+          onFlavorChange(next);
+        }}
+        maxVisible={8}
+      />
+
+      {/* Clear */}
+      {totalActive > 0 && (
+        <button
+          onClick={handleClearAll}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-red-200 bg-red-50 text-red-600 text-xs font-black uppercase tracking-widest hover:bg-red-100 transition-colors"
+        >
+          <X className="h-3.5 w-3.5" />
+          Limpar {totalActive} filtro{totalActive > 1 ? 's' : ''}
+        </button>
       )}
     </div>
   );
@@ -193,26 +234,44 @@ const ProductFilters = (props: ProductFiltersProps) => {
     return (
       <Sheet>
         <SheetTrigger asChild>
-          <Button variant="outline" className="w-full">
-            <Filter className="mr-2 h-4 w-4" />
+          <Button
+            variant="outline"
+            className="w-full h-12 rounded-2xl border-stone-200 font-black uppercase tracking-widest text-xs gap-2 relative"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
             Filtros e Ordenação
+            {totalActive > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 bg-sky-500 text-white text-[9px] font-black rounded-full h-5 w-5 flex items-center justify-center">
+                {totalActive}
+              </span>
+            )}
           </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="bg-off-white">
-          <SheetHeader>
-            <SheetTitle className="font-serif text-2xl text-charcoal-gray">Filtros</SheetTitle>
+        <SheetContent side="left" className="bg-stone-50 w-[320px] overflow-y-auto">
+          <SheetHeader className="mb-6">
+            <SheetTitle className="font-black text-xl uppercase tracking-tighter italic text-charcoal-gray">
+              Filtros
+            </SheetTitle>
           </SheetHeader>
-          <div className="py-6">
-            <FiltersContent />
-          </div>
+          <FiltersContent />
         </SheetContent>
       </Sheet>
     );
   }
 
   return (
-    <aside className="sticky top-24 h-fit">
-      <h2 className="font-serif text-2xl text-charcoal-gray mb-4">Filtros</h2>
+    <aside className="sticky top-24 h-fit bg-stone-50 rounded-3xl p-6 border border-stone-100">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="font-black text-lg uppercase tracking-tighter italic text-charcoal-gray flex items-center gap-2">
+          <SlidersHorizontal className="h-4 w-4 text-sky-500" />
+          Filtros
+        </h2>
+        {totalActive > 0 && (
+          <Badge className="bg-sky-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full">
+            {totalActive}
+          </Badge>
+        )}
+      </div>
       <FiltersContent />
     </aside>
   );

@@ -3,8 +3,6 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 // @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 
-import { safeErrorLog } from '../_shared/logger.ts';
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-webhook-secret, x-webhook-token',
@@ -23,43 +21,113 @@ serve(async (req) => {
     // @ts-ignore
     const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') as string;
     // @ts-ignore
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
+    // @ts-ignore
     const RAW_MP_TOKEN = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') as string;
 
+    console.log('[create-mercadopago-preference] Starting...');
+
     if (!RAW_MP_TOKEN || RAW_MP_TOKEN.trim() === '') {
+      console.error('[create-mercadopago-preference] Missing MP token');
       return new Response(JSON.stringify({
         success: false,
-        error: 'Configuração do Mercado Pago incompleta. Token não encontrado ou vazio.',
+        error: 'Configuração do Mercado Pago incompleta. Token não encontrado.',
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 });
     }
 
     const MP_TOKEN = RAW_MP_TOKEN.trim();
     const IS_SANDBOX = MP_TOKEN.startsWith('TEST-');
-
-    // Autenticação (opcional para convidados)
-    const authHeaderRaw = req.headers.get('Authorization') || req.headers.get('authorization');
-    let authHeader: string | null = null;
-    if (authHeaderRaw) {
-      authHeader = authHeaderRaw.startsWith('Bearer ') ? authHeaderRaw : `Bearer ${authHeaderRaw}`;
-    }
-
-    let userEmail: string | undefined;
-
-    if (authHeader) {
-      try {
-        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-          global: { headers: { 'Authorization': authHeader } }
-        });
-        const { data: { user } } = await supabaseClient.auth.getUser();
-        if (user?.email) userEmail = user.email;
-      } catch (e: any) { /* continue as guest */ }
-    }
+    console.log('[create-mercadopago-preference] IS_SANDBOX:', IS_SANDBOX);
 
     let body: any = {};
     try { body = await req.json(); } catch { body = {}; }
 
-    if (!userEmail && body.guest_email) userEmail = body.guest_email;
+    console.log('[create-mercadopago-preference] Body keys:', Object.keys(body));
+
+    const orderIdRaw = body.order_id;
+    const totalPriceRaw = body.total_price;
     const shipping_address = body.shipping_address || body.shippingAddress || null;
-    if (!userEmail && shipping_address?.email) userEmail = shipping_address.email;
+    const clientOrigin = body.origin;
+
+    const orderIdStr = (typeof orderIdRaw === 'number' || typeof orderIdRaw === 'string')
+      ? String(orderIdRaw).trim() : '';
+    const totalPriceNum = Number(totalPriceRaw);
+
+    console.log('[create-mercadopago-preference] orderId:', orderIdStr, 'totalPrice:', totalPriceNum);
+
+    if (!orderIdStr) {
+      return new Response(JSON.stringify({ success: false, error: 'Order ID é obrigatório.' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400,
+      });
+    }
+    if (!shipping_address) {
+      return new Response(JSON.stringify({ success: false, error: 'Endereço de entrega é obrigatório.' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400,
+      });
+    }
+    if (!Number.isFinite(totalPriceNum) || totalPriceNum <= 0) {
+      return new Response(JSON.stringify({ success: false, error: `Total inválido: ${totalPriceRaw}` }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400,
+      });
+    }
+
+    // --- Buscar email do usuário ---
+    let userEmail: string | undefined;
+
+    // 1. Tentar via token de autenticação
+    const authHeaderRaw = req.headers.get('Authorization') || req.headers.get('authorization');
+    if (authHeaderRaw) {
+      try {
+        const authHeader = authHeaderRaw.startsWith('Bearer ') ? authHeaderRaw : `Bearer ${authHeaderRaw}`;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+          global: { headers: { 'Authorization': authHeader } }
+        });
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        if (user?.email) {
+          userEmail = user.email;
+          console.log('[create-mercadopago-preference] Got email from auth token');
+        }
+      } catch (e) {
+        console.warn('[create-mercadopago-preference] Could not get user from auth token:', e);
+      }
+    }
+
+    // 2. Fallback: email do body (convidado)
+    if (!userEmail && body.guest_email) {
+      userEmail = body.guest_email;
+      console.log('[create-mercadopago-preference] Got email from guest_email');
+    }
+
+    // 3. Fallback: email do shipping_address
+    if (!userEmail && shipping_address?.email) {
+      userEmail = shipping_address.email;
+      console.log('[create-mercadopago-preference] Got email from shipping_address');
+    }
+
+    // 4. Fallback: buscar no banco via service role
+    if (!userEmail) {
+      try {
+        const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        const { data: orderRow } = await supabaseAdmin
+          .from('orders')
+          .select('user_id, guest_email')
+          .eq('id', parseInt(orderIdStr))
+          .single();
+
+        if (orderRow?.guest_email) {
+          userEmail = orderRow.guest_email;
+          console.log('[create-mercadopago-preference] Got email from order.guest_email');
+        } else if (orderRow?.user_id) {
+          const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(orderRow.user_id);
+          if (authUser?.user?.email) {
+            userEmail = authUser.user.email;
+            console.log('[create-mercadopago-preference] Got email from auth.admin.getUserById');
+          }
+        }
+      } catch (e) {
+        console.warn('[create-mercadopago-preference] Could not fetch email from DB:', e);
+      }
+    }
 
     if (!userEmail) {
       return new Response(JSON.stringify({ success: false, error: 'E-mail do comprador é obrigatório.' }), {
@@ -67,23 +135,14 @@ serve(async (req) => {
       });
     }
 
-    const orderIdRaw = body.order_id;
-    const totalPriceRaw = body.total_price;
-    const clientOrigin = body.origin;
+    console.log('[create-mercadopago-preference] userEmail resolved:', userEmail.substring(0, 5) + '***');
 
-    const orderIdStr = (typeof orderIdRaw === 'number' || typeof orderIdRaw === 'string')
-      ? String(orderIdRaw).trim() : '';
-    const totalPriceNum = Number(totalPriceRaw);
-
-    if (!orderIdStr) throw new Error('Order ID is required');
-    if (!shipping_address) throw new Error('Shipping address is required');
-    if (!Number.isFinite(totalPriceNum) || totalPriceNum <= 0) throw new Error(`Total inválido para pagamento: ${totalPriceRaw}`);
-
-    // Preparar dados do pagador
+    // --- Preparar dados do pagador ---
     let payerInfo: any;
     if (IS_SANDBOX) {
       payerInfo = {
-        name: "Test", surname: "User",
+        name: "Test",
+        surname: "User",
         email: "test_user_123456@testuser.com",
         phone: { area_code: "11", number: "988888888" },
         identification: { type: "CPF", number: "19119119100" },
@@ -95,46 +154,83 @@ serve(async (req) => {
       const cleanPhone = (guestPhone || shipping_address.phone || '').replace(/\D/g, '');
       const cleanCpf = (guestCpf || shipping_address.cpf_cnpj || '').replace(/\D/g, '');
       const cleanCep = (shipping_address.cep || '').replace(/\D/g, '');
+      const streetNumber = parseInt(shipping_address.number) || 0;
+
       payerInfo = {
-        name: shipping_address.first_name,
-        surname: shipping_address.last_name,
+        name: shipping_address.first_name || 'Cliente',
+        surname: shipping_address.last_name || 'DK',
         email: userEmail,
-        phone: { area_code: cleanPhone.substring(0, 2), number: cleanPhone.substring(2) },
-        identification: { type: cleanCpf.length > 11 ? 'CNPJ' : 'CPF', number: cleanCpf },
-        address: { zip_code: cleanCep, street_name: shipping_address.street, street_number: parseInt(shipping_address.number) || 0 }
       };
+
+      // Só adiciona phone se válido
+      if (cleanPhone.length >= 10) {
+        payerInfo.phone = {
+          area_code: cleanPhone.substring(0, 2),
+          number: cleanPhone.substring(2)
+        };
+      }
+
+      // Só adiciona identification se CPF/CNPJ válido
+      if (cleanCpf.length === 11 || cleanCpf.length === 14) {
+        payerInfo.identification = {
+          type: cleanCpf.length > 11 ? 'CNPJ' : 'CPF',
+          number: cleanCpf
+        };
+      }
+
+      // Só adiciona address se CEP válido
+      if (cleanCep.length === 8) {
+        payerInfo.address = {
+          zip_code: cleanCep,
+          street_name: shipping_address.street || '',
+          street_number: streetNumber
+        };
+      }
     }
 
-    // Back URLs
-    let settingsBaseUrl: string | undefined;
-    let settingsBaseUrlSandbox: string | undefined;
+    console.log('[create-mercadopago-preference] payerInfo.email:', payerInfo.email?.substring(0, 5) + '***');
+
+    // --- Buscar back URL ---
+    let backUrlBase = '';
+
     try {
       const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       const { data: settings } = await supabaseClient
-        .from('app_settings').select('key, value')
+        .from('app_settings')
+        .select('key, value')
         .in('key', ['frontend_base_url', 'frontend_base_url_sandbox']);
+
       if (settings && Array.isArray(settings)) {
-        settings.forEach((s: any) => {
-          if (s.key === 'frontend_base_url') settingsBaseUrl = s.value;
-          if (s.key === 'frontend_base_url_sandbox') settingsBaseUrlSandbox = s.value;
-        });
+        const map: Record<string, string> = {};
+        settings.forEach((s: any) => { map[s.key] = s.value; });
+        backUrlBase = IS_SANDBOX
+          ? (map['frontend_base_url_sandbox'] || map['frontend_base_url'] || '')
+          : (map['frontend_base_url'] || '');
       }
-    } catch (e) { /* ignore */ }
+    } catch (e) {
+      console.warn('[create-mercadopago-preference] Could not fetch settings:', e);
+    }
 
-    // @ts-ignore
-    const sandboxBase = Deno.env.get('FRONTEND_BASE_URL_SANDBOX') as string | undefined;
-    // @ts-ignore
-    const prodBase = Deno.env.get('FRONTEND_BASE_URL') as string | undefined;
+    if (!backUrlBase) {
+      // @ts-ignore
+      backUrlBase = IS_SANDBOX
+        // @ts-ignore
+        ? (Deno.env.get('FRONTEND_BASE_URL_SANDBOX') || Deno.env.get('FRONTEND_BASE_URL') || clientOrigin || '')
+        // @ts-ignore
+        : (Deno.env.get('FRONTEND_BASE_URL') || clientOrigin || '');
+    }
 
-    const configuredBase = IS_SANDBOX
-      ? (settingsBaseUrlSandbox || sandboxBase)
-      : (settingsBaseUrl || prodBase);
+    backUrlBase = (backUrlBase || clientOrigin || '').toString().trim().replace(/\/$/, '');
 
-    const chosenBase = (configuredBase || clientOrigin || '').toString().trim();
-    if (!chosenBase) throw new Error('Não foi possível determinar a URL de retorno.');
+    if (!backUrlBase) {
+      return new Response(JSON.stringify({ success: false, error: 'URL de retorno não configurada.' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500,
+      });
+    }
 
-    const backUrlBase = chosenBase.replace(/\/$/, '');
+    console.log('[create-mercadopago-preference] backUrlBase:', backUrlBase);
 
+    // --- Montar preferência ---
     const preferencePayload = {
       items: [{
         id: orderIdStr,
@@ -156,40 +252,33 @@ serve(async (req) => {
       binary_mode: false
     };
 
-    const callMp = async (authHeaderValue: string) => {
-      return await fetch('https://api.mercadopago.com/checkout/preferences', {
-        method: 'POST',
-        headers: { 'Authorization': authHeaderValue, 'Content-Type': 'application/json' },
-        body: JSON.stringify(preferencePayload),
-      });
-    };
+    console.log('[create-mercadopago-preference] Calling MP API with total:', totalPriceNum.toFixed(2));
 
-    let mpResponse = await callMp(`Bearer ${MP_TOKEN}`).catch(() => {
-      throw new Error('Falha de conexão com o Mercado Pago.');
+    // --- Chamar MP ---
+    const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${MP_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(preferencePayload),
     });
 
-    let mpStatus = mpResponse.status;
-    let mpData: any = {};
-    try { mpData = await mpResponse.json(); } catch (e) { mpData = {}; }
+    const mpData: any = await mpResponse.json().catch(() => ({}));
 
-    // Fallback sem "Bearer " se der 401
-    const mpMissingAuth = (mpData?.message || '').toString().toLowerCase().includes('missing authorization') || mpStatus === 401;
-    if (!mpResponse.ok && mpMissingAuth) {
-      try {
-        mpResponse = await callMp(MP_TOKEN.replace(/^Bearer\s+/i, ''));
-        mpStatus = mpResponse.status;
-        try { mpData = await mpResponse.json(); } catch (e) { mpData = {}; }
-      } catch (altErr) { /* ignore */ }
-    }
+    console.log('[create-mercadopago-preference] MP response status:', mpResponse.status);
 
     if (!mpResponse.ok) {
+      console.error('[create-mercadopago-preference] MP error:', JSON.stringify(mpData));
       return new Response(JSON.stringify({
         success: false,
-        error: 'Erro ao processar pagamento no Mercado Pago',
+        error: mpData?.message || 'Erro ao processar pagamento no Mercado Pago.',
         mp_error: mpData,
-        statusCode: mpStatus
+        statusCode: mpResponse.status
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
     }
+
+    console.log('[create-mercadopago-preference] Success! init_point:', mpData.init_point?.substring(0, 50) + '...');
 
     return new Response(JSON.stringify({
       success: true,
@@ -199,7 +288,7 @@ serve(async (req) => {
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
 
   } catch (error: any) {
-    safeErrorLog('[create-mercadopago-preference] Error', error);
+    console.error('[create-mercadopago-preference] Fatal error:', error?.message || error);
     return new Response(JSON.stringify({
       success: false,
       error: error?.message || 'Erro interno do servidor'

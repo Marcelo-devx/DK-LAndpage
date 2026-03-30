@@ -32,30 +32,7 @@ const profileSchema = z.object({
   neighborhood: z.string().min(1, "Bairro é obrigatório"),
   city: z.string().min(1, "Cidade é obrigatória"),
   state: z.string().min(2, "Estado inválido").max(2, "Use a sigla do estado (ex: SC)"),
-  // Password fields now required
-  password: z.string().min(8, 'A senha deve ter pelo menos 8 caracteres'),
-  password_confirm: z.string(),
   accepted_terms: z.boolean(),
-}).superRefine((obj, ctx) => {
-  const pwd = obj.password;
-  const conf = obj.password_confirm;
-  const accepted = obj.accepted_terms;
-
-  // password rules: at least one uppercase, one number, one special char
-  const re = /(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9])/;
-  if (!re.test(pwd)) {
-    ctx.addIssue({ path: ['password'], code: z.ZodIssueCode.custom, message: 'A senha precisa ter 1 maiúscula, 1 número e 1 caractere especial' });
-  }
-
-  if (!conf) {
-    ctx.addIssue({ path: ['password_confirm'], code: z.ZodIssueCode.custom, message: 'Confirme a senha' });
-  } else if (pwd !== conf) {
-    ctx.addIssue({ path: ['password_confirm'], code: z.ZodIssueCode.custom, message: 'A confirmação não coincide' });
-  }
-
-  if (!accepted) {
-    ctx.addIssue({ path: ['accepted_terms'], code: z.ZodIssueCode.custom, message: 'Você precisa aceitar os Termos de Uso e Política de Privacidade' });
-  }
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
@@ -70,7 +47,6 @@ const CompleteProfilePage = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isFetchingCep, setIsFetchingCep] = useState(false);
   const [deliveryType, setDeliveryType] = useState<'local' | 'correios' | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
   const [isTermsOpen, setIsTermsOpen] = useState(false);
 
   const { register, handleSubmit, control, setValue, getValues, watch, formState: { errors } } = useForm<ProfileFormData>({
@@ -96,20 +72,9 @@ const CompleteProfilePage = () => {
     return Boolean(f && dob && phone && phone.length >= 10 && cpf && cpf.length >= 11 && gender && cep && street && number && neighborhood && city && state);
   }, [watched]);
 
-  const passwordChecks = useMemo(() => {
-    const pwd = watched.password || '';
-    const conf = watched.password_confirm || '';
-    const isMinLength = pwd.length >= 8;
-    const hasUpper = /[A-Z]/.test(pwd);
-    const hasNumber = /\d/.test(pwd);
-    const hasSpecial = /[^A-Za-z0-9]/.test(pwd);
-    const passwordsMatch = pwd.length > 0 && pwd === conf;
-    return { isMinLength, hasUpper, hasNumber, hasSpecial, passwordsMatch };
-  }, [watched.password, watched.password_confirm]);
-
   const accepted = Boolean(watched.accepted_terms);
 
-  const isReadyToSubmit = requiredFieldsFilled && Object.values(passwordChecks).every(Boolean) && accepted;
+  const isReadyToSubmit = requiredFieldsFilled && accepted;
 
   const handleCepLookup = async () => {
     const cep = getValues('cep');
@@ -236,8 +201,8 @@ const CompleteProfilePage = () => {
     setIsSaving(true);
     const toastId = showLoading("Salvando informações...");
 
-    // Separate password fields from profile data
-    const { password, password_confirm, accepted_terms, ...profileData } = data as any;
+    // Extract profile data (no password fields here)
+    const { accepted_terms, ...profileData } = data as any;
 
     try {
       const { error } = await supabase
@@ -266,39 +231,7 @@ const CompleteProfilePage = () => {
         } else throw error;
       }
 
-      // If password provided, update auth password as well (mandatory here)
-      if (password) {
-        try {
-          const { data: updated, error: pwdErr } = await supabase.auth.updateUser({ password });
-          if (pwdErr) {
-            const msg = String(pwdErr.message || '').toLowerCase();
-            if (msg.includes('weak') || msg.includes('easy to guess') || msg.includes('known to be')) {
-              // Password was rejected by provider. Attempt to send a password reset email so user can set it.
-              try {
-                const userEmail = user?.email;
-                if (userEmail) {
-                  const { data: resetData, error: resetErr } = await supabase.auth.resetPasswordForEmail(userEmail);
-                  if (!resetErr) {
-                    showSuccess('A senha não pôde ser atualizada pelo provedor. Enviamos um e-mail para redefinição de senha. Verifique sua caixa de entrada.');
-                  } else {
-                    console.error('[CompleteProfilePage] failed to send reset email after weak password:', resetErr);
-                    showError('A senha foi rejeitada pelo provedor e não foi possível enviar o e-mail de redefinição automaticamente. Contate suporte.');
-                  }
-                } else {
-                  showError('A senha foi rejeitada pelo provedor; contate o suporte para atualizar a senha.');
-                }
-              } catch (sendErr) {
-                console.error('[CompleteProfilePage] failed to send reset email after weak password (exception):', sendErr);
-                showError('A senha foi rejeitada pelo provedor e não foi possível enviar o e-mail de redefinição automaticamente. Contate suporte.');
-              }
-            } else {
-              throw pwdErr;
-            }
-          }
-        } catch (pwdEx) {
-          console.warn('[CompleteProfilePage] password update skipped due to error:', pwdEx);
-        }
-      }
+      // No password handling here (passwords are managed in dashboard)
 
       dismissToast(toastId);
       showSuccess("Cadastro completo!");
@@ -490,34 +423,6 @@ const CompleteProfilePage = () => {
                 </div>
             </div>
 
-            {/* Password section */}
-            <div className="space-y-4">
-              <h3 className="text-xs font-black uppercase tracking-[0.2em] text-stone-400 border-b border-stone-100 pb-2">Defina sua senha de acesso</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-end">
-                <div className="space-y-2">
-                  <Label htmlFor="password" className="text-charcoal-gray">Senha {((watched.password || '') === '') && <span className="text-red-500">*</span>}</Label>
-                  <div className="flex items-center">
-                    <Input id="password" type={showPassword ? 'text' : 'password'} {...register('password')} className="bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors" />
-                  </div>
-                  {errors.password && <p className="text-xs text-red-500 font-bold">{(errors.password as any)?.message}</p>}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="password_confirm" className="text-charcoal-gray">Confirmar senha {((watched.password_confirm || '') === '') && <span className="text-red-500">*</span>}</Label>
-                  <Input id="password_confirm" type={showPassword ? 'text' : 'password'} {...register('password_confirm')} className="bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors" />
-                  {errors.password_confirm && <p className="text-xs text-red-500 font-bold">{(errors.password_confirm as any)?.message}</p>}
-                </div>
-
-                <div className="md:col-span-2 flex items-center gap-2">
-                  <Checkbox id="show_pwd" checked={showPassword} onCheckedChange={(v) => setShowPassword(Boolean(v))} />
-                  <Label htmlFor="show_pwd" className="text-sm">Mostrar senhas</Label>
-                </div>
-
-                <PasswordRules />
-
-              </div>
-            </div>
-
             {/* Terms */}
             <div className="flex items-start gap-3">
               <Controller
@@ -538,80 +443,13 @@ const CompleteProfilePage = () => {
               {isSaving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : 'Finalizar Cadastro'}
             </Button>
             {!isReadyToSubmit && (
-              <p className="text-xs text-rose-600 mt-2">Preencha todos os campos obrigatórios, defina uma senha válida e aceite os termos para habilitar o botão.</p>
+              <p className="text-xs text-rose-600 mt-2">Preencha todos os campos obrigatórios e aceite os termos para habilitar o botão.</p>
             )}
           </form>
         </CardContent>
       </Card>
 
       <InformationalPopup isOpen={isTermsOpen} onClose={handleCloseTerms} title="Termo de Uso e Responsabilidade" content={termsContent} onAccept={() => { handleAcceptTerms(); handleCloseTerms(); }} />
-    </div>
-  );
-};
-
-const PasswordRules: React.FC = () => {
-  const [pwd, setPwd] = useState('');
-  const [conf, setConf] = useState('');
-
-  useEffect(() => {
-    const onInput = () => {
-      const p = (document.getElementById('password') as HTMLInputElement)?.value || '';
-      const c = (document.getElementById('password_confirm') as HTMLInputElement)?.value || '';
-      setPwd(p);
-      setConf(c);
-    };
-
-    // attach listeners
-    const pEl = document.getElementById('password');
-    const cEl = document.getElementById('password_confirm');
-    pEl?.addEventListener('input', onInput);
-    cEl?.addEventListener('input', onInput);
-
-    // initialize
-    onInput();
-
-    return () => {
-      pEl?.removeEventListener('input', onInput);
-      cEl?.removeEventListener('input', onInput);
-    };
-  }, []);
-
-  const isMinLength = pwd.length >= 8;
-  const hasUpper = /[A-Z]/.test(pwd);
-  const hasNumber = /\d/.test(pwd);
-  const hasSpecial = /[^A-Za-z0-9]/.test(pwd);
-  const passwordsMatch = pwd.length > 0 && pwd === conf;
-
-  const item = (ok: boolean, text: string) => (
-    <div className="flex items-center gap-2">
-      <span className={ok ? 'text-emerald-600' : 'text-rose-500'} aria-hidden>
-        {ok ? '✔' : '✖'}
-      </span>
-      <span className={ok ? 'text-sm text-emerald-700' : 'text-sm text-rose-600'}>{text}</span>
-    </div>
-  );
-
-  return (
-    <div className="md:col-span-2 mt-2">
-      <div className="bg-stone-50 border border-stone-100 rounded-xl p-4 text-sm">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-          {item(isMinLength, 'Mínimo 8 caracteres')}
-          {item(hasUpper, 'Pelo menos 1 letra maiúscula')}
-          {item(hasNumber, 'Pelo menos 1 número')}
-          {item(hasSpecial, 'Pelo menos 1 caractere especial')}
-        </div>
-        <div className="mt-3">
-          {conf.length > 0 ? (
-            passwordsMatch ? (
-              <div className="text-emerald-700 font-medium">As senhas coincidem.</div>
-            ) : (
-              <div className="text-rose-600 font-medium">As senhas não coincidem.</div>
-            )
-          ) : (
-            <div className="text-stone-500">Digite a confirmação para verificar se as senhas coincidem.</div>
-          )}
-        </div>
-      </div>
     </div>
   );
 };

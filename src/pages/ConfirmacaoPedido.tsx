@@ -76,54 +76,56 @@ const ConfirmacaoPedido = () => {
     setLoading(true);
     setErrorMessage(null);
 
+    // The :id param might be just a number, or it could have MP query params appended
+    // e.g. "123" or the URL might be /confirmacao-pedido/123?collection_id=...
+    // useParams only gives us the path segment, so id should be clean, but let's be safe
+    const cleanId = id.replace(/\D/g, '');
+    if (!cleanId) {
+      setErrorMessage('ID do pedido inválido.');
+      setLoading(false);
+      return;
+    }
+
     try {
+      // Strategy 1: Try edge function first (uses service role, bypasses RLS)
+      try {
+        const invokeResult: any = await supabase.functions.invoke('get-order-public', {
+          body: { order_id: Number(cleanId) }
+        });
+        const payload = invokeResult?.data;
+        if (payload?.success && payload?.order) {
+          setOrder(safeOrder(payload.order));
+          setItems(safeItems(payload.items || []));
+          setLoading(false);
+          return;
+        }
+      } catch (fnErr) {
+        console.warn('[ConfirmacaoPedido] get-order-public failed, trying direct query:', fnErr);
+      }
+
+      // Strategy 2: Direct query (works if user is logged in and owns the order)
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .select('*')
-        .eq('id', id)
+        .eq('id', cleanId)
         .single();
 
       if (!orderError && orderData) {
         setOrder(safeOrder(orderData));
 
-        const { data: itemsData, error: itemsError } = await supabase
+        const { data: itemsData } = await supabase
           .from('order_items')
           .select('name_at_purchase, quantity, price_at_purchase, image_url_at_purchase')
-          .eq('order_id', id);
+          .eq('order_id', cleanId);
 
-        if (!itemsError && itemsData) setItems(safeItems(itemsData));
-        else setItems([]);
-
+        setItems(safeItems(itemsData || []));
         setLoading(false);
         return;
       }
 
-      // fallback to edge function
-      try {
-        const invokeResult: any = await supabase.functions.invoke('get-order-public', { body: { order_id: Number(id) } });
-        if (invokeResult?.data) {
-          const payload = invokeResult.data;
-          if (payload.success) {
-            setOrder(safeOrder(payload.order));
-            setItems(safeItems(payload.items || []));
-            setLoading(false);
-            return;
-          } else {
-            setErrorMessage('Pedido não encontrado.');
-            setLoading(false);
-            return;
-          }
-        }
-
-        setErrorMessage('Não foi possível buscar o pedido.');
-        setLoading(false);
-        return;
-      } catch (fnErr) {
-        console.error('[ConfirmacaoPedido] get-order-public error:', fnErr);
-        setErrorMessage('Não foi possível buscar o pedido.');
-        setLoading(false);
-        return;
-      }
+      // Both strategies failed
+      setErrorMessage('Pedido não encontrado. Verifique o número do pedido.');
+      setLoading(false);
 
     } catch (e: any) {
       console.error('Unexpected error fetching order details:', e);

@@ -17,14 +17,20 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const orderId = body.order_id || body.id || null;
     if (!orderId) {
-      return new Response(JSON.stringify({ success: false, error: 'order_id is required' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 });
+      return new Response(JSON.stringify({ success: false, error: 'order_id is required' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,
+      });
     }
 
+    // @ts-ignore
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL') as string;
+    // @ts-ignore
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
 
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      return new Response(JSON.stringify({ success: false, error: 'Supabase service config missing' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 });
+      return new Response(JSON.stringify({ success: false, error: 'Supabase service config missing' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,
+      });
     }
 
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -36,7 +42,10 @@ serve(async (req) => {
       .single();
 
     if (orderError || !order) {
-      return new Response(JSON.stringify({ success: false, error: 'Order not found' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 });
+      console.error('[get-order-public] Order not found:', orderId, orderError);
+      return new Response(JSON.stringify({ success: false, error: 'Order not found' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,
+      });
     }
 
     const { data: items, error: itemsError } = await supabaseAdmin
@@ -45,14 +54,17 @@ serve(async (req) => {
       .eq('order_id', Number(orderId));
 
     if (itemsError) {
-      // proceed without items
       console.warn('[get-order-public] order items error', itemsError);
     }
 
-    return new Response(JSON.stringify({ success: true, order, items: items || [] }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 });
+    return new Response(JSON.stringify({ success: true, order, items: items || [] }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,
+    });
 
   } catch (err) {
     console.error('[get-order-public] Error', err);
-    return new Response(JSON.stringify({ success: false, error: 'internal_error' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 });
+    return new Response(JSON.stringify({ success: false, error: 'internal_error' }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,
+    });
   }
 })

@@ -1,4 +1,4 @@
-import { Wrench, LogIn } from 'lucide-react';
+import { Wrench, LogIn, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -32,7 +32,19 @@ const MaintenanceScreen = () => {
             Estamos trabalhando para melhorar sua experiência. Voltaremos em breve.
           </p>
 
-          <div className="mt-4">
+          {/* Highlighted external shop link */}
+          <div className="mt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <a
+              href="https://dk-cwb.lojaintegrada.com.br"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-3 bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-2xl font-black uppercase tracking-widest shadow-lg transition-colors"
+              aria-label="Ir para a loja correta (abre em nova aba)"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Acessar loja (dk-cwb.lojaintegrada.com.br)
+            </a>
+
             <Dialog>
               <DialogTrigger asChild>
                 <Button
@@ -64,6 +76,21 @@ const MaintenanceScreen = () => {
               </DialogContent>
             </Dialog>
           </div>
+
+          {/* Small help text with visible URL */}
+          <p className="mt-3 text-sm text-slate-500">
+            Caso precise comprar agora, use a loja oficial:
+            <br />
+            <a
+              href="https://dk-cwb.lojaintegrada.com.br"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-1 inline-block text-amber-600 font-black"
+            >
+              dk-cwb.lojaintegrada.com.br
+            </a>
+          </p>
+
         </div>
 
         {/* Decorative Elements */}

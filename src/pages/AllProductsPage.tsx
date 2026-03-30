@@ -5,7 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import ProductFilters from '@/components/ProductFilters';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useSearchParams } from 'react-router-dom';
-import { PackageSearch, Sparkles, X } from 'lucide-react';
+import { PackageSearch, X } from 'lucide-react';
 
 interface DisplayProduct {
   id: number;
@@ -170,23 +170,6 @@ const AllProductsPage = () => {
 
   return (
     <div className="min-h-screen bg-off-white">
-      {/* Hero Header */}
-      <div className="bg-slate-950 text-white py-12 md:py-16 px-4">
-        <div className="container mx-auto text-center">
-          <div className="flex items-center justify-center gap-2 mb-3">
-            <Sparkles className="h-4 w-4 text-sky-400" />
-            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-sky-400">Catálogo Completo</span>
-            <Sparkles className="h-4 w-4 text-sky-400" />
-          </div>
-          <h1 className="text-4xl md:text-7xl font-black tracking-tighter italic uppercase text-white leading-none">
-            Nossos<br />
-            <span className="text-sky-400">Produtos.</span>
-          </h1>
-          <p className="mt-4 text-stone-400 font-medium text-sm md:text-base max-w-md mx-auto">
-            Explore nossa linha completa com os melhores produtos do mercado.
-          </p>
-        </div>
-      </div>
 
       <div className="container mx-auto px-4 py-8 md:py-10">
         {/* Active filters bar */}

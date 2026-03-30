@@ -36,118 +36,80 @@ const Index = () => {
     const fetchData = async () => {
       try {
         setLoadingProducts(true);
-        
-        // Create a category map helper
+
         const normalizeCategory = (s?: string) => (typeof s === 'string' ? s.trim().toLowerCase() : '');
-        const createCategoryMap = (cats: any[]) => {
-          return new Map(cats.map(c => [normalizeCategory(c.name), c.show_age_restriction !== false]));
-        };
 
-        const fetchProductsWithVariants = async (queryBuilder: any, categoryMap: Map<string, boolean>) => {
-          const { data: parentProducts, error } = await queryBuilder;
-          if (error) throw error;
-          if (!parentProducts || parentProducts.length === 0) return [];
+        // Busca tudo em paralelo — UMA única vez
+        const [
+          productsRes,
+          variantsRes,
+          heroRes,
+          promosRes,
+          brandsRes,
+          categoriesRes,
+          featuredRes,
+          popupRes,
+        ] = await Promise.all([
+          supabase.from('products').select('*').eq('is_visible', true).order('created_at', { ascending: false }).limit(12),
+          supabase.from('product_variants').select('id, product_id, price, pix_price, stock_quantity').eq('is_active', true),
+          supabase.from('hero_slides').select('*').eq('is_active', true).order('sort_order'),
+          supabase.from('promotions').select('*').eq('is_active', true).order('created_at', { ascending: false }),
+          supabase.from('brands').select('*').eq('is_visible', true).order('name'),
+          supabase.from('categories').select('name, show_age_restriction').eq('is_visible', true).order('name'),
+          supabase.from('products').select('*').eq('is_featured', true).eq('is_visible', true).limit(8),
+          supabase.from('informational_popups').select('title, content').eq('is_active', true).limit(1).maybeSingle(),
+        ]);
 
-          const productIds = parentProducts.map((p: any) => p.id);
+        // Monta o mapa de categorias
+        const categoryMap = new Map(
+          (categoriesRes.data || []).map((c: any) => [normalizeCategory(c.name), c.show_age_restriction !== false])
+        );
 
-          const { data: variants } = await supabase
-            .from('product_variants')
-            .select('id, product_id, price, pix_price, stock_quantity')
-            .in('product_id', productIds)
-            .eq('is_active', true)
-            .order('created_at', { ascending: false });
-
-          let finalDisplayList: any[] = [];
-          parentProducts.forEach((prod: any) => {
-            const prodVariants = variants?.filter((v: any) => v.product_id === prod.id) || [];
+        // Helper para montar lista de produtos com variantes (usa dados já buscados)
+        const buildProductList = (products: any[]) => {
+          const allVariants = variantsRes.data || [];
+          return products.reduce((acc: any[], prod: any) => {
+            const prodVariants = allVariants.filter((v: any) => v.product_id === prod.id);
             if (prodVariants.length > 0) {
-              const minPrice = Math.min(...prodVariants.map(v => v.price));
-              const minPixPrice = Math.min(...prodVariants.map(v => v.pix_price || v.price));
-              const totalStock = prodVariants.reduce((acc, v) => acc + (v.stock_quantity || 0), 0);
-              
-              // Only add if product has stock
+              const totalStock = prodVariants.reduce((s: number, v: any) => s + (v.stock_quantity || 0), 0);
               if (totalStock > 0) {
-                finalDisplayList.push({
+                acc.push({
                   id: prod.id,
                   name: prod.name,
-                  price: minPrice,
-                  pixPrice: minPixPrice,
+                  price: Math.min(...prodVariants.map((v: any) => v.price)),
+                  pixPrice: Math.min(...prodVariants.map((v: any) => v.pix_price || v.price)),
                   imageUrl: prod.image_url || '',
                   stockQuantity: totalStock,
                   hasMultipleVariants: true,
                   showAgeBadge: prod.category ? (categoryMap.get(normalizeCategory(prod.category)) ?? true) : true,
                 });
               }
-            } else {
-              // Only add if product has stock
-              if (prod.stock_quantity > 0) {
-                finalDisplayList.push({
-                  id: prod.id,
-                  name: prod.name,
-                  price: prod.price,
-                  pixPrice: prod.pix_price,
-                  imageUrl: prod.image_url || '',
-                  stockQuantity: prod.stock_quantity,
-                  hasMultipleVariants: false,
-                  showAgeBadge: prod.category ? (categoryMap.get(normalizeCategory(prod.category)) ?? true) : true,
-                });
-              }
+            } else if (prod.stock_quantity > 0) {
+              acc.push({
+                id: prod.id,
+                name: prod.name,
+                price: prod.price,
+                pixPrice: prod.pix_price,
+                imageUrl: prod.image_url || '',
+                stockQuantity: prod.stock_quantity,
+                hasMultipleVariants: false,
+                showAgeBadge: prod.category ? (categoryMap.get(normalizeCategory(prod.category)) ?? true) : true,
+              });
             }
-          });
-          return finalDisplayList;
+            return acc;
+          }, []);
         };
 
-        const [products, hero, promos, brandsData, categoriesData, featured, popups] = await Promise.all([
-          // REMOVED: categories(show_age_restriction) - invalid join
-          fetchProductsWithVariants(supabase.from('products').select('*').eq('is_visible', true).order('created_at', { ascending: false }).limit(12), new Map()), // Temp empty map, will fix after categories load
-          supabase.from('hero_slides').select('*').eq('is_active', true).order('sort_order'),
-          supabase.from('promotions').select('*').eq('is_active', true).order('created_at', { ascending: false }),
-          supabase.from('brands').select('*').eq('is_visible', true).order('name'),
-          supabase.from('categories').select('name, show_age_restriction').eq('is_visible', true).order('name'),
-          // REMOVED: categories(show_age_restriction) - invalid join
-          fetchProductsWithVariants(supabase.from('products').select('*').eq('is_featured', true).eq('is_visible', true).limit(8), new Map()), // Temp empty map
-          supabase.from('informational_popups').select('title, content').eq('is_active', true).limit(1).maybeSingle()
-        ]);
+        setDisplayedProducts(buildProductList(productsRes.data || []));
+        setFeaturedProducts(buildProductList(featuredRes.data || []));
+        setHeroSlides(heroRes.data || []);
+        setPromotions(promosRes.data || []);
+        setBrands(brandsRes.data || []);
+        setCategories(categoriesRes.data || []);
 
-        // Create the category map now that we have categories
-        const categoryMap = createCategoryMap(categoriesData.data || []);
-
-        // DEBUG: show category map for verification
-        // (remove or comment this in production)
-        // eslint-disable-next-line no-console
-        console.debug("[Index] categoryMap:", Array.from(categoryMap.entries()));
- 
-         // Re-process products with the correct category map
-         const productsWithFlags = await fetchProductsWithVariants(
-           supabase.from('products').select('*').eq('is_visible', true).order('created_at', { ascending: false }).limit(12),
-           categoryMap
-         );
-
-         // DEBUG: log any product that looks like the ginger product to help troubleshooting
-         productsWithFlags.forEach((p: any) => {
-           try {
-             if (p.name && String(p.name).toLowerCase().includes('ginger')) {
-               // eslint-disable-next-line no-console
-               console.debug("[Index] suspected product:", { name: p.name, category: p.category, showAgeBadge: p.showAgeBadge, stockQuantity: p.stockQuantity });
-             }
-           } catch (e) { /* ignore */ }
-         });
-
-         const featuredWithFlags = await fetchProductsWithVariants(
-           supabase.from('products').select('*').eq('is_featured', true).eq('is_visible', true).limit(8),
-           categoryMap
-         );
-
-        setDisplayedProducts(productsWithFlags);
-        setHeroSlides(hero.data || []);
-        setPromotions(promos.data || []);
-        setBrands(brandsData.data || []);
-        setCategories(categoriesData.data || []);
-        setFeaturedProducts(featuredWithFlags);
-        
         const triggerInfoPopup = () => {
-          if (popups.data && !sessionStorage.getItem('info_popup_seen')) {
-            setInfoPopup(popups.data);
+          if (popupRes.data && !sessionStorage.getItem('info_popup_seen')) {
+            setInfoPopup(popupRes.data);
             setIsPopupOpen(true);
           }
         };
@@ -168,7 +130,7 @@ const Index = () => {
         setLoadingProducts(false);
       }
     };
-    
+
     fetchData();
   }, []);
 
@@ -260,7 +222,7 @@ const Index = () => {
                   </CarouselItem>
                 )) : displayedProducts.length > 0 ?
                   displayedProducts.map((p, idx) => (
-                    <CarouselItem key={`${p.id}-${p.variantId || 'main'}-${idx}`} className="pl-3 md:pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4">
+                    <CarouselItem key={`${p.id}-${idx}`} className="pl-3 md:pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4">
                       <ProductCard product={{ id: p.id, name: p.name, price: p.price, pixPrice: p.pixPrice, imageUrl: p.imageUrl, stockQuantity: p.stockQuantity, variantId: p.variantId, hasMultipleVariants: p.hasMultipleVariants, showAgeBadge: p.showAgeBadge }} />
                     </CarouselItem>
                   )) : (
@@ -285,7 +247,7 @@ const Index = () => {
                 <h2 className="text-[10px] md:text-xs font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-4 md:mb-8 text-center">Seleção Premium</h2>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
                   {featuredProducts.map((p, idx) => (
-                    <ProductCard key={`${p.id}-${p.variantId || 'main'}-${idx}`} product={{ id: p.id, name: p.name, price: p.price, pixPrice: p.pixPrice, imageUrl: p.imageUrl, stockQuantity: p.stockQuantity, variantId: p.variantId, hasMultipleVariants: p.hasMultipleVariants, showAgeBadge: p.showAgeBadge }} />
+                    <ProductCard key={`${p.id}-${idx}`} product={{ id: p.id, name: p.name, price: p.price, pixPrice: p.pixPrice, imageUrl: p.imageUrl, stockQuantity: p.stockQuantity, variantId: p.variantId, hasMultipleVariants: p.hasMultipleVariants, showAgeBadge: p.showAgeBadge }} />
                   ))}
                 </div>
               </div>

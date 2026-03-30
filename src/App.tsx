@@ -39,8 +39,6 @@ const AppContent = () => {
   const [checkingRole, setCheckingRole] = useState(true);
 
   useEffect(() => {
-    let sub: any;
-
     const checkAdmin = async () => {
       setCheckingRole(true);
       try {
@@ -49,7 +47,6 @@ const AppContent = () => {
           setIsAdmin(false);
           return;
         }
-
         const { data, error } = await supabase.from('profiles').select('role').eq('id', user.id).single();
         if (!error && data?.role === 'adm') setIsAdmin(true);
         else setIsAdmin(false);
@@ -61,14 +58,17 @@ const AppContent = () => {
       }
     };
 
+    // Run once on mount
     checkAdmin();
 
-    const { data } = supabase.auth.onAuthStateChange(() => {
-      checkAdmin();
+    // Only re-check on meaningful auth events (sign in / sign out), not on token refresh
+    const { data } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+        checkAdmin();
+      }
     });
-    sub = data?.subscription;
 
-    return () => sub?.unsubscribe();
+    return () => data.subscription.unsubscribe();
   }, []);
 
   // While we're determining role, don't prematurely show maintenance screen

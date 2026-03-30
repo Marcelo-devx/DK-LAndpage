@@ -19,6 +19,9 @@ import {
 } from "@/components/ui/navigation-menu";
 import { cn } from '@/lib/utils';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Auth } from '@supabase/auth-ui-react';
+import { ThemeSupa } from '@supabase/auth-ui-shared';
 
 interface Category {
   id: number;
@@ -153,6 +156,23 @@ const Header = ({ onCartClick }: HeaderProps) => {
     </NavigationMenu>
   );
 
+  // Small inline Login Dialog used when user is NOT authenticated
+  const LoginDialog = ({ children }: { children: React.ReactNode }) => (
+    <Dialog>
+      <DialogTrigger asChild>
+        {children}
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="text-lg font-black">Entrar</DialogTitle>
+        </DialogHeader>
+        <div className="mt-2">
+          <Auth supabaseClient={supabase} providers={[]} appearance={{ theme: ThemeSupa }} theme="light" />
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+
   return (
     <header className="bg-black border-b border-white/10 w-full">
       {/* Mobile Header with Back Button */}
@@ -248,17 +268,25 @@ const Header = ({ onCartClick }: HeaderProps) => {
             </div>
           </Link>
 
-          <Link to={session ? "/dashboard" : "/login"} className="flex items-center gap-2 group relative">
-            <User className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
-            <div className="hidden lg:flex flex-col leading-none">
-                <span className="text-[9px] text-slate-400 font-black uppercase">
-                    {session ? 'Olá, Membro' : 'Acesse'}
-                </span>
-                <span className="text-[11px] text-white font-black uppercase tracking-tighter">
-                    {session ? 'Sua Conta' : 'Sua Conta'}
-                </span>
-            </div>
-          </Link>
+          {session ? (
+            <Link to="/dashboard" className="flex items-center gap-2 group relative">
+              <User className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
+              <div className="hidden lg:flex flex-col leading-none">
+                  <span className="text-[9px] text-slate-400 font-black uppercase">Olá, Membro</span>
+                  <span className="text-[11px] text-white font-black uppercase tracking-tighter">Sua Conta</span>
+              </div>
+            </Link>
+          ) : (
+            <LoginDialog>
+              <div className="flex items-center gap-2 group relative cursor-pointer">
+                <User className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
+                <div className="hidden lg:flex flex-col leading-none">
+                    <span className="text-[9px] text-slate-400 font-black uppercase">Acesse</span>
+                    <span className="text-[11px] text-white font-black uppercase tracking-tighter">Sua Conta</span>
+                </div>
+              </div>
+            </LoginDialog>
+          )}
 
           <button onClick={onCartClick} className="flex items-center gap-2 group relative">
             <div className="relative">
@@ -370,17 +398,25 @@ const Header = ({ onCartClick }: HeaderProps) => {
              </div>
            </Link>
 
-           <Link to={session ? "/dashboard" : "/login"} className="flex items-center gap-2 group relative">
-             <User className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
-             <div className="hidden lg:flex flex-col leading-none">
-                 <span className="text-[9px] text-slate-400 font-black uppercase">
-                     {session ? 'Olá, Membro' : 'Acesse'}
-                 </span>
-                 <span className="text-[11px] text-white font-black uppercase tracking-tighter">
-                     {session ? 'Sua Conta' : 'Sua Conta'}
-                 </span>
-             </div>
-           </Link>
+           {session ? (
+             <Link to="/dashboard" className="flex items-center gap-2 group relative">
+               <User className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
+               <div className="hidden lg:flex flex-col leading-none">
+                   <span className="text-[9px] text-slate-400 font-black uppercase">Olá, Membro</span>
+                   <span className="text-[11px] text-white font-black uppercase tracking-tighter">Sua Conta</span>
+               </div>
+             </Link>
+           ) : (
+             <LoginDialog>
+               <div className="flex items-center gap-2 group relative cursor-pointer">
+                 <User className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
+                 <div className="hidden lg:flex flex-col leading-none">
+                     <span className="text-[9px] text-slate-400 font-black uppercase">Acesse</span>
+                     <span className="text-[11px] text-white font-black uppercase tracking-tighter">Sua Conta</span>
+                 </div>
+               </div>
+             </LoginDialog>
+           )}
 
            <button onClick={onCartClick} className="flex items-center gap-2 group relative">
              <div className="relative">

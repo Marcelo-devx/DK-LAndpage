@@ -171,7 +171,7 @@ serve(async (req) => {
 
     // Dispatch to each configured URL in parallel
     const results = await Promise.allSettled(configs.map(async (cfg: any) => {
-      const url = cfg.target_url
+      let url = cfg.target_url
 
       // Build headers: start with Content-Type
       const headers: Record<string, string> = {
@@ -195,6 +195,20 @@ serve(async (req) => {
             headers[key] = value
           }
         })
+      }
+
+      // If the target expects apikey as a query param (some n8n setups), and there's
+      // no apikey header present, append it as a URL param as a fallback.
+      const hasApikeyHeader = Object.keys(headers).some(k => k.toLowerCase() === 'apikey')
+      try {
+        if (!hasApikeyHeader && n8nToken) {
+          const u = new URL(url)
+          u.searchParams.set('apikey', String(n8nToken))
+          url = u.toString()
+          console.log('[trigger-integration] appended apikey as url param for', cfg.target_url)
+        }
+      } catch (urlErr) {
+        console.warn('[trigger-integration] invalid target_url, cannot append apikey param', { target_url: cfg.target_url, urlErr })
       }
 
       // Build the exact body to send: if we've already constructed outgoing payload (for orders), send that, otherwise wrap generic

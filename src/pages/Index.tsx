@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useOutletContext, useNavigate } from 'react-router-dom';
+import { Link, useOutletContext, useNavigate, useLocation } from 'react-router-dom';
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
 import ProductCard from "@/components/ProductCard";
@@ -31,6 +31,30 @@ const Index = () => {
 
   const { handleBrandClick } = useOutletContext<OutletContextType>();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Handle Mercado Pago redirect query params landing on the homepage
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(location.search);
+      const status = (params.get('status') || params.get('collection_status') || '').toLowerCase();
+      const externalRef = params.get('external_reference')
+        || params.get('external-reference')
+        || params.get('externalReference')
+        || params.get('external_reference_id')
+        || params.get('collection_id')
+        || params.get('payment_id');
+
+      if (externalRef && status === 'approved') {
+        // Redirect to the confirmation page and remove query params from history
+        navigate(`/confirmacao-pedido/${externalRef}`, { replace: true });
+      }
+    } catch (e) {
+      // ignore
+      // eslint-disable-next-line no-console
+      console.warn('[Index] error parsing Mercado Pago redirect params', e);
+    }
+  }, [location.search, navigate]);
 
   useEffect(() => {
     const fetchData = async () => {

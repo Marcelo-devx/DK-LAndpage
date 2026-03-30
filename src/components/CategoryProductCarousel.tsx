@@ -13,123 +13,78 @@ import { Skeleton } from './ui/skeleton';
 
 interface CategoryProductCarouselProps {
   categoryName: string;
+  // Optional: pass the age restriction flag from parent to avoid extra DB query
+  showAgeBadge?: boolean;
 }
 
-interface ProductWithCategory {
-  id: number;
-  name: string;
-  price: number;
-  pix_price: number | null;
-  image_url: string | null;
-  stock_quantity: number;
-  category?: string | null;
-}
-
-const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps) => {
+const CategoryProductCarousel = ({ categoryName, showAgeBadge = true }: CategoryProductCarouselProps) => {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // Normalize category keys centrally so all lookups use the same logic
-  const normalizeCategory = (s?: string) => (typeof s === 'string' ? s.trim().toLowerCase() : '');
 
   useEffect(() => {
     const fetchProducts = async () => {
       setLoading(true);
-
       try {
-        // Load category flags first
-        const { data: categoriesData } = await supabase
-          .from('categories')
-          .select('name, show_age_restriction')
-          .eq('is_visible', true);
+        // Fetch products and their variants in parallel — no extra categories query
+        const [productsRes, variantsRes] = await Promise.all([
+          supabase
+            .from('products')
+            .select('id, name, price, pix_price, image_url, stock_quantity, category')
+            .eq('category', categoryName)
+            .eq('is_visible', true)
+            .limit(10),
+          // We'll filter variants client-side after getting product IDs
+          Promise.resolve(null),
+        ]);
 
-        const categoryMap: Record<string, boolean> = {};
-        if (categoriesData) {
-          categoriesData.forEach((c: any) => {
-            if (c.name) categoryMap[normalizeCategory(c.name)] = c.show_age_restriction !== false;
-          });
-        }
-        // DEBUG: inspect category map
-        // eslint-disable-next-line no-console
-        console.debug("[CategoryProductCarousel] categoryMap:", categoryMap);
-
-        // Fetch parent products without joining categories
-        const { data: parentProducts, error } = await supabase
-          .from('products')
-          .select('id, name, price, pix_price, image_url, stock_quantity, category')
-          .eq('category', categoryName)
-          .eq('is_visible', true)
-          .limit(10);
-
-        if (error || !parentProducts) {
-          console.error(error);
+        const parentProducts = productsRes.data || [];
+        if (productsRes.error || parentProducts.length === 0) {
           setProducts([]);
-          setLoading(false);
           return;
         }
 
         const productIds = parentProducts.map((p: any) => p.id);
-        if (productIds.length === 0) {
-          setProducts([]);
-          setLoading(false);
-          return;
-        }
 
         const { data: variants } = await supabase
           .from('product_variants')
           .select('id, product_id, price, pix_price, stock_quantity')
           .in('product_id', productIds)
-          .eq('is_active', true)
-          .order('created_at', { ascending: false });
+          .eq('is_active', true);
 
-        let finalDisplayList: any[] = [];
-        parentProducts.forEach((prod: ProductWithCategory) => {
-          const prodVariants = variants?.filter(v => v.product_id === prod.id) || [];
+        const finalList: any[] = [];
+        parentProducts.forEach((prod: any) => {
+          const prodVariants = (variants || []).filter((v: any) => v.product_id === prod.id);
           if (prodVariants.length > 0) {
-            const minPrice = Math.min(...prodVariants.map(v => v.price));
-            const minPixPrice = Math.min(...prodVariants.map(v => v.pix_price || v.price));
-            const totalStock = prodVariants.reduce((acc, v) => acc + (v.stock_quantity || 0), 0);
-            
-            // Only add if product has stock
+            const totalStock = prodVariants.reduce((s: number, v: any) => s + (v.stock_quantity || 0), 0);
             if (totalStock > 0) {
-              finalDisplayList.push({
+              finalList.push({
                 id: prod.id,
                 name: prod.name,
-                price: minPrice,
-                pixPrice: minPixPrice,
+                price: Math.min(...prodVariants.map((v: any) => v.price)),
+                pixPrice: Math.min(...prodVariants.map((v: any) => v.pix_price || v.price)),
                 imageUrl: prod.image_url || '',
                 stockQuantity: totalStock,
                 hasMultipleVariants: true,
-                showAgeBadge: prod.category ? (categoryMap[normalizeCategory(prod.category)] ?? true) : true,
+                showAgeBadge,
               });
             }
-          } else {
-            // Only add if product has stock
-            if (prod.stock_quantity > 0) {
-              finalDisplayList.push({
-                id: prod.id,
-                name: prod.name,
-                price: prod.price,
-                pixPrice: prod.pix_price,
-                imageUrl: prod.image_url || '',
-                stockQuantity: prod.stock_quantity,
-                hasMultipleVariants: false,
-                showAgeBadge: prod.category ? (categoryMap[normalizeCategory(prod.category)] ?? true) : true,
-              });
-            }
+          } else if (prod.stock_quantity > 0) {
+            finalList.push({
+              id: prod.id,
+              name: prod.name,
+              price: prod.price,
+              pixPrice: prod.pix_price,
+              imageUrl: prod.image_url || '',
+              stockQuantity: prod.stock_quantity,
+              hasMultipleVariants: false,
+              showAgeBadge,
+            });
           }
-          // DEBUG: highlight ginger product if present
-          try {
-            if (prod.name && String(prod.name).toLowerCase().includes('ginger')) {
-              // eslint-disable-next-line no-console
-              console.debug("[CategoryProductCarousel] suspected product:", { id: prod.id, name: prod.name, category: prod.category, showAgeBadge: (prod.category ? (categoryMap[normalizeCategory(prod.category)] ?? true) : true) });
-            }
-          } catch (e) { /* ignore */ }
         });
 
-        setProducts(finalDisplayList);
+        setProducts(finalList);
       } catch (err) {
-        console.error(err);
+        console.error('[CategoryProductCarousel] error:', err);
         setProducts([]);
       } finally {
         setLoading(false);
@@ -137,7 +92,7 @@ const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps)
     };
 
     fetchProducts();
-  }, [categoryName]);
+  }, [categoryName, showAgeBadge]);
 
   return (
     <section className="container mx-auto px-6 py-8 md:py-16">
@@ -169,7 +124,7 @@ const CategoryProductCarousel = ({ categoryName }: CategoryProductCarouselProps)
           <Carousel opts={{ align: "start", loop: products.length > 4 }} className="w-full">
             <CarouselContent className="-ml-3 md:-ml-4">
               {products.map((p, idx) => (
-                <CarouselItem key={`${p.id}-${p.variantId || 'main'}-${idx}`} className="pl-3 md:pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4">
+                <CarouselItem key={`${p.id}-${idx}`} className="pl-3 md:pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4">
                   <ProductCard product={{ 
                     id: p.id, 
                     name: p.name, 

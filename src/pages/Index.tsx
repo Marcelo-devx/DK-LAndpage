@@ -236,7 +236,10 @@ const Index = () => {
 
         {categories.map((cat) => (
           <ScrollAnimationWrapper key={cat.name}>
-            <CategoryProductCarousel categoryName={cat.name} />
+            <CategoryProductCarousel
+              categoryName={cat.name}
+              showAgeBadge={cat.show_age_restriction !== false}
+            />
           </ScrollAnimationWrapper>
         ))}
 

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import ProductCard from '@/components/ProductCard';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -20,91 +20,85 @@ interface DisplayProduct {
 
 const AllProductsPage = () => {
   const [searchParams] = useSearchParams();
-  
-  const initialSearch = searchParams.get('search') || '';
-  const initialCategory = searchParams.get('category');
-  const initialSubCategory = searchParams.get('sub_category');
-  const initialBrand = searchParams.get('brand');
 
   const [displayProducts, setDisplayProducts] = useState<DisplayProduct[]>([]);
-  const [loading, setLoading] = useState(true);
-  
+  const [loading, setLoading] = useState(false);
+
   const [allCategories, setAllCategories] = useState<string[]>([]);
   const [allSubCategories, setAllSubCategories] = useState<string[]>([]);
   const [allBrands, setAllBrands] = useState<string[]>([]);
   const [allFlavors, setAllFlavors] = useState<string[]>([]);
 
-  const [searchTerm, setSearchTerm] = useState(initialSearch);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>(initialCategory ? [initialCategory] : []);
-  const [selectedSubCategories, setSelectedSubCategories] = useState<string[]>(initialSubCategory ? [initialSubCategory] : []);
-  const [selectedBrands, setSelectedBrands] = useState<string[]>(initialBrand ? [initialBrand] : []);
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(
+    searchParams.get('category') ? [searchParams.get('category')!] : []
+  );
+  const [selectedSubCategories, setSelectedSubCategories] = useState<string[]>(
+    searchParams.get('sub_category') ? [searchParams.get('sub_category')!] : []
+  );
+  const [selectedBrands, setSelectedBrands] = useState<string[]>(
+    searchParams.get('brand') ? [searchParams.get('brand')!] : []
+  );
   const [selectedFlavors, setSelectedFlavors] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState('created_at-desc');
-  const [shouldRefresh, setShouldRefresh] = useState(0);
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
+  // Sync filters when URL params change
   useEffect(() => {
     const querySearch = searchParams.get('search');
     const queryCategory = searchParams.get('category');
     const querySubCategory = searchParams.get('sub_category');
     const queryBrand = searchParams.get('brand');
 
-    if (querySearch !== null) setSearchTerm(querySearch); else setSearchTerm('');
-    if (queryCategory) setSelectedCategories([queryCategory]); else setSelectedCategories([]);
-    if (querySubCategory) setSelectedSubCategories([querySubCategory]); else setSelectedSubCategories([]);
-    if (queryBrand) setSelectedBrands([queryBrand]); else setSelectedBrands([]);
-
-    // Trigger initial fetch after setting filters
-    setShouldRefresh(1);
+    setSearchTerm(querySearch ?? '');
+    setSelectedCategories(queryCategory ? [queryCategory] : []);
+    setSelectedSubCategories(querySubCategory ? [querySubCategory] : []);
+    setSelectedBrands(queryBrand ? [queryBrand] : []);
   }, [searchParams]);
 
   const fetchFilterOptions = useCallback(async () => {
-    const { data: catData } = await supabase.from('categories').select('name');
-    if (catData) setAllCategories(catData.map(c => c.name));
-
-    const { data: subCatData } = await supabase.from('sub_categories').select('name');
-    if (subCatData) setAllSubCategories(subCatData.map(sc => sc.name));
-
-    const { data: brandData } = await supabase.from('brands').select('name');
-    if (brandData) setAllBrands(brandData.map(b => b.name));
-
-    const { data: flavorData } = await supabase.from('flavors').select('name').eq('is_visible', true);
-    if (flavorData) setAllFlavors(flavorData.map(f => f.name));
+    const [catData, subCatData, brandData, flavorData] = await Promise.all([
+      supabase.from('categories').select('name'),
+      supabase.from('sub_categories').select('name'),
+      supabase.from('brands').select('name'),
+      supabase.from('flavors').select('name').eq('is_visible', true),
+    ]);
+    if (catData.data) setAllCategories(catData.data.map(c => c.name));
+    if (subCatData.data) setAllSubCategories(subCatData.data.map(sc => sc.name));
+    if (brandData.data) setAllBrands(brandData.data.map(b => b.name));
+    if (flavorData.data) setAllFlavors(flavorData.data.map(f => f.name));
   }, []);
 
   useEffect(() => { fetchFilterOptions(); }, [fetchFilterOptions]);
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-      setLoading(true);
+  const fetchProducts = useCallback(async () => {
+    setLoading(true);
 
-      // Fetch categories map to determine show_age_restriction per category
-      const { data: categoriesData } = await supabase.from('categories').select('name, show_age_restriction');
+    try {
       const normalizeCategory = (s?: string) => (typeof s === 'string' ? s.trim().toLowerCase() : '');
+
+      const { data: categoriesData } = await supabase.from('categories').select('name, show_age_restriction');
       const categoriesMap: Record<string, boolean> = {};
       if (categoriesData) {
         categoriesData.forEach((c: any) => {
           if (c.name) categoriesMap[normalizeCategory(c.name)] = c.show_age_restriction !== false;
         });
       }
-      // DEBUG: inspect category map
-      // eslint-disable-next-line no-console
-      console.debug("[AllProductsPage] categoriesMap:", categoriesMap);
-      
+
       let productIdsFromFlavors: number[] | null = null;
 
       if (selectedFlavors.length > 0) {
         const { data: flavorIdsData } = await supabase.from('flavors').select('id').in('name', selectedFlavors);
         if (flavorIdsData && flavorIdsData.length > 0) {
           const flavorIds = flavorIdsData.map(f => f.id);
-          const { data: variantData } = await supabase.from('product_variants').select('product_id').in('flavor_id', flavorIds);
-          const { data: prodFlavorData } = await supabase.from('product_flavors').select('product_id').in('flavor_id', flavorIds);
-
-          const idsA = variantData?.map(v => v.product_id) || [];
-          const idsB = prodFlavorData?.map(pf => pf.product_id) || [];
+          const [variantData, prodFlavorData] = await Promise.all([
+            supabase.from('product_variants').select('product_id').in('flavor_id', flavorIds),
+            supabase.from('product_flavors').select('product_id').in('flavor_id', flavorIds),
+          ]);
+          const idsA = variantData.data?.map(v => v.product_id) || [];
+          const idsB = prodFlavorData.data?.map(pf => pf.product_id) || [];
           productIdsFromFlavors = [...new Set([...idsA, ...idsB])];
-
           if (productIdsFromFlavors.length === 0) productIdsFromFlavors = [-1];
         } else {
           productIdsFromFlavors = [-1];
@@ -128,60 +122,42 @@ const AllProductsPage = () => {
       const { data: parentProducts, error } = await query;
 
       if (error) {
-        console.error("Error fetching products:", error);
+        console.error('Error fetching products:', error);
         setDisplayProducts([]);
-        setLoading(false);
         return;
       }
 
       const products = parentProducts || [];
       const productIds = products.map(p => p.id);
 
-      const { data: variants } = await supabase
-        .from('product_variants')
-        .select('id, product_id, price, pix_price, stock_quantity')
-        .in('product_id', productIds)
-        .eq('is_active', true);
+      const { data: variants } = productIds.length > 0
+        ? await supabase
+            .from('product_variants')
+            .select('id, product_id, price, pix_price, stock_quantity')
+            .in('product_id', productIds)
+            .eq('is_active', true)
+        : { data: [] };
 
-      let finalDisplayList: DisplayProduct[] = [];
+      const finalDisplayList: DisplayProduct[] = [];
 
       products.forEach(prod => {
         const prodVariants = variants?.filter(v => v.product_id === prod.id) || [];
-
         const showAge = prod.category ? (categoriesMap[normalizeCategory(prod.category)] ?? true) : true;
-        // DEBUG: log if product looks like gingerbread
-        try {
-          if (prod.name && String(prod.name).toLowerCase().includes('ginger')) {
-            // eslint-disable-next-line no-console
-            console.debug("[AllProductsPage] suspected product:", { id: prod.id, name: prod.name, category: prod.category, resolvedShowAge: showAge, variants: prodVariants.length });
-          }
-        } catch (e) { /* ignore */ }
 
         if (prodVariants.length > 0) {
           const minPrice = Math.min(...prodVariants.map(v => v.price));
           const minPixPrice = Math.min(...prodVariants.map(v => v.pix_price || v.price));
           const totalStock = prodVariants.reduce((acc, v) => acc + (v.stock_quantity || 0), 0);
-
           finalDisplayList.push({
-            id: prod.id,
-            name: prod.name,
-            price: minPrice,
-            pixPrice: minPixPrice,
-            imageUrl: prod.image_url || '',
-            stockQuantity: totalStock,
-            hasMultipleVariants: true,
-            showAgeBadge: showAge,
+            id: prod.id, name: prod.name, price: minPrice, pixPrice: minPixPrice,
+            imageUrl: prod.image_url || '', stockQuantity: totalStock,
+            hasMultipleVariants: true, showAgeBadge: showAge,
           });
         } else {
           finalDisplayList.push({
-            id: prod.id,
-            name: prod.name,
-            price: prod.price,
-            pixPrice: prod.pix_price,
-            imageUrl: prod.image_url || '',
-            stockQuantity: prod.stock_quantity,
-            hasMultipleVariants: false,
-            showAgeBadge: showAge,
+            id: prod.id, name: prod.name, price: prod.price, pixPrice: prod.pix_price,
+            imageUrl: prod.image_url || '', stockQuantity: prod.stock_quantity,
+            hasMultipleVariants: false, showAgeBadge: showAge,
           });
         }
       });
@@ -191,11 +167,22 @@ const AllProductsPage = () => {
       }
 
       setDisplayProducts(finalDisplayList);
+    } finally {
       setLoading(false);
-    };
+    }
+  }, [debouncedSearchTerm, selectedCategories, selectedSubCategories, selectedBrands, selectedFlavors, sortBy]);
 
-    fetchProducts();
-  }, [debouncedSearchTerm, selectedCategories, selectedSubCategories, selectedBrands, selectedFlavors, sortBy, shouldRefresh]);
+  // Fetch on filter/sort change
+  useEffect(() => { fetchProducts(); }, [fetchProducts]);
+
+  // Re-fetch when user returns to this tab
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (!document.hidden) fetchProducts();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [fetchProducts]);
 
   const handleClearFilters = () => {
     setSearchTerm('');
@@ -236,7 +223,7 @@ const AllProductsPage = () => {
           {loading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
               {Array.from({ length: 9 }).map((_, index) => (
-                 <div key={index} className="flex flex-col space-y-3">
+                <div key={index} className="flex flex-col space-y-3">
                   <Skeleton className="w-full rounded-lg aspect-[4/5]" />
                   <div className="space-y-2 bg-charcoal-gray p-4 rounded-b-lg">
                     <Skeleton className="h-6 w-3/4 mx-auto" />
@@ -249,19 +236,19 @@ const AllProductsPage = () => {
           ) : displayProducts.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
               {displayProducts.map((product, idx) => (
-                <ProductCard 
-                    key={`${product.id}-${product.variantId || 'main'}-${idx}`} 
-                    product={{
-                        id: product.id,
-                        name: product.name,
-                        price: product.price,
-                        pixPrice: product.pixPrice,
-                        imageUrl: product.imageUrl,
-                        stockQuantity: product.stockQuantity,
-                        variantId: product.variantId,
-                        hasMultipleVariants: product.hasMultipleVariants,
-                        showAgeBadge: product.showAgeBadge
-                    }} 
+                <ProductCard
+                  key={`${product.id}-${idx}`}
+                  product={{
+                    id: product.id,
+                    name: product.name,
+                    price: product.price,
+                    pixPrice: product.pixPrice,
+                    imageUrl: product.imageUrl,
+                    stockQuantity: product.stockQuantity,
+                    variantId: product.variantId,
+                    hasMultipleVariants: product.hasMultipleVariants,
+                    showAgeBadge: product.showAgeBadge,
+                  }}
                 />
               ))}
             </div>

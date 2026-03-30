@@ -27,7 +27,15 @@ function getAllowedOrigins(): string[] {
     'http://127.0.0.1:3000',
   ];
 
-  return [...devDefaults, ...fromEnv];
+  // Adicionar domínios de produção como fallback imediato para evitar necessidade
+  // de configurar a env var imediatamente. Recomenda-se ainda definir ALLOWED_ORIGINS
+  // via painel do Supabase para controle em produção.
+  const productionDefaults = [
+    'https://www.dkcwb.com',
+    'https://dkcwb.com'
+  ];
+
+  return [...devDefaults, ...productionDefaults, ...fromEnv];
 }
 
 /**

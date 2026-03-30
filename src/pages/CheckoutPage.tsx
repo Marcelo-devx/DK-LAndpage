@@ -457,10 +457,21 @@ const CheckoutPage = () => {
         const rawOrderId: any = (orderData as any)?.new_order_id ?? (orderData as any)?.order_id ?? (orderData as any)?.id ?? orderData;
         orderId = typeof rawOrderId === 'string' ? Number(rawOrderId) : rawOrderId;
         if (!orderId || !Number.isFinite(Number(orderId))) throw new Error('Não foi possível criar o pedido (ID ausente).');
-        const { data: orderRow, error: orderRowError } = await supabase.from('orders').select('total_price, shipping_cost, donation_amount, shipping_address').eq('id', orderId).single();
-        if (orderRowError || !orderRow) throw new Error('Pedido não encontrado após criação.');
-        finalTotal = Number(Number(orderRow.total_price || 0) + Number(orderRow.shipping_cost || 0) + Number(orderRow.donation_amount || 0));
-        shippingAddress = orderRow.shipping_address || data;
+
+        // Preferir o valor final retornado pela RPC (final_price) quando disponível
+        const rpcFinal = (orderData as any)?.final_price;
+        if (rpcFinal !== undefined && rpcFinal !== null) {
+          finalTotal = Number(rpcFinal);
+          // tentar recuperar endereço salvo no pedido para usar no MP (se houver)
+          const { data: orderRow, error: orderRowError } = await supabase.from('orders').select('shipping_address').eq('id', orderId).single();
+          shippingAddress = (!orderRowError && orderRow) ? orderRow.shipping_address : data;
+        } else {
+          // Fallback: ler o pedido e usar total_price diretamente (não somar frete/doação aqui para evitar dupla contagem)
+          const { data: orderRow, error: orderRowError } = await supabase.from('orders').select('total_price, shipping_cost, donation_amount, shipping_address').eq('id', orderId).single();
+          if (orderRowError || !orderRow) throw new Error('Pedido não encontrado após criação.');
+          finalTotal = Number(orderRow.total_price || 0);
+          shippingAddress = orderRow.shipping_address || data;
+        }
       } else {
         // Convidado - usa a nova função
         const { data: orderData, error: orderError } = await supabase.rpc('create_guest_order', {

@@ -157,7 +157,9 @@ const OrdersPage = () => {
               const isCancelled = order.status === 'Cancelado';
               const isPix = order.payment_method?.toLowerCase().includes('pix');
               
-              const finalTotal = Number(order.total_price) + Number(order.shipping_cost) + Number(order.donation_amount || 0);
+              // Treat orders.total_price as the authoritative TOTAL (includes shipping & donation)
+              const finalTotal = Number(order.total_price);
+              const subtotalOnly = Math.max(0, finalTotal - Number(order.shipping_cost || 0) - Number(order.donation_amount || 0));
 
               return (
                 <AccordionItem value={`order-${order.id}`} key={order.id} className="bg-white border border-stone-200 rounded-[1.5rem] overflow-hidden transition-all duration-300 hover:border-sky-500/40 shadow-md">
@@ -220,8 +222,8 @@ const OrdersPage = () => {
                         <div>
                           <h4 className="text-[10px] font-extrabold text-stone-400 uppercase tracking-widest mb-4">Detalhamento</h4>
                           <div className="bg-white p-6 rounded-2xl border border-stone-200 space-y-3">
-                            <div className="flex justify-between text-sm text-stone-600 font-medium"><span>Subtotal</span><span>R$ {order.total_price.toFixed(2).replace('.', ',')}</span></div>
-                            <div className="flex justify-between text-sm text-stone-600 font-medium"><span>Frete Especial</span><span className="text-emerald-600">Grátis</span></div>
+                            <div className="flex justify-between text-sm text-stone-600 font-medium"><span>Subtotal</span><span>R$ {subtotalOnly.toFixed(2).replace('.', ',')}</span></div>
+                            <div className="flex justify-between text-sm text-stone-600 font-medium"><span>Frete Especial</span><span className="text-emerald-600">{Number(order.shipping_cost) > 0 ? `R$ ${Number(order.shipping_cost).toFixed(2).replace('.', ',')}` : 'Grátis'}</span></div>
                             {Number(order.donation_amount) > 0 && (
                                 <div className="flex justify-between text-sm text-rose-500 font-bold">
                                     <div className="flex items-center gap-1.5">

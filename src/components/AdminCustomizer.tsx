@@ -51,7 +51,7 @@ const settingKeysMap: Record<string, string> = {
 
 const AdminCustomizer = () => {
   const [isAdmin, setIsAdmin] = useState(false);
-  const { settings, updateSetting } = useTheme();
+  const { settings, updateSetting, refreshSettings } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState("global");
@@ -617,13 +617,27 @@ const AdminCustomizer = () => {
         </div>
 
         <div className="p-6 border-t border-slate-100 bg-white/80 backdrop-blur-md">
-            <Button className="w-full bg-slate-900 hover:bg-black text-white font-bold h-12 rounded-xl shadow-lg transition-all active:scale-95 group" onClick={() => showSuccess('Salvo!')}>
-                <Save className="mr-2 h-4 w-4 group-hover:text-green-400 transition-colors" /> Salvar Alterações
+            <Button 
+              className="w-full bg-slate-900 hover:bg-black text-white font-bold h-12 rounded-xl shadow-lg transition-all active:scale-95 group"
+              onClick={async () => {
+                // Wait a short moment so any debounced upserts finish (updateSetting debounces 1s)
+                await new Promise((r) => setTimeout(r, 1200));
+                try {
+                  await refreshSettings();
+                  // Expose a global hook for debug/testing if needed
+                  (window as any).__refreshThemeSettings = refreshSettings;
+                } catch (e) {
+                  console.warn('[AdminCustomizer] refreshSettings failed', e);
+                }
+                showSuccess('Salvo!');
+              }}
+            >
+              <Save className="mr-2 h-4 w-4 group-hover:text-green-400 transition-colors" /> Salvar Alterações
             </Button>
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
-};
+         </div>
+       </SheetContent>
+     </Sheet>
+   );
+ };
 
-export default AdminCustomizer;
+ export default AdminCustomizer;

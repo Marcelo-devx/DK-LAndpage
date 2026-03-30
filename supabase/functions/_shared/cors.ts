@@ -1,19 +1,34 @@
 /**
  * CORS Utilities
- * Controla quais origens podem acessar as Edge Functions
+ * Controla quais origens podem acessar as Edge Functions.
+ *
+ * Configuração via variável de ambiente ALLOWED_ORIGINS (no Supabase Secrets):
+ *   - Separe múltiplos domínios por vírgula.
+ *   - Exemplo: https://www.dkcwb.com,https://dkcwb.com
+ *
+ * Fallback: localhost e 127.0.0.1 são sempre permitidos para desenvolvimento.
  */
 
-// Whitelist de domínios permitidos (adicionar seus domínios de produção)
-const ALLOWED_ORIGINS = [
-  'http://localhost:5173',
-  'http://localhost:3000',
-  'http://localhost:8000',
-  'http://127.0.0.1:5173',
-  'http://127.0.0.1:3000',
-  // Adicione seus domínios de produção aqui:
-  // 'https://seudominio.com',
-  // 'https://www.seudominio.com',
-];
+function getAllowedOrigins(): string[] {
+  // @ts-ignore
+  const envVar = (typeof Deno !== 'undefined' ? Deno.env.get('ALLOWED_ORIGINS') : undefined) || '';
+
+  const fromEnv = envVar
+    .split(',')
+    .map((s: string) => s.trim())
+    .filter((s: string) => s.length > 0);
+
+  // Defaults de desenvolvimento (sempre permitidos)
+  const devDefaults = [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://localhost:8000',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:3000',
+  ];
+
+  return [...devDefaults, ...fromEnv];
+}
 
 /**
  * Verifica se a origem é permitida
@@ -21,25 +36,30 @@ const ALLOWED_ORIGINS = [
 export function isOriginAllowed(origin: string | null): boolean {
   if (!origin) return false;
 
-  // Em desenvolvimento, permite mais origens locais
-  if (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) {
+  // Sempre permite localhost / 127.0.0.1 para desenvolvimento
+  if (
+    origin.startsWith('http://localhost') ||
+    origin.startsWith('http://127.0.0.1')
+  ) {
     return true;
   }
 
-  // Verifica whitelist
-  return ALLOWED_ORIGINS.includes(origin);
+  const allowed = getAllowedOrigins();
+  return allowed.includes(origin);
 }
 
 /**
- * Gera headers CORS apropriados baseados na origem da requisição
+ * Gera headers CORS apropriados baseados na origem da requisição.
+ * Se a origem for permitida, retorna ela explicitamente.
+ * Se não for permitida, retorna header vazio (browser bloqueará).
  */
 export function getCorsHeaders(origin: string | null): Record<string, string> {
   const allowed = isOriginAllowed(origin);
 
   return {
-    'Access-Control-Allow-Origin': allowed ? (origin || '*') : '',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Origin': allowed ? (origin as string) : '',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-webhook-secret, x-webhook-token',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
     'Access-Control-Max-Age': '86400', // 24 horas
   };
 }
@@ -50,7 +70,7 @@ export function getCorsHeaders(origin: string | null): Record<string, string> {
 export function createPreflightResponse(origin: string | null): Response {
   return new Response(null, {
     status: 204,
-    headers: getCorsHeaders(origin)
+    headers: getCorsHeaders(origin),
   });
 }
 
@@ -62,7 +82,7 @@ export function createCorsErrorResponse(message: string = 'Origin not allowed'):
     status: 403,
     headers: {
       'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*'
-    }
+      'Access-Control-Allow-Origin': '*',
+    },
   });
 }

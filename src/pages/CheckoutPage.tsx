@@ -431,18 +431,13 @@ const CheckoutPage = () => {
     if (isMountedRef.current) setIsSubmitting(true);
     try {
       const data = getValues();
-      console.log('[CheckoutPage] DEBUG - Valores passados para create_pending_order_from_local_cart (MP):', {
-        shipping_cost_input: shippingCost,
-        donation_amount_input: donationAmount,
-        total_items_price: subtotal
-      });
-      
+
       let orderId: number;
       let finalTotal: number;
       let shippingAddress: any;
 
       if (user) {
-        // Usuário logado - usa a função original
+        // Usuário logado
         const bStrings = [...tierBenefits.filter(isPassiveBenefit), ...selectedBenefits];
         const { data: orderData, error: orderError } = await supabase.rpc('create_pending_order_from_local_cart', {
           shipping_cost_input: shippingCost,
@@ -457,23 +452,8 @@ const CheckoutPage = () => {
         const rawOrderId: any = (orderData as any)?.new_order_id ?? (orderData as any)?.order_id ?? (orderData as any)?.id ?? orderData;
         orderId = typeof rawOrderId === 'string' ? Number(rawOrderId) : rawOrderId;
         if (!orderId || !Number.isFinite(Number(orderId))) throw new Error('Não foi possível criar o pedido (ID ausente).');
-
-        // Preferir o valor final retornado pela RPC (final_price) quando disponível
-        const rpcFinal = (orderData as any)?.final_price;
-        if (rpcFinal !== undefined && rpcFinal !== null) {
-          finalTotal = Number(rpcFinal);
-          // tentar recuperar endereço salvo no pedido para usar no MP (se houver)
-          const { data: orderRow, error: orderRowError } = await supabase.from('orders').select('shipping_address').eq('id', orderId).single();
-          shippingAddress = (!orderRowError && orderRow) ? orderRow.shipping_address : data;
-        } else {
-          // Fallback: ler o pedido e usar total_price diretamente (não somar frete/doação aqui para evitar dupla contagem)
-          const { data: orderRow, error: orderRowError } = await supabase.from('orders').select('total_price, shipping_cost, donation_amount, shipping_address').eq('id', orderId).single();
-          if (orderRowError || !orderRow) throw new Error('Pedido não encontrado após criação.');
-          finalTotal = Number(orderRow.total_price || 0);
-          shippingAddress = orderRow.shipping_address || data;
-        }
       } else {
-        // Convidado - usa a nova função
+        // Convidado
         const { data: orderData, error: orderError } = await supabase.rpc('create_guest_order', {
           p_email: data.email,
           p_first_name: data.first_name,
@@ -490,53 +470,62 @@ const CheckoutPage = () => {
         const rawOrderId: any = (orderData as any)?.new_order_id ?? (orderData as any)?.order_id ?? (orderData as any)?.id ?? orderData;
         orderId = typeof rawOrderId === 'string' ? Number(rawOrderId) : rawOrderId;
         if (!orderId || !Number.isFinite(Number(orderId))) throw new Error('Não foi possível criar o pedido (ID ausente).');
-        finalTotal = Number((orderData as any)?.final_price || 0);
-        shippingAddress = data;
       }
 
-      if (!isMountedRef.current) return; // abort if user navigated away during order creation
+      // Sempre buscar total_price diretamente do banco — fonte da verdade
+      const { data: orderRow, error: orderRowError } = await supabase
+        .from('orders')
+        .select('total_price, shipping_address')
+        .eq('id', orderId)
+        .single();
+
+      if (orderRowError || !orderRow) throw new Error('Pedido não encontrado após criação.');
+
+      finalTotal = Number(orderRow.total_price || 0);
+      shippingAddress = orderRow.shipping_address || data;
+
+      if (!finalTotal || finalTotal <= 0) throw new Error('Total do pedido inválido. Verifique os itens e tente novamente.');
+
+      if (!isMountedRef.current) return;
 
       const { data: { session } } = await supabase.auth.getSession();
       const authToken = session?.access_token;
-      const invokeOptions: any = { 
-        body: { 
-          shipping_address: shippingAddress, 
-          order_id: orderId, 
-          total_price: finalTotal, 
+
+      const invokeOptions: any = {
+        body: {
+          shipping_address: shippingAddress,
+          order_id: orderId,
+          total_price: finalTotal,
           origin: window.location.origin,
-          // Always include guest fields so Edge Function has an email/phone even if auth header is missing
           guest_email: data.email,
           guest_phone: data.phone.replace(/\D/g, ''),
           guest_cpf_cnpj: data.cpf_cnpj.replace(/\D/g, '')
-        } 
+        }
       };
       if (authToken) invokeOptions.headers = { Authorization: `Bearer ${authToken}` };
+
+      console.log('[CheckoutPage] invoking create-mercadopago-preference', { orderId, finalTotal });
+
       const { data: pref, error: prefError } = await supabase.functions.invoke('create-mercadopago-preference', invokeOptions);
+
       if (prefError) throw new Error(prefError.message || 'Erro ao criar preferência de pagamento.');
+      if (!isMountedRef.current) return;
 
-      if (!isMountedRef.current) return; // user left while calling Edge Function
-
-      if (pref && (pref as any).mp_error) {
-        console.error('create-mercadopago-preference returned mp_error:', pref);
-        const mpErr = (pref as any).mp_error;
-        const userMsg = (pref as any).error || (mpErr && (mpErr.message || JSON.stringify(mpErr))) || 'Erro no Mercado Pago.';
+      if (pref?.mp_error) {
+        const mpErr = pref.mp_error;
+        const userMsg = pref.error || (mpErr && (mpErr.message || JSON.stringify(mpErr))) || 'Erro no Mercado Pago.';
         throw new Error(`Mercado Pago: ${userMsg}`);
       }
 
-      if (!pref || ((!pref as any).init_point && !(pref as any).sandbox_init_point)) {
-        console.error('create-mercadopago-preference unexpected response:', pref);
-        throw new Error('Não foi possível obter a URL de pagamento do Mercado Pago. Verifique logs da Edge Function.');
+      if (!pref?.init_point && !pref?.sandbox_init_point) {
+        console.error('[CheckoutPage] unexpected MP response:', pref);
+        throw new Error('Não foi possível obter a URL de pagamento. Tente novamente.');
       }
 
       if (isMountedRef.current) {
         dismissToast(toastId);
         clearLocalCart();
-      }
-
-      // Redirect to Mercado Pago. This will navigate away from the app. If the user
-      // has already navigated back/unmounted, avoid forcing a redirect.
-      if (isMountedRef.current) {
-        const target = (pref as any).init_point || (pref as any).sandbox_init_point;
+        const target = pref.init_point || pref.sandbox_init_point;
         window.location.href = target;
       }
     } catch (e: any) {
@@ -544,9 +533,6 @@ const CheckoutPage = () => {
         dismissToast(toastId);
         showError(e?.message || "Não foi possível iniciar o pagamento. Tente novamente.");
         setIsSubmitting(false);
-      } else {
-        // If component unmounted, log silently
-        console.warn('[CheckoutPage] Aborted payment flow due to unmount:', e);
       }
     }
   };

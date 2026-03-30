@@ -33,6 +33,7 @@ interface ThemeContextType {
   settings: ThemeSettings;
   refreshSettings: () => Promise<void>;
   updateSetting: (key: string, value: string) => Promise<void>;
+  saveAllSettings: (s?: ThemeSettings) => Promise<void>;
 }
 
 const defaultSettings: ThemeSettings = {
@@ -67,6 +68,7 @@ const ThemeContext = createContext<ThemeContextType>({
   settings: defaultSettings,
   refreshSettings: async () => {},
   updateSetting: async () => {},
+  saveAllSettings: async () => {},
 });
 
 export const useTheme = () => useContext(ThemeContext);
@@ -196,12 +198,59 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     }, 1000);
   };
 
+  // Persist all settings at once (called by Save button to ensure a concrete write)
+  const saveAllSettings = async (s?: ThemeSettings) => {
+    const toSave = s || settings;
+    const payload = [
+      { key: 'site_background_color', value: toSave.backgroundColor },
+      { key: 'site_primary_color', value: toSave.primaryColor },
+      { key: 'site_text_color', value: toSave.textColor },
+      { key: 'show_hero_banner', value: String(toSave.showHero) },
+      { key: 'show_info_section', value: String(toSave.showInfo) },
+      { key: 'show_promotions', value: String(toSave.showPromotions) },
+      { key: 'show_brands', value: String(toSave.showBrands) },
+      { key: 'header_announcement_text', value: toSave.headerAnnouncement },
+      { key: 'logo_url', value: toSave.logoUrl || '' },
+      { key: 'footer_banner_title', value: toSave.footerBannerTitle },
+      { key: 'footer_banner_subtitle', value: toSave.footerBannerSubtitle },
+      { key: 'footer_banner_button_text', value: toSave.footerBannerButtonText },
+      { key: 'contact_email', value: toSave.contactEmail },
+      { key: 'contact_phone', value: toSave.contactPhone },
+      { key: 'contact_hours', value: toSave.contactHours },
+      { key: 'social_facebook', value: toSave.socialFacebook },
+      { key: 'social_instagram', value: toSave.socialInstagram },
+      { key: 'social_twitter', value: toSave.socialTwitter },
+      { key: 'login_title', value: toSave.loginTitle },
+      { key: 'login_subtitle', value: toSave.loginSubtitle },
+      { key: 'dashboard_greeting', value: toSave.dashboardGreeting },
+      { key: 'dashboard_subtitle', value: toSave.dashboardSubtitle },
+      { key: 'dashboard_points_label', value: toSave.dashboardPointsLabel },
+      { key: 'dashboard_button_text', value: toSave.dashboardButtonText },
+      { key: 'maintenance_mode', value: String(toSave.maintenanceMode) },
+    ];
+
+    // Perform batched upsert. If the database doesn't have a unique constraint on `key`,
+    // this may insert duplicates; in that case we fall back to updating each key individually.
+    const { error } = await supabase.from('app_settings').upsert(payload, { onConflict: 'key' });
+    if (error) {
+      console.error('saveAllSettings upsert error, falling back to individual updates', error);
+      // fallback: update/insert per key
+      for (const row of payload) {
+        const { error: uErr } = await supabase.from('app_settings').upsert([row], { onConflict: 'key' });
+        if (uErr) {
+          // try update as last resort
+          await supabase.from('app_settings').update({ value: row.value }).eq('key', row.key);
+        }
+      }
+    }
+  };
+
   useEffect(() => {
     refreshSettings();
   }, []);
 
   return (
-    <ThemeContext.Provider value={{ settings, refreshSettings, updateSetting }}>
+    <ThemeContext.Provider value={{ settings, refreshSettings, updateSetting, saveAllSettings }}>
       {children}
     </ThemeContext.Provider>
   );

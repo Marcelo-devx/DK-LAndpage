@@ -51,12 +51,13 @@ const settingKeysMap: Record<string, string> = {
 
 const AdminCustomizer = () => {
   const [isAdmin, setIsAdmin] = useState(false);
-  const { settings, updateSetting, refreshSettings } = useTheme();
+  const { settings, updateSetting, refreshSettings, saveAllSettings } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState("global");
   const [testStatus, setTestStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [isSimulating, setIsSimulating] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // NOVO: Estado para gerenciar categorias
   const [categories, setCategories] = useState<any[]>([]);
@@ -621,18 +622,24 @@ const AdminCustomizer = () => {
               className="w-full bg-slate-900 hover:bg-black text-white font-bold h-12 rounded-xl shadow-lg transition-all active:scale-95 group"
               onClick={async () => {
                 // Wait a short moment so any debounced upserts finish (updateSetting debounces 1s)
+                setIsSaving(true);
                 await new Promise((r) => setTimeout(r, 1200));
                 try {
+                  await saveAllSettings();
                   await refreshSettings();
                   // Expose a global hook for debug/testing if needed
                   (window as any).__refreshThemeSettings = refreshSettings;
+                  showSuccess('Salvo!');
                 } catch (e) {
-                  console.warn('[AdminCustomizer] refreshSettings failed', e);
+                  console.warn('[AdminCustomizer] saveAllSettings failed', e);
+                  showError('Erro ao salvar alterações');
+                } finally {
+                  setIsSaving(false);
                 }
-                showSuccess('Salvo!');
               }}
+              disabled={isSaving}
             >
-              <Save className="mr-2 h-4 w-4 group-hover:text-green-400 transition-colors" /> Salvar Alterações
+              {isSaving ? <Loader2 className="mr-2 h-5 w-5 animate-spin text-white" /> : <Save className="mr-2 h-4 w-4 group-hover:text-green-400 transition-colors" />} {isSaving ? 'Salvando...' : 'Salvar Alterações'}
             </Button>
          </div>
        </SheetContent>

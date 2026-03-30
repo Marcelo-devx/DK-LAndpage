@@ -316,7 +316,7 @@ const ConfirmacaoPedido = () => {
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center pt-8">
                 <Button asChild className="bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest px-10 h-16 text-lg rounded-2xl shadow-xl transition-all active:scale-95">
-                    <Link to="/">Continuar Comprando</Link>
+                    <Link to="/dashboard">Continuar Comprando</Link>
                 </Button>
                 <Button asChild variant="outline" className="px-10 h-16 text-lg border-stone-200 text-stone-600 hover:bg-stone-50 rounded-2xl font-black uppercase tracking-widest">
                     <Link to="/compras">Meus Pedidos</Link>

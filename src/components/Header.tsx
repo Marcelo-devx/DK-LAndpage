@@ -112,26 +112,24 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
                 </Link>
               </NavigationMenuTrigger>
               <NavigationMenuContent>
-                <div className="w-[600px] p-8 bg-black border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,1)] rounded-2xl">
+                <div className="w-[680px] max-w-[90vw] p-6 md:p-8 bg-black border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,1)] rounded-2xl">
                   <h4 className="text-[11px] font-black text-sky-500 uppercase tracking-[0.3em] border-b border-white/10 pb-3">Sub-Categorias</h4>
-                  <ul className="grid grid-cols-1 gap-2 mt-4">
+                  <div className="mt-4 grid grid-cols-1 gap-2 max-h-[60vh] overflow-y-auto pr-3 custom-scrollbar">
                     {categorySubs.length > 0 ? (
                       categorySubs.map((sub) => (
-                        <li key={sub.id}>
-                          <NavigationMenuLink asChild>
-                            <Link
-                              to={`/produtos?category=${encodeURIComponent(category.name)}&sub_category=${encodeURIComponent(sub.name)}`}
-                              className="block p-3 rounded-xl hover:bg-white/5 transition-all"
-                            >
-                              <span className="text-[12px] font-bold text-slate-300 hover:text-white uppercase tracking-wider" translate="no">{sub.name}</span>
-                            </Link>
-                          </NavigationMenuLink>
-                        </li>
+                        <NavigationMenuLink key={sub.id} asChild>
+                          <Link
+                            to={`/produtos?category=${encodeURIComponent(category.name)}&sub_category=${encodeURIComponent(sub.name)}`}
+                            className="block p-3 rounded-xl hover:bg-white/5 transition-all"
+                          >
+                            <span className="text-[12px] font-bold text-slate-300 hover:text-white uppercase tracking-wider" translate="no">{sub.name}</span>
+                          </Link>
+                        </NavigationMenuLink>
                       ))
                     ) : (
-                      <li className="text-[11px] text-slate-500 italic font-medium p-3">Nenhuma sub-categoria encontrada.</li>
+                      <div className="text-[11px] text-slate-500 italic font-medium p-3">Nenhuma sub-categoria encontrada.</div>
                     )}
-                  </ul>
+                  </div>
                 </div>
               </NavigationMenuContent>
             </NavigationMenuItem>

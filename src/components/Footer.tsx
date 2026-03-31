@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { Instagram, LogOut } from 'lucide-react';
+import { Instagram, Facebook, Twitter, LogOut } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -36,6 +36,20 @@ const Footer = () => {
     // force reload to ensure any cached UI state clears
     window.location.reload();
   };
+
+  // NOVO: Normalizar hrefs para garantir que links funcionem mesmo sem protocolo
+  const normalizeHref = (href?: string) => {
+    if (!href) return null;
+    const trimmed = href.trim();
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('mailto:') || trimmed.startsWith('#')) {
+      return trimmed;
+    }
+    return `https://${trimmed}`;
+  };
+
+  const igHref = normalizeHref(settings.socialInstagram);
+  const fbHref = normalizeHref(settings.socialFacebook);
+  const twHref = normalizeHref(settings.socialTwitter);
 
   return (
     <footer className="bg-white text-slate-500 border-t border-slate-200">
@@ -83,8 +97,20 @@ const Footer = () => {
             <h4 className="font-bold text-slate-900 uppercase text-xs tracking-[0.2em] mb-6">Siga-nos</h4>
             <div className="flex items-center justify-between">
               <div className="flex space-x-6">
-                {settings.socialInstagram && (
-                  <a href={settings.socialInstagram} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-sky-500 transition-all hover:scale-110"><Instagram size={22} /></a>
+                {fbHref && (
+                  <a href={fbHref} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-sky-500 transition-all hover:scale-110">
+                    <Facebook size={22} />
+                  </a>
+                )}
+                {igHref && (
+                  <a href={igHref} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-sky-500 transition-all hover:scale-110">
+                    <Instagram size={22} />
+                  </a>
+                )}
+                {twHref && (
+                  <a href={twHref} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-sky-500 transition-all hover:scale-110">
+                    <Twitter size={22} />
+                  </a>
                 )}
               </div>
 

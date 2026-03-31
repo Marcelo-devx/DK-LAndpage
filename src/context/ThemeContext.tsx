@@ -148,6 +148,17 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  // Chaves relacionadas ao footer
+  const footerKeys = [
+    'contact_email',
+    'contact_phone',
+    'contact_hours',
+    'social_facebook',
+    'social_instagram',
+    'social_twitter',
+    'logo_url',
+  ];
+
   const updateSetting = async (key: string, value: string) => {
     // 1. Atualização Otimista Instantânea (Local)
     const mapKey: Record<string, keyof ThemeSettings> = {
@@ -179,13 +190,15 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     const settingKey = mapKey[key];
-    if (settingKey) {
-        let finalValue: any = value;
-        if (['showHero', 'showInfo', 'showPromotions', 'showBrands', 'maintenanceMode'].includes(settingKey)) {
-            finalValue = value === 'true';
-        }
+    let finalValue: any = value;
+    if (settingKey && ['showHero', 'showInfo', 'showPromotions', 'showBrands', 'maintenanceMode'].includes(settingKey)) {
+        finalValue = value === 'true';
+    }
 
-        const newSettings = { ...settings, [settingKey]: finalValue };
+    // MOVED: Define newSettings outside if block so it's accessible in setTimeout
+    const newSettings = { ...settings, ...(settingKey ? { [settingKey]: finalValue } : {}) };
+
+    if (settingKey) {
         setSettings(newSettings);
         applyColors(newSettings);
     }
@@ -196,7 +209,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     dbTimeouts.current[key] = setTimeout(async () => {
-      // Use onConflict so the upsert merges with existing rows that have the same key.
+      // Use onConflict so that upsert merges with existing rows that have the same key.
       const { error } = await supabase
         .from('app_settings')
         .upsert([{ key, value }], { onConflict: 'key' });
@@ -211,6 +224,29 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
             .eq('key', key);
 
           if (updateError) console.error(`Erro ao atualizar ${key} após conflito:`, updateError);
+        }
+      }
+
+      // NOVO: Se a chave alterada for relacionada ao footer, atualizar footer_config automaticamente
+      if (footerKeys.includes(key)) {
+        const footerConfig = {
+          contactEmail: newSettings.contactEmail,
+          contactPhone: newSettings.contactPhone,
+          contactHours: newSettings.contactHours,
+          socialFacebook: newSettings.socialFacebook,
+          socialInstagram: newSettings.socialInstagram,
+          socialTwitter: newSettings.socialTwitter,
+          logoUrl: newSettings.logoUrl || '',
+        };
+
+        const { error: footerError } = await supabase
+          .from('app_settings')
+          .upsert([{ key: 'footer_config', value: JSON.stringify(footerConfig) }], { onConflict: 'key' });
+
+        if (footerError) {
+          console.error('Erro ao atualizar footer_config:', footerError);
+        } else {
+          console.log('footer_config atualizado automaticamente após alteração em:', key);
         }
       }
 

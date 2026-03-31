@@ -106,17 +106,57 @@ const AllProductsPage = () => {
   }, [selectedCategories, allSubCategories, availableSubCategories, normalizeString]);
 
   const fetchFilterOptions = useCallback(async () => {
-    const [catData, subCatData, brandData, flavorData] = await Promise.all([
+    // 1) Pegar categorias/sub-categorias 'mestras' (para manter ids e meta como show_age_restriction)
+    const [catRes, subCatRes] = await Promise.all([
       supabase.from('categories').select('id, name').eq('is_visible', true).order('name'),
       supabase.from('sub_categories').select('id, name, category_id').eq('is_visible', true).order('name'),
-      supabase.from('brands').select('name').eq('is_visible', true).order('name'),
-      supabase.from('flavors').select('name').eq('is_visible', true).order('name'),
     ]);
-    
-    if (catData.data) setAllCategories(catData.data);
-    if (subCatData.data) setAllSubCategories(subCatData.data);
-    if (brandData.data) setAllBrands(brandData.data.map(b => b.name));
-    if (flavorData.data) setAllFlavors(flavorData.data.map(f => f.name));
+
+    // 2) Buscar todos os produtos visíveis (iremos derivar categorias/sub-categorias/marcas a partir daqui)
+    const { data: productsData } = await supabase
+      .from('products')
+      .select('id, category, sub_category, brand')
+      .eq('is_visible', true);
+
+    const productCategories = new Set((productsData || []).map((p: any) => p.category).filter(Boolean));
+    const productSubCategories = new Set((productsData || []).map((p: any) => p.sub_category).filter(Boolean));
+    const productBrands = new Set((productsData || []).map((p: any) => p.brand).filter(Boolean));
+
+    // 3) Para sabores: coletar flavor_ids usados por variantes e por product_flavors dos produtos encontrados
+    const productIds = (productsData || []).map((p: any) => p.id);
+    let flavorIds: number[] = [];
+    if (productIds.length > 0) {
+      const [variantRes, prodFlavorRes] = await Promise.all([
+        supabase.from('product_variants').select('flavor_id, product_id').in('product_id', productIds).eq('is_active', true),
+        supabase.from('product_flavors').select('flavor_id, product_id').in('product_id', productIds),
+      ]);
+      const idsA = (variantRes.data || []).map((v: any) => v.flavor_id).filter(Boolean);
+      const idsB = (prodFlavorRes.data || []).map((pf: any) => pf.flavor_id).filter(Boolean);
+      flavorIds = Array.from(new Set([...idsA, ...idsB]));
+    }
+
+    // 4) Buscar nomes de sabores apenas para os flavorIds encontrados
+    let flavorsData: any[] = [];
+    if (flavorIds.length > 0) {
+      const { data: fData } = await supabase
+        .from('flavors')
+        .select('id, name')
+        .in('id', flavorIds)
+        .eq('is_visible', true)
+        .order('name');
+      flavorsData = fData || [];
+    }
+
+    // 5) Filtrar as listas mestras pela existência de produtos
+    const categoriesFiltered = (catRes.data || []).filter((c: any) => productCategories.has(c.name));
+    const subCategoriesFiltered = (subCatRes.data || []).filter((sc: any) => productSubCategories.has(sc.name));
+    const brandsFiltered = Array.from(productBrands).filter(Boolean).sort();
+    const flavorsFiltered = flavorsData.map(f => f.name);
+
+    setAllCategories(categoriesFiltered);
+    setAllSubCategories(subCategoriesFiltered);
+    setAllBrands(brandsFiltered);
+    setAllFlavors(flavorsFiltered);
   }, []);
 
   useEffect(() => { fetchFilterOptions(); }, [fetchFilterOptions]);

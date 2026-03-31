@@ -27,6 +27,7 @@ const AuthEventHandler = () => {
           window.location.href = '/';
         }, 100);
       }
+      // INITIAL_SESSION and TOKEN_REFRESHED are now handled in App.tsx
     });
 
     const subscription = data?.subscription;

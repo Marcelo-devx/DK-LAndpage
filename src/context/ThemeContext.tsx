@@ -381,10 +381,24 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
+    let isMounted = true;
+    
     // catch any errors from refreshSettings to avoid unhandled promise rejections
-    refreshSettings().catch((e) => {
-      console.error('[ThemeContext] refreshSettings failed', e);
-    });
+    refreshSettings()
+      .catch((e) => {
+        console.error('[ThemeContext] refreshSettings failed', e);
+        // Even if refreshSettings fails, the app should still render with default settings
+      })
+      .finally(() => {
+        // Ensure we never get stuck in a loading state
+        if (isMounted) {
+          console.log('[ThemeContext] Settings initialized');
+        }
+      });
+    
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   return (

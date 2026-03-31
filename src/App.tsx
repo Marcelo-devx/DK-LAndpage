@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -41,38 +41,66 @@ const AppContent = () => {
   const { settings } = useTheme();
   const [isAdmin, setIsAdmin] = useState(false);
   const [checkingRole, setCheckingRole] = useState(true);
+  const adminCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const checkAdmin = async () => {
       setCheckingRole(true);
+      
+      // Timeout de segurança: se a verificação demorar mais de 5 segundos, renderizar mesmo assim
+      if (adminCheckTimeoutRef.current) {
+        clearTimeout(adminCheckTimeoutRef.current);
+      }
+      
+      adminCheckTimeoutRef.current = setTimeout(() => {
+        console.warn('[App] Admin check timeout - rendering anyway');
+        setCheckingRole(false);
+      }, 5000);
+
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
           setIsAdmin(false);
+          setCheckingRole(false);
+          if (adminCheckTimeoutRef.current) {
+            clearTimeout(adminCheckTimeoutRef.current);
+          }
           return;
         }
+        
         const { data, error } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-        if (!error && data?.role === 'adm') setIsAdmin(true);
-        else setIsAdmin(false);
+        if (!error && data?.role === 'adm') {
+          setIsAdmin(true);
+        } else {
+          setIsAdmin(false);
+        }
       } catch (e) {
         console.error('[App] failed to determine admin role', e);
         setIsAdmin(false);
       } finally {
         setCheckingRole(false);
+        if (adminCheckTimeoutRef.current) {
+          clearTimeout(adminCheckTimeoutRef.current);
+        }
       }
     };
 
     // Run once on mount
     checkAdmin();
 
-    // Only re-check on meaningful auth events (sign in / sign out), not on token refresh
+    // Re-check on ALL auth events including INITIAL_SESSION and TOKEN_REFRESHED
+    // This ensures the app renders correctly when user returns to the browser
     const listener = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+      console.log('[App] Auth state event:', event);
+      if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') {
         checkAdmin();
       }
     });
 
     return () => {
+      if (adminCheckTimeoutRef.current) {
+        clearTimeout(adminCheckTimeoutRef.current);
+      }
       try {
         const subscription = (listener as any)?.data?.subscription ?? (listener as any)?.subscription ?? null;
         if (subscription && typeof subscription.unsubscribe === 'function') subscription.unsubscribe();

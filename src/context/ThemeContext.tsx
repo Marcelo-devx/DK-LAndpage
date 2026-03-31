@@ -299,31 +299,27 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
       { key: 'maintenance_mode', value: String(toSave.maintenanceMode) },
     ];
 
-    // To avoid duplicate rows for the same key (which causes flaky restores),
-    // delete any existing entries for these keys first, then insert fresh rows.
-    const keys = payload.map(p => p.key);
     try {
-      await supabase.from('app_settings').delete().in('key', keys);
-      const { error: insertError } = await supabase.from('app_settings').insert(payload);
-      if (insertError) {
-        console.error('saveAllSettings insert error', insertError);
-        // fallback to upsert per key
-        for (const row of payload) {
-          const { error: uErr } = await supabase.from('app_settings').upsert([row], { onConflict: 'key' });
-          if (uErr) {
-            await supabase.from('app_settings').update({ value: row.value }).eq('key', row.key);
-          }
-        }
-      }
-    } catch (e) {
-      console.error('saveAllSettings transactional fallback error', e);
-      // best-effort fallback
+      // SOLUÇÃO DEFINITIVA: Usar upsert com onConflict em vez de delete+insert
+      // Isso garante que sempre atualiza a mesma linha e evita race conditions
       for (const row of payload) {
-        const { error: uErr } = await supabase.from('app_settings').upsert([row], { onConflict: 'key' });
-        if (uErr) {
-          await supabase.from('app_settings').update({ value: row.value }).eq('key', row.key);
+        const { error } = await supabase
+          .from('app_settings')
+          .upsert([row], { 
+            onConflict: 'key', 
+            ignoreDuplicates: false 
+          });
+        
+        if (error) {
+          console.error(`Erro ao salvar ${row.key}:`, error);
+          throw new Error(`Falha ao salvar ${row.key}: ${error.message}`);
         }
       }
+      
+      console.log('[ThemeContext] Todas as configurações salvas com sucesso via upsert');
+    } catch (e) {
+      console.error('[ThemeContext] Erro ao salvar configurações:', e);
+      throw e;
     }
   };
 

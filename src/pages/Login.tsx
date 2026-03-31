@@ -193,9 +193,10 @@ const Login = () => {
 
       if (error) {
         console.error('[Login] signInWithOtp error:', error);
-        // Prefer the server-provided message when available
+        const status = (error as any)?.status;
         const msg = (error as any)?.message || 'Não foi possível enviar o código. Tente novamente.';
-        showError(msg);
+        if (status) showError(`${msg} (status ${status}). Verifique configuração de e-mail no Supabase.`);
+        else showError(msg);
       } else {
         // Keep the trimmed email value in state so the OTP verify can use it
         setEmailForSignup(email);
@@ -207,7 +208,8 @@ const Login = () => {
       }
     } catch (err: any) {
       console.error('[Login] Unexpected error sending OTP:', err);
-      showError(err?.message || 'Erro inesperado. Tente novamente mais tarde.');
+      // show a friendly message but keep full details in console for debugging
+      showError(err?.message || 'Erro inesperado. Tente novamente mais tarde. Veja console para detalhes.');
     } finally {
       setIsSendingCode(false);
     }
@@ -310,7 +312,9 @@ const Login = () => {
       } as any);
       if (error) {
         console.error('[Login] resend signInWithOtp error:', error);
-        showError((error as any)?.message || 'Não foi possível reenviar o código. Tente novamente.');
+        const status = (error as any)?.status;
+        if (status) showError(((error as any)?.message || 'Não foi possível reenviar o código.') + ` (status ${status}). Verifique configuração de e-mail no Supabase.`);
+        else showError((error as any)?.message || 'Não foi possível reenviar o código. Tente novamente.');
       } else {
         setResendCooldown(60);
         if ((data as any)?.message) showSuccess((data as any).message);

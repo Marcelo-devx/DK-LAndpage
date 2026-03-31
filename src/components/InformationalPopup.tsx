@@ -9,7 +9,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Info } from "lucide-react";
+import { Info, X } from "lucide-react";
 
 interface InformationalPopupProps {
   isOpen: boolean;
@@ -124,7 +124,7 @@ const InformationalPopup = ({ isOpen, onClose, title, content, onAccept }: Infor
   return (
     <Dialog open={isOpen} onOpenChange={() => {}}>
       <DialogContent 
-        className="w-[95vw] sm:max-w-2xl bg-slate-900 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] p-0 overflow-hidden rounded-[1.5rem] md:rounded-[2rem] max-h-[90vh] md:max-h-[90vh] flex flex-col outline-none [&>button]:hidden"
+        className="relative w-[95vw] sm:max-w-2xl bg-slate-900 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] p-0 overflow-hidden rounded-[1.5rem] md:rounded-[2rem] max-h-[90vh] md:max-h-[90vh] flex flex-col outline-none [&>button]:hidden"
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
         aria-describedby="info-popup-desc"
@@ -132,6 +132,19 @@ const InformationalPopup = ({ isOpen, onClose, title, content, onAccept }: Infor
         <DialogDescription className="sr-only">
             Popup com informações importantes sobre a loja.
         </DialogDescription>
+
+        {/* Close button (top-right) - wrapped in a div so it's not hidden by the [&>button]:hidden rule */}
+        <div className="absolute top-3 right-3 z-50">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fechar"
+            title="Fechar"
+            className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-red-600 hover:bg-red-500 text-white shadow-lg ring-1 ring-white/10 focus:outline-none focus:ring-2 focus:ring-red-400"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
 
         {/* Barra superior de destaque */}
         <div className="h-1.5 md:h-1.5 bg-gradient-to-r from-sky-500 to-indigo-500 w-full shrink-0" />

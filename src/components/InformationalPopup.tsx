@@ -20,72 +20,79 @@ interface InformationalPopupProps {
   onAccept?: () => void;
 }
 
-// Helper: sanitize and decode HTML so raw tags like <p> don't appear in the UI
-const sanitizeText = (input: string) => {
-  if (!input) return '';
-  // If running in browser, use a temporary element to decode entities and strip tags
+// Parse limited safe HTML and convert to React nodes. Allows these tags: p, br, ul, ol, li, strong, b, em, i, u, a
+const parseHtmlToReact = (html: string) => {
+  if (!html) return null;
   try {
-    if (typeof document !== 'undefined') {
-      const tmp = document.createElement('div');
-      // Set as HTML to allow decoding entities
-      tmp.innerHTML = input;
-      // textContent gives decoded text with tags removed
-      return tmp.textContent || tmp.innerText || '';
-    }
+    const parser = typeof DOMParser !== 'undefined' ? new DOMParser() : null;
+    const doc = parser ? parser.parseFromString(html, 'text/html') : null;
+    const root = doc ? doc.body : null;
+
+    const isSafeHref = (href: string | null) => {
+      if (!href) return false;
+      const trimmed = href.trim().toLowerCase();
+      return trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('mailto:') || trimmed.startsWith('#');
+    };
+
+    const walk = (node: ChildNode, idx: number): React.ReactNode => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        return node.textContent;
+      }
+
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const el = node as Element;
+        const tag = el.tagName.toLowerCase();
+        const children = Array.from(el.childNodes).map((n, i) => walk(n, i));
+
+        switch (tag) {
+          case 'p':
+            return <p key={idx} className="text-slate-300 text-sm md:text-base leading-relaxed mb-3">{children}</p>;
+          case 'br':
+            return <br key={idx} />;
+          case 'ul':
+            return <ul key={idx} className="list-disc list-inside ml-4 text-slate-300 text-sm md:text-base leading-relaxed">{children}</ul>;
+          case 'ol':
+            return <ol key={idx} className="list-decimal list-inside ml-4 text-slate-300 text-sm md:text-base leading-relaxed">{children}</ol>;
+          case 'li':
+            return <li key={idx} className="mb-1">{children}</li>;
+          case 'strong':
+          case 'b':
+            return <strong key={idx} className="font-black text-white">{children}</strong>;
+          case 'em':
+          case 'i':
+            return <em key={idx} className="italic">{children}</em>;
+          case 'u':
+            return <u key={idx}>{children}</u>;
+          case 'a': {
+            const href = el.getAttribute('href');
+            if (isSafeHref(href)) {
+              return (
+                <a key={idx} href={href || undefined} target={href && href.startsWith('#') ? undefined : '_blank'} rel={href && href.startsWith('#') ? undefined : 'noopener noreferrer'} className="text-sky-400 underline">
+                  {children}
+                </a>
+              );
+            }
+            // if not safe, render children only
+            return <>{children}</>;
+          }
+          default:
+            // For unknown tags, render their children (strip tag)
+            return <React.Fragment key={idx}>{children}</React.Fragment>;
+        }
+      }
+
+      return null;
+    };
+
+    const nodes = Array.from(root.childNodes).map((n, i) => walk(n, i));
+    return <div className="space-y-2">{nodes}</div>;
   } catch (e) {
-    // fallback to a simple regex removal if DOM unavailable
-    return input.replace(/<[^>]*>/g, '');
+    // fallback: plain text with simple line breaks
+    const plain = html.replace(/<[^>]*>/g, '');
+    return plain.split(/\r?\n/).map((line, i) => (
+      <p key={i} className="text-slate-300 text-sm md:text-base leading-relaxed mb-2">{line}</p>
+    ));
   }
-  return input.replace(/<[^>]*>/g, '');
-};
-
-// Ensure there's a space after punctuation when missing and collapse multiple spaces
-const normalizeSpacing = (s: string) => {
-  if (!s) return s;
-  // Insert a space after . ! ? if it's immediately followed by a non-space (and not end of string)
-  // Avoid touching things like ellipsis by handling multiple dots first
-  // Replace any occurrence of a punctuation followed by a non-space with punctuation + space + that char
-  let out = s.replace(/([.!?])(?=\S)/g, "$1 ");
-  // Collapse multiple spaces/newlines into single space where appropriate, but keep explicit newlines for splitting
-  // First, normalize Windows/Mac newlines to \n
-  out = out.replace(/\r\n|\r/g, '\n');
-  // Replace sequences of spaces (but preserve single newlines)
-  out = out.replace(/[ \t]{2,}/g, ' ');
-  // Trim spaces around newlines
-  out = out.split('\n').map(part => part.trim()).join('\n');
-  // Collapse repeated newlines to a single newline
-  out = out.replace(/\n{2,}/g, '\n');
-  return out.trim();
-};
-
-const renderContent = (text: string) => {
-  if (!text) return null;
-
-  // First sanitize the incoming content so HTML tags (e.g. <p>) don't show raw
-  const cleaned = normalizeSpacing(sanitizeText(text));
-
-  const sections = cleaned.split('---');
-  
-  return sections.map((section, sectionIndex) => (
-    <React.Fragment key={sectionIndex}>
-      <div className="space-y-3">
-        {section.trim().split('\n').map((line, lineIndex) => (
-          <p key={lineIndex} className="text-slate-300 text-sm md:text-base leading-relaxed">
-            {line.split('*').map((part, partIndex) => 
-              partIndex % 2 === 1 
-                ? <strong key={partIndex} className="font-black text-white bg-sky-500/20 px-1 rounded">{part}</strong> 
-                : part
-            )}
-          </p>
-        ))}
-      </div>
-      {sectionIndex < sections.length - 1 && (
-        <div className="py-4">
-          <Separator className="bg-white/10" />
-        </div>
-      )}
-    </React.Fragment>
-  ));
 };
 
 const InformationalPopup = ({ isOpen, onClose, title, content, onAccept }: InformationalPopupProps) => {
@@ -123,7 +130,7 @@ const InformationalPopup = ({ isOpen, onClose, title, content, onAccept }: Infor
             {/* Área de conteúdo com rolagem otimizada */}
             <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar" id="info-popup-desc">
               <div className="pb-4">
-                {renderContent(content)}
+                {parseHtmlToReact(content)}
               </div>
             </div>
 

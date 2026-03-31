@@ -19,14 +19,25 @@ interface DisplayProduct {
   showAgeBadge?: boolean;
 }
 
+interface Category {
+  id: number;
+  name: string;
+}
+
+interface SubCategory {
+  id: number;
+  name: string;
+  category_id: number;
+}
+
 const AllProductsPage = () => {
   const [searchParams] = useSearchParams();
 
   const [displayProducts, setDisplayProducts] = useState<DisplayProduct[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const [allCategories, setAllCategories] = useState<string[]>([]);
-  const [allSubCategories, setAllSubCategories] = useState<string[]>([]);
+  const [allCategories, setAllCategories] = useState<Category[]>([]);
+  const [allSubCategories, setAllSubCategories] = useState<SubCategory[]>([]);
   const [allBrands, setAllBrands] = useState<string[]>([]);
   const [allFlavors, setAllFlavors] = useState<string[]>([]);
 
@@ -45,23 +56,56 @@ const AllProductsPage = () => {
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
+  // Filtra subcategorias com base nas categorias selecionadas
+  const availableSubCategories = useCallback(() => {
+    if (selectedCategories.length === 0) {
+      // Se nenhuma categoria selecionada, mostra todas as subcategorias
+      return allSubCategories;
+    }
+    
+    // Se há categorias selecionadas, filtra pelas subcategorias daquelas categorias
+    const selectedCategoryIds = allCategories
+      .filter(c => selectedCategories.includes(c.name))
+      .map(c => c.id);
+    
+    return allSubCategories.filter(sc => selectedCategoryIds.includes(sc.category_id));
+  }, [selectedCategories, allCategories, allSubCategories]);
+
   // Sync filters when URL params change
   useEffect(() => {
     setSearchTerm(searchParams.get('search') ?? '');
-    setSelectedCategories(searchParams.get('category') ? [searchParams.get('category')!] : []);
-    setSelectedSubCategories(searchParams.get('sub_category') ? [searchParams.get('sub_category')!] : []);
-    setSelectedBrands(searchParams.get('brand') ? [searchParams.get('brand')!] : []);
+    const categoryParam = searchParams.get('category');
+    const subCategoryParam = searchParams.get('sub_category');
+    const brandParam = searchParams.get('brand');
+    
+    setSelectedCategories(categoryParam ? [categoryParam] : []);
+    setSelectedSubCategories(subCategoryParam ? [subCategoryParam] : []);
+    setSelectedBrands(brandParam ? [brandParam] : []);
   }, [searchParams]);
+
+  // Limpa subcategorias selecionadas quando a categoria muda
+  useEffect(() => {
+    const available = availableSubCategories();
+    const validSelected = selectedSubCategories.filter(sc => 
+      available.some(a => a.name === sc)
+    );
+    
+    // Se alguma subcategoria selecionada não está mais disponível, remove
+    if (validSelected.length !== selectedSubCategories.length) {
+      setSelectedSubCategories(validSelected);
+    }
+  }, [selectedCategories, allSubCategories]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchFilterOptions = useCallback(async () => {
     const [catData, subCatData, brandData, flavorData] = await Promise.all([
-      supabase.from('categories').select('name'),
-      supabase.from('sub_categories').select('name'),
-      supabase.from('brands').select('name'),
-      supabase.from('flavors').select('name').eq('is_visible', true),
+      supabase.from('categories').select('id, name').eq('is_visible', true).order('name'),
+      supabase.from('sub_categories').select('id, name, category_id').eq('is_visible', true).order('name'),
+      supabase.from('brands').select('name').eq('is_visible', true).order('name'),
+      supabase.from('flavors').select('name').eq('is_visible', true).order('name'),
     ]);
-    if (catData.data) setAllCategories(catData.data.map(c => c.name));
-    if (subCatData.data) setAllSubCategories(subCatData.data.map(sc => sc.name));
+    
+    if (catData.data) setAllCategories(catData.data);
+    if (subCatData.data) setAllSubCategories(subCatData.data);
     if (brandData.data) setAllBrands(brandData.data.map(b => b.name));
     if (flavorData.data) setAllFlavors(flavorData.data.map(f => f.name));
   }, []);
@@ -81,6 +125,7 @@ const AllProductsPage = () => {
         });
       }
 
+      // Busca IDs de sabores se filtro de sabor estiver ativo
       let productIdsFromFlavors: number[] | null = null;
       if (selectedFlavors.length > 0) {
         const { data: flavorIdsData } = await supabase.from('flavors').select('id').in('name', selectedFlavors);
@@ -105,27 +150,47 @@ const AllProductsPage = () => {
         .eq('is_visible', true);
 
       if (debouncedSearchTerm) {
-        // Search across multiple string fields so searching for a category/subcategory/brand also finds products
+        // Busca em múltiplos campos - nome, categoria, subcategoria, marca
         const term = `%${debouncedSearchTerm}%`;
-        // Use supabase.or to match any of these columns (case-insensitive)
         query = query.or(
           `name.ilike.${term},category.ilike.${term},sub_category.ilike.${term},brand.ilike.${term}`
         );
       }
-      if (selectedCategories.length > 0) query = query.in('category', selectedCategories);
-      if (selectedSubCategories.length > 0) query = query.in('sub_category', selectedSubCategories);
-      if (selectedBrands.length > 0) query = query.in('brand', selectedBrands);
-      if (productIdsFromFlavors) query = query.in('id', productIdsFromFlavors);
+      
+      // Filtro de categoria
+      if (selectedCategories.length > 0) {
+        query = query.in('category', selectedCategories);
+      }
+      
+      // Filtro de subcategoria (só aplica se houver categoria selecionada ou se estiver buscando sem categoria)
+      if (selectedSubCategories.length > 0) {
+        query = query.in('sub_category', selectedSubCategories);
+      }
+      
+      // Filtro de marca
+      if (selectedBrands.length > 0) {
+        query = query.in('brand', selectedBrands);
+      }
+      
+      // Filtro de sabores
+      if (productIdsFromFlavors) {
+        query = query.in('id', productIdsFromFlavors);
+      }
 
       const [sortField, sortOrder] = sortBy.split('-');
       query = query.order(sortField, { ascending: sortOrder === 'asc' });
 
       const { data: parentProducts, error } = await query;
-      if (error) { console.error('Error fetching products:', error); setDisplayProducts([]); return; }
+      if (error) { 
+        console.error('Error fetching products:', error); 
+        setDisplayProducts([]); 
+        return; 
+      }
 
       const products = parentProducts || [];
       const productIds = products.map(p => p.id);
 
+      // Busca variantes dos produtos encontrados
       const { data: variants } = productIds.length > 0
         ? await supabase.from('product_variants').select('id, product_id, price, pix_price, stock_quantity').in('product_id', productIds).eq('is_active', true)
         : { data: [] };
@@ -134,16 +199,36 @@ const AllProductsPage = () => {
       products.forEach(prod => {
         const prodVariants = variants?.filter(v => v.product_id === prod.id) || [];
         const showAge = prod.category ? (categoriesMap[normalizeCategory(prod.category)] ?? true) : true;
+        
         if (prodVariants.length > 0) {
           const minPrice = Math.min(...prodVariants.map(v => v.price));
           const minPixPrice = Math.min(...prodVariants.map(v => v.pix_price || v.price));
           const totalStock = prodVariants.reduce((acc, v) => acc + (v.stock_quantity || 0), 0);
-          finalDisplayList.push({ id: prod.id, name: prod.name, price: minPrice, pixPrice: minPixPrice, imageUrl: prod.image_url || '', stockQuantity: totalStock, hasMultipleVariants: true, showAgeBadge: showAge });
+          finalDisplayList.push({ 
+            id: prod.id, 
+            name: prod.name, 
+            price: minPrice, 
+            pixPrice: minPixPrice, 
+            imageUrl: prod.image_url || '', 
+            stockQuantity: totalStock, 
+            hasMultipleVariants: true, 
+            showAgeBadge: showAge 
+          });
         } else {
-          finalDisplayList.push({ id: prod.id, name: prod.name, price: prod.price, pixPrice: prod.pix_price, imageUrl: prod.image_url || '', stockQuantity: prod.stock_quantity, hasMultipleVariants: false, showAgeBadge: showAge });
+          finalDisplayList.push({ 
+            id: prod.id, 
+            name: prod.name, 
+            price: prod.price, 
+            pixPrice: prod.pix_price, 
+            imageUrl: prod.image_url || '', 
+            stockQuantity: prod.stock_quantity, 
+            hasMultipleVariants: false, 
+            showAgeBadge: showAge 
+          });
         }
       });
 
+      // Ordenação por preço após o processamento (para considerar o menor preço das variantes)
       if (sortField === 'price') {
         finalDisplayList.sort((a, b) => sortOrder === 'asc' ? a.price - b.price : b.price - a.price);
       }
@@ -228,8 +313,8 @@ const AllProductsPage = () => {
           {/* Sidebar */}
           <div className="lg:col-span-1 mb-6 lg:mb-0">
             <ProductFilters
-              categories={allCategories}
-              subCategories={allSubCategories}
+              categories={allCategories.map(c => c.name)}
+              subCategories={availableSubCategories().map(sc => sc.name)}
               brands={allBrands}
               flavors={allFlavors}
               selectedCategories={selectedCategories}

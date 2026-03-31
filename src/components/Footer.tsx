@@ -59,8 +59,8 @@ const Footer = () => {
 
   return (
     <footer className="bg-white text-slate-500 border-t border-slate-200">
-      <div className="container mx-auto px-6 py-16">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
+      <div className="container mx-auto px-4 py-10 md:px-6 md:py-16">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 md:gap-12">
           <div className="md:col-span-1">
             <h3 className="text-xl text-sky-500 mb-6 uppercase font-black italic tracking-tighter" translate="no">DKCWB.</h3>
             <p className="text-sm leading-relaxed text-slate-600">
@@ -99,11 +99,10 @@ const Footer = () => {
               </li>
             </ul>
           </div>
-          <div>
+          <div className="flex flex-col">
             <h4 className="font-bold text-slate-900 uppercase text-xs tracking-[0.2em] mb-6">Siga-nos</h4>
-            <div className="flex items-center justify-between">
-              <div className="flex space-x-6">
-                {/* Apenas Instagram, conforme solicitado */}
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center justify-center md:justify-start">
                 {igHref && (
                   <a href={igHref} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-pink-600 transition-all hover:scale-110">
                     <Instagram size={22} />
@@ -113,16 +112,16 @@ const Footer = () => {
 
               {session ? (
                 <div className="flex items-center">
-                  <button onClick={handleSignOut} className="flex items-center gap-2 text-sm text-slate-500 hover:text-rose-600">
+                  <button onClick={handleSignOut} className="flex items-center gap-2 text-sm text-slate-500 hover:text-rose-600 whitespace-nowrap">
                     <LogOut className="h-4 w-4" />
-                    Sair
+                    <span className="hidden md:inline">Sair</span>
                   </button>
                 </div>
               ) : null}
             </div>
           </div>
         </div>
-        <div className="mt-16 pt-8 border-t border-slate-100 text-center">
+        <div className="mt-12 md:mt-16 pt-8 border-t border-slate-100 text-center">
           <p className="text-[10px] uppercase tracking-[0.3em] text-slate-400">
             &copy; {new Date().getFullYear()} DKCWB. Todos os direitos reservados.
           </p>

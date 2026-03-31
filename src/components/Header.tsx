@@ -79,7 +79,7 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
 
     window.addEventListener('cartUpdated', updateCartCount);
     return () => {
-      authListener.subscription.unsubscribe();
+      try { authListener.subscription.unsubscribe(); } catch (e) { /* ignore */ }
       window.removeEventListener('cartUpdated', updateCartCount);
     };
   }, []);
@@ -112,45 +112,26 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
                 </Link>
               </NavigationMenuTrigger>
               <NavigationMenuContent>
-                <div className="w-[600px] p-8 bg-black border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,1)] rounded-2xl grid grid-cols-[240px_1fr] gap-10">
-                  {/* Left: informational card (kept compact) */}
-                  <div className="bg-white/[0.03] rounded-2xl p-7 flex flex-col justify-between border border-white/5 relative overflow-hidden group/box">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-sky-500/10 blur-[40px] rounded-full" />
-                    <div className="relative z-10">
-                        <h5 className="text-white font-black text-lg uppercase tracking-tighter italic mb-4 leading-tight border-l-4 border-sky-500 pl-3" translate="no">
-                            {category.name}.
-                        </h5>
-                        <p className="text-[11px] text-slate-400 font-medium leading-relaxed">
-                            Acesse agora nossa curadoria premium completa e exclusiva desenvolvida para a linha {category.name}.
-                        </p>
-                    </div>
-                    <Button asChild size="lg" className="mt-8 bg-white text-black hover:bg-sky-500 hover:text-white font-black uppercase text-[10px] tracking-[0.2em] h-12 rounded-xl transition-all shadow-xl relative z-10">
-                        <Link to={`/produtos?category=${category.name}`}>Explorar Tudo</Link>
-                    </Button>
-                  </div>
-
-                  {/* Right: sub-categories list (no internal scrollbar) */}
-                  <div className="space-y-6">
-                    <h4 className="text-[11px] font-black text-sky-500 uppercase tracking-[0.3em] border-b border-white/10 pb-3">Sub-Categorias</h4>
-                    <ul className="grid grid-cols-1 gap-2">
-                      {categorySubs.length > 0 ? (
-                        categorySubs.map((sub) => (
-                          <li key={sub.id}>
-                            <NavigationMenuLink asChild>
-                              <Link
-                                to={`/produtos?category=${encodeURIComponent(category.name)}&sub_category=${encodeURIComponent(sub.name)}`}
-                                className="block p-3 rounded-xl hover:bg-white/5 transition-all"
-                              >
-                                <span className="text-[12px] font-bold text-slate-300 hover:text-white uppercase tracking-wider" translate="no">{sub.name}</span>
-                              </Link>
-                            </NavigationMenuLink>
-                          </li>
-                        ))
-                      ) : (
-                        <li className="text-[11px] text-slate-500 italic font-medium p-3">Nenhuma sub-categoria encontrada.</li>
-                      )}
-                    </ul>
-                  </div>
+                <div className="w-[600px] p-8 bg-black border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,1)] rounded-2xl">
+                  <h4 className="text-[11px] font-black text-sky-500 uppercase tracking-[0.3em] border-b border-white/10 pb-3">Sub-Categorias</h4>
+                  <ul className="grid grid-cols-1 gap-2 mt-4">
+                    {categorySubs.length > 0 ? (
+                      categorySubs.map((sub) => (
+                        <li key={sub.id}>
+                          <NavigationMenuLink asChild>
+                            <Link
+                              to={`/produtos?category=${encodeURIComponent(category.name)}&sub_category=${encodeURIComponent(sub.name)}`}
+                              className="block p-3 rounded-xl hover:bg-white/5 transition-all"
+                            >
+                              <span className="text-[12px] font-bold text-slate-300 hover:text-white uppercase tracking-wider" translate="no">{sub.name}</span>
+                            </Link>
+                          </NavigationMenuLink>
+                        </li>
+                      ))
+                    ) : (
+                      <li className="text-[11px] text-slate-500 italic font-medium p-3">Nenhuma sub-categoria encontrada.</li>
+                    )}
+                  </ul>
                 </div>
               </NavigationMenuContent>
             </NavigationMenuItem>

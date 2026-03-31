@@ -185,20 +185,29 @@ const Login = () => {
     setIsSendingCode(true);
     try {
       // signInWithOtp will send an email with a token/otp depending on Supabase configuration.
-      // We do not set redirect here — user will verify using the token.
-      const { error } = await supabase.auth.signInWithOtp({ email } as any);
+      // Pass redirect options nested to match supabase-js v2 API signature.
+      const { data, error } = await supabase.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: `${window.location.origin}/auth/confirm` }
+      } as any);
 
       if (error) {
         console.error('[Login] signInWithOtp error:', error);
-        showError('Não foi possível enviar o código. Tente novamente.');
+        // Prefer the server-provided message when available
+        const msg = (error as any)?.message || 'Não foi possível enviar o código. Tente novamente.';
+        showError(msg);
       } else {
+        // Keep the trimmed email value in state so the OTP verify can use it
+        setEmailForSignup(email);
         setCodeSent(true);
         setResendCooldown(60); // 60s cooldown
-        showSuccess('Enviamos um código de 6 dígitos para seu e-mail. Verifique e insira abaixo.');
+        // Some Supabase setups return a message we can surface
+        if ((data as any)?.message) showSuccess((data as any).message);
+        else showSuccess('Enviamos um código de 6 dígitos para seu e-mail. Verifique e insira abaixo.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('[Login] Unexpected error sending OTP:', err);
-      showError('Erro inesperado. Tente novamente mais tarde.');
+      showError(err?.message || 'Erro inesperado. Tente novamente mais tarde.');
     } finally {
       setIsSendingCode(false);
     }
@@ -220,7 +229,7 @@ const Login = () => {
 
       if (error) {
         console.error('[Login] verifyOtp error:', error);
-        showError('Código inválido ou expirado. Tente reenviar.');
+        showError((error as any)?.message || 'Código inválido ou expirado. Tente reenviar.');
         return;
       }
 
@@ -295,17 +304,21 @@ const Login = () => {
         showError('Informe um e-mail válido');
         return;
       }
-      const { error } = await supabase.auth.signInWithOtp({ email } as any);
+      const { data, error } = await supabase.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: `${window.location.origin}/auth/confirm` }
+      } as any);
       if (error) {
         console.error('[Login] resend signInWithOtp error:', error);
-        showError('Não foi possível reenviar o código. Tente novamente.');
+        showError((error as any)?.message || 'Não foi possível reenviar o código. Tente novamente.');
       } else {
         setResendCooldown(60);
-        showSuccess('Código reenviado para seu e-mail.');
+        if ((data as any)?.message) showSuccess((data as any).message);
+        else showSuccess('Código reenviado para seu e-mail.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('[Login] Unexpected error resending OTP:', err);
-      showError('Erro inesperado. Tente novamente mais tarde.');
+      showError(err?.message || 'Erro inesperado. Tente novamente mais tarde.');
     } finally {
       setIsSendingCode(false);
     }

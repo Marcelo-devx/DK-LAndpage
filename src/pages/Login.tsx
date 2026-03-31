@@ -90,7 +90,7 @@ const Login = () => {
 
   useEffect(() => {
     // Handle SIGNED_IN events for the Auth component (keeps current behavior)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const listener = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('[Login] Auth state changed:', event, session?.user?.id);
       
       if (event === 'SIGNED_IN' && session) {
@@ -147,7 +147,16 @@ const Login = () => {
       }
     });
 
-    return () => subscription.unsubscribe();
+    // Normalize different SDK shapes for cleanup
+    const subscription = (listener as any)?.data?.subscription ?? (listener as any)?.subscription ?? null;
+    return () => {
+      try {
+        if (subscription && typeof subscription.unsubscribe === 'function') subscription.unsubscribe();
+        else if (listener && typeof (listener as any).unsubscribe === 'function') (listener as any).unsubscribe();
+      } catch (e) {
+        console.warn('[Login] failed to unsubscribe auth listener', e);
+      }
+    };
   }, [navigate, from]);
 
   // cooldown timer for resend

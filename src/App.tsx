@@ -66,13 +66,21 @@ const AppContent = () => {
     checkAdmin();
 
     // Only re-check on meaningful auth events (sign in / sign out), not on token refresh
-    const { data } = supabase.auth.onAuthStateChange((event) => {
+    const listener = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
         checkAdmin();
       }
     });
 
-    return () => data.subscription.unsubscribe();
+    return () => {
+      try {
+        const subscription = (listener as any)?.data?.subscription ?? (listener as any)?.subscription ?? null;
+        if (subscription && typeof subscription.unsubscribe === 'function') subscription.unsubscribe();
+        else if ((listener as any)?.unsubscribe) (listener as any).unsubscribe();
+      } catch (e) {
+        console.warn('[App] failed to unsubscribe auth listener', e);
+      }
+    };
   }, []);
 
   // While we're determining role, don't prematurely show maintenance screen

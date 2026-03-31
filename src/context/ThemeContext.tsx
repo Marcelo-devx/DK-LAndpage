@@ -89,7 +89,12 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
 
   const refreshSettings = async () => {
     // order by newest first so we pick the latest value when duplicates exist
-    const { data } = await supabase.from('app_settings').select('key, value, created_at').order('created_at', { ascending: false });
+    const { data, error } = await supabase.from('app_settings').select('key, value, created_at').order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('[ThemeContext] refreshSettings supabase error', error);
+      return;
+    }
     
     if (data) {
       const newSettings = { ...defaultSettings };
@@ -324,7 +329,10 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
-    refreshSettings();
+    // catch any errors from refreshSettings to avoid unhandled promise rejections
+    refreshSettings().catch((e) => {
+      console.error('[ThemeContext] refreshSettings failed', e);
+    });
   }, []);
 
   return (
@@ -333,3 +341,5 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     </ThemeContext.Provider>
   );
 };
+
+export default ThemeProvider;

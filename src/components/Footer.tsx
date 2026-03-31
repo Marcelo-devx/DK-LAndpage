@@ -12,27 +12,55 @@ const Footer = () => {
   useEffect(() => {
     let mounted = true;
     const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!mounted) return;
-      setSession(session);
+      try {
+        const res = await supabase.auth.getSession();
+        const s = res?.data?.session ?? null;
+        if (!mounted) return;
+        setSession(s);
+      } catch (e) {
+        console.error('[Footer] getSession error', e);
+        if (mounted) setSession(null);
+      }
     };
 
     getSession();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, currentSession) => {
-      setSession(currentSession);
+    // keep a reference to the subscription object so cleanup is safe
+    const listener = supabase.auth.onAuthStateChange((_event, currentSession) => {
+      setSession(currentSession ?? null);
     });
 
     return () => {
       mounted = false;
-      try { authListener.subscription.unsubscribe(); } catch (e) { /* ignore */ }
+      try {
+        // listener may be undefined or shaped differently across SDK versions
+        if (listener && (listener as any).data && (listener as any).data.subscription) {
+          (listener as any).data.subscription.unsubscribe();
+        } else if (listener && (listener as any).unsubscribe) {
+          // some versions return a simple unsubscribe function
+          (listener as any).unsubscribe();
+        }
+      } catch (e) {
+        // swallow to avoid breaking unmount
+        console.warn('[Footer] failed to unsubscribe auth listener', e);
+      }
     };
   }, []);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error('[Footer] signOut error', e);
+    }
+
+    // navigate + reload ensures UI reflects logged-out state
     navigate('/');
-    window.location.reload();
+    try {
+      window.location.reload();
+    } catch (e) {
+      // ignore reload errors in some embedded previews
+    }
   };
 
   // Normalizador específico para Instagram: aceita @usuario ou URL completa

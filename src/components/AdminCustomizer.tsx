@@ -126,7 +126,8 @@ const AdminCustomizer = () => {
 
   useEffect(() => {
     const checkAdmin = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: userData } = await supabase.auth.getUser();
+      const user = (userData as any)?.user ?? null;
       if (!user) { setIsAdmin(false); return; }
 
       const { data } = await supabase.from('profiles').select('role').eq('id', user.id).single();
@@ -153,8 +154,18 @@ const AdminCustomizer = () => {
     };
 
     checkAdmin();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => checkAdmin());
-    return () => subscription.unsubscribe();
+    // Use resilient listener handling
+    const listener = supabase.auth.onAuthStateChange(() => checkAdmin());
+    const subscription = (listener as any)?.data?.subscription ?? (listener as any)?.subscription ?? null;
+
+    return () => {
+      try {
+        if (subscription && typeof subscription.unsubscribe === 'function') subscription.unsubscribe();
+        else if ((listener as any)?.unsubscribe) (listener as any).unsubscribe();
+      } catch (e) {
+        console.warn('[AdminCustomizer] failed to unsubscribe auth listener', e);
+      }
+    };
   }, []);
 
   const updateWebhook = (event: string, url: string) => {

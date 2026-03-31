@@ -105,7 +105,9 @@ const AllProductsPage = () => {
         .eq('is_visible', true);
 
       if (debouncedSearchTerm) {
+        // Search across multiple string fields so searching for a category/subcategory/brand also finds products
         const term = `%${debouncedSearchTerm}%`;
+        // Use supabase.or to match any of these columns (case-insensitive)
         query = query.or(
           `name.ilike.${term},category.ilike.${term},sub_category.ilike.${term},brand.ilike.${term}`
         );
@@ -174,14 +176,15 @@ const AllProductsPage = () => {
     selectedBrands.length + selectedFlavors.length;
 
   return (
-    <div className="min-h-screen bg-off-white w-full">
-      <div className="container mx-auto px-4 py-8 md:py-10 w-full">
+    <div className="min-h-screen bg-off-white">
+
+      <div className="container mx-auto px-4 py-8 md:py-10">
         {/* Active filters bar */}
         {totalActiveFilters > 0 && (
-          <div className="mb-6 flex flex-wrap items-center gap-2 w-full">
-            <span className="text-[10px] font-black uppercase tracking-widest text-stone-400 shrink-0">Filtros ativos:</span>
+          <div className="mb-6 flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-black uppercase tracking-widest text-stone-400">Filtros ativos:</span>
             {selectedCategories.map(c => (
-              <span key={c} className="flex items-center gap-1 bg-sky-100 text-sky-700 text-[10px] font-black uppercase tracking-wide px-2.5 py-1 rounded-full border border-sky-200 shrink-0">
+              <span key={c} className="flex items-center gap-1 bg-sky-100 text-sky-700 text-[10px] font-black uppercase tracking-wide px-2.5 py-1 rounded-full border border-sky-200">
                 {c}
                 <button onClick={() => setSelectedCategories(prev => prev.filter(x => x !== c))} className="hover:text-sky-900">
                   <X className="h-2.5 w-2.5" />
@@ -189,7 +192,7 @@ const AllProductsPage = () => {
               </span>
             ))}
             {selectedBrands.map(b => (
-              <span key={b} className="flex items-center gap-1 bg-purple-100 text-purple-700 text-[10px] font-black uppercase tracking-wide px-2.5 py-1 rounded-full border border-purple-200 shrink-0">
+              <span key={b} className="flex items-center gap-1 bg-purple-100 text-purple-700 text-[10px] font-black uppercase tracking-wide px-2.5 py-1 rounded-full border border-purple-200">
                 {b}
                 <button onClick={() => setSelectedBrands(prev => prev.filter(x => x !== b))} className="hover:text-purple-900">
                   <X className="h-2.5 w-2.5" />
@@ -197,7 +200,7 @@ const AllProductsPage = () => {
               </span>
             ))}
             {selectedSubCategories.map(s => (
-              <span key={s} className="flex items-center gap-1 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-wide px-2.5 py-1 rounded-full border border-emerald-200 shrink-0">
+              <span key={s} className="flex items-center gap-1 bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase tracking-wide px-2.5 py-1 rounded-full border border-emerald-200">
                 {s}
                 <button onClick={() => setSelectedSubCategories(prev => prev.filter(x => x !== s))} className="hover:text-emerald-900">
                   <X className="h-2.5 w-2.5" />
@@ -205,7 +208,7 @@ const AllProductsPage = () => {
               </span>
             ))}
             {selectedFlavors.map(f => (
-              <span key={f} className="flex items-center gap-1 bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-wide px-2.5 py-1 rounded-full border border-amber-200 shrink-0">
+              <span key={f} className="flex items-center gap-1 bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-wide px-2.5 py-1 rounded-full border border-amber-200">
                 {f}
                 <button onClick={() => setSelectedFlavors(prev => prev.filter(x => x !== f))} className="hover:text-amber-900">
                   <X className="h-2.5 w-2.5" />
@@ -214,16 +217,16 @@ const AllProductsPage = () => {
             ))}
             <button
               onClick={handleClearFilters}
-              className="text-[10px] font-black uppercase tracking-widest text-red-500 hover:text-red-700 transition-colors ml-1 shrink-0"
+              className="text-[10px] font-black uppercase tracking-widest text-red-500 hover:text-red-700 transition-colors ml-1"
             >
               Limpar tudo
             </button>
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 w-full">
+        <div className="grid grid-cols-1 lg:grid-cols-4 lg:gap-8">
           {/* Sidebar */}
-          <div className="lg:col-span-1 w-full">
+          <div className="lg:col-span-1 mb-6 lg:mb-0">
             <ProductFilters
               categories={allCategories}
               subCategories={allSubCategories}
@@ -233,8 +236,6 @@ const AllProductsPage = () => {
               selectedSubCategories={selectedSubCategories}
               selectedBrands={selectedBrands}
               selectedFlavors={selectedFlavors}
-              initialSearch={searchTerm}
-              initialSort={sortBy}
               onSearchChange={setSearchTerm}
               onCategoryChange={setSelectedCategories}
               onSubCategoryChange={setSelectedSubCategories}
@@ -246,10 +247,10 @@ const AllProductsPage = () => {
           </div>
 
           {/* Products grid */}
-          <main className="lg:col-span-3 w-full min-w-0">
+          <main className="lg:col-span-3">
             {/* Results count */}
             {!loading && (
-              <div className="flex items-center justify-between mb-5 w-full">
+              <div className="flex items-center justify-between mb-5">
                 <p className="text-xs font-bold text-stone-400 uppercase tracking-widest">
                   {displayProducts.length > 0
                     ? <><span className="text-charcoal-gray font-black text-sm">{displayProducts.length}</span> produto{displayProducts.length !== 1 ? 's' : ''} encontrado{displayProducts.length !== 1 ? 's' : ''}</>
@@ -260,8 +261,8 @@ const AllProductsPage = () => {
             )}
 
             {loading ? (
-              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5 w-full">
-                {Array.from({ length: 12 }).map((_, index) => (
+              <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-5">
+                {Array.from({ length: 9 }).map((_, index) => (
                   <div key={index} className="flex flex-col space-y-2">
                     <Skeleton className="w-full rounded-2xl aspect-[4/5] bg-stone-200" />
                     <Skeleton className="h-4 w-3/4 rounded-lg bg-stone-200" />
@@ -271,7 +272,7 @@ const AllProductsPage = () => {
                 ))}
               </div>
             ) : displayProducts.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5 w-full">
+              <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-5">
                 {displayProducts.map((product, idx) => (
                   <ProductCard
                     key={`${product.id}-${idx}`}
@@ -290,7 +291,7 @@ const AllProductsPage = () => {
                 ))}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center py-24 text-center w-full">
+              <div className="flex flex-col items-center justify-center py-24 text-center">
                 <div className="bg-stone-100 rounded-full p-6 mb-6">
                   <PackageSearch className="h-12 w-12 text-stone-400" />
                 </div>

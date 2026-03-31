@@ -1,434 +1,280 @@
-import { useState, useEffect, useCallback, memo } from 'react';
-import ProductCard from '@/components/ProductCard';
-import ProductImage from '@/components/ProductImage';
-import { Card } from "@/components/ui/card";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useDebounce } from '@/hooks/use-debounce';
-
-// Define Sub-category type explicitly to match database schema
-interface SubCategory {
-  id: number;
-  name: string;
-  category_id: number;
-}
+import { Badge } from "@/components/ui/badge";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Filter, Search, X, ChevronDown, ChevronUp, SlidersHorizontal, ArrowUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ProductFiltersProps {
-  categories: Category[];
-  subCategories: SubCategory[];
-  brands: Brand[];
-  flavors: Flavor[];
+  categories: string[];
+  subCategories: string[];
+  brands: string[];
+  flavors: string[];
   selectedCategories: string[];
   selectedSubCategories: string[];
   selectedBrands: string[];
   selectedFlavors: string[];
-  initialSearch?: string;
-  initialSort?: string;
+  onSearchChange: (term: string) => void;
+  onCategoryChange: (categories: string[]) => void;
+  onSubCategoryChange: (subCategories: string[]) => void;
+  onBrandChange: (brands: string[]) => void;
+  onFlavorChange: (flavors: string[]) => void;
+  onSortChange: (sort: string) => void;
+  onClearFilters: () => void;
 }
 
-const ProductFilters = memo((props: ProductFiltersProps) => {
-  const {
-    categories,
-    subCategories,
-    brands,
-    flavors,
-    selectedCategories,
-    selectedSubCategories,
-    selectedBrands,
-    selectedFlavors,
-  } = props;
+const SORT_OPTIONS = [
+  { value: 'created_at-desc', label: 'Mais Recentes' },
+  { value: 'price-asc', label: 'Menor Preço' },
+  { value: 'price-desc', label: 'Maior Preço' },
+];
 
-  const [searchTerm, setSearchTerm] = useState<string>(props.initialSearch || '');
-  const [activeSort, setActiveSort] = useState<string>(props.initialSort || 'created_at-desc');
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    categories: true,
-    subCategories: true,
-    brands: true,
-    flavors: true,
-  });
+const FilterSection = ({
+  title,
+  items,
+  selected,
+  onToggle,
+  maxVisible = 6,
+}: {
+  title: string;
+  items: string[];
+  selected: string[];
+  onToggle: (item: string) => void;
+  maxVisible?: number;
+}) => {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? items : items.slice(0, maxVisible);
+  const hasMore = items.length > maxVisible;
 
-  const debouncedSearch = useDebounce((term: string) => {
-    // Logic for debouncing search will go here
-  }, 300);
-
-  // 3. Sync searchTerm when external parent (AllProductsPage) updates
-  useEffect(() => {
-    if (searchTerm !== props.initialSearch) {
-      setSearchTerm(searchTerm);
-    }
-  }, [searchTerm, props.initialSearch]);
-
-  // Toggle mobile sheet
-  const toggleMobile = useCallback(() => {
-    setIsMobileOpen(prev => !prev);
-  }, [setIsMobileOpen]);
-
-  // Toggle sections (Categories, Brands, Flavors)
-  const toggleSection = (section: 'categories' | 'brands' | 'flavors') => () => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }));
-  }, [setExpandedSections]);
-
-  const clearFilters = useCallback(() => {
-    setSearchTerm('');
-    setActiveSort('created_at-desc');
-    // Don't clear categories/brands/flavors here as requested
-    setSelectedCategories([]);
-    setSelectedSubCategories([]);
-    setSelectedBrands([]);
-    setSelectedFlavors([]);
-    // Note: The user requested clearing these, but keep the main `categories` list intact.
-  }, [setSearchTerm, setActiveSort]);
+  if (items.length === 0) return null;
 
   return (
-    <div className="bg-white">
-      {/* Filter Header */}
-      <div className="sticky top-0 z-30 w-full bg-white shadow-sm border-b border-gray-100 p-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-slate-900">Filtros</h3>
-          
-          {/* Clear Filters Button - User asked to remove this from Header in ProductFilters, but kept it here for UI. */}
-          {/* <Button onClick={clearFilters} className="text-xs font-semibold text-slate-500 hover:text-red-500">Limpar Filtros</Button> */}
-          
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500">{Object.keys(filters).length} filtros ativos</span>
-            <Input 
-              type="search"
-              placeholder="Buscar produtos..."
-              className="h-9 w-full md:w-64 bg-white border-gray-200 rounded-md px-3 py-1 text-sm"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              onFocus={(e) => e.target.select()}
-            />
-          </div>
-        </div>
+    <div className="space-y-2">
+      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">{title}</p>
+      <div className="flex flex-wrap gap-1.5">
+        {visible.map((item) => {
+          const active = selected.includes(item);
+          return (
+            <button
+              key={item}
+              onClick={() => onToggle(item)}
+              className={cn(
+                "px-3 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wide transition-all duration-200 border",
+                active
+                  ? "bg-sky-500 text-white border-sky-400 shadow-[0_0_12px_rgba(14,165,233,0.4)]"
+                  : "bg-white text-stone-600 border-stone-200 hover:border-sky-300 hover:text-sky-600"
+              )}
+            >
+              {item}
+            </button>
+          );
+        })}
       </div>
-
-      {/* Filter Content */}
-      <div className="px-4 py-6">
-        
-        {/* Categories */}
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              <h4 className="font-bold text-slate-900 flex items-center justify-between">
-                <div>
-                  <span className="text-xs font-bold text-slate-500 uppercase">Categorias</span>
-                  {/* Mobile Dropdown Toggle */}
-                  <div className="md:hidden">
-                    <button
-                      onClick={() => toggleSection('categories')}
-                      className={cn(
-                        "flex items-center justify-between w-full px-2",
-                        expandedSections.categories ? "bg-white text-slate-900 border-gray-100 rounded-t-md" : "text-slate-500 hover:bg-slate-100",
-                        "transition-all duration-200"
-                      )}
-                    >
-                      <span className="text-xs font-bold uppercase">{expandedSections.categories ? 'Ver menos' : 'Ver mais'}</span>
-                    </button>
-                  </div>
-                </div>
-                <ChevronDown className="w-4 h-4 text-slate-500 transform transition-transform duration-200" />
-              </CardTitle>
-            </CardHeader>
-
-          {/* Mobile Sheet Content */}
-          <SheetTrigger className="md:hidden" asChild onClick={() => toggleSection('categories')}>
-            <div className="px-6 py-2 flex items-center gap-4">
-              <div className="text-sm font-medium text-slate-900">Categorias</div>
-            </div>
-          </SheetTrigger>
-
-          <SheetContent side="left" className={cn(
-            "w-[90vw] h-full bg-white",
-            isMobileOpen ? "translate-x-0" : "translate-x-0",
-            "transition-transform duration-300",
-            "ease-out"
-          )}>
-            <div className="h-full overflow-y-auto">
-              <div className="px-4 py-2 space-y-4">
-                {selectedCategories.map((category) => (
-                  <div key={category}>
-                    <Checkbox 
-                      id={`checkbox-${category}`}
-                      checked={selectedCategories.includes(category)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedCategories(prev => [...prev, category]);
-                        } else {
-                          setSelectedCategories(prev => prev.filter(c => c !== category));
-                        }
-                      }}
-                      className="peer sr-only"
-                    />
-                    <label 
-                      htmlFor={`checkbox-${category}`}
-                      className="text-sm text-slate-700 cursor-pointer select-none"
-                    >
-                      {category}
-                    </label>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </SheetContent>
-        </Card>
-
-        {/* Brands */}
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-xs font-bold text-slate-500 uppercase">Marcas</span>
-                  {/* Mobile Dropdown Toggle */}
-                  <div className="md:hidden">
-                    <button
-                      onClick={() => toggleSection('brands')}
-                      className={cn(
-                        "flex items-center justify-between w-full px-2",
-                        expandedSections.brands ? "bg-white text-slate-900 border-gray-100 rounded-t-md" : "text-slate-500 hover:bg-slate-100",
-                        "transition-all duration-200"
-                      )}
-                    >
-                      <span className="text-xs font-bold uppercase">{expandedSections.brands ? 'Ver menos' : 'Ver mais'}</span>
-                    </button>
-                  </div>
-                </div>
-                <ChevronDown className="w-4 h-4 text-s-500 transform transition-transform duration-200" />
-              </CardTitle>
-            </CardHeader>
-
-          {/* Mobile Sheet Content */}
-          <SheetTrigger className="md:hidden" asChild onClick={() => toggleSection('brands')}>
-            <div className="px-6 py-2 flex items-center gap-4">
-              <div className="text-sm font-medium text-slate-900">Marcas</div>
-            </div>
-          </SheetTrigger>
-
-          <SheetContent side="left" className={cn(
-            "w-[90vw] h-full bg-white",
-            isMobileOpen ? "translate-x-0" : "translate-x-0",
-            "transition-transform duration-300",
-            "ease-out"
-          )}>
-            <div className="h-full overflow-y-auto">
-              <div className="px-4 py-2 space-y-4">
-                {selectedBrands.map((brand) => (
-                  <div key={brand}>
-                    <Checkbox 
-                      id={`checkbox-${brand}`}
-                      checked={selectedBrands.includes(brand)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedBrands(prev => [...prev, brand]);
-                        } else {
-                          setSelectedBrands(prev => prev.filter(b => b !== brand));
-                        }
-                      }}
-                      className="peer sr-only"
-                    />
-                    <label 
-                      htmlFor={`checkbox-${brand}`}
-                      className="text-sm text-slate-700 cursor-pointer select-none"
-                    >
-                      {brand}
-                    </label>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </SheetContent>
-        </Card>
-
-        {/* Flavors */}
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-xs font-bold text-slate-500 uppercase">Sabores</span>
-                  {/* Mobile Dropdown Toggle */}
-                  <div className="md:hidden">
-                    <button
-                      onClick={() => toggleSection('flavors')}
-                      className={cn(
-                        "flex items-center justify-between w-full px-2",
-                        expandedSections.flavors ? "bg-white text-slate-900 border-gray-100 rounded-t-md" : "text-slate-500 hover:bg-slate-100",
-                        "transition-all duration-200"
-                      )}
-                    >
-                      <span className="text-xs font-bold uppercase">{expandedSections.flavors ? 'Ver menos' : 'Ver mais'}</span>
-                    </button>
-                  </div>
-                </div>
-                <ChevronDown className="w-4 h-4 text-s-500 transform transition-transform duration-200" />
-              </CardTitle>
-            </CardHeader>
-
-          {/* Mobile Sheet Content */}
-          <SheetTrigger className="md:hidden" asChild onClick={() => toggleSection('flavors')}>
-            <div className="px-6 py-2 flex items-center gap-4">
-              <div className="text-sm font-medium text-slate-900">Sabores</div>
-            </div>
-          </SheetTrigger>
-
-          <SheetContent side="left" className={cn(
-            "w-[90vw] h-full bg-white",
-            isMobileOpen ? "translate-x-0" : "translate-x-0",
-            "transition-transform duration-300",
-            "ease-out"
-          )}>
-            <div className="h-full overflow-y-auto">
-              <div className="px-4 py-2 space-y-4">
-                {selectedFlavors.map((flavor) => (
-                  <div key={flavor}>
-                    <Checkbox 
-                      id={`checkbox-${flavor}`}
-                      checked={selectedFlavors.includes(flavor)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedFlavors(prev => [...prev, flavor]);
-                        } else {
-                          setSelectedFlavors(prev => prev.filter(f => f !== flavor));
-                        }
-                      }}
-                      className="peer sr-only"
-                    />
-                    <label 
-                      htmlFor={`checkbox-${flavor}`}
-                      className="text-sm text-slate-700 cursor-pointer select-none"
-                    >
-                      {flavor}
-                    </label>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </SheetContent>
-        </Card>
-
-        {/* Desktop Filters - Collapsible */}
-        <div className="hidden md:flex md:flex gap-6 flex-col">
-          {/* Categories */}
-          <div className="flex-1">
-            <button
-              onClick={() => toggleSection('categories')}
-              className={cn(
-                "flex items-center justify-between p-4 rounded-xl border border-transparent hover:bg-slate-50 transition-colors",
-                expandedSections.categories ? "bg-slate-50" : "",
-                "w-full"
-              )}
-            >
-              <span className="text-xs font-bold text-slate-500 uppercase">Categorias</span>
-              <ChevronDown className={cn("w-4 h-4 text-slate-500 transition-transform duration-200", expandedSections.categories ? "-rotate-180" : "rotate-0")} />
-            </button>
-          </div>
-
-          <div className={cn(
-            "flex-1 flex-col overflow-hidden transition-all duration-300",
-            expandedSections.categories ? "flex h-auto max-h-0" : "h-[500px]",
-            "opacity-0 invisible pointer-events-none"
-          )}>
-            {selectedCategories.length > 0 ? (
-              <div className="space-y-1">
-                {selectedCategories.map((category) => (
-                  <div key={category} className="px-4 py-2 rounded-xl border border-transparent hover:bg-slate-50 transition-colors cursor-pointer group hover:border-sky-500">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-slate-700">{category}</span>
-                      <span className="text-xs text-slate-500 font-bold uppercase truncate">{selectedCategories.includes(category) ? 'Remover' : 'Adicionar'}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-sm text-slate-500 italic">Nenhuma categoria selecionada.</div>
-            )}
-          </div>
-
-          {/* Brands */}
-          <div className="flex-1">
-            <button
-              onClick={() => toggleSection('brands')}
-              className={cn(
-                "flex items-center justify-between p-4 rounded-xl border-transparent hover:bg-slate-50 transition-colors",
-                expandedSections.brands ? "bg-slate-50" : "",
-                "w-full"
-              )}
-            >
-              <span className="text-xs font-bold text-slate-500 uppercase">Marcas</span>
-              <ChevronDown className={cn("w-4 h-4 text-s-500 transition-transform duration-200", expandedSections.brands ? "-rotate-180" : "rotate-0")} />
-            </button>
-          </div>
-
-          <div className={cn(
-            "flex-1 flex-col overflow-hidden transition-all duration-300",
-            expandedSections.brands ? "flex h-auto max-h-0" : "h-[500px]",
-            "opacity-0 invisible pointer-events-none"
-          )}>
-            {selectedBrands.length > 0 ? (
-              <div className="space-y-1">
-                {selectedBrands.map((brand) => (
-                  <div key={brand} className="px-4 py-2 rounded-xl border-transparent hover:bg-slate-50 transition-colors cursor-pointer group hover:border-sky-500">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-slate-700">{brand}</span>
-                      <span className="text-xs text-slate-500 font-bold uppercase truncate">{selectedBrands.includes(brand) ? 'Remover' : 'Adicionar'}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-sm text-slate-500 italic">Nenhuma marca selecionada.</div>
-            )}
-          </div>
-
-          {/* Flavors */}
-          <div className="flex-1">
-            <button
-              onClick={() => toggleSection('flavors')}
-              className={cn(
-                "flex items-center justify-between p-4 rounded-xl border-transparent hover:bg-sale-50 transition-colors",
-                expandedSections.flavors ? "bg-ale-50" : "",
-                "w-full"
-              )}
-            >
-              <span className="text-xs font-bold text-slate-500 uppercase">Sabores</span>
-              <ChevronDown className={cn("w-4 h-4 text-sale-500 transition-transform duration-200", expandedSections.flavors ? "-rotate-180" : "rotate-0")} />
-            </button>
-          </div>
-
-          <div className={cn(
-            "flex-1 flex-col overflow-hidden transition-all duration-300",
-            expandedSections.flavors ? "flex h-auto max-h-0" : "h-[500px]",
-            "opacity-0 invisible pointer-events-none"
-          )}>
-            {selectedFlavors.length > 0 ? (
-              <div className="space-y-1">
-                {selectedFlavors.map((flavor) => (
-                  <div key={flavor} className="px-4 py-2 rounded-xl border-transparent hover:bg-sale-50 transition-colors cursor-pointer group hover:border-sky-500">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-slate-700">{flavor}</span>
-                      <span className="text-xs text-slate-500 font-bold uppercase truncate">{selectedFlavors.includes(flavor) ? 'Remover' : 'Adicionar'}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-sm text-slate-500 italic">Nenhum sabor selecionado.</div>
-            )}
-          </div>
-        </div>
-      </div>
+      {hasMore && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-sky-500 hover:text-sky-400 transition-colors mt-1"
+        >
+          {expanded ? (
+            <><ChevronUp className="h-3 w-3" /> Ver menos</>
+          ) : (
+            <><ChevronDown className="h-3 w-3" /> +{items.length - maxVisible} mais</>
+          )}
+        </button>
+      )}
     </div>
   );
-});
+};
 
-ProductFilters.displayName = 'ProductFilters';
+const ProductFilters = (props: ProductFiltersProps) => {
+  const {
+    categories, subCategories, brands, flavors,
+    selectedCategories, selectedSubCategories, selectedBrands, selectedFlavors,
+    onSearchChange, onCategoryChange, onSubCategoryChange, onBrandChange, onFlavorChange,
+    onSortChange, onClearFilters,
+  } = props;
+
+  const isMobile = useIsMobile();
+  const [activeSort, setActiveSort] = useState('created_at-desc');
+  const [searchValue, setSearchValue] = useState('');
+
+  const totalActive =
+    selectedCategories.length + selectedSubCategories.length +
+    selectedBrands.length + selectedFlavors.length;
+
+  const handleSortChange = (val: string) => {
+    setActiveSort(val);
+    onSortChange(val);
+  };
+
+  const handleSearchChange = (val: string) => {
+    setSearchValue(val);
+    onSearchChange(val);
+  };
+
+  const handleClearAll = () => {
+    setSearchValue('');
+    setActiveSort('created_at-desc');
+    onClearFilters();
+  };
+
+  const FiltersContent = () => (
+    <div className="space-y-6">
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
+        <Input
+          placeholder="Buscar produto..."
+          value={searchValue}
+          onChange={(e) => handleSearchChange(e.target.value)}
+          className="pl-10 h-11 rounded-xl border-stone-200 bg-white text-sm font-medium focus:border-sky-400 focus:ring-sky-400/20"
+        />
+        {searchValue && (
+          <button
+            onClick={() => handleSearchChange('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+
+      {/* Sort */}
+      <div className="space-y-2">
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400 flex items-center gap-1.5">
+          <ArrowUpDown className="h-3 w-3" /> Ordenar
+        </p>
+        <div className="flex flex-col gap-1.5">
+          {SORT_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => handleSortChange(opt.value)}
+              className={cn(
+                "w-full text-left px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all duration-200 border",
+                activeSort === opt.value
+                  ? "bg-slate-950 text-white border-slate-800"
+                  : "bg-white text-stone-600 border-stone-200 hover:border-slate-300"
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Divider */}
+      <div className="border-t border-stone-100" />
+
+      {/* Filter sections */}
+      <FilterSection
+        title="Categorias"
+        items={categories}
+        selected={selectedCategories}
+        onToggle={(item) => {
+          const next = selectedCategories.includes(item)
+            ? selectedCategories.filter(c => c !== item)
+            : [...selectedCategories, item];
+          onCategoryChange(next);
+        }}
+      />
+
+      <FilterSection
+        title="Sub-Categorias"
+        items={subCategories}
+        selected={selectedSubCategories}
+        onToggle={(item) => {
+          const next = selectedSubCategories.includes(item)
+            ? selectedSubCategories.filter(c => c !== item)
+            : [...selectedSubCategories, item];
+          onSubCategoryChange(next);
+        }}
+      />
+
+      <FilterSection
+        title="Marcas"
+        items={brands}
+        selected={selectedBrands}
+        onToggle={(item) => {
+          const next = selectedBrands.includes(item)
+            ? selectedBrands.filter(b => b !== item)
+            : [...selectedBrands, item];
+          onBrandChange(next);
+        }}
+      />
+
+      <FilterSection
+        title="Sabores"
+        items={flavors}
+        selected={selectedFlavors}
+        onToggle={(item) => {
+          const next = selectedFlavors.includes(item)
+            ? selectedFlavors.filter(f => f !== item)
+            : [...selectedFlavors, item];
+          onFlavorChange(next);
+        }}
+        maxVisible={8}
+      />
+
+      {/* Clear */}
+      {totalActive > 0 && (
+        <button
+          onClick={handleClearAll}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-red-200 bg-red-50 text-red-600 text-xs font-black uppercase tracking-widest hover:bg-red-100 transition-colors"
+        >
+          <X className="h-3.5 w-3.5" />
+          Limpar {totalActive} filtro{totalActive > 1 ? 's' : ''}
+        </button>
+      )}
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <Sheet>
+        <SheetTrigger asChild>
+          <Button
+            variant="outline"
+            className="w-full h-12 rounded-2xl border-stone-200 font-black uppercase tracking-widest text-xs gap-2 relative"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            Filtros e Ordenação
+            {totalActive > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 bg-sky-500 text-white text-[9px] font-black rounded-full h-5 w-5 flex items-center justify-center">
+                {totalActive}
+              </span>
+            )}
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="left" className="bg-stone-50 w-[320px] overflow-y-auto">
+          <SheetHeader className="mb-6">
+            <SheetTitle className="font-black text-xl uppercase tracking-tighter italic text-charcoal-gray">
+              Filtros
+            </SheetTitle>
+          </SheetHeader>
+          <FiltersContent />
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
+  return (
+    <aside className="sticky top-24 h-fit bg-stone-50 rounded-3xl p-6 border border-stone-100">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="font-black text-lg uppercase tracking-tighter italic text-charcoal-gray flex items-center gap-2">
+          <SlidersHorizontal className="h-4 w-4 text-sky-500" />
+          Filtros
+        </h2>
+        {totalActive > 0 && (
+          <Badge className="bg-sky-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full">
+            {totalActive}
+          </Badge>
+        )}
+      </div>
+      <FiltersContent />
+    </aside>
+  );
+};
+
 export default ProductFilters;

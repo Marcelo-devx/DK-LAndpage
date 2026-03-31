@@ -151,6 +151,36 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
       setSettings(newSettings);
       applyColors(newSettings);
     }
+
+    // Additionally, prefer footer_settings table as single source of truth for footer data
+    try {
+      const { data: footerRow, error: footerError } = await supabase
+        .from('footer_settings')
+        .select('contact_email, contact_phone, contact_hours, social_facebook, social_instagram, social_twitter, logo_url')
+        .eq('id', '00000000-0000-0000-0000-000000000001')
+        .single();
+
+      if (!footerError && footerRow) {
+        setSettings((prev) => {
+          const merged = {
+            ...prev,
+            contactEmail: footerRow.contact_email || prev.contactEmail,
+            contactPhone: footerRow.contact_phone || prev.contactPhone,
+            contactHours: footerRow.contact_hours || prev.contactHours,
+            socialFacebook: footerRow.social_facebook || prev.socialFacebook,
+            socialInstagram: footerRow.social_instagram || prev.socialInstagram,
+            socialTwitter: footerRow.social_twitter || prev.socialTwitter,
+            logoUrl: footerRow.logo_url || prev.logoUrl,
+          };
+          applyColors(merged);
+          return merged;
+        });
+      } else if (footerError) {
+        console.warn('[ThemeContext] footer_settings read error', footerError);
+      }
+    } catch (e) {
+      console.warn('[ThemeContext] failed to read footer_settings', e);
+    }
   };
 
   // Chaves relacionadas ao footer
@@ -214,7 +244,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     dbTimeouts.current[key] = setTimeout(async () => {
-      // Use onConflict so that upsert merges with existing rows that have the same key.
+      // Persist generic setting to app_settings for compatibility
       const { error } = await supabase
         .from('app_settings')
         .upsert([{ key, value }], { onConflict: 'key' });
@@ -232,26 +262,27 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
         }
       }
 
-      // NOVO: Se a chave alterada for relacionada ao footer, atualizar footer_config automaticamente
+      // If this is a footer-related key, update the dedicated footer_settings table instead of footer_config
       if (footerKeys.includes(key)) {
-        const footerConfig = {
-          contactEmail: newSettings.contactEmail,
-          contactPhone: newSettings.contactPhone,
-          contactHours: newSettings.contactHours,
-          socialFacebook: newSettings.socialFacebook,
-          socialInstagram: newSettings.socialInstagram,
-          socialTwitter: newSettings.socialTwitter,
-          logoUrl: newSettings.logoUrl || '',
+        const footerPayload = {
+          id: '00000000-0000-0000-0000-000000000001',
+          contact_email: newSettings.contactEmail,
+          contact_phone: newSettings.contactPhone,
+          contact_hours: newSettings.contactHours,
+          social_facebook: newSettings.socialFacebook,
+          social_instagram: newSettings.socialInstagram,
+          social_twitter: newSettings.socialTwitter,
+          logo_url: newSettings.logoUrl || '',
         };
 
         const { error: footerError } = await supabase
-          .from('app_settings')
-          .upsert([{ key: 'footer_config', value: JSON.stringify(footerConfig) }], { onConflict: 'key' });
+          .from('footer_settings')
+          .upsert([footerPayload], { onConflict: 'id' });
 
         if (footerError) {
-          console.error('Erro ao atualizar footer_config:', footerError);
+          console.error('[ThemeContext] Erro ao atualizar footer_settings:', footerError);
         } else {
-          console.log('footer_config atualizado automaticamente após alteração em:', key);
+          console.log('footer_settings atualizado automaticamente após alteração em:', key);
         }
       }
 
@@ -286,9 +317,9 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
       { key: 'footer_banner_title', value: toSave.footerBannerTitle },
       { key: 'footer_banner_subtitle', value: toSave.footerBannerSubtitle },
       { key: 'footer_banner_button_text', value: toSave.footerBannerButtonText },
-      // footer atomic entry
+      // footer atomic entry (kept for backward compatibility but site will prefer footer_settings)
       { key: 'footer_config', value: JSON.stringify(footerConfig) },
-      // keep individual footer keys as compatibility fallback (they will be ignored if footer_config exists)
+      // keep individual footer keys as compatibility fallback (they will be ignored if footer_settings exists)
       { key: 'contact_email', value: toSave.contactEmail },
       { key: 'contact_phone', value: toSave.contactPhone },
       { key: 'contact_hours', value: toSave.contactHours },
@@ -305,19 +336,40 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     ];
 
     try {
+      // First ensure footer_settings row is upserted as canonical source
+      const { error: footerError } = await supabase
+        .from('footer_settings')
+        .upsert([
+          {
+            id: '00000000-0000-0000-0000-000000000001',
+            contact_email: footerConfig.contactEmail,
+            contact_phone: footerConfig.contactPhone,
+            contact_hours: footerConfig.contactHours,
+            social_facebook: footerConfig.socialFacebook,
+            social_instagram: footerConfig.socialInstagram,
+            social_twitter: footerConfig.socialTwitter,
+            logo_url: footerConfig.logoUrl || '',
+          }
+        ], { onConflict: 'id' });
+
+      if (footerError) {
+        console.error('[ThemeContext] Erro ao salvar footer_settings via saveAllSettings:', footerError);
+        throw footerError;
+      }
+
       // SOLUÇÃO DEFINITIVA: Usar upsert com onConflict em vez de delete+insert
       // Isso garante que sempre atualiza a mesma linha e evita race conditions
       for (const row of payload) {
-        const { error } = await supabase
+        const { error: rowError } = await supabase
           .from('app_settings')
           .upsert([row], { 
             onConflict: 'key', 
             ignoreDuplicates: false 
           });
         
-        if (error) {
-          console.error(`Erro ao salvar ${row.key}:`, error);
-          throw new Error(`Falha ao salvar ${row.key}: ${error.message}`);
+        if (rowError) {
+          console.error(`Erro ao salvar ${row.key}:`, rowError);
+          throw new Error(`Falha ao salvar ${row.key}: ${rowError.message}`);
         }
       }
       

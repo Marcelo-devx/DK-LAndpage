@@ -124,10 +124,11 @@ const InformationalPopup = ({ isOpen, onClose, title, content, onAccept }: Infor
   return (
     <Dialog open={isOpen} onOpenChange={() => {}}>
       <DialogContent 
-        className="w-[95vw] sm:max-w-2xl bg-slate-900 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] p-0 overflow-hidden rounded-[1.5rem] md:rounded-[2rem] max-h-[90vh] md:max-h-[90vh] flex flex-col outline-none [&>button]:hidden"
+        className="w-[95vw] sm:max-w-2xl bg-slate-900 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] p-0 overflow-hidden rounded-[1.5rem] md:rounded-[2rem] max-h-[90vh] md:max-h-[90vh] flex flex-col outline-none [&>button]:hidden relative z-50"
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
         aria-describedby="info-popup-desc"
+        onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogDescription className="sr-only">
             Popup com informações importantes sobre a loja.

@@ -39,11 +39,30 @@ const sanitizeText = (input: string) => {
   return input.replace(/<[^>]*>/g, '');
 };
 
+// Ensure there's a space after punctuation when missing and collapse multiple spaces
+const normalizeSpacing = (s: string) => {
+  if (!s) return s;
+  // Insert a space after . ! ? if it's immediately followed by a non-space (and not end of string)
+  // Avoid touching things like ellipsis by handling multiple dots first
+  // Replace any occurrence of a punctuation followed by a non-space with punctuation + space + that char
+  let out = s.replace(/([.!?])(?=\S)/g, "$1 ");
+  // Collapse multiple spaces/newlines into single space where appropriate, but keep explicit newlines for splitting
+  // First, normalize Windows/Mac newlines to \n
+  out = out.replace(/\r\n|\r/g, '\n');
+  // Replace sequences of spaces (but preserve single newlines)
+  out = out.replace(/[ \t]{2,}/g, ' ');
+  // Trim spaces around newlines
+  out = out.split('\n').map(part => part.trim()).join('\n');
+  // Collapse repeated newlines to a single newline
+  out = out.replace(/\n{2,}/g, '\n');
+  return out.trim();
+};
+
 const renderContent = (text: string) => {
   if (!text) return null;
 
   // First sanitize the incoming content so HTML tags (e.g. <p>) don't show raw
-  const cleaned = sanitizeText(text);
+  const cleaned = normalizeSpacing(sanitizeText(text));
 
   const sections = cleaned.split('---');
   

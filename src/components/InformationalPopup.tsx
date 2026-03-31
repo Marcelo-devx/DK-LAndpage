@@ -37,8 +37,16 @@ const parseHtmlToReact = (html: string) => {
     const getAlignmentClass = (el: Element) => {
       const alignAttr = el.getAttribute('align');
       const style = el.getAttribute('style') || '';
+      const classAttr = el.getAttribute('class') || '';
+
       if (alignAttr && alignAttr.trim().toLowerCase() === 'center') return 'text-center';
       if (/text-align\s*:\s*center/i.test(style)) return 'text-center';
+
+      // Detect common editor classes (Quill, etc.) and utility classes
+      if (/ql-align-center|text-center|align-center/i.test(classAttr)) return 'text-center';
+      if (/ql-align-right|text-right|align-right/i.test(classAttr)) return 'text-right';
+      if (/ql-align-left|text-left|align-left/i.test(classAttr)) return 'text-left';
+
       return '';
     };
 
@@ -85,7 +93,10 @@ const parseHtmlToReact = (html: string) => {
             return <>{children}</>;
           }
           default:
-            // For unknown tags, render their children (strip tag)
+            // For unknown tags, preserve alignment by wrapping children in a div when needed
+            if (alignClass) {
+              return <div key={idx} className={alignClass}>{children}</div>;
+            }
             return <React.Fragment key={idx}>{children}</React.Fragment>;
         }
       }

@@ -103,7 +103,13 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
                 className="bg-transparent text-white hover:text-sky-400 data-[state=open]:bg-white/10 data-[state=open]:text-sky-400 font-black uppercase text-[11px] tracking-[0.15em] h-14 px-4 transition-all" 
                 translate="no"
               >
-                {category.name}
+                <Link
+                  to={`/produtos?category=${encodeURIComponent(category.name)}`}
+                  onClick={(e) => { e.stopPropagation(); }}
+                  className="w-full block"
+                >
+                  {category.name}
+                </Link>
               </NavigationMenuTrigger>
               <NavigationMenuContent>
                 <div className="w-[600px] p-8 bg-black border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,1)] rounded-2xl grid grid-cols-[1fr_240px] gap-10">

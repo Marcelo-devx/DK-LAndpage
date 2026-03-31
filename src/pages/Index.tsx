@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useOutletContext } from 'react-router-dom';
+import { Link, useOutletContext, useNavigate } from 'react-router-dom';
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
 import ProductCard from "@/components/ProductCard";
@@ -18,6 +18,7 @@ import ProductImage from '@/components/ProductImage';
 
 const Index = () => {
   const { settings } = useTheme();
+  const navigate = useNavigate();
   const [displayedProducts, setDisplayedProducts] = useState<any[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [heroSlides, setHeroSlides] = useState<any[]>([]);

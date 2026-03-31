@@ -56,6 +56,12 @@ const AllProductsPage = () => {
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
+  // Função para normalizar strings (trim e lowercase)
+  const normalizeString = useCallback((s?: string) => {
+    if (!s) return '';
+    return s.trim().toLowerCase();
+  }, []);
+
   // Filtra subcategorias com base nas categorias selecionadas
   const availableSubCategories = useCallback(() => {
     if (selectedCategories.length === 0) {
@@ -65,11 +71,11 @@ const AllProductsPage = () => {
     
     // Se há categorias selecionadas, filtra pelas subcategorias daquelas categorias
     const selectedCategoryIds = allCategories
-      .filter(c => selectedCategories.includes(c.name))
+      .filter(c => selectedCategories.some(sc => normalizeString(sc) === normalizeString(c.name)))
       .map(c => c.id);
     
     return allSubCategories.filter(sc => selectedCategoryIds.includes(sc.category_id));
-  }, [selectedCategories, allCategories, allSubCategories]);
+  }, [selectedCategories, allCategories, allSubCategories, normalizeString]);
 
   // Sync filters when URL params change
   useEffect(() => {
@@ -81,20 +87,23 @@ const AllProductsPage = () => {
     setSelectedCategories(categoryParam ? [categoryParam] : []);
     setSelectedSubCategories(subCategoryParam ? [subCategoryParam] : []);
     setSelectedBrands(brandParam ? [brandParam] : []);
+    
+    // Debug: log dos filtros sincronizados
+    console.log('[AllProductsPage] Filtros da URL:', { categoryParam, subCategoryParam, brandParam });
   }, [searchParams]);
 
   // Limpa subcategorias selecionadas quando a categoria muda
   useEffect(() => {
     const available = availableSubCategories();
     const validSelected = selectedSubCategories.filter(sc => 
-      available.some(a => a.name === sc)
+      available.some(a => normalizeString(a.name) === normalizeString(sc))
     );
     
     // Se alguma subcategoria selecionada não está mais disponível, remove
     if (validSelected.length !== selectedSubCategories.length) {
       setSelectedSubCategories(validSelected);
     }
-  }, [selectedCategories, allSubCategories]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedCategories, allSubCategories, availableSubCategories, normalizeString]);
 
   const fetchFilterOptions = useCallback(async () => {
     const [catData, subCatData, brandData, flavorData] = await Promise.all([
@@ -162,9 +171,10 @@ const AllProductsPage = () => {
         query = query.in('category', selectedCategories);
       }
       
-      // Filtro de subcategoria (só aplica se houver categoria selecionada ou se estiver buscando sem categoria)
+      // Filtro de subcategoria - aplica apenas se houver subcategorias selecionadas
       if (selectedSubCategories.length > 0) {
         query = query.in('sub_category', selectedSubCategories);
+        console.log('[AllProductsPage] Filtrando por subcategorias:', selectedSubCategories);
       }
       
       // Filtro de marca
@@ -180,12 +190,23 @@ const AllProductsPage = () => {
       const [sortField, sortOrder] = sortBy.split('-');
       query = query.order(sortField, { ascending: sortOrder === 'asc' });
 
+      console.log('[AllProductsPage] Query params:', {
+        selectedCategories,
+        selectedSubCategories,
+        selectedBrands,
+        selectedFlavors,
+        sortBy
+      });
+
       const { data: parentProducts, error } = await query;
+      
       if (error) { 
-        console.error('Error fetching products:', error); 
+        console.error('[AllProductsPage] Error fetching products:', error); 
         setDisplayProducts([]); 
         return; 
       }
+
+      console.log('[AllProductsPage] Produtos encontrados:', parentProducts?.length);
 
       const products = parentProducts || [];
       const productIds = products.map(p => p.id);

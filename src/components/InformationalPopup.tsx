@@ -124,7 +124,7 @@ const InformationalPopup = ({ isOpen, onClose, title, content, onAccept }: Infor
   return (
     <Dialog open={isOpen} onOpenChange={() => {}}>
       <DialogContent 
-        className="w-[95vw] sm:max-w-2xl bg-slate-900 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] p-0 overflow-hidden rounded-[1.5rem] md:rounded-[2rem] max-h-[85vh] md:max-h-[90vh] flex flex-col outline-none [&>button]:hidden"
+        className="w-[95vw] sm:max-w-2xl bg-slate-900 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] p-0 overflow-hidden rounded-[1.5rem] md:rounded-[2rem] max-h-[90vh] md:max-h-[90vh] flex flex-col outline-none [&>button]:hidden"
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
         aria-describedby="info-popup-desc"
@@ -134,56 +134,60 @@ const InformationalPopup = ({ isOpen, onClose, title, content, onAccept }: Infor
         </DialogDescription>
 
         {/* Barra superior de destaque */}
-        <div className="h-1.5 bg-gradient-to-r from-sky-500 to-indigo-500 w-full shrink-0" />
+        <div className="h-1.5 md:h-1.5 bg-gradient-to-r from-sky-500 to-indigo-500 w-full shrink-0" />
         
         <div className="flex flex-col flex-1 overflow-hidden">
-          <div className="p-5 md:p-10 flex flex-col flex-1 min-h-0">
-            <DialogHeader className="items-center text-center mb-4 md:mb-8 shrink-0">
-              <div className="p-2.5 md:p-3 bg-sky-500/20 rounded-xl md:rounded-2xl mb-3 md:mb-4">
-                <Info className="h-5 w-5 md:h-8 md:w-8 text-sky-400" />
+          {/* Header com ajuste mobile */}
+          <div className="px-4 py-4 md:px-10 md:py-6 flex flex-col flex-shrink-0">
+            <DialogHeader className="items-center text-center mb-3 md:mb-6 shrink-0">
+              <div className="flex items-center justify-center mb-3 md:mb-4">
+                <div className="p-2 md:p-2.5 bg-sky-500/20 rounded-xl md:rounded-2xl">
+                  <Info className="h-5 w-5 md:h-7 md:w-7 text-sky-400 shrink-0" />
+                </div>
               </div>
-              <DialogTitle className="font-black text-lg md:text-4xl text-white tracking-tighter italic uppercase px-2 leading-tight text-center">
+              <DialogTitle className="font-black text-xl md:text-4xl text-white tracking-tighter italic uppercase leading-tight text-center break-words">
                 {title}.
               </DialogTitle>
             </DialogHeader>
 
             {/* Área de conteúdo com rolagem otimizada */}
-            <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar" id="info-popup-desc">
+            <div className="flex-1 overflow-y-auto pr-1 md:pr-2 custom-scrollbar" id="info-popup-desc">
               <div className="pb-4">
                 {parseHtmlToReact(content)}
               </div>
             </div>
+          </div>
 
-            <DialogFooter className="mt-4 md:mt-10 sm:justify-center shrink-0 flex gap-3">
-              {onAccept ? (
-                <>
-                  <Button 
-                    type="button" 
-                    onClick={handleAccept} 
-                    className="w-full sm:w-auto bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest h-12 md:h-14 px-10 md:px-12 rounded-xl shadow-[0_10px_20px_-5px_rgba(14,165,233,0.4)] transition-all active:scale-95"
-                  >
-                    Aceitar e Continuar
-                  </Button>
-                  <Button 
-                    type="button" 
-                    onClick={onClose} 
-                    variant="ghost"
-                    className="w-full sm:w-auto bg-white/5 text-white font-black uppercase tracking-widest h-12 md:h-14 px-10 md:px-12 rounded-xl border border-white/5"
-                  >
-                    Fechar
-                  </Button>
-                </>
-              ) : (
+          {/* Footer com botões otimizados para mobile */}
+          <DialogFooter className="px-4 py-4 md:px-10 md:py-6 flex flex-col sm:flex-row sm:justify-center gap-3 shrink-0">
+            {onAccept ? (
+              <>
+                <Button 
+                  type="button" 
+                  onClick={handleAccept} 
+                  className="w-full sm:w-full md:w-auto bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest h-11 md:h-14 px-4 md:px-12 rounded-xl shadow-[0_10px_20px_-5px_rgba(14,165,233,0.4)] transition-all active:scale-95 text-wrap break-words"
+                >
+                  Aceitar e Continuar
+                </Button>
                 <Button 
                   type="button" 
                   onClick={onClose} 
-                  className="w-full sm:w-auto bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest h-12 md:h-14 px-10 md:px-12 rounded-xl shadow-[0_10px_20px_-5px_rgba(14,165,233,0.4)] transition-all active:scale-95"
+                  variant="ghost"
+                  className="w-full sm:w-full md:w-auto bg-white/5 text-white font-black uppercase tracking-widest h-11 md:h-14 px-4 md:px-12 rounded-xl border border-white/10 hover:bg-white/10"
                 >
-                  Entendi
+                  Fechar
                 </Button>
-              )}
-            </DialogFooter>
-          </div>
+              </>
+            ) : (
+              <Button 
+                type="button" 
+                onClick={onClose} 
+                className="w-full sm:w-full md:w-auto bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest h-11 md:h-14 px-4 md:px-12 rounded-xl shadow-[0_10px_20px_-5px_rgba(14,165,233,0.4)] transition-all active:scale-95"
+              >
+                Entendi
+              </Button>
+            )}
+          </DialogFooter>
         </div>
       </DialogContent>
     </Dialog>

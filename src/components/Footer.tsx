@@ -31,25 +31,31 @@ const Footer = () => {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    // after sign out, navigate to home so UI updates
     navigate('/');
-    // force reload to ensure any cached UI state clears
     window.location.reload();
   };
 
-  // NOVO: Normalizar hrefs para garantir que links funcionem mesmo sem protocolo
-  const normalizeHref = (href?: string) => {
-    if (!href) return null;
-    const trimmed = href.trim();
-    if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('mailto:') || trimmed.startsWith('#')) {
+  // Normalizador específico para Instagram: aceita @usuario ou URL completa
+  const normalizeInstagramHref = (val?: string) => {
+    if (!val) return null;
+    const trimmed = val.trim();
+    if (!trimmed || trimmed === '#') return null;
+    
+    // Se começar com @, converte para URL do Instagram
+    if (trimmed.startsWith('@')) {
+      return `https://instagram.com/${trimmed.slice(1)}`;
+    }
+    
+    // Se for uma URL já bem formada, retorna como está
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
       return trimmed;
     }
-    return `https://${trimmed}`;
+
+    // Caso contrário, assume que é um usuário sem @ (opcional) e tenta completar
+    return `https://instagram.com/${trimmed}`;
   };
 
-  const igHref = normalizeHref(settings.socialInstagram);
-  const fbHref = normalizeHref(settings.socialFacebook);
-  const twHref = normalizeHref(settings.socialTwitter);
+  const igHref = normalizeInstagramHref(settings.socialInstagram);
 
   return (
     <footer className="bg-white text-slate-500 border-t border-slate-200">
@@ -97,26 +103,16 @@ const Footer = () => {
             <h4 className="font-bold text-slate-900 uppercase text-xs tracking-[0.2em] mb-6">Siga-nos</h4>
             <div className="flex items-center justify-between">
               <div className="flex space-x-6">
-                {fbHref && (
-                  <a href={fbHref} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-sky-500 transition-all hover:scale-110">
-                    <Facebook size={22} />
-                  </a>
-                )}
+                {/* Apenas Instagram, conforme solicitado */}
                 {igHref && (
-                  <a href={igHref} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-sky-500 transition-all hover:scale-110">
+                  <a href={igHref} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-pink-600 transition-all hover:scale-110">
                     <Instagram size={22} />
-                  </a>
-                )}
-                {twHref && (
-                  <a href={twHref} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-sky-500 transition-all hover:scale-110">
-                    <Twitter size={22} />
                   </a>
                 )}
               </div>
 
               {session ? (
-                <div className="flex items-center space-x-3">
-                  <span className="text-sm font-bold text-slate-700">{session.user?.email}</span>
+                <div className="flex items-center">
                   <button onClick={handleSignOut} className="flex items-center gap-2 text-sm text-slate-500 hover:text-rose-600">
                     <LogOut className="h-4 w-4" />
                     Sair

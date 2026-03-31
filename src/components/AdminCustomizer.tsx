@@ -504,16 +504,12 @@ const AdminCustomizer = () => {
                     <Input value={settings.contactHours} onChange={(e) => updateSetting('contact_hours', e.target.value)} />
                   </div>
                   <div>
-                    <Label className="text-xs text-slate-500 mb-1">Facebook (URL)</Label>
-                    <Input value={settings.socialFacebook} onChange={(e) => updateSetting('social_facebook', e.target.value)} />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-slate-500 mb-1">Instagram (URL)</Label>
-                    <Input value={settings.socialInstagram} onChange={(e) => updateSetting('social_instagram', e.target.value)} />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-slate-500 mb-1">Twitter (URL)</Label>
-                    <Input value={settings.socialTwitter} onChange={(e) => updateSetting('social_twitter', e.target.value)} />
+                    <Label className="text-xs text-slate-500 mb-1">Instagram (@usuario ou URL)</Label>
+                    <Input 
+                      value={settings.socialInstagram} 
+                      onChange={(e) => updateSetting('social_instagram', e.target.value)} 
+                      placeholder="@seu_perfil"
+                    />
                   </div>
                   <div>
                     <Label className="text-xs text-slate-500 mb-1">URL do Logo (opcional)</Label>
@@ -630,9 +626,11 @@ const AdminCustomizer = () => {
                   // Expose a global hook for debug/testing if needed
                   (window as any).__refreshThemeSettings = refreshSettings;
                   showSuccess('Salvo!');
-                } catch (e) {
+                } catch (e: any) {
                   console.warn('[AdminCustomizer] saveAllSettings failed', e);
-                  showError('Erro ao salvar alterações');
+                  // Exibir o erro específico retornado pelo Supabase/Network para facilitar diagnóstico
+                  const errorMessage = e?.message || e?.error_description || JSON.stringify(e);
+                  showError(`Erro ao salvar: ${errorMessage}`);
                 } finally {
                   setIsSaving(false);
                 }

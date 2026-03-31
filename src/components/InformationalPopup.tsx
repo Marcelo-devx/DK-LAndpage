@@ -34,6 +34,14 @@ const parseHtmlToReact = (html: string) => {
       return trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('mailto:') || trimmed.startsWith('#');
     };
 
+    const getAlignmentClass = (el: Element) => {
+      const alignAttr = el.getAttribute('align');
+      const style = el.getAttribute('style') || '';
+      if (alignAttr && alignAttr.trim().toLowerCase() === 'center') return 'text-center';
+      if (/text-align\s*:\s*center/i.test(style)) return 'text-center';
+      return '';
+    };
+
     const walk = (node: ChildNode, idx: number): React.ReactNode => {
       if (node.nodeType === Node.TEXT_NODE) {
         return node.textContent;
@@ -43,18 +51,19 @@ const parseHtmlToReact = (html: string) => {
         const el = node as Element;
         const tag = el.tagName.toLowerCase();
         const children = Array.from(el.childNodes).map((n, i) => walk(n, i));
+        const alignClass = getAlignmentClass(el);
 
         switch (tag) {
           case 'p':
-            return <p key={idx} className="text-slate-300 text-sm md:text-base leading-relaxed mb-3">{children}</p>;
+            return <p key={idx} className={`text-slate-300 text-sm md:text-base leading-relaxed mb-3 ${alignClass}`.trim()}>{children}</p>;
           case 'br':
             return <br key={idx} />;
           case 'ul':
-            return <ul key={idx} className="list-disc list-inside ml-4 text-slate-300 text-sm md:text-base leading-relaxed">{children}</ul>;
+            return <ul key={idx} className={`list-disc list-inside ml-4 text-slate-300 text-sm md:text-base leading-relaxed ${alignClass}`.trim()}>{children}</ul>;
           case 'ol':
-            return <ol key={idx} className="list-decimal list-inside ml-4 text-slate-300 text-sm md:text-base leading-relaxed">{children}</ol>;
+            return <ol key={idx} className={`list-decimal list-inside ml-4 text-slate-300 text-sm md:text-base leading-relaxed ${alignClass}`.trim()}>{children}</ol>;
           case 'li':
-            return <li key={idx} className="mb-1">{children}</li>;
+            return <li key={idx} className={`${alignClass} mb-1`.trim()}>{children}</li>;
           case 'strong':
           case 'b':
             return <strong key={idx} className="font-black text-white">{children}</strong>;
@@ -122,7 +131,7 @@ const InformationalPopup = ({ isOpen, onClose, title, content, onAccept }: Infor
               <div className="p-2.5 md:p-3 bg-sky-500/20 rounded-xl md:rounded-2xl mb-3 md:mb-4">
                 <Info className="h-5 w-5 md:h-8 md:w-8 text-sky-400" />
               </div>
-              <DialogTitle className="font-black text-lg md:text-4xl text-white tracking-tighter italic uppercase px-2 leading-tight">
+              <DialogTitle className="font-black text-lg md:text-4xl text-white tracking-tighter italic uppercase px-2 leading-tight text-center">
                 {title}.
               </DialogTitle>
             </DialogHeader>

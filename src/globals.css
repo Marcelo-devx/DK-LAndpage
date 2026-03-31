@@ -70,27 +70,3 @@
 .text-gradient {
   @apply bg-clip-text text-transparent bg-gradient-to-r from-sky-500 to-indigo-600;
 }
-
-/* Correção para popup informativo - garantir que botões sejam clicáveis */
-[data-state="open"] > [role="dialog"] {
-  position: fixed !important;
-  z-index: 50 !important;
-}
-
-[data-state="open"] > [role="dialog"] [data-radix-dialog-content] {
-  position: relative !important;
-  z-index: 51 !important;
-}
-
-/* Garantir que o footer do popup com botões esteja sempre acima */
-[data-state="open"] > [role="dialog"] [role="dialog"] > [data-radix-dialog-content] > div:last-child {
-  position: relative !important;
-  z-index: 52 !important;
-}
-
-/* Garantir que os botões no footer sejam clicáveis */
-[data-radix-dialog-footer] button {
-  position: relative !important;
-  z-index: 53 !important;
-  pointer-events: auto !important;
-}

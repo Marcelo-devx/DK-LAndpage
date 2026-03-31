@@ -63,6 +63,26 @@ const AdminCustomizer = () => {
   const [categories, setCategories] = useState<any[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(false);
 
+  // Helper: wrap a promise with a timeout so UI doesn't hang indefinitely
+  const withTimeout = async <T,>(promise: Promise<T>, ms = 10000): Promise<T> => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const timeoutPromise = new Promise<T>((_resolve, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(new Error('timeout'));
+      }, ms);
+    });
+
+    try {
+      const result = await Promise.race([promise, timeoutPromise]);
+      clearTimeout(timeoutId!);
+      return result as T;
+    } catch (err) {
+      // Ensure the timeout cleared
+      try { clearTimeout(timeoutId!); } catch {}
+      throw err;
+    }
+  };
+
   // Constantes de URL (Projeto)
   const PROJECT_URL = "https://jrlozhhvwqfmjtkmvukf.supabase.co";
 
@@ -621,16 +641,22 @@ const AdminCustomizer = () => {
                 setIsSaving(true);
                 await new Promise((r) => setTimeout(r, 1200));
                 try {
-                  await saveAllSettings();
-                  await refreshSettings();
+                  // Use timeout wrapper to avoid infinite hanging if Supabase/network stalls
+                  await withTimeout(saveAllSettings(), 10000);
+                  // Refresh the latest settings after successful save
+                  await withTimeout(refreshSettings(), 8000);
                   // Expose a global hook for debug/testing if needed
                   (window as any).__refreshThemeSettings = refreshSettings;
                   showSuccess('Salvo!');
                 } catch (e: any) {
-                  console.warn('[AdminCustomizer] saveAllSettings failed', e);
-                  // Exibir o erro específico retornado pelo Supabase/Network para facilitar diagnóstico
-                  const errorMessage = e?.message || e?.error_description || JSON.stringify(e);
-                  showError(`Erro ao salvar: ${errorMessage}`);
+                  console.warn('[AdminCustomizer] saveAllSettings failed or timed out', e);
+                  // Distinguish timeout vs other errors for clearer messages
+                  if (e?.message === 'timeout') {
+                    showError('Tempo de salvamento excedido. Verifique sua conexão e tente novamente.');
+                  } else {
+                    const errorMessage = e?.message || e?.error_description || JSON.stringify(e);
+                    showError(`Erro ao salvar: ${errorMessage}`);
+                  }
                 } finally {
                   setIsSaving(false);
                 }

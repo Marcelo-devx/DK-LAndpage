@@ -15,7 +15,6 @@ import BrandSection from '@/components/BrandSection';
 import InformationalPopup from '@/components/InformationalPopup';
 import { useTheme } from '@/context/ThemeContext';
 import ProductImage from '@/components/ProductImage';
-import ResendTestButton from '@/components/ResendTestButton';
 
 const Index = () => {
   const { settings } = useTheme();
@@ -153,11 +152,6 @@ const Index = () => {
           content={infoPopup.content}
         />
       )}
-
-      {/* Resend quick test button */}
-      <div className="container mx-auto px-4 md:px-6 pt-6">
-        <ResendTestButton />
-      </div>
 
       {settings.showHero && heroSlides.length > 0 && (
         <section className="relative w-full overflow-hidden">

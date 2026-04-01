@@ -1,12 +1,11 @@
-import { Link, useNavigate } from 'react-router-dom';
-import { Instagram, Facebook, Twitter, LogOut } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Instagram } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 const Footer = () => {
   const { settings, updateSetting } = useTheme();
-  const navigate = useNavigate();
   const [session, setSession] = useState<any>(null);
 
   // Link EXATO fornecido - será salvo automaticamente no banco
@@ -70,21 +69,7 @@ const Footer = () => {
     };
   }, []);
 
-  const handleSignOut = async () => {
-    try {
-      await supabase.auth.signOut();
-    } catch (e) {
-      console.error('[Footer] signOut error', e);
-    }
-
-    // navigate + reload ensures UI reflects logged-out state
-    navigate('/');
-    try {
-      window.location.reload();
-    } catch (e) {
-      // ignore reload errors in some embedded previews
-    }
-  };
+  // NOTE: logout button removed from footer per request.
 
   return (
     <footer className="bg-white text-slate-500 border-t border-slate-200">
@@ -137,14 +122,7 @@ const Footer = () => {
                 </a>
               </div>
 
-              {session ? (
-                <div className="flex items-center">
-                  <button onClick={handleSignOut} className="flex items-center gap-2 text-sm text-slate-500 hover:text-rose-600 whitespace-nowrap">
-                    <LogOut className="h-4 w-4" />
-                    <span className="hidden md:inline">Sair</span>
-                  </button>
-                </div>
-              ) : null}
+              {/* logout removed - nothing rendered here */}
             </div>
           </div>
         </div>

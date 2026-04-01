@@ -347,9 +347,11 @@ const ProductPage = () => {
               </div>
 
               <div className="space-y-4">
-                <p className="text-lg md:text-2xl font-black tracking-tighter leading-tight">{product.name}</p>
+                <p className="text-lg md:text-2xl font-black tracking-tighter leading-tight text-white">
+                  {product.name}
+                </p>
                 {selectedVariant && (
-                  <span className="block text-2xl md:text-4xl text-slate-400 mt-2 italic">
+                  <span className="block text-2xl md:text-4xl text-white text-opacity-90 mt-2 italic">
                     {getVariantLabel(selectedVariant)} {selectedVariant.volume_ml && selectedVariant.flavor_name ? `${selectedVariant.volume_ml}ml` : ''}
                   </span>
                 )}

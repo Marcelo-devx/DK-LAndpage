@@ -63,29 +63,10 @@ const Footer = () => {
     }
   };
 
-  // Normalizador específico para Instagram: aceita @usuario ou URL completa
-  const normalizeInstagramHref = (val?: string) => {
-    if (!val) return null;
-    const trimmed = val.trim();
-    if (!trimmed || trimmed === '#') return null;
-    
-    // Se começar com @, converte para URL do Instagram
-    if (trimmed.startsWith('@')) {
-      return `https://instagram.com/${trimmed.slice(1)}`;
-    }
-    
-    // Se for uma URL já bem formada, retorna como está
-    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-      return trimmed;
-    }
-
-    // Caso contrário, assume que é um usuário sem @ (opcional) e tenta completar
-    return `https://instagram.com/${trimmed}`;
-  };
-
-  // Link oficial fornecido pelo time — usado como fallback enquanto a configuração não estiver definida
   const OFFICIAL_IG_URL = 'https://www.instagram.com/dondk_cwb?igsh=MW9mOWZxdGdvaGJtZA%3D%3D';
-  const igHref = normalizeInstagramHref(settings.socialInstagram) || OFFICIAL_IG_URL;
+  const igHref = settings.socialInstagram && settings.socialInstagram.trim() !== '#' && settings.socialInstagram.trim() !== '' 
+    ? settings.socialInstagram.trim() 
+    : OFFICIAL_IG_URL;
 
   return (
     <footer className="bg-white text-slate-500 border-t border-slate-200">

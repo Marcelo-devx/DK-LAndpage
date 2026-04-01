@@ -63,10 +63,8 @@ const Footer = () => {
     }
   };
 
-  const OFFICIAL_IG_URL = 'https://www.instagram.com/dondk_cwb?igsh=MW9mOWZxdGdvaGJtZA%3D%3D';
-  const igHref = settings.socialInstagram && settings.socialInstagram.trim() !== '#' && settings.socialInstagram.trim() !== '' 
-    ? settings.socialInstagram.trim() 
-    : OFFICIAL_IG_URL;
+  // Link EXATO fornecido - sem nenhuma verificação ou override
+  const IG_OFFICIAL_URL = 'https://www.instagram.com/dondk_cwb?igsh=MW9mOWZxdGdvaGJtZA%3D%3D';
 
   return (
     <footer className="bg-white text-slate-500 border-t border-slate-200">
@@ -114,11 +112,9 @@ const Footer = () => {
             <h4 className="font-bold text-slate-900 uppercase text-xs tracking-[0.2em] mb-6">Siga-nos</h4>
             <div className="flex items-center justify-between w-full">
               <div className="flex items-center justify-center md:justify-start">
-                {igHref && (
-                  <a href={igHref} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-pink-600 transition-all hover:scale-110">
-                    <Instagram size={22} />
-                  </a>
-                )}
+                <a href={IG_OFFICIAL_URL} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-pink-600 transition-all hover:scale-110">
+                  <Instagram size={22} />
+                </a>
               </div>
 
               {session ? (

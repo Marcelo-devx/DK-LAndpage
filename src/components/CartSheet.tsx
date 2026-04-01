@@ -227,42 +227,56 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
             {items.map(item => {
               const key = `${item.itemType}-${item.itemId}-${item.variantId || 'no-var'}`;
               return (
-                <div key={key} className="flex items-start space-x-4 bg-stone-50 p-5 rounded-2xl border border-stone-100">
-                  <div className="flex-grow min-w-0">
-                    <ProductImage src={item.image_url} alt={item.name} className="h-20 w-20 object-cover rounded-xl border border-stone-200" />
-                    <div className="flex-grow min-w-0">
-                      <p className="font-bold text-charcoal-gray text-sm tracking-tight leading-tight">{item.name}</p>
-                      {item.variant_label && (
-                        <p className="text-[10px] font-bold text-sky-600 uppercase tracking-widest mt-1">{item.variant_label}</p>
-                      )}
-                      <p className="text-stone-600 font-bold text-sm">R$ {item.price.toFixed(2).replace('.', ',')}</p>
-                    </div>
+                <div key={key} className="flex items-center justify-between gap-4 p-4 bg-white rounded-xl border border-stone-100 shadow-sm">
+                  {/* Left: Image */}
+                  <div className="flex-shrink-0">
+                    <ProductImage 
+                      src={item.image_url} 
+                      alt={item.name} 
+                      className="h-18 w-18 md:h-20 md:w-20 object-cover rounded-lg border border-stone-200" 
+                    />
+                  </div>
 
-                    <div className="flex items-center gap-3 mt-3">
-                      <div className="bg-white p-3 rounded-2xl border border-stone-200">
-                        <Button 
-                          variant="outline" 
-                          onClick={() => updateQuantity(item, item.quantity - 1)}
-                          className="h-14 w-10 text-stone-700 hover:bg-stone-300 hover:text-stone-900 text-stone-700 rounded-lg transition-all active:mobile:active:scale-98"
-                          disabled={updatingId === key}
-                        >
-                          <Minus className="h-4 w-4 touch-manipulation-none" />
-                        </Button>
-                        <div className="w-8 text-center text-stone-900 font-bold">
-                          {updatingId === key ? <Loader2 className="h-3 w-3 animate-spin" /> : item.quantity}
-                        </div>
-                      </div>
-                    </div>
+                  {/* Middle: Name, variant, price */}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-charcoal-gray text-sm truncate">{item.name}</p>
+                    {item.variant_label && (
+                      <p className="text-[11px] text-sky-600 uppercase font-bold mt-1 truncate">{item.variant_label}</p>
+                    )}
+                    <p className="text-stone-600 font-extrabold text-sm mt-2">R$ {item.price.toFixed(2).replace('.', ',')}</p>
+                  </div>
 
-                    <div className="pt-2">
+                  {/* Right: quantity controls and remove */}
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="flex items-center gap-2 bg-stone-50 p-1 rounded-lg border border-stone-100">
                       <Button 
                         variant="ghost" 
-                        onClick={() => removeItem(item)}
-                        className="h-10 w-10 text-red-500 p-2 rounded-lg"
+                        onClick={() => updateQuantity(item, item.quantity - 1)}
+                        className="h-9 w-9 flex items-center justify-center p-0 hover:bg-stone-200"
+                        disabled={updatingId === key}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                      <div className="w-8 text-center font-bold text-sm">
+                        {updatingId === key ? <Loader2 className="h-4 w-4 animate-spin" /> : item.quantity}
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        onClick={() => updateQuantity(item, item.quantity + 1)}
+                        className="h-9 w-9 flex items-center justify-center p-0 hover:bg-stone-200"
+                        disabled={updatingId === key}
+                      >
+                        <Plus className="h-4 w-4" />
                       </Button>
                     </div>
+                    <Button
+                      variant="ghost" 
+                      onClick={() => removeItem(item)}
+                      className="h-8 w-8 text-red-500 p-1 rounded-md hover:bg-red-50"
+                      title="Remover item"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               );

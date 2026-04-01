@@ -5,9 +5,32 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 const Footer = () => {
-  const { settings } = useTheme();
+  const { settings, updateSetting } = useTheme();
   const navigate = useNavigate();
   const [session, setSession] = useState<any>(null);
+
+  // Link EXATO fornecido - será salvo automaticamente no banco
+  const CORRECT_INSTAGRAM_URL = 'https://www.instagram.com/dondk_cwb?igsh=MW9mOWZxdGdvaGJtZA%3D%3D';
+
+  useEffect(() => {
+    // Verifica se o link no banco está incorreto e corrige automaticamente
+    const correctAndSaveInstagram = async () => {
+      const currentUrl = settings.socialInstagram?.trim();
+      
+      // Se estiver vazio, for '#' ou não for o link correto, atualiza
+      if (!currentUrl || currentUrl === '#' || currentUrl !== CORRECT_INSTAGRAM_URL) {
+        console.log('[Footer] Corrigindo link do Instagram no banco...');
+        try {
+          await updateSetting('social_instagram', CORRECT_INSTAGRAM_URL);
+          console.log('[Footer] Link do Instagram atualizado com sucesso!');
+        } catch (error) {
+          console.error('[Footer] Erro ao atualizar link do Instagram:', error);
+        }
+      }
+    };
+
+    correctAndSaveInstagram();
+  }, [settings.socialInstagram, updateSetting]);
 
   useEffect(() => {
     let mounted = true;
@@ -63,9 +86,6 @@ const Footer = () => {
     }
   };
 
-  // Link EXATO fornecido - sem nenhuma verificação ou override
-  const IG_OFFICIAL_URL = 'https://www.instagram.com/dondk_cwb?igsh=MW9mOWZxdGdvaGJtZA%3D%3D';
-
   return (
     <footer className="bg-white text-slate-500 border-t border-slate-200">
       <div className="container mx-auto px-4 py-10 md:px-6 md:py-16">
@@ -112,7 +132,7 @@ const Footer = () => {
             <h4 className="font-bold text-slate-900 uppercase text-xs tracking-[0.2em] mb-6">Siga-nos</h4>
             <div className="flex items-center justify-between w-full">
               <div className="flex items-center justify-center md:justify-start">
-                <a href={IG_OFFICIAL_URL} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-pink-600 transition-all hover:scale-110">
+                <a href={CORRECT_INSTAGRAM_URL} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-pink-600 transition-all hover:scale-110">
                   <Instagram size={22} />
                 </a>
               </div>

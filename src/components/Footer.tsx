@@ -83,7 +83,9 @@ const Footer = () => {
     return `https://instagram.com/${trimmed}`;
   };
 
-  const igHref = normalizeInstagramHref(settings.socialInstagram);
+  // Link oficial fornecido pelo time — usado como fallback enquanto a configuração não estiver definida
+  const OFFICIAL_IG_URL = 'https://www.instagram.com/dondk_cwb?igsh=MW9mOWZxdGdvaGJtZA%3D%3D';
+  const igHref = normalizeInstagramHref(settings.socialInstagram) || OFFICIAL_IG_URL;
 
   return (
     <footer className="bg-white text-slate-500 border-t border-slate-200">

@@ -49,6 +49,8 @@ const CompleteProfilePage = () => {
   const [isFetchingCep, setIsFetchingCep] = useState(false);
   const [deliveryType, setDeliveryType] = useState<'local' | 'correios' | null>(null);
   const [isTermsOpen, setIsTermsOpen] = useState(false);
+  const [cpfError, setCpfError] = useState<string | null>(null);
+  const [isCheckingCpf, setIsCheckingCpf] = useState(false);
 
   const { register, handleSubmit, control, setValue, getValues, watch, formState: { errors } } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -136,6 +138,29 @@ const CompleteProfilePage = () => {
   // watch required fields to determine whether to enable submit and to show '*' markers
   const watched = watch();
 
+  const checkCpfDuplicate = async () => {
+    const raw = getValues('cpf_cnpj') || '';
+    const clean = raw.replace(/\D/g, '');
+    if (clean.length < 11) return; // not enough digits yet, skip
+    setIsCheckingCpf(true);
+    setCpfError(null);
+    try {
+      const { data: existing } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('cpf_cnpj', clean)
+        .neq('id', user?.id || '')
+        .maybeSingle();
+      if (existing) {
+        setCpfError('Este CPF/CNPJ já está cadastrado em outra conta.');
+      }
+    } catch (e) {
+      // silently ignore network errors on blur check
+    } finally {
+      setIsCheckingCpf(false);
+    }
+  };
+
   const requiredFieldsFilled = useMemo(() => {
     const f = watched.first_name && watched.last_name;
     const dob = watched.date_of_birth;
@@ -154,7 +179,7 @@ const CompleteProfilePage = () => {
 
   const accepted = Boolean(watched.accepted_terms);
 
-  const isReadyToSubmit = requiredFieldsFilled && accepted;
+  const isReadyToSubmit = requiredFieldsFilled && accepted && !cpfError && !isCheckingCpf;
 
   const handleCepLookup = async () => {
     const cep = getValues('cep');
@@ -241,34 +266,17 @@ const CompleteProfilePage = () => {
   };
 
   const onSubmit = async (data: ProfileFormData) => {
-    // If token flow, ensure we attach the email to the profile insert/upsert
     setIsSaving(true);
     const toastId = showLoading("Salvando informações...");
 
     try {
       let emailToSet = user?.email || null;
       if (!emailToSet) {
-        // try to get authenticated user
         const { data: { session } } = await supabase.auth.getSession();
         if (session) emailToSet = session.user.email as string;
       }
 
       const cleanCpf = data.cpf_cnpj.replace(/\D/g, '');
-
-      // Check if CPF/CNPJ already exists in another profile
-      const { data: existingCpf } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('cpf_cnpj', cleanCpf)
-        .neq('id', user?.id || '')
-        .maybeSingle();
-
-      if (existingCpf) {
-        dismissToast(toastId);
-        showError('Este CPF/CNPJ já está cadastrado em outra conta. Verifique os dados informados.');
-        setIsSaving(false);
-        return;
-      }
 
       const profilePayload: any = {
         ...data,
@@ -277,7 +285,6 @@ const CompleteProfilePage = () => {
         date_of_birth: format(data.date_of_birth, 'yyyy-MM-dd'),
       };
 
-      // Upsert profile
       const { error } = await supabase.from('profiles').upsert({
         id: user?.id || undefined,
         email: emailToSet,
@@ -377,14 +384,30 @@ const CompleteProfilePage = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="space-y-2">
                     <Label htmlFor="cpf_cnpj" className="text-charcoal-gray">CPF / CNPJ {requiredStar('cpf_cnpj') && <span className="text-red-500">*</span>}</Label>
-                    <Input 
-                      id="cpf_cnpj" 
-                      {...register('cpf_cnpj')} 
-                      onChange={(e) => e.target.value = maskCpfCnpj(e.target.value)} 
-                      placeholder="000.000.000-00" 
-                      className="bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors" 
-                    />
-                    {errors.cpf_cnpj && <p className="text-xs text-red-500 font-bold">{errors.cpf_cnpj.message}</p>}
+                    <div className="relative">
+                      <Input
+                        id="cpf_cnpj"
+                        {...register('cpf_cnpj')}
+                        onChange={(e) => {
+                          e.target.value = maskCpfCnpj(e.target.value);
+                          setCpfError(null);
+                        }}
+                        onBlur={checkCpfDuplicate}
+                        placeholder="000.000.000-00"
+                        className={`bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors pr-10 ${cpfError ? 'border-red-400 focus:ring-red-300' : ''}`}
+                      />
+                      {isCheckingCpf && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                        </div>
+                      )}
+                    </div>
+                    {cpfError && (
+                      <p className="text-xs text-red-500 font-bold flex items-center gap-1">
+                        ⚠️ {cpfError}
+                      </p>
+                    )}
+                    {!cpfError && errors.cpf_cnpj && <p className="text-xs text-red-500 font-bold">{errors.cpf_cnpj.message}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="gender" className="text-charcoal-gray">Gênero {requiredStar('gender') && <span className="text-red-500">*</span>}</Label>

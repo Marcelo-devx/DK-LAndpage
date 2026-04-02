@@ -195,7 +195,7 @@ const OrdersPage = () => {
                             <div key={`${order.id}-${item.item_id}-${item.item_type}`} className="flex justify-between items-center bg-white p-4 rounded-2xl border border-stone-200 transition-colors">
                               <div>
                                 <p className="text-charcoal-gray font-bold text-sm tracking-tight">{item.name_at_purchase}</p>
-                                <p className="text-xs text-stone-500 mt-1 font-semibold">{item.quantity}x R$ {item.price_at_purchase.toFixed(2).replace('.', ',')}</p>
+                                <p className="text-xs text-stone-500 mt-1 font-semibold">{item.quantity}x R$ {Number(item.price_at_purchase ?? 0).toFixed(2).replace('.', ',')}</p>
                               </div>
                             </div>
                           ))}

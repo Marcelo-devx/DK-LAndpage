@@ -326,6 +326,9 @@ const CompleteProfilePage = () => {
           <CardDescription className="text-stone-500 font-medium text-lg mt-2">
             Finalize suas informações para acessar a loja.
           </CardDescription>
+          <div className="mt-3 mx-auto max-w-sm bg-sky-50 border border-sky-200 rounded-xl px-4 py-3 text-sm text-sky-800">
+            🔑 Sua senha padrão é <span className="font-black tracking-widest">123456</span>. Você pode alterá-la no seu dashboard após o cadastro.
+          </div>
         </CardHeader>
         <CardContent className="p-8 md:p-12">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Auth } from '@supabase/auth-ui-react';
 import type { Theme, ViewType } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,65 +9,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, LogIn, UserPlus, RefreshCw, Mail, CheckCircle2 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { showError, showSuccess } from '@/utils/toast';
-
-// Simple 6-digit OTP input component
-const OtpInput = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => {
-  const refs = Array.from({ length: 6 }, () => useRef<HTMLInputElement>(null));
-  const digits = value.padEnd(6, '').split('').slice(0, 6);
-
-  const handleChange = (i: number, char: string) => {
-    const d = char.replace(/\D/g, '').slice(-1);
-    const arr = digits.map((c) => c === ' ' ? '' : c);
-    arr[i] = d;
-    onChange(arr.join(''));
-    if (d && i < 5) refs[i + 1].current?.focus();
-  };
-
-  const handleKeyDown = (i: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace') {
-      if (!digits[i] || digits[i] === ' ') {
-        if (i > 0) refs[i - 1].current?.focus();
-      } else {
-        const arr = digits.map((c) => c === ' ' ? '' : c);
-        arr[i] = '';
-        onChange(arr.join(''));
-      }
-    } else if (e.key === 'ArrowLeft' && i > 0) {
-      refs[i - 1].current?.focus();
-    } else if (e.key === 'ArrowRight' && i < 5) {
-      refs[i + 1].current?.focus();
-    }
-  };
-
-  const handlePaste = (e: React.ClipboardEvent) => {
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
-    if (pasted) {
-      onChange(pasted.padEnd(6, '').slice(0, 6));
-      refs[Math.min(pasted.length, 5)].current?.focus();
-    }
-    e.preventDefault();
-  };
-
-  return (
-    <div className="flex gap-2 justify-center">
-      {digits.map((d, i) => (
-        <input
-          key={i}
-          ref={refs[i]}
-          type="text"
-          inputMode="numeric"
-          maxLength={1}
-          value={d === ' ' ? '' : d}
-          onChange={(e) => handleChange(i, e.target.value)}
-          onKeyDown={(e) => handleKeyDown(i, e)}
-          onPaste={handlePaste}
-          onFocus={(e) => e.target.select()}
-          className="w-11 h-14 text-center text-xl font-bold rounded-xl border-2 border-stone-200 bg-white text-charcoal-gray focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 transition-all"
-        />
-      ))}
-    </div>
-  );
-};
+import OtpInput from '@/components/OtpInput';
 
 const SUPABASE_URL = "https://jrlozhhvwqfmjtkmvukf.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpybG96aGh2d3FmbWp0a212dWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzNDU2NjQsImV4cCI6MjA2NzkyMTY2NH0.Do5c1-TKqpyZTJeX_hLbw1SU40CbwXfCIC-pPpcD_JM";
@@ -96,32 +38,21 @@ const customTheme: Theme = {
       anchorTextHoverColor: '#0284c7',
     },
     space: {
-      spaceSmall: '4px',
-      spaceMedium: '8px',
-      spaceLarge: '16px',
-      labelBottomMargin: '6px',
-      anchorBottomMargin: '4px',
-      emailInputSpacing: '4px',
-      socialAuthSpacing: '4px',
-      buttonPadding: '12px 16px',
-      inputPadding: '12px 16px',
+      spaceSmall: '4px', spaceMedium: '8px', spaceLarge: '16px',
+      labelBottomMargin: '6px', anchorBottomMargin: '4px',
+      emailInputSpacing: '4px', socialAuthSpacing: '4px',
+      buttonPadding: '12px 16px', inputPadding: '12px 16px',
     },
     fontSizes: {
-      baseBodySize: '14px',
-      baseInputSize: '15px',
-      baseLabelSize: '13px',
-      baseButtonSize: '15px',
+      baseBodySize: '14px', baseInputSize: '15px',
+      baseLabelSize: '13px', baseButtonSize: '15px',
     },
     fonts: {
-      bodyFontFamily: 'inherit',
-      buttonFontFamily: 'inherit',
-      inputFontFamily: 'inherit',
-      labelFontFamily: 'inherit',
+      bodyFontFamily: 'inherit', buttonFontFamily: 'inherit',
+      inputFontFamily: 'inherit', labelFontFamily: 'inherit',
     },
     radii: {
-      borderRadiusButton: '0.75rem',
-      buttonBorderRadius: '0.75rem',
-      inputBorderRadius: '0.75rem',
+      borderRadiusButton: '0.75rem', buttonBorderRadius: '0.75rem', inputBorderRadius: '0.75rem',
     },
   },
 };
@@ -262,7 +193,8 @@ const Login = () => {
   };
 
   const verifyCode = async () => {
-    if (otp.trim().length < 6) {
+    const cleanOtp = otp.replace(/\s/g, '');
+    if (cleanOtp.length < 6) {
       showError('Insira o código de 6 dígitos recebido por e-mail.');
       return;
     }
@@ -272,7 +204,7 @@ const Login = () => {
 
       // 1) Validar código na nossa tabela
       const val = await supabase.functions.invoke('validate-token', {
-        body: { email, code: otp.trim() },
+        body: { email, code: cleanOtp },
       });
 
       if (val.error || !val.data?.success) {
@@ -282,24 +214,40 @@ const Login = () => {
         return;
       }
 
-      // 2) Código válido — criar/logar usuário via signInWithOtp do Supabase
-      // Usamos signInWithOtp para criar a sessão. O Supabase vai criar o usuário se não existir.
-      const { error: otpError } = await supabase.auth.signInWithOtp({
+      // 2) Código válido — criar usuário com senha padrão 123456
+      // Tenta signUp primeiro; se já existir, faz signIn
+      const DEFAULT_PASSWORD = '123456';
+
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
-        options: {
-          shouldCreateUser: true,
-        },
+        password: DEFAULT_PASSWORD,
       });
 
-      if (otpError) {
-        console.error('[Login] signInWithOtp error', otpError);
-        showError('Erro ao criar sessão. Tente novamente.');
+      if (signUpError) {
+        // Usuário já existe — tenta logar
+        if (signUpError.message?.toLowerCase().includes('already registered') ||
+            signUpError.message?.toLowerCase().includes('already exists') ||
+            signUpError.status === 422) {
+          const { error: signInError } = await supabase.auth.signInWithPassword({
+            email,
+            password: DEFAULT_PASSWORD,
+          });
+          if (signInError) {
+            // Usuário existe mas tem senha diferente — redireciona para login normal
+            showError('Este e-mail já possui cadastro com senha diferente. Use a aba "Entrar".');
+            setView('sign_in');
+            return;
+          }
+          // Login feito — o onAuthStateChange vai redirecionar
+          return;
+        }
+        console.error('[Login] signUp error', signUpError);
+        showError('Erro ao criar conta. Tente novamente.');
         return;
       }
 
-      // 3) Redirecionar para completar cadastro
-      showSuccess('Código verificado! Redirecionando...');
-      navigate('/complete-profile', { replace: true });
+      // signUp bem-sucedido — o onAuthStateChange vai redirecionar para /complete-profile
+      showSuccess('Conta criada! Redirecionando para completar seu cadastro...');
 
     } catch (err: any) {
       console.error('[Login] Unexpected error verifying code:', err);
@@ -358,7 +306,7 @@ const Login = () => {
                           value={emailForSignup}
                           onChange={(e) => setEmailForSignup(e.target.value)}
                           onKeyDown={(e) => e.key === 'Enter' && sendCode()}
-                          className="w-full h-12 px-4 rounded-xl border border-stone-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-sky-300"
+                          className="w-full h-12 px-4 rounded-xl border border-stone-200 bg-white text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-300"
                         />
                         <Button onClick={sendCode} className="h-12 uppercase font-black tracking-widest" disabled={isSendingCode}>
                           {isSendingCode ? 'Enviando...' : 'Enviar Código por E-mail'}
@@ -388,7 +336,7 @@ const Login = () => {
                         <Button
                           onClick={verifyCode}
                           className="h-12 uppercase font-black tracking-widest"
-                          disabled={isVerifying || otp.length < 6}
+                          disabled={isVerifying || otp.replace(/\s/g, '').length < 6}
                         >
                           {isVerifying ? 'Verificando...' : 'Verificar Código'}
                         </Button>

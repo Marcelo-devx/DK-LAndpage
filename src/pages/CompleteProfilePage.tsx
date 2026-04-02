@@ -3,7 +3,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -42,142 +42,19 @@ const termsContent = `Prezado Cliente, leia com atenção os Termos de Uso e a P
 
 const CompleteProfilePage = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isFetchingCep, setIsFetchingCep] = useState(false);
   const [deliveryType, setDeliveryType] = useState<'local' | 'correios' | null>(null);
   const [isTermsOpen, setIsTermsOpen] = useState(false);
-  const [cpfError, setCpfError] = useState<string | null>(null);
-  const [isCheckingCpf, setIsCheckingCpf] = useState(false);
-  const [cpfValidated, setCpfValidated] = useState(false);
 
   const { register, handleSubmit, control, setValue, getValues, watch, formState: { errors } } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
   });
 
-  // If token present in URL, validate via validate-token function and pre-fill email
-  useEffect(() => {
-    const initFromToken = async () => {
-      const token = searchParams.get('token');
-      if (!token) return;
-
-      try {
-        const resp = await fetch(`${window.location.origin}/api/validate-token`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token }),
-        });
-        const json = await resp.json();
-        if (!resp.ok) {
-          showError(json?.error || 'Token inválido ou expirado.');
-          navigate('/login');
-          return;
-        }
-
-        const { email, user_id, type } = json;
-        if (type !== 'complete_profile') {
-          showError('Token inválido para essa ação.');
-          navigate('/login');
-          return;
-        }
-
-        // Pre-fill email into form (non-editable)
-        setValue('phone', '');
-        setValue('cpf_cnpj', '');
-        setUser({ email, id: user_id });
-        setLoading(false);
-      } catch (err) {
-        console.error('[CompleteProfilePage] token init error', err);
-        showError('Erro ao validar token.');
-        navigate('/login');
-      }
-    };
-
-    initFromToken();
-  }, [searchParams, navigate, setValue]);
-
-  useEffect(() => {
-    // If user is logged in, we can fetch profile and prefill
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        // keep loading false if token flow handled it
-        setLoading(false);
-        return;
-      }
-      setUser(session.user);
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', session.user.id)
-        .single();
-
-      const isProfileComplete = profile && 
-        profile.first_name && 
-        profile.last_name && 
-        profile.date_of_birth && 
-        profile.phone && 
-        profile.cpf_cnpj &&
-        profile.gender &&
-        profile.cep && 
-        profile.street && 
-        profile.number && 
-        profile.neighborhood && 
-        profile.city && 
-        profile.state;
-
-      if (isProfileComplete) {
-        navigate('/');
-      }
-      setLoading(false);
-    };
-    checkSession();
-  }, [navigate]);
-
   // watch required fields to determine whether to enable submit and to show '*' markers
   const watched = watch();
-
-  const checkCpfDuplicate = async () => {
-    const raw = getValues('cpf_cnpj') || '';
-    const clean = raw.replace(/\D/g, '');
-    if (clean.length < 11) return; // not enough digits yet, skip
-
-    // Prevent concurrent checks
-    if (isCheckingCpf) return;
-
-    setIsCheckingCpf(true);
-    setCpfError(null);
-    setCpfValidated(false);
-
-    // Watchdog to ensure spinner cleared
-    const watchdog = setTimeout(() => {
-      console.warn('[CompleteProfilePage] checkCpfDuplicate watchdog cleared');
-      setIsCheckingCpf(false);
-    }, 20000);
-
-    try {
-      const { data: existing } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('cpf_cnpj', clean)
-        .neq('id', user?.id || '')
-        .maybeSingle();
-      if (existing) {
-        setCpfError('Este CPF/CNPJ já está cadastrado em outra conta.');
-        setCpfValidated(false);
-      } else {
-        setCpfValidated(true);
-      }
-    } catch (e) {
-      console.error('[CompleteProfilePage] checkCpfDuplicate error', e);
-      // don't block user; leave cpfValidated false
-    } finally {
-      clearTimeout(watchdog);
-      setIsCheckingCpf(false);
-    }
-  };
 
   const requiredFieldsFilled = useMemo(() => {
     const f = watched.first_name && watched.last_name;
@@ -197,7 +74,7 @@ const CompleteProfilePage = () => {
 
   const accepted = Boolean(watched.accepted_terms);
 
-  const isReadyToSubmit = requiredFieldsFilled && accepted && !cpfError && !isCheckingCpf && cpfValidated;
+  const isReadyToSubmit = requiredFieldsFilled && accepted;
 
   const handleCepLookup = async () => {
     const cep = getValues('cep');
@@ -206,22 +83,12 @@ const CompleteProfilePage = () => {
       showError("Por favor, insira um CEP válido com 8 dígitos.");
       return;
     }
-
-    // Prevent concurrent lookups
-    if (isFetchingCep) return;
-
     setIsFetchingCep(true);
     setDeliveryType(null);
 
     // Timeout wrapper to avoid hanging in case the function invocation stalls
     const TIMEOUT_MS = 10000; // 10 seconds
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-    // Watchdog to ensure spinner cleared
-    const watchdog = setTimeout(() => {
-      console.warn('[CompleteProfilePage] handleCepLookup watchdog cleared');
-      setIsFetchingCep(false);
-    }, 20000);
 
     try {
       const invokePromise = supabase.functions.invoke('validate-cep', {
@@ -289,44 +156,82 @@ const CompleteProfilePage = () => {
       }
     } finally {
       if (timeoutId) clearTimeout(timeoutId);
-      clearTimeout(watchdog);
       setIsFetchingCep(false);
     }
   };
 
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        navigate('/login');
+      } else {
+        setUser(session.user);
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+        
+        const isProfileComplete = profile && 
+          profile.first_name && 
+          profile.last_name && 
+          profile.date_of_birth && 
+          profile.phone && 
+          profile.cpf_cnpj &&
+          profile.gender &&
+          profile.cep && 
+          profile.street && 
+          profile.number && 
+          profile.neighborhood && 
+          profile.city && 
+          profile.state;
+
+        if (isProfileComplete) {
+          navigate('/');
+        }
+      }
+      setLoading(false);
+    };
+    checkSession();
+  }, [navigate]);
+
   const onSubmit = async (data: ProfileFormData) => {
+    if (!user) return;
     setIsSaving(true);
     const toastId = showLoading("Salvando informações...");
 
+    // Extract profile data (no password fields here)
+    const { accepted_terms, ...profileData } = data as any;
+
     try {
-      let emailToSet = user?.email || null;
-      if (!emailToSet) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) emailToSet = session.user.email as string;
-      }
-
-      const cleanCpf = data.cpf_cnpj.replace(/\D/g, '');
-
-      // Remove accepted_terms from payload — it's not a DB column
-      const { accepted_terms, ...rest } = data;
-
-      const profilePayload: any = {
-        ...rest,
-        phone: data.phone.replace(/\D/g, ''),
-        cpf_cnpj: cleanCpf,
-        date_of_birth: format(data.date_of_birth, 'yyyy-MM-dd'),
-        accepted_terms_version: TERMS_VERSION,
-        accepted_terms_at: new Date().toISOString(),
-      };
-
-      const { error } = await supabase.from('profiles').upsert({
-        id: user?.id || undefined,
-        ...profilePayload,
-      }, { onConflict: 'id' });
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          ...profileData,
+          // accepted_terms column may not exist in some DBs; only store version + timestamp
+          accepted_terms_version: TERMS_VERSION,
+          accepted_terms_at: new Date().toISOString(),
+          phone: profileData.phone.replace(/\D/g, ''),
+          cpf_cnpj: profileData.cpf_cnpj.replace(/\D/g, ''),
+          date_of_birth: format(profileData.date_of_birth, 'yyyy-MM-dd'),
+        })
+        .eq('id', user.id);
 
       if (error) {
-        throw error;
+        // If some of the accepted_terms_* columns don't exist, retry without them
+        const msg = String(error.message || '').toLowerCase();
+        if (msg.includes('column "accepted_terms_version"') || msg.includes('column "accepted_terms_at"') || String(error.code || '').includes('42703')) {
+          await supabase.from('profiles').update({
+            ...profileData,
+            phone: profileData.phone.replace(/\D/g, ''),
+            cpf_cnpj: profileData.cpf_cnpj.replace(/\D/g, ''),
+            date_of_birth: format(profileData.date_of_birth, 'yyyy-MM-dd'),
+          }).eq('id', user.id);
+        } else throw error;
       }
+
+      // No password handling here (passwords are managed in dashboard)
 
       dismissToast(toastId);
       showSuccess("Cadastro completo!");
@@ -383,21 +288,10 @@ const CompleteProfilePage = () => {
           <CardDescription className="text-stone-500 font-medium text-lg mt-2">
             Finalize suas informações para acessar a loja.
           </CardDescription>
-          <div className="mt-3 mx-auto max-w-sm bg-sky-50 border border-sky-200 rounded-xl px-4 py-3 text-sm text-sky-800">
-            🔑 Sua senha padrão é <span className="font-black tracking-widest">123456</span>. Você pode alterá-la no seu dashboard após o cadastro.
-          </div>
         </CardHeader>
         <CardContent className="p-8 md:p-12">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-
-            {/* If token flow provided email, show it */}
-            {user?.email && (
-              <div className="space-y-2">
-                <Label>Email</Label>
-                <Input value={user.email} readOnly className="bg-stone-50 border-stone-200 h-12 rounded-xl" />
-              </div>
-            )}
-
+            
             {/* Dados Pessoais */}
             <div className="space-y-6">
               <h3 className="text-xs font-black uppercase tracking-[0.2em] text-stone-400 border-b border-stone-100 pb-2">Dados Pessoais</h3>
@@ -417,47 +311,14 @@ const CompleteProfilePage = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="space-y-2">
                     <Label htmlFor="cpf_cnpj" className="text-charcoal-gray">CPF / CNPJ {requiredStar('cpf_cnpj') && <span className="text-red-500">*</span>}</Label>
-                    <div className="relative">
-                      <Controller
-                        name="cpf_cnpj"
-                        control={control}
-                        defaultValue=""
-                        render={({ field }) => (
-                          <Input
-                            id="cpf_cnpj"
-                            value={field.value}
-                            onChange={(e) => {
-                              const masked = maskCpfCnpj(e.target.value);
-                              field.onChange(masked);
-                              setCpfError(null);
-                              setCpfValidated(false);
-                            }}
-                            onBlur={() => {
-                              field.onBlur();
-                              checkCpfDuplicate();
-                            }}
-                            placeholder="000.000.000-00"
-                            className={`bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors pr-10 ${cpfError ? 'border-red-400 focus:ring-red-300' : cpfValidated ? 'border-emerald-400' : ''}`}
-                          />
-                        )}
-                      />
-                      {isCheckingCpf && (
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                          <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
-                        </div>
-                      )}
-                    </div>
-                    {cpfError && (
-                      <p className="text-xs text-red-500 font-bold flex items-center gap-1">
-                        ⚠️ {cpfError}
-                      </p>
-                    )}
-                    {cpfValidated && !cpfError && (
-                      <p className="text-xs text-emerald-600 font-bold flex items-center gap-1">
-                        ✅ CPF/CNPJ validado com sucesso!
-                      </p>
-                    )}
-                    {!cpfError && !cpfValidated && errors.cpf_cnpj && <p className="text-xs text-red-500 font-bold">{errors.cpf_cnpj.message}</p>}
+                    <Input 
+                      id="cpf_cnpj" 
+                      {...register('cpf_cnpj')} 
+                      onChange={(e) => e.target.value = maskCpfCnpj(e.target.value)} 
+                      placeholder="000.000.000-00" 
+                      className="bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors" 
+                    />
+                    {errors.cpf_cnpj && <p className="text-xs text-red-500 font-bold">{errors.cpf_cnpj.message}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="gender" className="text-charcoal-gray">Gênero {requiredStar('gender') && <span className="text-red-500">*</span>}</Label>

@@ -14,21 +14,22 @@ export const maskPhone = (value: string) => {
 };
 
 export const maskCpfCnpj = (value: string) => {
-  const digits = value.replace(/\D/g, '');
-
-  if (digits.length <= 11) {
-    // CPF: 000.000.000-00
-    return digits
+  value = value.replace(/\D/g, '');
+  
+  if (value.length <= 11) {
+    // CPF
+    return value
       .replace(/(\d{3})(\d)/, '$1.$2')
       .replace(/(\d{3})(\d)/, '$1.$2')
-      .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+      .replace(/(\d{3})(\d{1,2})/, '$1-$2')
+      .replace(/(-\d{2})\d+?$/, '$1');
   } else {
-    // CNPJ: 00.000.000/0000-00
-    return digits
-      .slice(0, 14)
+    // CNPJ
+    return value
       .replace(/^(\d{2})(\d)/, '$1.$2')
       .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
       .replace(/\.(\d{3})(\d)/, '.$1/$2')
-      .replace(/(\d{4})(\d{1,2})$/, '$1-$2');
+      .replace(/(\d{4})(\d)/, '$1-$2')
+      .replace(/(-\d{2})\d+?$/, '$1');
   }
 };

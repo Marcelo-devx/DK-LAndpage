@@ -1,161 +1,125 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { showError, showSuccess, showLoading, dismissToast } from '@/utils/toast';
-import { Loader2, Mail, ShieldCheck, KeyRound } from 'lucide-react';
+import { Loader2, Check, X } from 'lucide-react';
 
-const SUPABASE_URL = "https://jrlozhhvwqfmjtkmvukf.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpybG96aGh2d3FmbWp0a212dWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzNDU2NjQsImV4cCI6MjA2NzkyMTY2NH0.Do5c1-TKqpyZTJeX_hLbw1SU40CbwXfCIC-pPpcD_JM";
-
-// Gera senha aleatória com letras, números e símbolo
-const generatePassword = (): string => {
-  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-  const lower = 'abcdefghjkmnpqrstuvwxyz';
-  const numbers = '23456789';
-  const symbols = '!@#$%';
-  const all = upper + lower + numbers + symbols;
-  let pwd = '';
-  pwd += upper[Math.floor(Math.random() * upper.length)];
-  pwd += lower[Math.floor(Math.random() * lower.length)];
-  pwd += numbers[Math.floor(Math.random() * numbers.length)];
-  pwd += symbols[Math.floor(Math.random() * symbols.length)];
-  for (let i = 4; i < 10; i++) {
-    pwd += all[Math.floor(Math.random() * all.length)];
-  }
-  // Embaralhar
-  return pwd.split('').sort(() => Math.random() - 0.5).join('');
+const translateSupabaseError = (msg: string): string => {
+  if (msg.includes('weak') || msg.includes('easy to guess'))
+    return 'Essa senha é muito comum e fácil de adivinhar. Por favor, escolha uma senha mais forte e única.';
+  if (msg.includes('same as'))
+    return 'A nova senha não pode ser igual à senha atual.';
+  if (msg.includes('at least'))
+    return 'A senha deve ter pelo menos 8 caracteres.';
+  return msg;
 };
 
 const DashboardSecurity = () => {
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
   const navigate = useNavigate();
 
-  const handleSendNewPassword = async () => {
+  const checks = useMemo(() => ({
+    length: password.length >= 8,
+    upper: /[A-Z]/.test(password),
+    number: /\d/.test(password),
+    special: /[^A-Za-z0-9]/.test(password),
+    match: password.length > 0 && password === confirm,
+  }), [password, confirm]);
+
+  const allValid = checks.length && checks.upper && checks.number && checks.special && checks.match;
+
+  const handleChangePassword = async () => {
+    if (!checks.length) { showError('A senha deve ter pelo menos 8 caracteres.'); return; }
+    if (!checks.upper) { showError('A senha deve conter pelo menos 1 letra maiúscula.'); return; }
+    if (!checks.number) { showError('A senha deve conter pelo menos 1 número.'); return; }
+    if (!checks.special) { showError('A senha deve conter pelo menos 1 caractere especial (!@#$%...).'); return; }
+    if (!checks.match) { showError('As senhas não coincidem.'); return; }
+
     setLoading(true);
-    const toastId = showLoading('Gerando nova senha...');
+    const toastId = showLoading('Atualizando senha...');
     try {
-      // 1) Pegar sessão e email do usuário
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user?.email) {
+      if (!session) {
         dismissToast(toastId);
         showError('Sessão expirada. Por favor, faça login novamente.');
         navigate('/login');
         return;
       }
 
-      const email = session.user.email;
-
-      // 2) Gerar nova senha aleatória
-      const newPassword = generatePassword();
-
-      // 3) Atualizar senha no Supabase
-      const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
-      if (updateError) {
-        dismissToast(toastId);
-        showError('Erro ao atualizar senha. Tente novamente.');
-        console.error('[DashboardSecurity] updateUser error', updateError);
-        return;
-      }
-
-      // 4) Enviar email com a nova senha via Resend
-      const emailRes = await fetch(`${SUPABASE_URL}/functions/v1/send-email-via-resend`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-          'apikey': SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({
-          to: email,
-          subject: 'Sua nova senha - DKCWB',
-          type: 'new_password',
-          newPassword,
-        }),
-      });
-
-      const emailData = await emailRes.json().catch(() => ({}));
+      const { error } = await supabase.auth.updateUser({ password });
       dismissToast(toastId);
 
-      if (!emailRes.ok) {
-        const errMsg = emailData?.error || 'Senha atualizada mas erro ao enviar email.';
-        console.error('[DashboardSecurity] email error', emailRes.status, emailData);
-        showError(errMsg);
+      if (error) {
+        showError(translateSupabaseError(error.message));
         return;
       }
 
-      setSent(true);
-      showSuccess('Nova senha enviada para seu e-mail!');
-
+      showSuccess('Senha atualizada com sucesso!');
+      setPassword('');
+      setConfirm('');
     } catch (err: any) {
       dismissToast(toastId);
-      showError(err.message || 'Erro inesperado. Tente novamente.');
-      console.error('[DashboardSecurity] unexpected', err);
+      showError(translateSupabaseError(err.message || 'Erro ao atualizar a senha.'));
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
+  const Requirement = ({ met, label }: { met: boolean; label: string }) => (
+    <div className={`flex items-center gap-2 text-xs font-medium transition-colors ${met ? 'text-emerald-600' : 'text-stone-400'}`}>
+      {met ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
+      {label}
+    </div>
+  );
+
   return (
     <div className="container mx-auto px-4 py-12 max-w-lg">
-      <Card className="border border-stone-200 shadow-sm rounded-2xl overflow-hidden">
-        <CardHeader className="text-center pb-2 pt-8">
-          <div className="mx-auto w-14 h-14 bg-rose-50 rounded-2xl flex items-center justify-center mb-4">
-            <ShieldCheck className="h-7 w-7 text-rose-500" />
-          </div>
-          <CardTitle className="text-xl font-black uppercase tracking-tight text-charcoal-gray">
-            Segurança da Conta
-          </CardTitle>
-          <CardDescription className="text-stone-500 mt-1">
-            Solicite uma nova senha aleatória enviada diretamente para o seu e-mail.
-          </CardDescription>
+      <Card>
+        <CardHeader>
+          <CardTitle>Segurança da Conta</CardTitle>
         </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label>Nova Senha</Label>
+            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          </div>
 
-        <CardContent className="p-8 space-y-6">
-          {!sent ? (
-            <>
-              <div className="bg-sky-50 border border-sky-200 rounded-xl p-4 flex gap-3 items-start">
-                <KeyRound className="h-5 w-5 text-sky-500 mt-0.5 shrink-0" />
-                <p className="text-sm text-sky-800">
-                  Ao clicar no botão abaixo, geraremos uma <strong>nova senha aleatória</strong> e enviaremos para o seu e-mail cadastrado. Use essa senha para acessar o site.
-                </p>
-              </div>
-
-              <Button
-                onClick={handleSendNewPassword}
-                disabled={loading}
-                className="w-full h-12 uppercase font-black tracking-widest gap-2"
-              >
-                {loading ? (
-                  <><Loader2 className="h-4 w-4 animate-spin" /> Enviando...</>
-                ) : (
-                  <><Mail className="h-4 w-4" /> Enviar Nova Senha por E-mail</>
-                )}
-              </Button>
-            </>
-          ) : (
-            <div className="text-center space-y-4 py-4">
-              <div className="mx-auto w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center">
-                <Mail className="h-8 w-8 text-emerald-500" />
-              </div>
-              <div>
-                <p className="font-bold text-charcoal-gray text-lg">E-mail enviado!</p>
-                <p className="text-sm text-stone-500 mt-1">
-                  Verifique sua caixa de entrada. A nova senha foi enviada para o seu e-mail cadastrado.
-                </p>
-              </div>
-              <p className="text-xs text-stone-400">Não recebeu? Verifique a caixa de spam.</p>
-              <Button
-                variant="outline"
-                onClick={() => setSent(false)}
-                className="uppercase font-bold tracking-widest text-xs"
-              >
-                Solicitar novamente
-              </Button>
+          {password.length > 0 && (
+            <div className="grid grid-cols-2 gap-2 p-3 bg-stone-50 rounded-xl border border-stone-100">
+              <Requirement met={checks.length} label="8+ caracteres" />
+              <Requirement met={checks.upper} label="Letra maiúscula" />
+              <Requirement met={checks.number} label="Número" />
+              <Requirement met={checks.special} label="Caractere especial" />
             </div>
           )}
+
+          <div>
+            <Label>Confirmar Nova Senha</Label>
+            <Input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+            {confirm.length > 0 && !checks.match && (
+              <p className="text-xs text-red-500 font-medium flex items-center gap-1.5 mt-1.5">
+                <X className="h-3.5 w-3.5" /> As senhas não coincidem
+              </p>
+            )}
+            {checks.match && (
+              <p className="text-xs text-emerald-600 font-medium flex items-center gap-1.5 mt-1.5">
+                <Check className="h-3.5 w-3.5" /> Senhas coincidem
+              </p>
+            )}
+          </div>
+
+          <div className="flex justify-end">
+            <Button onClick={handleChangePassword} disabled={loading || !allValid}>
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Atualizar Senha'}
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

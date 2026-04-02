@@ -42,18 +42,36 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
 
-    // Find user by email — usando getUserByEmail para evitar limite de paginação do listUsers
-    const { data: userData, error: getUserError } = await (supabase.auth.admin as any).getUserByEmail(email.toLowerCase().trim());
+    // Busca usuário por email usando listUsers com filtro (suportado pelo SDK v2)
+    const cleanEmail = email.toLowerCase().trim();
+    console.log('[forgot-password] buscando usuário com email:', cleanEmail);
 
-    const user = userData?.user ?? userData;
+    const { data: usersData, error: listError } = await supabase.auth.admin.listUsers({
+      filter: `email.eq.${cleanEmail}`,
+    } as any);
 
-    if (getUserError || !user?.id) {
-      console.log('[forgot-password] user not found for email:', email, getUserError);
+    let user = usersData?.users?.[0];
+
+    // Fallback: se o filtro não funcionar, busca via RPC no banco
+    if (!user) {
+      console.log('[forgot-password] listUsers com filtro não retornou resultado, tentando RPC...');
+      const { data: rpcData, error: rpcError } = await supabase.rpc('get_user_id_by_email', { user_email: cleanEmail });
+      
+      if (!rpcError && rpcData) {
+        user = { id: rpcData } as any;
+        console.log('[forgot-password] usuário encontrado via RPC, id:', rpcData);
+      }
+    }
+
+    if (!user?.id) {
+      console.log('[forgot-password] usuário não encontrado para email:', cleanEmail);
       return new Response(
         JSON.stringify({ error: 'Nenhuma conta encontrada com este e-mail. Verifique o endereço digitado.' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    console.log('[forgot-password] usuário encontrado, id:', user.id);
 
     // Check if the user has a complete profile (all required fields must be filled)
     const { data: profile, error: profileError } = await supabase
@@ -63,7 +81,7 @@ serve(async (req) => {
       .single();
 
     if (profileError || !profile) {
-      console.log('[forgot-password] profile not found for user:', user.id);
+      console.log('[forgot-password] perfil não encontrado para usuário:', user.id);
       return new Response(
         JSON.stringify({ error: 'Cadastro incompleto. Finalize seu cadastro antes de redefinir a senha.' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -77,7 +95,7 @@ serve(async (req) => {
       profile.neighborhood && profile.city && profile.state;
 
     if (!isProfileComplete) {
-      console.log('[forgot-password] incomplete profile for user:', user.id);
+      console.log('[forgot-password] perfil incompleto para usuário:', user.id, profile);
       return new Response(
         JSON.stringify({ error: 'Cadastro incompleto. Finalize seu cadastro antes de redefinir a senha.' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -87,7 +105,7 @@ serve(async (req) => {
     const newPassword = generatePassword();
 
     // Update user's password using admin API
-    const { error: updateError } = await (supabase.auth.admin as any).updateUserById(user.id, {
+    const { error: updateError } = await supabase.auth.admin.updateUserById(user.id, {
       password: newPassword,
     });
 
@@ -118,7 +136,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Senha atualizada, mas erro ao enviar e-mail' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    console.log('[forgot-password] password reset and email sent for', email);
+    console.log('[forgot-password] senha redefinida e e-mail enviado para', cleanEmail);
     return new Response(JSON.stringify({ success: true }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (err: any) {

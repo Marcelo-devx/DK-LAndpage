@@ -390,17 +390,28 @@ const CompleteProfilePage = () => {
                   <div className="space-y-2">
                     <Label htmlFor="cpf_cnpj" className="text-charcoal-gray">CPF / CNPJ {requiredStar('cpf_cnpj') && <span className="text-red-500">*</span>}</Label>
                     <div className="relative">
-                      <Input
-                        id="cpf_cnpj"
-                        {...register('cpf_cnpj')}
-                        onChange={(e) => {
-                          e.target.value = maskCpfCnpj(e.target.value);
-                          setCpfError(null);
-                          setCpfValidated(false);
-                        }}
-                        onBlur={checkCpfDuplicate}
-                        placeholder="000.000.000-00"
-                        className={`bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors pr-10 ${cpfError ? 'border-red-400 focus:ring-red-300' : cpfValidated ? 'border-emerald-400' : ''}`}
+                      <Controller
+                        name="cpf_cnpj"
+                        control={control}
+                        defaultValue=""
+                        render={({ field }) => (
+                          <Input
+                            id="cpf_cnpj"
+                            value={field.value}
+                            onChange={(e) => {
+                              const masked = maskCpfCnpj(e.target.value);
+                              field.onChange(masked);
+                              setCpfError(null);
+                              setCpfValidated(false);
+                            }}
+                            onBlur={() => {
+                              field.onBlur();
+                              checkCpfDuplicate();
+                            }}
+                            placeholder="000.000.000-00"
+                            className={`bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors pr-10 ${cpfError ? 'border-red-400 focus:ring-red-300' : cpfValidated ? 'border-emerald-400' : ''}`}
+                          />
+                        )}
                       />
                       {isCheckingCpf && (
                         <div className="absolute right-3 top-1/2 -translate-y-1/2">

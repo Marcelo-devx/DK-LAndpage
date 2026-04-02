@@ -9,11 +9,24 @@ export default function ResendTestButton() {
   const sendTest = async () => {
     setLoading(true);
     try {
+      // Generate a real token via the generate-token edge function so the link is valid for testing
+      const gen = await fetch(`${window.location.origin}/api/generate-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'rc497064@gmail.com', type: 'complete_profile', expires_in_seconds: 60 * 60 }),
+      });
+      const genJson = await gen.json();
+      if (!gen.ok) {
+        showError('Erro ao gerar token: ' + (genJson?.error || JSON.stringify(genJson)));
+        setLoading(false);
+        return;
+      }
+      const token = genJson.token;
       const payload = {
         to: 'rc497064@gmail.com',
         subject: 'Teste Resend - Complete Profile',
         type: 'complete_profile',
-        completeLink: `${window.location.origin}/complete-profile?token=TEST_TOKEN_123`,
+        completeLink: `${window.location.origin}/complete-profile?token=${encodeURIComponent(token)}`,
       };
 
       const res = await supabase.functions.invoke('send-email-via-resend', { body: payload });

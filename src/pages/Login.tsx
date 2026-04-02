@@ -377,12 +377,12 @@ const Login = () => {
               
               <div className="p-8">
                 {view === 'sign_up' ? (
-                  // OTP signup flow
+                  // COMPLETE-PROFILE signup flow (send link instead of OTP)
                   <div className="flex flex-col gap-4">
                     {!codeSent ? (
                       <>
                         <div className="text-center">
-                          <p className="text-sm text-slate-500">Digite seu e-mail e enviaremos um código de 6 dígitos para validar seu acesso.</p>
+                          <p className="text-sm text-slate-500">Digite seu e-mail e enviaremos um link para completar seu cadastro.</p>
                         </div>
                         <input
                           type="email"
@@ -392,7 +392,7 @@ const Login = () => {
                           className="w-full h-12 px-4 rounded-xl border border-stone-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-sky-300"
                         />
                         <Button onClick={sendOtpToEmail} className="h-12 uppercase font-black tracking-widest" disabled={isSendingCode}>
-                          {isSendingCode ? 'Enviando...' : 'Enviar Código por E-mail'}
+                          {isSendingCode ? 'Enviando...' : 'Enviar Link por E-mail'}
                         </Button>
                         <div className="text-center">
                           <button 
@@ -405,42 +405,29 @@ const Login = () => {
                         </div>
                       </>
                     ) : (
-                      // OTP entry UI
+                      // After sending link: show confirmation and allow resend
                       <>
                         <div className="text-center">
-                          <p className="text-sm text-slate-500">Insira o código de 6 dígitos enviado para <span className="font-bold text-sky-600">{emailForSignup}</span></p>
-                        </div>
-
-                        <div className="flex items-center justify-center">
-                          <InputOTP length={6} value={otp} onChange={(val: string) => setOtp(val)} className="gap-2" />
+                          <h3 className="text-sm font-bold text-charcoal-gray">Link enviado!</h3>
+                          <p className="text-sm text-slate-500">Enviamos um link para completar seu cadastro em <span className="font-bold text-sky-600">{emailForSignup}</span>. Abra o e-mail e clique no link para continuar.</p>
                         </div>
 
                         <div className="flex gap-2 mt-2">
-                          <Button onClick={verifyOtpCode} className="flex-1 h-12 uppercase font-black tracking-widest" disabled={isVerifying}>
-                            {isVerifying ? 'Verificando...' : 'Verificar Código'}
+                          <Button onClick={sendOtpToEmail} className="flex-1 h-12 uppercase font-black tracking-widest" disabled={isSendingCode}>
+                            {isSendingCode ? 'Enviando...' : 'Reenviar Link'}
                           </Button>
 
                           <Button
                             variant="ghost"
-                            onClick={resendOtp}
+                            onClick={() => { setCodeSent(false); setEmailForSignup(''); }}
                             className="h-12 px-3"
-                            disabled={isSendingCode || resendCooldown > 0}
                           >
-                            <div className="flex items-center gap-2">
-                              <RefreshCw className="h-4 w-4" />
-                              {resendCooldown > 0 ? `Reenviar (${resendCooldown}s)` : 'Reenviar'}
-                            </div>
+                            Usar outro e-mail
                           </Button>
                         </div>
 
                         <div className="text-center mt-2">
-                          <button 
-                            type="button"
-                            onClick={() => { setCodeSent(false); setOtp(''); }}
-                            className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-sky-500 transition-colors"
-                          >
-                            Use outro e-mail
-                          </button>
+                          <p className="text-xs text-slate-400">Se não receber o e-mail, verifique a caixa de spam ou tente reenviar.</p>
                         </div>
                       </>
                     )}

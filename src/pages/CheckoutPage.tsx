@@ -315,53 +315,31 @@ const CheckoutPage = () => {
         const rawOrderId: any = (o as any)?.new_order_id ?? (o as any)?.order_id ?? (o as any)?.id ?? o;
         const createdOrderId = typeof rawOrderId === 'string' ? Number(rawOrderId) : rawOrderId;
 
-        if (!isMountedRef.current) return; // component unmounted - abort follow-ups
+        if (!isMountedRef.current) return;
 
         dismissToast(toastId);
         clearLocalCart();
 
+        // Disparar webhook para o n8n (fire-and-forget, não bloqueia o fluxo)
         (async () => {
           try {
-            // Persist a sending log before attempting to invoke so we can always retry server-side
-            let logId: number | null = null;
-            try {
-              const { data: inserted } = await supabase.from('integration_logs').insert([{
-                event_type: 'order_created',
-                status: 'sending',
-                details: 'Queued from client before invoking trigger-integration',
-                payload: { order_id: createdOrderId }
-              }]).select('id').limit(1).single();
-              logId = inserted?.id ?? null;
-              console.info('[CheckoutPage] queued integration_log id', logId);
-            } catch (qlErr) {
-              console.warn('[CheckoutPage] failed to queue integration_log before invoke:', qlErr);
+            const { data: { session } } = await supabase.auth.getSession();
+            const authToken = session?.access_token;
+            const invokeOpts: any = { body: { order_id: createdOrderId, event_type: 'order_created' } };
+            if (authToken) invokeOpts.headers = { Authorization: `Bearer ${authToken}` };
+            const { error: invokeErr } = await supabase.functions.invoke('trigger-integration', invokeOpts);
+            if (invokeErr) {
+              console.warn('[CheckoutPage] trigger-integration warning (pix/logged):', invokeErr);
+              await supabase.from('integration_logs').insert([{ event_type: 'order_created', status: 'failed', details: String(invokeErr), payload: { order_id: createdOrderId } }]);
+            } else {
+              console.info('[CheckoutPage] trigger-integration dispatched (pix/logged)', createdOrderId);
+              await supabase.from('integration_logs').insert([{ event_type: 'order_created', status: 'sent', details: 'Dispatched via trigger-integration', payload: { order_id: createdOrderId } }]);
             }
-
-            // NOTE: Removed direct client invocation of the Edge Function (trigger-integration)
-            // to avoid CORS preflight 403 from browser. The DB trigger will dispatch the webhook
-            // server-side; here we simply mark a queued integration log so server-side workers can retry.
-            try {
-              await supabase.from('integration_logs').insert([{
-                event_type: 'order_created',
-                status: 'queued',
-                details: 'Queued from client (no direct invoke) for server-side dispatch',
-                payload: { order_id: createdOrderId }
-              }]);
-              console.info('[CheckoutPage] queued integration_log for server dispatch', createdOrderId);
-            } catch (qlErr) {
-              console.warn('[CheckoutPage] failed to insert queued integration_log:', qlErr);
-            }
-
           } catch (invokeEx) {
-            console.error('[CheckoutPage] error preparing integration log:', invokeEx);
-
-            // FALLBACK: persist an integration log so server-side can retry
+            console.error('[CheckoutPage] trigger-integration error (pix/logged):', invokeEx);
             try {
-              await supabase.from('integration_logs').insert([{ event_type: 'order_created', status: 'queued', details: String(invokeEx), payload: { order_id: createdOrderId } }]);
-              console.info('[CheckoutPage] fallback: queued integration_log after exception');
-            } catch (qlErr) {
-              console.error('[CheckoutPage] failed to insert fallback integration_log after exception:', qlErr);
-            }
+              await supabase.from('integration_logs').insert([{ event_type: 'order_created', status: 'failed', details: String(invokeEx), payload: { order_id: createdOrderId } }]);
+            } catch (_) {}
           }
         })();
 
@@ -390,27 +368,24 @@ const CheckoutPage = () => {
         dismissToast(toastId);
         clearLocalCart();
 
+        // Disparar webhook para o n8n (fire-and-forget, não bloqueia o fluxo)
         (async () => {
           try {
-            // NOTE: Removed direct client invocation of the Edge Function to avoid CORS.
-            // Instead, queue a server-side integration_log for background dispatch.
-            await supabase.from('integration_logs').insert([{
-              event_type: 'order_created',
-              status: 'queued',
-              details: 'Guest order queued from client (no direct invoke)',
-              payload: { order_id: createdOrderId, guest_email: data.email }
-            }]);
-            console.info('[CheckoutPage] queued integration_log (guest) for server dispatch', createdOrderId);
-          } catch (invokeEx) {
-            console.error('[CheckoutPage] error invoking trigger-integration (guest):', invokeEx);
-
-            // Ensure the integration log is queued for retries server-side
-            try {
-              await supabase.from('integration_logs').insert([{ event_type: 'order_created', status: 'queued', details: String(invokeEx), payload: { order_id: createdOrderId, guest_email: data.email } }]);
-              console.info('[CheckoutPage] queued integration_log for guest after invoke exception');
-            } catch (qlErr) {
-              console.error('[CheckoutPage] failed to insert fallback integration_log (guest):', qlErr);
+            const { error: invokeErr } = await supabase.functions.invoke('trigger-integration', {
+              body: { order_id: createdOrderId, event_type: 'order_created', guest_email: data.email }
+            });
+            if (invokeErr) {
+              console.warn('[CheckoutPage] trigger-integration warning (pix/guest):', invokeErr);
+              await supabase.from('integration_logs').insert([{ event_type: 'order_created', status: 'failed', details: String(invokeErr), payload: { order_id: createdOrderId, guest_email: data.email } }]);
+            } else {
+              console.info('[CheckoutPage] trigger-integration dispatched (pix/guest)', createdOrderId);
+              await supabase.from('integration_logs').insert([{ event_type: 'order_created', status: 'sent', details: 'Dispatched via trigger-integration (guest)', payload: { order_id: createdOrderId, guest_email: data.email } }]);
             }
+          } catch (invokeEx) {
+            console.error('[CheckoutPage] trigger-integration error (pix/guest):', invokeEx);
+            try {
+              await supabase.from('integration_logs').insert([{ event_type: 'order_created', status: 'failed', details: String(invokeEx), payload: { order_id: createdOrderId, guest_email: data.email } }]);
+            } catch (_) {}
           }
         })();
 
@@ -471,6 +446,24 @@ const CheckoutPage = () => {
         orderId = typeof rawOrderId === 'string' ? Number(rawOrderId) : rawOrderId;
         if (!orderId || !Number.isFinite(Number(orderId))) throw new Error('Não foi possível criar o pedido (ID ausente).');
       }
+
+      // Disparar webhook para o n8n (fire-and-forget, não bloqueia o fluxo do MP)
+      (async () => {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const authToken = session?.access_token;
+          const invokeOpts: any = { body: { order_id: orderId, event_type: 'order_created', guest_email: data.email } };
+          if (authToken) invokeOpts.headers = { Authorization: `Bearer ${authToken}` };
+          const { error: invokeErr } = await supabase.functions.invoke('trigger-integration', invokeOpts);
+          if (invokeErr) {
+            console.warn('[CheckoutPage] trigger-integration warning (mp):', invokeErr);
+          } else {
+            console.info('[CheckoutPage] trigger-integration dispatched (mp)', orderId);
+          }
+        } catch (invokeEx) {
+          console.error('[CheckoutPage] trigger-integration error (mp):', invokeEx);
+        }
+      })();
 
       // Sempre buscar total_price diretamente do banco — fonte da verdade
       const { data: orderRow, error: orderRowError } = await supabase
@@ -672,18 +665,6 @@ const CheckoutPage = () => {
           </Card>
         </div>
 
-        {/* Payment submit button - Reduced size for mobile */}
-        <div className="order-last mt-8">
-          {paymentMethod === 'pix' && (
-            <Button 
-              type="submit"
-              disabled={isSubmitting || !isAddressComplete}
-              className="w-full h-14 md:h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-xl shadow-xl transition-all active:scale-98"
-            >
-              {isSubmitting ? <Loader2 className="h-6 w-6" /> : 'Finalizar com PIX'}
-            </Button>
-          )}
-        </div>
       </form>
       <CouponsModal isOpen={isCouponsModalOpen} onOpenChange={setIsCouponsModalOpen} userPoints={userPoints} onRedemption={handleRedemption} />
     </div>

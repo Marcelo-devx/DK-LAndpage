@@ -6,7 +6,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, LogIn, UserPlus, RefreshCw, Mail, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, LogIn, UserPlus, RefreshCw, Mail, CheckCircle2, KeyRound } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { showError, showSuccess } from '@/utils/toast';
 import OtpInput from '@/components/OtpInput';
@@ -57,6 +57,8 @@ const customTheme: Theme = {
   },
 };
 
+type CustomView = 'sign_in' | 'sign_up' | 'forgot_password';
+
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -64,7 +66,8 @@ const Login = () => {
   const from = location.state?.from?.pathname || '/';
 
   const params = new URLSearchParams(location.search);
-  const [view, setView] = useState<ViewType>((params.get('view') as ViewType) || 'sign_in');
+  const initialView = params.get('view') === 'sign_up' ? 'sign_up' : 'sign_in';
+  const [view, setView] = useState<CustomView>(initialView as CustomView);
 
   const [emailForSignup, setEmailForSignup] = useState('');
   const [isSendingCode, setIsSendingCode] = useState(false);
@@ -72,6 +75,11 @@ const Login = () => {
   const [otp, setOtp] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+
+  // Forgot password state
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [isSendingForgot, setIsSendingForgot] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
 
   useEffect(() => {
     const refCode = params.get('ref');
@@ -142,7 +150,6 @@ const Login = () => {
 
     setIsSendingCode(true);
     try {
-      // 1) Gerar código de 6 dígitos via edge function
       const gen = await supabase.functions.invoke('generate-token', {
         body: { email, type: 'signup_otp', expires_in_seconds: 60 * 10 },
       });
@@ -155,7 +162,6 @@ const Login = () => {
 
       const code = gen.data.code;
 
-      // 2) Enviar email com o código via Resend
       const emailRes = await fetch(`${SUPABASE_URL}/functions/v1/send-email-via-resend`, {
         method: 'POST',
         headers: {
@@ -202,7 +208,6 @@ const Login = () => {
     try {
       const email = emailForSignup.trim().toLowerCase();
 
-      // 1) Validar código na nossa tabela
       const val = await supabase.functions.invoke('validate-token', {
         body: { email, code: cleanOtp },
       });
@@ -214,7 +219,6 @@ const Login = () => {
         return;
       }
 
-      // 2) Código válido — criar usuário via Admin API (já confirmado, senha padrão 123456)
       const createRes = await supabase.functions.invoke('create-user', {
         body: { email },
       });
@@ -226,7 +230,6 @@ const Login = () => {
         return;
       }
 
-      // 3) Fazer login com a senha padrão
       const DEFAULT_PASSWORD = '123456';
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
@@ -234,14 +237,12 @@ const Login = () => {
       });
 
       if (signInError) {
-        // Usuário existe mas tem senha diferente (já alterou antes)
         console.error('[Login] signIn error', signInError);
         showError('Este e-mail já possui cadastro com senha personalizada. Use a aba "Entrar".');
         setView('sign_in');
         return;
       }
 
-      // Login feito — onAuthStateChange vai redirecionar para /complete-profile
       showSuccess('Código verificado! Redirecionando...');
 
     } catch (err: any) {
@@ -251,6 +252,44 @@ const Login = () => {
       setIsVerifying(false);
     }
   };
+
+  const handleForgotPassword = async () => {
+    const email = forgotEmail.trim().toLowerCase();
+    if (!email) { showError('Informe seu e-mail cadastrado.'); return; }
+
+    setIsSendingForgot(true);
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/forgot-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'apikey': SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        const errMsg = data?.error || 'Erro ao enviar nova senha. Tente novamente.';
+        console.error('[Login] forgot-password error', res.status, data);
+        showError(errMsg);
+        return;
+      }
+
+      setForgotSent(true);
+      showSuccess('Nova senha enviada para seu e-mail!');
+
+    } catch (err: any) {
+      console.error('[Login] forgot-password unexpected error', err);
+      showError(err?.message || 'Erro inesperado. Tente novamente.');
+    } finally {
+      setIsSendingForgot(false);
+    }
+  };
+
+  const tabView = view === 'forgot_password' ? 'sign_in' : view;
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-off-white relative overflow-hidden p-4">
@@ -269,11 +308,13 @@ const Login = () => {
 
         <Card className="bg-white border border-stone-200 shadow-2xl rounded-[2rem] overflow-hidden">
           <CardContent className="p-0">
-            <Tabs value={view} onValueChange={(v) => {
-              setView(v as ViewType);
+            <Tabs value={tabView} onValueChange={(v) => {
+              setView(v as CustomView);
               setCodeSent(false);
               setOtp('');
               setEmailForSignup('');
+              setForgotSent(false);
+              setForgotEmail('');
             }} className="w-full">
               <TabsList className="grid w-full grid-cols-2 bg-slate-50 rounded-none h-14 p-1 border-b border-stone-100">
                 <TabsTrigger value="sign_in" className="data-[state=active]:bg-white data-[state=active]:text-sky-600 font-black uppercase text-[10px] tracking-widest gap-2">
@@ -285,6 +326,7 @@ const Login = () => {
               </TabsList>
 
               <div className="p-8">
+                {/* ── CRIAR CONTA ── */}
                 {view === 'sign_up' ? (
                   <div className="flex flex-col gap-5">
                     {!codeSent ? (
@@ -359,11 +401,91 @@ const Login = () => {
                       </>
                     )}
                   </div>
+
+                /* ── ESQUECI MINHA SENHA ── */
+                ) : view === 'forgot_password' ? (
+                  <div className="flex flex-col gap-5">
+                    {!forgotSent ? (
+                      <>
+                        <div className="text-center space-y-1">
+                          <div className="mx-auto w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center mb-3">
+                            <KeyRound className="h-6 w-6 text-amber-500" />
+                          </div>
+                          <p className="text-sm font-bold text-charcoal-gray">Esqueceu sua senha?</p>
+                          <p className="text-sm text-slate-500">
+                            Informe seu e-mail cadastrado e enviaremos uma <span className="font-bold text-charcoal-gray">nova senha</span> para você acessar o site.
+                          </p>
+                        </div>
+
+                        <input
+                          type="email"
+                          placeholder="seu@email.com"
+                          value={forgotEmail}
+                          onChange={(e) => setForgotEmail(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleForgotPassword()}
+                          className="w-full h-12 px-4 rounded-xl border border-stone-200 bg-white text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-300"
+                        />
+
+                        <Button
+                          onClick={handleForgotPassword}
+                          disabled={isSendingForgot}
+                          className="h-12 uppercase font-black tracking-widest gap-2"
+                        >
+                          {isSendingForgot ? (
+                            'Enviando...'
+                          ) : (
+                            <><Mail className="h-4 w-4" /> Enviar Nova Senha</>
+                          )}
+                        </Button>
+
+                        <div className="text-center">
+                          <button
+                            type="button"
+                            onClick={() => setView('sign_in')}
+                            className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-sky-500 transition-colors"
+                          >
+                            ← Voltar para o Login
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-center space-y-4 py-2">
+                        <div className="mx-auto w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center">
+                          <CheckCircle2 className="h-8 w-8 text-emerald-500" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-charcoal-gray text-lg">E-mail enviado!</p>
+                          <p className="text-sm text-slate-500 mt-1">
+                            Verifique sua caixa de entrada. A nova senha foi enviada para <span className="font-bold text-sky-600">{forgotEmail}</span>.
+                          </p>
+                        </div>
+                        <p className="text-xs text-slate-400">Não recebeu? Verifique a caixa de spam.</p>
+                        <div className="flex flex-col gap-2">
+                          <Button
+                            variant="outline"
+                            onClick={() => { setForgotSent(false); setForgotEmail(''); }}
+                            className="uppercase font-bold tracking-widest text-xs"
+                          >
+                            Tentar outro e-mail
+                          </Button>
+                          <button
+                            type="button"
+                            onClick={() => { setView('sign_in'); setForgotSent(false); setForgotEmail(''); }}
+                            className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-sky-500 transition-colors"
+                          >
+                            ← Voltar para o Login
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                /* ── ENTRAR ── */
                 ) : (
                   <>
                     <Auth
                       supabaseClient={supabase}
-                      view={view}
+                      view="sign_in"
                       appearance={{
                         theme: customTheme,
                         style: {
@@ -386,37 +508,19 @@ const Login = () => {
                             button_label: 'Acessar Conta',
                             social_provider_text: 'Entrar com {{provider}}',
                           },
-                          forgotten_password: {
-                            email_label: 'E-mail',
-                            email_input_placeholder: 'seu@email.com',
-                            button_label: 'Recuperar Senha',
-                            link_text: 'Esqueci minha senha',
-                          },
                         },
                       }}
                     />
 
-                    {view === 'sign_in' && (
-                      <div className="mt-4 text-center">
-                        <button
-                          onClick={() => setView('forgotten_password')}
-                          className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-sky-500 transition-colors"
-                        >
-                          Esqueci minha senha
-                        </button>
-                      </div>
-                    )}
-
-                    {view === 'forgotten_password' && (
-                      <div className="mt-4 text-center">
-                        <button
-                          onClick={() => setView('sign_in')}
-                          className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-sky-500 transition-colors"
-                        >
-                          Voltar para o Login
-                        </button>
-                      </div>
-                    )}
+                    <div className="mt-4 text-center">
+                      <button
+                        type="button"
+                        onClick={() => { setView('forgot_password'); setForgotSent(false); setForgotEmail(''); }}
+                        className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-sky-500 transition-colors"
+                      >
+                        Esqueci minha senha
+                      </button>
+                    </div>
                   </>
                 )}
               </div>

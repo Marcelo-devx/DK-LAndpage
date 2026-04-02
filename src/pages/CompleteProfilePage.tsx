@@ -253,10 +253,27 @@ const CompleteProfilePage = () => {
         if (session) emailToSet = session.user.email as string;
       }
 
+      const cleanCpf = data.cpf_cnpj.replace(/\D/g, '');
+
+      // Check if CPF/CNPJ already exists in another profile
+      const { data: existingCpf } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('cpf_cnpj', cleanCpf)
+        .neq('id', user?.id || '')
+        .maybeSingle();
+
+      if (existingCpf) {
+        dismissToast(toastId);
+        showError('Este CPF/CNPJ já está cadastrado em outra conta. Verifique os dados informados.');
+        setIsSaving(false);
+        return;
+      }
+
       const profilePayload: any = {
         ...data,
         phone: data.phone.replace(/\D/g, ''),
-        cpf_cnpj: data.cpf_cnpj.replace(/\D/g, ''),
+        cpf_cnpj: cleanCpf,
         date_of_birth: format(data.date_of_birth, 'yyyy-MM-dd'),
       };
 

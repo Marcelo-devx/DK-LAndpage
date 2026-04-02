@@ -42,7 +42,7 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
 
-    // Try to find user
+    // Find user by email
     const { data: usersData, error: listError } = await supabase.auth.admin.listUsers();
     if (listError) {
       console.error('[forgot-password] listUsers error', listError);
@@ -52,17 +52,47 @@ serve(async (req) => {
     const user = usersData?.users?.find((u: any) => u.email === email.toLowerCase().trim());
 
     if (!user) {
-      // Don't leak that the user doesn't exist — return success so UX is consistent
-      console.log('[forgot-password] user not found, returning success for email:', email);
-      return new Response(JSON.stringify({ success: true }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      // Don't leak that the user doesn't exist — return a specific error so the UI can show a friendly message
+      console.log('[forgot-password] user not found for email:', email);
+      return new Response(
+        JSON.stringify({ error: 'Nenhuma conta encontrada com este e-mail. Verifique o endereço digitado.' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Check if the user has a complete profile (all required fields must be filled)
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('first_name, last_name, phone, cpf_cnpj, gender, date_of_birth, cep, street, number, neighborhood, city, state')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      console.log('[forgot-password] profile not found for user:', user.id);
+      return new Response(
+        JSON.stringify({ error: 'Cadastro incompleto. Finalize seu cadastro antes de redefinir a senha.' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const isProfileComplete =
+      profile.first_name && profile.last_name && profile.phone &&
+      profile.cpf_cnpj && profile.gender && profile.date_of_birth &&
+      profile.cep && profile.street && profile.number &&
+      profile.neighborhood && profile.city && profile.state;
+
+    if (!isProfileComplete) {
+      console.log('[forgot-password] incomplete profile for user:', user.id);
+      return new Response(
+        JSON.stringify({ error: 'Cadastro incompleto. Finalize seu cadastro antes de redefinir a senha.' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const newPassword = generatePassword();
 
     // Update user's password using admin API
-    // Note: supabase-js admin API naming can vary; using updateUserById which is available in many setups
-    // If this fails in your environment, consider adjusting to the correct admin method.
-    const { data: updated, error: updateError } = await (supabase.auth.admin as any).updateUserById(user.id, {
+    const { error: updateError } = await (supabase.auth.admin as any).updateUserById(user.id, {
       password: newPassword,
     });
 
@@ -71,7 +101,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Erro ao atualizar a senha do usuário' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // Send email using internal send-email-via-resend function
+    // Send email with new password
     const sendResp = await fetch(`${supabaseUrl}/functions/v1/send-email-via-resend`, {
       method: 'POST',
       headers: {

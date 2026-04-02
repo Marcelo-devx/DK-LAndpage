@@ -7,17 +7,31 @@ import { showSuccess, showError } from '@/utils/toast';
 const WhatsAppButton = () => {
   const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showWhatsAppButton, setShowWhatsAppButton] = useState<boolean>(true); // default: visible
 
   useEffect(() => {
     const fetchWhatsApp = async () => {
-      const { data } = await supabase
-        .from('app_settings')
-        .select('value')
-        .eq('key', 'whatsapp_contact_number')
-        .single();
-      
-      if (data?.value) {
-        setWhatsappNumber(data.value);
+      const [{ data: numRow }, { data: settingRow }] = await Promise.all([
+        supabase
+          .from('app_settings')
+          .select('value')
+          .eq('key', 'whatsapp_contact_number')
+          .single(),
+        supabase
+          .from('app_settings')
+          .select('value')
+          .eq('key', 'show_whatsapp_button')
+          .single(),
+      ]);
+
+      if (numRow?.value) {
+        setWhatsappNumber(numRow.value);
+      }
+
+      // If the setting exists and is explicitly 'false', hide the button
+      if (settingRow && typeof settingRow.value === 'string') {
+        const val = settingRow.value.trim().toLowerCase();
+        setShowWhatsAppButton(val !== 'false' && val !== '0');
       }
     };
 
@@ -50,8 +64,8 @@ const WhatsAppButton = () => {
     }
   };
 
-  // Se não tiver número configurado, nem mostra o botão (ou poderia mostrar desabilitado)
-  if (!whatsappNumber) return null;
+  // If not configured or setting hides it, don't render the button
+  if (!whatsappNumber || !showWhatsAppButton) return null;
 
   return (
     <button

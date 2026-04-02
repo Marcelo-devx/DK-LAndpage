@@ -214,40 +214,35 @@ const Login = () => {
         return;
       }
 
-      // 2) Código válido — criar usuário com senha padrão 123456
-      // Tenta signUp primeiro; se já existir, faz signIn
-      const DEFAULT_PASSWORD = '123456';
+      // 2) Código válido — criar usuário via Admin API (já confirmado, senha padrão 123456)
+      const createRes = await supabase.functions.invoke('create-user', {
+        body: { email },
+      });
 
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      if (createRes.error || !createRes.data?.success) {
+        const msg = createRes.data?.error || 'Erro ao criar conta. Tente novamente.';
+        console.error('[Login] create-user error', createRes.error, createRes.data);
+        showError(msg);
+        return;
+      }
+
+      // 3) Fazer login com a senha padrão
+      const DEFAULT_PASSWORD = '123456';
+      const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password: DEFAULT_PASSWORD,
       });
 
-      if (signUpError) {
-        // Usuário já existe — tenta logar
-        if (signUpError.message?.toLowerCase().includes('already registered') ||
-            signUpError.message?.toLowerCase().includes('already exists') ||
-            signUpError.status === 422) {
-          const { error: signInError } = await supabase.auth.signInWithPassword({
-            email,
-            password: DEFAULT_PASSWORD,
-          });
-          if (signInError) {
-            // Usuário existe mas tem senha diferente — redireciona para login normal
-            showError('Este e-mail já possui cadastro com senha diferente. Use a aba "Entrar".');
-            setView('sign_in');
-            return;
-          }
-          // Login feito — o onAuthStateChange vai redirecionar
-          return;
-        }
-        console.error('[Login] signUp error', signUpError);
-        showError('Erro ao criar conta. Tente novamente.');
+      if (signInError) {
+        // Usuário existe mas tem senha diferente (já alterou antes)
+        console.error('[Login] signIn error', signInError);
+        showError('Este e-mail já possui cadastro com senha personalizada. Use a aba "Entrar".');
+        setView('sign_in');
         return;
       }
 
-      // signUp bem-sucedido — o onAuthStateChange vai redirecionar para /complete-profile
-      showSuccess('Conta criada! Redirecionando para completar seu cadastro...');
+      // Login feito — onAuthStateChange vai redirecionar para /complete-profile
+      showSuccess('Código verificado! Redirecionando...');
 
     } catch (err: any) {
       console.error('[Login] Unexpected error verifying code:', err);

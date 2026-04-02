@@ -283,11 +283,16 @@ const CompleteProfilePage = () => {
 
       const cleanCpf = data.cpf_cnpj.replace(/\D/g, '');
 
+      // Remove accepted_terms from payload — it's not a DB column
+      const { accepted_terms, ...rest } = data;
+
       const profilePayload: any = {
-        ...data,
+        ...rest,
         phone: data.phone.replace(/\D/g, ''),
         cpf_cnpj: cleanCpf,
         date_of_birth: format(data.date_of_birth, 'yyyy-MM-dd'),
+        accepted_terms_version: TERMS_VERSION,
+        accepted_terms_at: new Date().toISOString(),
       };
 
       const { error } = await supabase.from('profiles').upsert({

@@ -168,15 +168,27 @@ const Login = () => {
     return () => clearInterval(t);
   }, [resendCooldown]);
 
+  // Helper: fetch com timeout
+  const fetchWithTimeout = (url: string, options: RequestInit, ms = 15000) => {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), ms);
+    return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(id));
+  };
+
   const sendCode = async () => {
     const email = emailForSignup.trim().toLowerCase();
     if (!email) { showError('Informe um e-mail válido'); return; }
 
     setIsSendingCode(true);
     try {
-      const gen = await supabase.functions.invoke('generate-token', {
+      // Timeout de 15s no generate-token
+      const genPromise = supabase.functions.invoke('generate-token', {
         body: { email, type: 'signup_otp', expires_in_seconds: 60 * 10 },
       });
+      const gen = await Promise.race([
+        genPromise,
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Tempo esgotado ao gerar código.')), 15000)),
+      ]) as any;
 
       if (gen.error || !gen.data?.code) {
         console.error('[Login] generate-token error', gen.error, gen.data);
@@ -186,7 +198,7 @@ const Login = () => {
 
       const code = gen.data.code;
 
-      const emailRes = await fetch(`${SUPABASE_URL}/functions/v1/send-email-via-resend`, {
+      const emailRes = await fetchWithTimeout(`${SUPABASE_URL}/functions/v1/send-email-via-resend`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -216,7 +228,10 @@ const Login = () => {
 
     } catch (err: any) {
       console.error('[Login] Unexpected error sending code:', err);
-      showError(err?.message || 'Erro inesperado. Tente novamente.');
+      const msg = err?.name === 'AbortError' || err?.message?.includes('esgotado')
+        ? 'Tempo esgotado. Verifique sua conexão e tente novamente.'
+        : err?.message || 'Erro inesperado. Tente novamente.';
+      showError(msg);
     } finally {
       setIsSendingCode(false);
     }
@@ -232,9 +247,11 @@ const Login = () => {
     try {
       const email = emailForSignup.trim().toLowerCase();
 
-      const val = await supabase.functions.invoke('validate-token', {
-        body: { email, code: cleanOtp },
-      });
+      // 1) Validar código — timeout 15s
+      const val = await Promise.race([
+        supabase.functions.invoke('validate-token', { body: { email, code: cleanOtp } }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000)),
+      ]) as any;
 
       if (val.error || !val.data?.success) {
         const msg = val.data?.error || 'Código inválido ou expirado. Tente reenviar.';
@@ -243,9 +260,11 @@ const Login = () => {
         return;
       }
 
-      const createRes = await supabase.functions.invoke('create-user', {
-        body: { email },
-      });
+      // 2) Criar usuário — timeout 15s
+      const createRes = await Promise.race([
+        supabase.functions.invoke('create-user', { body: { email } }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000)),
+      ]) as any;
 
       if (createRes.error || !createRes.data?.success) {
         const msg = createRes.data?.error || 'Erro ao criar conta. Tente novamente.';
@@ -254,11 +273,9 @@ const Login = () => {
         return;
       }
 
+      // 3) Login com senha padrão
       const DEFAULT_PASSWORD = '123456';
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password: DEFAULT_PASSWORD,
-      });
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password: DEFAULT_PASSWORD });
 
       if (signInError) {
         console.error('[Login] signIn error', signInError);
@@ -271,7 +288,10 @@ const Login = () => {
 
     } catch (err: any) {
       console.error('[Login] Unexpected error verifying code:', err);
-      showError('Erro ao verificar o código. Tente novamente.');
+      const msg = err?.message === 'timeout'
+        ? 'Tempo esgotado. Verifique sua conexão e tente novamente.'
+        : 'Erro ao verificar o código. Tente novamente.';
+      showError(msg);
     } finally {
       setIsVerifying(false);
     }

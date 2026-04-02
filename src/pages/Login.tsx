@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Auth } from '@supabase/auth-ui-react';
 import type { Theme, ViewType } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,7 +9,65 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, LogIn, UserPlus, RefreshCw, Mail, CheckCircle2 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { showError, showSuccess } from '@/utils/toast';
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+
+// Simple 6-digit OTP input component
+const OtpInput = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => {
+  const refs = Array.from({ length: 6 }, () => useRef<HTMLInputElement>(null));
+  const digits = value.padEnd(6, '').split('').slice(0, 6);
+
+  const handleChange = (i: number, char: string) => {
+    const d = char.replace(/\D/g, '').slice(-1);
+    const arr = digits.map((c) => c === ' ' ? '' : c);
+    arr[i] = d;
+    onChange(arr.join(''));
+    if (d && i < 5) refs[i + 1].current?.focus();
+  };
+
+  const handleKeyDown = (i: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace') {
+      if (!digits[i] || digits[i] === ' ') {
+        if (i > 0) refs[i - 1].current?.focus();
+      } else {
+        const arr = digits.map((c) => c === ' ' ? '' : c);
+        arr[i] = '';
+        onChange(arr.join(''));
+      }
+    } else if (e.key === 'ArrowLeft' && i > 0) {
+      refs[i - 1].current?.focus();
+    } else if (e.key === 'ArrowRight' && i < 5) {
+      refs[i + 1].current?.focus();
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    if (pasted) {
+      onChange(pasted.padEnd(6, '').slice(0, 6));
+      refs[Math.min(pasted.length, 5)].current?.focus();
+    }
+    e.preventDefault();
+  };
+
+  return (
+    <div className="flex gap-2 justify-center">
+      {digits.map((d, i) => (
+        <input
+          key={i}
+          ref={refs[i]}
+          type="text"
+          inputMode="numeric"
+          maxLength={1}
+          value={d === ' ' ? '' : d}
+          onChange={(e) => handleChange(i, e.target.value)}
+          onKeyDown={(e) => handleKeyDown(i, e)}
+          onPaste={handlePaste}
+          onFocus={(e) => e.target.select()}
+          className="w-11 h-14 text-center text-xl font-bold rounded-xl border-2 border-stone-200 bg-white text-charcoal-gray focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 transition-all"
+        />
+      ))}
+    </div>
+  );
+};
 
 const SUPABASE_URL = "https://jrlozhhvwqfmjtkmvukf.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpybG96aGh2d3FmbWp0a212dWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzNDU2NjQsImV4cCI6MjA2NzkyMTY2NH0.Do5c1-TKqpyZTJeX_hLbw1SU40CbwXfCIC-pPpcD_JM";
@@ -325,22 +383,7 @@ const Login = () => {
                           <p className="text-sm text-slate-500">Insira o código de 6 dígitos enviado para <span className="font-bold text-sky-600">{emailForSignup}</span></p>
                         </div>
 
-                        <div className="flex justify-center">
-                          <InputOTP
-                            maxLength={6}
-                            value={otp}
-                            onChange={(val) => setOtp(val)}
-                          >
-                            <InputOTPGroup>
-                              <InputOTPSlot index={0} />
-                              <InputOTPSlot index={1} />
-                              <InputOTPSlot index={2} />
-                              <InputOTPSlot index={3} />
-                              <InputOTPSlot index={4} />
-                              <InputOTPSlot index={5} />
-                            </InputOTPGroup>
-                          </InputOTP>
-                        </div>
+                        <OtpInput value={otp} onChange={setOtp} />
 
                         <Button
                           onClick={verifyCode}

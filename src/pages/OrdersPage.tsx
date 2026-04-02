@@ -107,7 +107,7 @@ const OrdersPage = () => {
         },
       });
       if (error) throw error;
-      window.location.href = data.init_point;
+      window.open(data.init_point, '_blank');
     } catch (e: any) {
       showError("Não foi possível iniciar o pagamento com cartão.");
     } finally { dismissToast(toastId); }

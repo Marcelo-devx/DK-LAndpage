@@ -3,7 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Copy, Check, UserPlus, Gift, Share2 } from 'lucide-react';
@@ -37,7 +36,8 @@ const ReferralsPage = () => {
   const [referralCode, setReferralCode] = useState<string | null>(null);
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [loading, setLoading] = useState(true);
-  const [copied, setCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [codeCopied, setCodeCopied] = useState(false);
   const [siteUrl, setSiteUrl] = useState<string>(window.location.origin);
 
   useEffect(() => {
@@ -46,7 +46,6 @@ const ReferralsPage = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { navigate('/login'); return; }
 
-      // Busca a URL do site nas configurações para usar em produção
       const { data: siteUrlSetting } = await supabase
         .from('app_settings')
         .select('value')
@@ -67,16 +66,11 @@ const ReferralsPage = () => {
 
       const { data: referralsData } = await supabase
         .from('referrals')
-        .select(`
-          referred_email,
-          status,
-          profiles ( first_name, last_name )
-        `)
+        .select(`referred_email, status, profiles ( first_name, last_name )`)
         .eq('referrer_id', session.user.id)
         .order('created_at', { ascending: false });
 
       if (referralsData) setReferrals(referralsData as any[] || []);
-
       setLoading(false);
     };
     fetchData();
@@ -86,12 +80,20 @@ const ReferralsPage = () => {
     ? `${siteUrl}/login?ref=${referralCode}&view=sign_up`
     : '';
 
-  const handleCopy = () => {
+  const handleCopyLink = () => {
     if (!referralLink) return;
     navigator.clipboard.writeText(referralLink);
-    setCopied(true);
+    setLinkCopied(true);
     showSuccess('Link de indicação copiado!');
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => setLinkCopied(false), 2000);
+  };
+
+  const handleCopyCode = () => {
+    if (!referralCode) return;
+    navigator.clipboard.writeText(referralCode);
+    setCodeCopied(true);
+    showSuccess('Código copiado!');
+    setTimeout(() => setCodeCopied(false), 2000);
   };
 
   const handleShare = async () => {
@@ -100,103 +102,128 @@ const ReferralsPage = () => {
       try {
         await navigator.share({
           title: 'Venha fazer parte do CLUB DK!',
-          text: '🎁 Use meu link exclusivo para se cadastrar e ganhar benefícios!',
+          text: `🎁 Use meu código ${referralCode} para se cadastrar e ganhar benefícios!`,
           url: referralLink,
         });
       } catch {
-        handleCopy();
+        handleCopyLink();
       }
     } else {
-      handleCopy();
+      handleCopyLink();
     }
   };
 
   return (
     <div className="container mx-auto px-4 py-12 md:py-20 text-charcoal-gray">
-      <Card className="max-w-4xl mx-auto bg-white border border-stone-200 shadow-xl rounded-[2.5rem] overflow-hidden">
-        <CardHeader className="p-8 md:p-12 text-center border-b border-stone-100 bg-stone-50">
-          <div className="inline-flex p-4 bg-sky-100 rounded-3xl mb-6">
-            <Share2 className="h-10 w-10 text-sky-500" />
+      <Card className="max-w-2xl mx-auto bg-white border border-stone-200 shadow-xl rounded-[2.5rem] overflow-hidden">
+        <CardHeader className="p-8 md:p-10 text-center border-b border-stone-100 bg-gradient-to-br from-sky-50 to-stone-50">
+          <div className="inline-flex p-4 bg-sky-100 rounded-3xl mb-5 mx-auto">
+            <Share2 className="h-9 w-9 text-sky-500" />
           </div>
-          <CardTitle className="font-black text-4xl md:text-5xl tracking-tighter italic uppercase mb-4 text-charcoal-gray">
+          <CardTitle className="font-black text-4xl md:text-5xl tracking-tighter italic uppercase mb-3 text-charcoal-gray">
             Indique um Amigo.
           </CardTitle>
-          <CardDescription className="text-stone-500 text-lg font-medium max-w-xl mx-auto">
-            Expanda nossa comunidade e ganhe{' '}
-            <span className="text-sky-500 font-black">200 PTS</span> por cada
-            primeira compra realizada através do seu link.
+          <CardDescription className="text-stone-500 text-base font-medium max-w-sm mx-auto">
+            Ganhe <span className="text-sky-500 font-black">200 pontos</span> por cada amigo que fizer a primeira compra pelo seu link.
           </CardDescription>
         </CardHeader>
 
-        <CardContent className="p-8 md:p-12 space-y-12">
-          {/* Link exclusivo */}
-          <div className="bg-stone-50 p-8 rounded-3xl border border-stone-200">
-            <h3 className="text-xs font-black uppercase tracking-[0.3em] text-stone-400 mb-4">
-              Seu Link Exclusivo
-            </h3>
-            <div className="flex items-center gap-3">
-              {loading ? (
-                <Skeleton className="h-14 w-full bg-stone-200 rounded-xl" />
-              ) : (
-                <div className="relative flex-grow min-w-0">
-                  <Input
-                    value={referralLink}
-                    readOnly
-                    className="bg-white border-stone-200 h-14 rounded-xl font-bold text-sky-600 shadow-sm focus:ring-sky-500/20 focus:border-sky-500 text-sm truncate"
-                  />
-                </div>
-              )}
+        <CardContent className="p-8 md:p-10 space-y-8">
 
-              {/* Copiar */}
-              <Button
-                onClick={handleCopy}
-                size="icon"
-                title="Copiar link"
-                className="h-14 w-14 bg-sky-500 hover:bg-sky-400 text-white rounded-xl shadow-lg shrink-0 transition-all active:scale-95"
-              >
-                {copied ? <Check className="h-6 w-6" /> : <Copy className="h-6 w-6" />}
-              </Button>
-
-              {/* Compartilhar (WhatsApp / nativo) */}
-              <Button
-                onClick={handleShare}
-                size="icon"
-                title="Compartilhar"
-                className="h-14 w-14 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl shadow-lg shrink-0 transition-all active:scale-95"
-              >
-                <Share2 className="h-6 w-6" />
-              </Button>
-            </div>
-
-            <p className="text-xs text-stone-400 font-medium mt-4">
-              Compartilhe este link. Quando seu amigo se cadastrar e fizer a{' '}
-              <span className="font-black text-sky-500">primeira compra</span>, você
-              ganha <span className="font-black text-sky-500">200 pontos</span>{' '}
-              automaticamente!
+          {/* Código em destaque */}
+          <div className="bg-gradient-to-br from-sky-500 to-sky-600 p-8 rounded-3xl text-white text-center shadow-lg shadow-sky-200 relative overflow-hidden">
+            <div
+              className="absolute inset-0 opacity-10"
+              style={{
+                backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)',
+                backgroundSize: '24px 24px',
+              }}
+            />
+            <p className="text-xs font-black uppercase tracking-[0.3em] text-sky-100 mb-5 relative z-10">
+              Seu Código de Indicação
             </p>
+            {loading ? (
+              <Skeleton className="h-16 w-48 bg-white/20 rounded-2xl mx-auto" />
+            ) : (
+              <button
+                onClick={handleCopyCode}
+                className="relative z-10 group inline-flex items-center gap-3 bg-white/15 hover:bg-white/25 border border-white/25 rounded-2xl px-8 py-4 transition-all active:scale-95 cursor-pointer"
+              >
+                <span className="text-4xl font-black tracking-[0.25em] uppercase font-mono">
+                  {referralCode || '------'}
+                </span>
+                <span className="text-white/60 group-hover:text-white transition-colors">
+                  {codeCopied
+                    ? <Check className="h-5 w-5 text-emerald-300" />
+                    : <Copy className="h-5 w-5" />
+                  }
+                </span>
+              </button>
+            )}
+            <p className="text-xs text-sky-200 font-medium mt-4 relative z-10">
+              Toque no código para copiar
+            </p>
+          </div>
+
+          {/* Botões de ação */}
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              onClick={handleCopyLink}
+              size="lg"
+              disabled={loading || !referralLink}
+              className="h-14 bg-slate-900 hover:bg-black text-white rounded-2xl font-black uppercase tracking-wider text-xs gap-2 transition-all active:scale-95"
+            >
+              {linkCopied ? <Check className="h-5 w-5" /> : <Copy className="h-5 w-5" />}
+              {linkCopied ? 'Copiado!' : 'Copiar Link'}
+            </Button>
+            <Button
+              onClick={handleShare}
+              size="lg"
+              disabled={loading || !referralLink}
+              className="h-14 bg-emerald-500 hover:bg-emerald-400 text-white rounded-2xl font-black uppercase tracking-wider text-xs gap-2 transition-all active:scale-95"
+            >
+              <Share2 className="h-5 w-5" />
+              Compartilhar
+            </Button>
+          </div>
+
+          {/* Como funciona */}
+          <div className="bg-stone-50 rounded-2xl p-6 border border-stone-100">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-stone-400 mb-4">Como funciona</p>
+            <div className="space-y-3">
+              {[
+                { step: '1', text: 'Compartilhe seu código ou link com amigos' },
+                { step: '2', text: 'Seu amigo se cadastra usando seu link' },
+                { step: '3', text: 'Na primeira compra dele, você ganha 200 pontos!' },
+              ].map(({ step, text }) => (
+                <div key={step} className="flex items-center gap-3">
+                  <div className="w-7 h-7 rounded-full bg-sky-500 text-white text-xs font-black flex items-center justify-center shrink-0">
+                    {step}
+                  </div>
+                  <p className="text-sm text-stone-600 font-medium">{text}</p>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Lista de indicações */}
           <div>
-            <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center justify-between mb-5">
               <h3 className="text-xs font-black uppercase tracking-[0.3em] text-stone-400">
                 Suas Indicações
               </h3>
-              <Badge
-                variant="outline"
-                className="border-stone-200 text-stone-500 font-bold"
-              >
+              <Badge variant="outline" className="border-stone-200 text-stone-500 font-bold">
                 {referrals.length} total
               </Badge>
             </div>
 
             {loading ? (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <Skeleton className="h-20 w-full bg-stone-100 rounded-2xl" />
                 <Skeleton className="h-20 w-full bg-stone-100 rounded-2xl" />
               </div>
             ) : referrals.length > 0 ? (
-              <div className="grid gap-4">
+              <div className="grid gap-3">
                 {referrals.map((referral, index) => {
                   const statusInfo = getStatusInfo(referral.status);
                   const displayName =
@@ -209,38 +236,28 @@ const ReferralsPage = () => {
                       key={index}
                       className="p-5 flex items-center justify-between bg-stone-50 border border-stone-100 rounded-2xl hover:border-sky-500/30 transition-all group hover:bg-white hover:shadow-md"
                     >
-                      <div className="flex items-center space-x-5">
-                        <div
-                          className={cn(
-                            'p-3 rounded-xl transition-transform group-hover:scale-110',
-                            referral.status === 'completed'
-                              ? 'bg-emerald-100 text-emerald-600'
-                              : 'bg-white text-stone-400 border border-stone-100'
-                          )}
-                        >
-                          {referral.status === 'completed' ? (
-                            <Gift className="h-6 w-6" />
-                          ) : (
-                            <UserPlus className="h-6 w-6" />
-                          )}
+                      <div className="flex items-center space-x-4">
+                        <div className={cn(
+                          'p-3 rounded-xl transition-transform group-hover:scale-110',
+                          referral.status === 'completed'
+                            ? 'bg-emerald-100 text-emerald-600'
+                            : 'bg-white text-stone-400 border border-stone-100'
+                        )}>
+                          {referral.status === 'completed'
+                            ? <Gift className="h-5 w-5" />
+                            : <UserPlus className="h-5 w-5" />
+                          }
                         </div>
                         <div>
-                          <p className="font-black text-charcoal-gray uppercase tracking-tight text-base">
+                          <p className="font-black text-charcoal-gray uppercase tracking-tight text-sm">
                             {displayName}
                           </p>
-                          <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest mt-0.5">
-                            {referral.status === 'pending'
-                              ? 'Aguardando cadastro'
-                              : 'Membro da Rede'}
+                          <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest mt-0.5">
+                            {referral.status === 'pending' ? 'Aguardando cadastro' : 'Membro da Rede'}
                           </p>
                         </div>
                       </div>
-                      <Badge
-                        className={cn(
-                          'px-4 py-1.5 text-[10px] font-black border uppercase tracking-widest',
-                          statusInfo.color
-                        )}
-                      >
+                      <Badge className={cn('px-3 py-1 text-[10px] font-black border uppercase tracking-widest', statusInfo.color)}>
                         {statusInfo.text}
                       </Badge>
                     </div>
@@ -248,16 +265,16 @@ const ReferralsPage = () => {
                 })}
               </div>
             ) : (
-              <div className="text-center py-20 border border-dashed border-stone-300 rounded-3xl bg-stone-50/50">
-                <p className="text-stone-500 font-medium italic">
-                  Você ainda não indicou nenhum amigo.
-                </p>
-                <p className="text-xs text-stone-400 font-bold uppercase tracking-widest mt-2">
-                  Compartilhe seu link para começar a ganhar!
+              <div className="text-center py-14 border border-dashed border-stone-200 rounded-2xl bg-stone-50/50">
+                <UserPlus className="h-8 w-8 text-stone-300 mx-auto mb-3" />
+                <p className="text-stone-500 font-medium text-sm">Você ainda não indicou ninguém.</p>
+                <p className="text-xs text-stone-400 font-bold uppercase tracking-widest mt-1">
+                  Compartilhe seu código para começar!
                 </p>
               </div>
             )}
           </div>
+
         </CardContent>
       </Card>
     </div>

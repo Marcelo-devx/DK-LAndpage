@@ -184,32 +184,46 @@ const Login = () => {
 
     setIsSendingCode(true);
     try {
-      // signInWithOtp will send an email with a token/otp depending on Supabase configuration.
-      // Pass redirect options nested to match supabase-js v2 API signature.
-      const { data, error } = await supabase.auth.signInWithOtp({
-        email,
-        options: { emailRedirectTo: `${window.location.origin}/auth/confirm` }
-      } as any);
+      // Instead of signInWithOtp, create a complete-profile token and send email via our edge function
+      // 1) Call generate-token function to create a one-time token linked to email
+      const tokenRes = await fetch(`${window.location.origin}/api/generate-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, type: 'complete_profile', expires_in_seconds: 60 * 60 * 24 }),
+      });
 
-      if (error) {
-        console.error('[Login] signInWithOtp error:', error);
-        const status = (error as any)?.status;
-        const msg = (error as any)?.message || 'Não foi possível enviar o código. Tente novamente.';
-        if (status) showError(`${msg} (status ${status}). Verifique configuração de e-mail no Supabase.`);
-        else showError(msg);
+      const tokenJson = await tokenRes.json();
+      if (!tokenRes.ok) {
+        const msg = tokenJson?.error || 'Não foi possível gerar link de confirmação.';
+        showError(msg);
+        setIsSendingCode(false);
+        return;
+      }
+
+      const token = tokenJson.token;
+      const completeLink = `${window.location.origin}/complete-profile?token=${encodeURIComponent(token)}`;
+
+      // 2) Send email via Resend edge function
+      const payload = {
+        to: email,
+        subject: 'Complete seu cadastro',
+        type: 'complete_profile',
+        completeLink,
+      };
+
+      const res = await supabase.functions.invoke('send-email-via-resend', { body: payload });
+
+      if (res.error) {
+        console.error('[Login] send-email-via-resend error', res.error);
+        showError('Erro ao enviar email: ' + (res.error.message || JSON.stringify(res.error)));
       } else {
-        // Keep the trimmed email value in state so the OTP verify can use it
         setEmailForSignup(email);
         setCodeSent(true);
-        setResendCooldown(60); // 60s cooldown
-        // Some Supabase setups return a message we can surface
-        if ((data as any)?.message) showSuccess((data as any).message);
-        else showSuccess('Enviamos um código de 6 dígitos para seu e-mail. Verifique e insira abaixo.');
+        showSuccess('Enviamos um e-mail com o link para completar o cadastro. Verifique sua caixa de entrada.');
       }
     } catch (err: any) {
-      console.error('[Login] Unexpected error sending OTP:', err);
-      // show a friendly message but keep full details in console for debugging
-      showError(err?.message || 'Erro inesperado. Tente novamente mais tarde. Veja console para detalhes.');
+      console.error('[Login] Unexpected error sending complete profile link:', err);
+      showError(err?.message || 'Erro inesperado. Tente novamente mais tarde.');
     } finally {
       setIsSendingCode(false);
     }

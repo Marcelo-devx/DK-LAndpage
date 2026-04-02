@@ -11,9 +11,9 @@ export default function ResendTestButton() {
     try {
       const payload = {
         to: 'rc497064@gmail.com',
-        subject: 'Teste Resend - OTP',
-        type: 'otp',
-        code: '123456',
+        subject: 'Teste Resend - Complete Profile',
+        type: 'complete_profile',
+        completeLink: `${window.location.origin}/complete-profile?token=TEST_TOKEN_123`,
       };
 
       const res = await supabase.functions.invoke('send-email-via-resend', { body: payload });

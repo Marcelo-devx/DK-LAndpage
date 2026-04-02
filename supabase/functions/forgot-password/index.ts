@@ -42,18 +42,13 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
 
-    // Find user by email
-    const { data: usersData, error: listError } = await supabase.auth.admin.listUsers();
-    if (listError) {
-      console.error('[forgot-password] listUsers error', listError);
-      return new Response(JSON.stringify({ error: 'Erro ao procurar usuário' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
+    // Find user by email — usando getUserByEmail para evitar limite de paginação do listUsers
+    const { data: userData, error: getUserError } = await (supabase.auth.admin as any).getUserByEmail(email.toLowerCase().trim());
 
-    const user = usersData?.users?.find((u: any) => u.email === email.toLowerCase().trim());
+    const user = userData?.user ?? userData;
 
-    if (!user) {
-      // Don't leak that the user doesn't exist — return a specific error so the UI can show a friendly message
-      console.log('[forgot-password] user not found for email:', email);
+    if (getUserError || !user?.id) {
+      console.log('[forgot-password] user not found for email:', email, getUserError);
       return new Response(
         JSON.stringify({ error: 'Nenhuma conta encontrada com este e-mail. Verifique o endereço digitado.' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

@@ -297,7 +297,6 @@ const CompleteProfilePage = () => {
 
       const { error } = await supabase.from('profiles').upsert({
         id: user?.id || undefined,
-        email: emailToSet,
         ...profilePayload,
       }, { onConflict: 'id' });
 

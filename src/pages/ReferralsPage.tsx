@@ -22,6 +22,8 @@ interface Referral {
   } | null;
 }
 
+const REWARD_POINTS = 200;
+
 const getStatusInfo = (status: 'pending' | 'registered' | 'completed') => {
   switch (status) {
     case 'pending':
@@ -43,6 +45,7 @@ const ReferralsPage = () => {
   const [linkCopied, setLinkCopied] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
   const [siteUrl, setSiteUrl] = useState<string>(window.location.origin);
+  const [activeTab, setActiveTab] = useState<'all'|'pending'|'registered'|'completed'>('all');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -121,6 +124,22 @@ const ReferralsPage = () => {
     ? `${siteUrl}/login?ref=${referralCode}&view=sign_up`
     : '';
 
+  // compute stats
+  const totalReferrals = referrals.length;
+  const registeredCount = referrals.filter(r => r.status === 'registered').length;
+  const pendingCount = referrals.filter(r => r.status === 'pending').length;
+  const completedCount = referrals.filter(r => r.status === 'completed').length;
+  const pointsToReceive = registeredCount * REWARD_POINTS; // registered => eligible when they purchase
+  const pointsEarned = completedCount * REWARD_POINTS;
+
+  const filteredReferrals = referrals.filter(r => {
+    if (activeTab === 'all') return true;
+    if (activeTab === 'pending') return r.status === 'pending';
+    if (activeTab === 'registered') return r.status === 'registered';
+    if (activeTab === 'completed') return r.status === 'completed';
+    return true;
+  });
+
   const handleCopyLink = () => {
     if (!referralLink) return;
     navigator.clipboard.writeText(referralLink);
@@ -165,7 +184,7 @@ const ReferralsPage = () => {
             Indique um Amigo.
           </CardTitle>
           <CardDescription className="text-stone-500 text-base font-medium max-w-sm mx-auto">
-            Ganhe <span className="text-sky-500 font-black">200 pontos</span> por cada amigo que fizer a primeira compra pelo seu link.
+            Ganhe <span className="text-sky-500 font-black">{REWARD_POINTS} pontos</span> por cada amigo que fizer a primeira compra pelo seu link.
           </CardDescription>
         </CardHeader>
 
@@ -204,6 +223,29 @@ const ReferralsPage = () => {
             <p className="text-xs text-sky-200 font-medium mt-4 relative z-10">
               Toque no código para copiar
             </p>
+          </div>
+
+          {/* Points summary */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 text-center">
+              <div className="text-xs font-bold uppercase text-emerald-600">Pontos Ganhos</div>
+              <div className="text-2xl font-extrabold text-emerald-700 mt-2">{pointsEarned}</div>
+              <div className="text-xs text-emerald-500 mt-1">{completedCount} indicacões completadas</div>
+            </div>
+            <div className="bg-yellow-50 border border-yellow-100 rounded-2xl p-4 text-center">
+              <div className="text-xs font-bold uppercase text-yellow-600">Pontos a Receber</div>
+              <div className="text-2xl font-extrabold text-yellow-700 mt-2">{pointsToReceive}</div>
+              <div className="text-xs text-yellow-500 mt-1">{registeredCount} aguardando compra</div>
+            </div>
+          </div>
+
+          {/* Tabs / Filters */}
+          <div className="flex gap-3 items-center">
+            <button className={`px-3 py-2 rounded-full text-xs font-bold ${activeTab==='all' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`} onClick={() => setActiveTab('all')}>Todos</button>
+            <button className={`px-3 py-2 rounded-full text-xs font-bold ${activeTab==='pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-slate-100 text-slate-600'}`} onClick={() => setActiveTab('pending')}>Pendentes ({pendingCount})</button>
+            <button className={`px-3 py-2 rounded-full text-xs font-bold ${activeTab==='registered' ? 'bg-sky-100 text-sky-700' : 'bg-slate-100 text-slate-600'}`} onClick={() => setActiveTab('registered')}>Cadastrados ({registeredCount})</button>
+            <button className={`px-3 py-2 rounded-full text-xs font-bold ${activeTab==='completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`} onClick={() => setActiveTab('completed')}>Recompensados ({completedCount})</button>
+            <div className="ml-auto text-xs text-stone-400">{totalReferrals} total</div>
           </div>
 
           {/* Botões de ação */}
@@ -247,63 +289,38 @@ const ReferralsPage = () => {
             </div>
           </div>
 
-          {/* Lista de indicações */}
+          {/* List */}
           <div>
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-xs font-black uppercase tracking-[0.3em] text-stone-400">
-                Suas Indicações
-              </h3>
-              <Badge variant="outline" className="border-stone-200 text-stone-500 font-bold">
-                {referrals.length} total
-              </Badge>
-            </div>
-
             {loading ? (
               <div className="space-y-3">
                 <Skeleton className="h-20 w-full bg-stone-100 rounded-2xl" />
                 <Skeleton className="h-20 w-full bg-stone-100 rounded-2xl" />
               </div>
-            ) : referrals.length > 0 ? (
+            ) : filteredReferrals.length > 0 ? (
               <div className="grid gap-3">
-                {referrals.map((referral, index) => {
+                {filteredReferrals.map((referral, index) => {
                   const statusInfo = getStatusInfo(referral.status);
                   const displayName = (referral.profiles && (referral.profiles.first_name || referral.profiles.last_name))
                     ? `${referral.profiles.first_name || ''} ${referral.profiles.last_name || ''}`.trim()
                     : (referral.referred_email || '—');
+
+                  const pendingRow = referral.status === 'pending';
+
                   return (
-                    <div
-                      key={index}
-                      className="p-5 flex items-center justify-between bg-stone-50 border border-stone-100 rounded-2xl hover:border-sky-500/30 transition-all group hover:bg-white hover:shadow-md"
-                    >
+                    <div key={index} className={`p-5 flex items-center justify-between rounded-2xl transition-all group ${pendingRow ? 'bg-yellow-50 border border-yellow-200' : 'bg-stone-50 border border-stone-100'} hover:shadow-md`}>
                       <div className="flex items-center space-x-4">
-                        <div className={cn(
-                          'p-3 rounded-xl transition-transform group-hover:scale-110',
-                          referral.status === 'completed'
-                            ? 'bg-emerald-100 text-emerald-600'
-                            : 'bg-white text-stone-400 border border-stone-100'
-                        )}>
-                          {referral.status === 'completed'
-                            ? <Gift className="h-5 w-5" />
-                            : <UserPlus className="h-5 w-5" />
-                          }
+                        <div className={cn('p-3 rounded-xl transition-transform group-hover:scale-110', referral.status === 'completed' ? 'bg-emerald-100 text-emerald-600' : 'bg-white text-stone-400 border border-stone-100')}>
+                          {referral.status === 'completed' ? <Gift className="h-5 w-5" /> : <UserPlus className="h-5 w-5" />}
                         </div>
                         <div>
-                          <p className="font-black text-charcoal-gray uppercase tracking-tight text-sm">
-                            {displayName}
-                          </p>
+                          <p className="font-black text-charcoal-gray uppercase tracking-tight text-sm">{displayName}</p>
                           {referral.referred_email && referral.referred_email !== displayName && (
-                            <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest mt-0.5">
-                              {referral.referred_email}
-                            </p>
+                            <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest mt-0.5">{referral.referred_email}</p>
                           )}
-                          <p className="text-[10px] text-stone-400 mt-1">
-                            {format(new Date(referral.created_at || ''), 'dd/MM/yyyy HH:mm')}
-                          </p>
+                          <p className="text-[10px] text-stone-400 mt-1">{format(new Date(referral.created_at || ''), 'dd/MM/yyyy HH:mm')}</p>
                         </div>
                       </div>
-                      <Badge className={cn('px-3 py-1 text-[10px] font-black border uppercase tracking-widest', statusInfo.color)}>
-                        {statusInfo.text}
-                      </Badge>
+                      <Badge className={cn('px-3 py-1 text-[10px] font-black border uppercase tracking-widest', statusInfo.color)}>{statusInfo.text}</Badge>
                     </div>
                   );
                 })}
@@ -312,9 +329,7 @@ const ReferralsPage = () => {
               <div className="text-center py-14 border border-dashed border-stone-200 rounded-2xl bg-stone-50/50">
                 <UserPlus className="h-8 w-8 text-stone-300 mx-auto mb-3" />
                 <p className="text-stone-500 font-medium text-sm">Você ainda não indicou ninguém.</p>
-                <p className="text-xs text-stone-400 font-bold uppercase tracking-widest mt-1">
-                  Compartilhe seu código para começar!
-                </p>
+                <p className="text-xs text-stone-400 font-bold uppercase tracking-widest mt-1">Compartilhe seu código para começar!</p>
               </div>
             )}
           </div>

@@ -51,6 +51,7 @@ const CompleteProfilePage = () => {
   const [isTermsOpen, setIsTermsOpen] = useState(false);
   const [cpfError, setCpfError] = useState<string | null>(null);
   const [isCheckingCpf, setIsCheckingCpf] = useState(false);
+  const [cpfValidated, setCpfValidated] = useState(false);
 
   const { register, handleSubmit, control, setValue, getValues, watch, formState: { errors } } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -144,6 +145,7 @@ const CompleteProfilePage = () => {
     if (clean.length < 11) return; // not enough digits yet, skip
     setIsCheckingCpf(true);
     setCpfError(null);
+    setCpfValidated(false);
     try {
       const { data: existing } = await supabase
         .from('profiles')
@@ -153,6 +155,9 @@ const CompleteProfilePage = () => {
         .maybeSingle();
       if (existing) {
         setCpfError('Este CPF/CNPJ já está cadastrado em outra conta.');
+        setCpfValidated(false);
+      } else {
+        setCpfValidated(true);
       }
     } catch (e) {
       // silently ignore network errors on blur check
@@ -179,7 +184,7 @@ const CompleteProfilePage = () => {
 
   const accepted = Boolean(watched.accepted_terms);
 
-  const isReadyToSubmit = requiredFieldsFilled && accepted && !cpfError && !isCheckingCpf;
+  const isReadyToSubmit = requiredFieldsFilled && accepted && !cpfError && !isCheckingCpf && cpfValidated;
 
   const handleCepLookup = async () => {
     const cep = getValues('cep');
@@ -391,10 +396,11 @@ const CompleteProfilePage = () => {
                         onChange={(e) => {
                           e.target.value = maskCpfCnpj(e.target.value);
                           setCpfError(null);
+                          setCpfValidated(false);
                         }}
                         onBlur={checkCpfDuplicate}
                         placeholder="000.000.000-00"
-                        className={`bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors pr-10 ${cpfError ? 'border-red-400 focus:ring-red-300' : ''}`}
+                        className={`bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors pr-10 ${cpfError ? 'border-red-400 focus:ring-red-300' : cpfValidated ? 'border-emerald-400' : ''}`}
                       />
                       {isCheckingCpf && (
                         <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -407,7 +413,12 @@ const CompleteProfilePage = () => {
                         ⚠️ {cpfError}
                       </p>
                     )}
-                    {!cpfError && errors.cpf_cnpj && <p className="text-xs text-red-500 font-bold">{errors.cpf_cnpj.message}</p>}
+                    {cpfValidated && !cpfError && (
+                      <p className="text-xs text-emerald-600 font-bold flex items-center gap-1">
+                        ✅ CPF/CNPJ validado com sucesso!
+                      </p>
+                    )}
+                    {!cpfError && !cpfValidated && errors.cpf_cnpj && <p className="text-xs text-red-500 font-bold">{errors.cpf_cnpj.message}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="gender" className="text-charcoal-gray">Gênero {requiredStar('gender') && <span className="text-red-500">*</span>}</Label>

@@ -8,11 +8,15 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Copy, Check, UserPlus, Gift, Share2 } from 'lucide-react';
 import { showSuccess } from '@/utils/toast';
 import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
 
 interface Referral {
-  referred_email: string;
+  id?: number;
+  referred_id?: string | null;
+  referred_email?: string | null;
   status: 'pending' | 'registered' | 'completed';
-  profiles: {
+  created_at?: string | null;
+  profiles?: {
     first_name: string | null;
     last_name: string | null;
   } | null;
@@ -43,35 +47,72 @@ const ReferralsPage = () => {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { navigate('/login'); return; }
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) { navigate('/login'); return; }
 
-      const { data: siteUrlSetting } = await supabase
-        .from('app_settings')
-        .select('value')
-        .eq('key', 'site_url')
-        .single();
+        const { data: siteUrlSetting } = await supabase
+          .from('app_settings')
+          .select('value')
+          .eq('key', 'site_url')
+          .single();
 
-      if (siteUrlSetting?.value) {
-        setSiteUrl(siteUrlSetting.value.replace(/\/$/, ''));
+        if (siteUrlSetting?.value) {
+          setSiteUrl(siteUrlSetting.value.replace(/\/$/, ''));
+        }
+
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('referral_code')
+          .eq('id', session.user.id)
+          .single();
+
+        if (profileData) setReferralCode(profileData.referral_code);
+
+        // Fetch referrals in a robust way: basic columns first
+        const { data: basicRefs, error: refsError } = await supabase
+          .from('referrals')
+          .select('id, referred_id, referred_email, status, created_at')
+          .eq('referrer_id', session.user.id)
+          .order('created_at', { ascending: false });
+
+        if (refsError) {
+          console.error('[ReferralsPage] error fetching referrals', refsError);
+          setReferrals([]);
+          setLoading(false);
+          return;
+        }
+
+        const refs = (basicRefs || []) as Referral[];
+
+        // If we have referred_ids, fetch their profiles in batch
+        const referredIds = refs.map(r => r.referred_id).filter(Boolean) as string[];
+        let profilesMap: Record<string, any> = {};
+        if (referredIds.length > 0) {
+          const { data: profilesData, error: profilesError } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name')
+            .in('id', referredIds as string[]);
+
+          if (profilesError) {
+            console.error('[ReferralsPage] error fetching referred profiles', profilesError);
+          } else if (profilesData) {
+            profilesMap = (profilesData as any[]).reduce((acc, p) => { acc[p.id] = p; return acc; }, {} as Record<string, any>);
+          }
+        }
+
+        // Merge profiles into referrals
+        const merged = refs.map(r => ({ ...r, profiles: r.referred_id ? profilesMap[r.referred_id] ?? null : null }));
+
+        console.debug('[ReferralsPage] fetched referrals:', merged);
+        setReferrals(merged as Referral[]);
+
+      } catch (err) {
+        console.error('[ReferralsPage] unexpected error', err);
+        setReferrals([]);
+      } finally {
+        setLoading(false);
       }
-
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('referral_code')
-        .eq('id', session.user.id)
-        .single();
-
-      if (profileData) setReferralCode(profileData.referral_code);
-
-      const { data: referralsData } = await supabase
-        .from('referrals')
-        .select(`referred_email, status, profiles ( first_name, last_name )`)
-        .eq('referrer_id', session.user.id)
-        .order('created_at', { ascending: false });
-
-      if (referralsData) setReferrals(referralsData as any[] || []);
-      setLoading(false);
     };
     fetchData();
   }, [navigate]);
@@ -226,11 +267,9 @@ const ReferralsPage = () => {
               <div className="grid gap-3">
                 {referrals.map((referral, index) => {
                   const statusInfo = getStatusInfo(referral.status);
-                  const displayName =
-                    referral.profiles
-                      ? `${referral.profiles.first_name || ''} ${referral.profiles.last_name || ''}`.trim() ||
-                        referral.referred_email
-                      : referral.referred_email;
+                  const displayName = (referral.profiles && (referral.profiles.first_name || referral.profiles.last_name))
+                    ? `${referral.profiles.first_name || ''} ${referral.profiles.last_name || ''}`.trim()
+                    : (referral.referred_email || '—');
                   return (
                     <div
                       key={index}
@@ -252,8 +291,13 @@ const ReferralsPage = () => {
                           <p className="font-black text-charcoal-gray uppercase tracking-tight text-sm">
                             {displayName}
                           </p>
-                          <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest mt-0.5">
-                            {referral.status === 'pending' ? 'Aguardando cadastro' : 'Membro da Rede'}
+                          {referral.referred_email && referral.referred_email !== displayName && (
+                            <p className="text-[10px] text-stone-400 font-bold uppercase tracking-widest mt-0.5">
+                              {referral.referred_email}
+                            </p>
+                          )}
+                          <p className="text-[10px] text-stone-400 mt-1">
+                            {format(new Date(referral.created_at || ''), 'dd/MM/yyyy HH:mm')}
                           </p>
                         </div>
                       </div>

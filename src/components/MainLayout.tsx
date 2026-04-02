@@ -7,7 +7,6 @@ import { CartSheet } from "./CartSheet";
 import Footer from "./Footer";
 import SocialProofPopup from "./SocialProofPopup";
 import DeliveryTimerBar from "./DeliveryTimerBar";
-import SupportChatWidget from "./SupportChatWidget"; // Novo
 import LoyaltyButton from "./LoyaltyButton";
 
 export interface OutletContextType {
@@ -21,7 +20,6 @@ export const useAppOutletContext = () => useOutletContext<OutletContextType>();
 const MemoizedDeliveryTimerBar = memo(DeliveryTimerBar);
 const MemoizedSocialProofPopup = memo(SocialProofPopup);
 const MemoizedLoyaltyButton = memo(LoyaltyButton);
-const MemoizedSupportChatWidget = memo(SupportChatWidget);
 
 const MainLayout = () => {
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -69,7 +67,6 @@ const MainLayout = () => {
       
       {/* Botões Flutuantes */}
       <MemoizedLoyaltyButton />
-      <MemoizedSupportChatWidget />
     </div>
   );
 };

@@ -260,11 +260,24 @@ const Login = () => {
         return;
       }
 
-      // 2) Criar usuário — timeout 15s
-      const createRes = await Promise.race([
-        supabase.functions.invoke('create-user', { body: { email } }),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000)),
-      ]) as any;
+      // 2) Criar usuário — timeout 30s (create-user pode demorar)
+      let createRes: any;
+      try {
+        createRes = await Promise.race([
+          supabase.functions.invoke('create-user', { body: { email } }),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 30000)),
+        ]);
+      } catch (timeoutErr: any) {
+        // Se deu timeout no create-user, verifica se o login já aconteceu
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          // Usuário já foi criado e logado pelo onAuthStateChange — tudo certo
+          console.log('[Login] create-user timeout but session exists, proceeding');
+          showSuccess('Cadastro realizado! Redirecionando...');
+          return;
+        }
+        throw timeoutErr;
+      }
 
       if (createRes.error || !createRes.data?.success) {
         const msg = createRes.data?.error || 'Erro ao criar conta. Tente novamente.';
@@ -273,7 +286,13 @@ const Login = () => {
         return;
       }
 
-      // 3) Login com senha padrão
+      // 3) Login com senha padrão (pode já estar logado se create-user demorou)
+      const { data: { session: existingSession } } = await supabase.auth.getSession();
+      if (existingSession) {
+        showSuccess('Cadastro realizado! Redirecionando...');
+        return;
+      }
+
       const DEFAULT_PASSWORD = '123456';
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password: DEFAULT_PASSWORD });
 
@@ -288,6 +307,12 @@ const Login = () => {
 
     } catch (err: any) {
       console.error('[Login] Unexpected error verifying code:', err);
+      // Verifica se apesar do erro o login já aconteceu
+      const { data: { session } } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
+      if (session) {
+        showSuccess('Cadastro realizado! Redirecionando...');
+        return;
+      }
       const msg = err?.message === 'timeout'
         ? 'Tempo esgotado. Verifique sua conexão e tente novamente.'
         : 'Erro ao verificar o código. Tente novamente.';

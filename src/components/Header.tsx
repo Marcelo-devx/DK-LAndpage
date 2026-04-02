@@ -79,7 +79,7 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
 
     window.addEventListener('cartUpdated', updateCartCount);
     return () => {
-      try { authListener.subscription.unsubscribe(); } catch (e) { /* ignore */ }
+      try { authListener?.subscription?.unsubscribe(); } catch (e) { /* ignore */ }
       window.removeEventListener('cartUpdated', updateCartCount);
     };
   }, []);

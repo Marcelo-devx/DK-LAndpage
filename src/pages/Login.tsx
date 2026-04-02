@@ -5,11 +5,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, LogIn, UserPlus, RefreshCw } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArrowLeft, LogIn, UserPlus, RefreshCw, Mail, CheckCircle2 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { showError, showSuccess } from '@/utils/toast';
-import { InputOTP } from '@/components/ui/input-otp';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+
+const SUPABASE_URL = "https://jrlozhhvwqfmjtkmvukf.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpybG96aGh2d3FmbWp0a212dWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzNDU2NjQsImV4cCI6MjA2NzkyMTY2NH0.Do5c1-TKqpyZTJeX_hLbw1SU40CbwXfCIC-pPpcD_JM";
 
 const customTheme: Theme = {
   default: {
@@ -83,18 +86,13 @@ const Login = () => {
 
   useEffect(() => {
     const refCode = params.get('ref');
-    if (refCode) {
-      sessionStorage.setItem('referral_code', refCode);
-    }
+    if (refCode) sessionStorage.setItem('referral_code', refCode);
   }, [location.search]);
 
   useEffect(() => {
-    // Handle SIGNED_IN events for the Auth component (keeps current behavior)
     const listener = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('[Login] Auth state changed:', event, session?.user?.id);
-      
       if (event === 'SIGNED_IN' && session) {
-        // Handle referral code first
         const storedRefCode = sessionStorage.getItem('referral_code');
         if (storedRefCode) {
           try {
@@ -104,37 +102,19 @@ const Login = () => {
             console.error('[Login] Error linking referral:', error);
           }
         }
-
-        // Check if profile is complete
         try {
-          const { data: profile, error } = await supabase
+          const { data: profile } = await supabase
             .from('profiles')
             .select('first_name, last_name, phone, cpf_cnpj, gender, date_of_birth, cep, street, number, neighborhood, city, state')
             .eq('id', session.user.id)
             .single();
 
-          if (error) {
-            console.error('[Login] Error fetching profile:', error);
-            // Still redirect, even on error
-            navigate(from, { replace: true });
-            return;
-          }
+          const isProfileComplete = profile &&
+            profile.first_name && profile.last_name && profile.phone &&
+            profile.cpf_cnpj && profile.gender && profile.date_of_birth &&
+            profile.cep && profile.street && profile.number &&
+            profile.neighborhood && profile.city && profile.state;
 
-          const isProfileComplete = profile && 
-            profile.first_name && 
-            profile.last_name && 
-            profile.phone && 
-            profile.cpf_cnpj &&
-            profile.gender &&
-            profile.date_of_birth &&
-            profile.cep &&
-            profile.street &&
-            profile.number &&
-            profile.neighborhood &&
-            profile.city &&
-            profile.state;
-
-          // Prevent redirect to complete-profile if already there
           if (!isProfileComplete && window.location.pathname !== '/complete-profile') {
             navigate('/complete-profile', { replace: true });
           } else {
@@ -147,69 +127,46 @@ const Login = () => {
       }
     });
 
-    // Normalize different SDK shapes for cleanup
     const subscription = (listener as any)?.data?.subscription ?? (listener as any)?.subscription ?? null;
     return () => {
       try {
         if (subscription && typeof subscription.unsubscribe === 'function') subscription.unsubscribe();
-        else if (listener && typeof (listener as any).unsubscribe === 'function') (listener as any).unsubscribe();
-      } catch (e) {
-        console.warn('[Login] failed to unsubscribe auth listener', e);
-      }
+      } catch (e) {}
     };
   }, [navigate, from]);
 
-  // cooldown timer for resend
+  // Cooldown timer
   useEffect(() => {
     if (resendCooldown <= 0) return;
     const t = setInterval(() => {
       setResendCooldown((c) => {
-        if (c <= 1) {
-          clearInterval(t);
-          return 0;
-        }
+        if (c <= 1) { clearInterval(t); return 0; }
         return c - 1;
       });
     }, 1000);
     return () => clearInterval(t);
   }, [resendCooldown]);
 
-  const sendOtpToEmail = async (e?: React.FormEvent) => {
-    e?.preventDefault();
+  const sendCode = async () => {
     const email = emailForSignup.trim().toLowerCase();
-    if (!email) {
-      showError('Informe um e-mail válido');
-      return;
-    }
+    if (!email) { showError('Informe um e-mail válido'); return; }
 
     setIsSendingCode(true);
     try {
-      // 1) Generate token via edge function
+      // 1) Gerar código de 6 dígitos via edge function
       const gen = await supabase.functions.invoke('generate-token', {
-        body: { email, type: 'complete_profile', expires_in_seconds: 60 * 60 * 24 },
+        body: { email, type: 'signup_otp', expires_in_seconds: 60 * 10 },
       });
 
-      if (gen.error) {
-        console.error('[Login] generate-token error', gen.error);
-        showError('Não foi possível gerar link de confirmação. Verifique os logs da Edge Function.');
-        setIsSendingCode(false);
+      if (gen.error || !gen.data?.code) {
+        console.error('[Login] generate-token error', gen.error, gen.data);
+        showError('Não foi possível gerar o código. Tente novamente.');
         return;
       }
 
-      const token = gen.data?.token;
-      if (!token) {
-        console.error('[Login] generate-token missing token', gen);
-        showError('Não foi possível gerar link de confirmação (token ausente).');
-        setIsSendingCode(false);
-        return;
-      }
+      const code = gen.data.code;
 
-      const completeLink = `${window.location.origin}/complete-profile?token=${encodeURIComponent(token)}`;
-
-      // 2) Send email via Resend — use fetch directly so we can read the error body
-      const SUPABASE_URL = "https://jrlozhhvwqfmjtkmvukf.supabase.co";
-      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpybG96aGh2d3FmbWp0a212dWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzNDU2NjQsImV4cCI6MjA2NzkyMTY2NH0.Do5c1-TKqpyZTJeX_hLbw1SU40CbwXfCIC-pPpcD_JM";
-
+      // 2) Enviar email com o código via Resend
       const emailRes = await fetch(`${SUPABASE_URL}/functions/v1/send-email-via-resend`, {
         method: 'POST',
         headers: {
@@ -219,144 +176,78 @@ const Login = () => {
         },
         body: JSON.stringify({
           to: email,
-          subject: 'Complete seu cadastro - DKCWB',
-          type: 'complete_profile',
-          completeLink,
+          subject: 'Seu código de verificação - DKCWB',
+          type: 'otp',
+          code,
         }),
       });
 
       const emailData = await emailRes.json().catch(() => ({}));
 
       if (!emailRes.ok) {
-        const errMsg = emailData?.error || `Erro ${emailRes.status} ao enviar email.`;
-        console.error('[Login] send-email-via-resend failed:', emailRes.status, emailData);
+        const errMsg = emailData?.error || `Erro ao enviar email (${emailRes.status}).`;
+        console.error('[Login] send-email error:', emailRes.status, emailData);
         showError(errMsg);
         return;
       }
 
-      console.log('[Login] email sent successfully', emailData);
-      setEmailForSignup(email);
       setCodeSent(true);
-      showSuccess('Enviamos um e-mail com o link para completar o cadastro. Verifique sua caixa de entrada.');
+      setResendCooldown(60);
+      showSuccess(`Código enviado para ${email}. Verifique sua caixa de entrada.`);
 
     } catch (err: any) {
-      console.error('[Login] Unexpected error sending complete profile link:', err);
-      showError(err?.message || 'Erro inesperado. Tente novamente mais tarde.');
+      console.error('[Login] Unexpected error sending code:', err);
+      showError(err?.message || 'Erro inesperado. Tente novamente.');
     } finally {
       setIsSendingCode(false);
     }
   };
 
-  const verifyOtpCode = async () => {
+  const verifyCode = async () => {
     if (otp.trim().length < 6) {
       showError('Insira o código de 6 dígitos recebido por e-mail.');
       return;
     }
     setIsVerifying(true);
     try {
-      // verifyOtp is the Supabase client method to verify an email token/otp.
-      const { data, error } = await (supabase.auth as any).verifyOtp({
-        email: emailForSignup.trim().toLowerCase(),
-        token: otp.trim(),
-        type: 'email'
+      const email = emailForSignup.trim().toLowerCase();
+
+      // 1) Validar código na nossa tabela
+      const val = await supabase.functions.invoke('validate-token', {
+        body: { email, code: otp.trim() },
       });
 
-      if (error) {
-        console.error('[Login] verifyOtp error:', error);
-        showError((error as any)?.message || 'Código inválido ou expirado. Tente reenviar.');
+      if (val.error || !val.data?.success) {
+        const msg = val.data?.error || 'Código inválido ou expirado. Tente reenviar.';
+        console.error('[Login] validate-token error', val.error, val.data);
+        showError(msg);
         return;
       }
 
-      // If verification succeeded, a session should now exist in the client.
-      showSuccess('Código verificado! Entrando...');
+      // 2) Código válido — criar/logar usuário via signInWithOtp do Supabase
+      // Usamos signInWithOtp para criar a sessão. O Supabase vai criar o usuário se não existir.
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: true,
+        },
+      });
 
-      // Handle referral linking (if present) similar to SIGNED_IN flow
-      try {
-        const storedRefCode = sessionStorage.getItem('referral_code');
-        if (storedRefCode) {
-          await supabase.rpc('link_referral', { referral_code_input: storedRefCode });
-          sessionStorage.removeItem('referral_code');
-        }
-      } catch (err) {
-        console.error('[Login] Error linking referral after OTP verify:', err);
+      if (otpError) {
+        console.error('[Login] signInWithOtp error', otpError);
+        showError('Erro ao criar sessão. Tente novamente.');
+        return;
       }
 
-      // Fetch session and profile, then redirect accordingly
-      const { data: sessionData } = await supabase.auth.getSession();
-      const session = sessionData?.session;
-      if (session) {
-        try {
-          const { data: profile, error } = await supabase
-            .from('profiles')
-            .select('first_name, last_name, phone, cpf_cnpj, gender, date_of_birth, cep, street, number, neighborhood, city, state')
-            .eq('id', session.user.id)
-            .single();
+      // 3) Redirecionar para completar cadastro
+      showSuccess('Código verificado! Redirecionando...');
+      navigate('/complete-profile', { replace: true });
 
-          const isProfileComplete = profile && 
-            profile.first_name && 
-            profile.last_name && 
-            profile.phone && 
-            profile.cpf_cnpj &&
-            profile.gender &&
-            profile.date_of_birth &&
-            profile.cep &&
-            profile.street &&
-            profile.number &&
-            profile.neighborhood &&
-            profile.city &&
-            profile.state;
-
-          if (!isProfileComplete && window.location.pathname !== '/complete-profile') {
-            navigate('/complete-profile', { replace: true });
-          } else {
-            navigate(from, { replace: true });
-          }
-          return;
-        } catch (err) {
-          console.error('[Login] Error checking profile after OTP verify:', err);
-          navigate(from, { replace: true });
-          return;
-        }
-      }
-
-      // fallback
-      navigate(from, { replace: true });
-    } catch (err) {
-      console.error('[Login] Unexpected error verifying OTP:', err);
+    } catch (err: any) {
+      console.error('[Login] Unexpected error verifying code:', err);
       showError('Erro ao verificar o código. Tente novamente.');
     } finally {
       setIsVerifying(false);
-    }
-  };
-
-  const resendOtp = async () => {
-    if (resendCooldown > 0) return;
-    setIsSendingCode(true);
-    try {
-      const email = emailForSignup.trim().toLowerCase();
-      if (!email) {
-        showError('Informe um e-mail válido');
-        return;
-      }
-      const { data, error } = await supabase.auth.signInWithOtp({
-        email,
-        options: { emailRedirectTo: `${window.location.origin}/auth/confirm` }
-      } as any);
-      if (error) {
-        console.error('[Login] resend signInWithOtp error:', error);
-        const status = (error as any)?.status;
-        if (status) showError(((error as any)?.message || 'Não foi possível reenviar o código.') + ` (status ${status}). Verifique configuração de e-mail no Supabase.`);
-        else showError((error as any)?.message || 'Não foi possível reenviar o código. Tente novamente.');
-      } else {
-        setResendCooldown(60);
-        if ((data as any)?.message) showSuccess((data as any).message);
-        else showSuccess('Código reenviado para seu e-mail.');
-      }
-    } catch (err: any) {
-      console.error('[Login] Unexpected error resending OTP:', err);
-      showError(err?.message || 'Erro inesperado. Tente novamente mais tarde.');
-    } finally {
-      setIsSendingCode(false);
     }
   };
 
@@ -367,18 +258,17 @@ const Login = () => {
 
       <div className="w-full max-w-[420px] relative z-10 flex flex-col gap-6">
         <div className="text-center space-y-2">
-           <h1 className="text-4xl font-black italic tracking-tighter text-charcoal-gray uppercase">
+          <h1 className="text-4xl font-black italic tracking-tighter text-charcoal-gray uppercase">
             {settings.loginTitle}<span className="text-sky-500">.</span>
-           </h1>
-           <p className="text-slate-500 text-[10px] font-black tracking-[0.3em] uppercase">
+          </h1>
+          <p className="text-slate-500 text-[10px] font-black tracking-[0.3em] uppercase">
             {settings.loginSubtitle}
-           </p>
+          </p>
         </div>
 
         <Card className="bg-white border border-stone-200 shadow-2xl rounded-[2rem] overflow-hidden">
           <CardContent className="p-0">
             <Tabs value={view} onValueChange={(v) => {
-              // reset OTP UI when switching tabs
               setView(v as ViewType);
               setCodeSent(false);
               setOtp('');
@@ -392,61 +282,94 @@ const Login = () => {
                   <UserPlus className="h-3.5 w-3.5" /> Criar Conta
                 </TabsTrigger>
               </TabsList>
-              
+
               <div className="p-8">
                 {view === 'sign_up' ? (
-                  // COMPLETE-PROFILE signup flow (send link instead of OTP)
-                  <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-5">
                     {!codeSent ? (
                       <>
-                        <div className="text-center">
-                          <p className="text-sm text-slate-500">Digite seu e-mail e enviaremos um link para completar seu cadastro.</p>
+                        <div className="text-center space-y-1">
+                          <div className="mx-auto w-12 h-12 bg-sky-50 rounded-2xl flex items-center justify-center mb-3">
+                            <Mail className="h-6 w-6 text-sky-500" />
+                          </div>
+                          <p className="text-sm text-slate-500">Digite seu e-mail e enviaremos um <span className="font-bold text-charcoal-gray">código de 6 dígitos</span> para validar seu acesso.</p>
                         </div>
                         <input
                           type="email"
                           placeholder="seu@email.com"
                           value={emailForSignup}
                           onChange={(e) => setEmailForSignup(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && sendCode()}
                           className="w-full h-12 px-4 rounded-xl border border-stone-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-sky-300"
                         />
-                        <Button onClick={sendOtpToEmail} className="h-12 uppercase font-black tracking-widest" disabled={isSendingCode}>
-                          {isSendingCode ? 'Enviando...' : 'Enviar Link por E-mail'}
+                        <Button onClick={sendCode} className="h-12 uppercase font-black tracking-widest" disabled={isSendingCode}>
+                          {isSendingCode ? 'Enviando...' : 'Enviar Código por E-mail'}
                         </Button>
                         <div className="text-center">
-                          <button 
+                          <button
                             type="button"
                             onClick={() => setView('sign_in')}
                             className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-sky-500 transition-colors"
                           >
-                            Voltar para Entrar
+                            Já tenho conta — Entrar
                           </button>
                         </div>
                       </>
                     ) : (
-                      // After sending link: show confirmation and allow resend
                       <>
-                        <div className="text-center">
-                          <h3 className="text-sm font-bold text-charcoal-gray">Link enviado!</h3>
-                          <p className="text-sm text-slate-500">Enviamos um link para completar seu cadastro em <span className="font-bold text-sky-600">{emailForSignup}</span>. Abra o e-mail e clique no link para continuar.</p>
+                        <div className="text-center space-y-1">
+                          <div className="mx-auto w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center mb-3">
+                            <CheckCircle2 className="h-6 w-6 text-emerald-500" />
+                          </div>
+                          <p className="text-sm font-bold text-charcoal-gray">Código enviado!</p>
+                          <p className="text-sm text-slate-500">Insira o código de 6 dígitos enviado para <span className="font-bold text-sky-600">{emailForSignup}</span></p>
                         </div>
 
-                        <div className="flex gap-2 mt-2">
-                          <Button onClick={sendOtpToEmail} className="flex-1 h-12 uppercase font-black tracking-widest" disabled={isSendingCode}>
-                            {isSendingCode ? 'Enviando...' : 'Reenviar Link'}
-                          </Button>
+                        <div className="flex justify-center">
+                          <InputOTP
+                            maxLength={6}
+                            value={otp}
+                            onChange={(val) => setOtp(val)}
+                          >
+                            <InputOTPGroup>
+                              <InputOTPSlot index={0} />
+                              <InputOTPSlot index={1} />
+                              <InputOTPSlot index={2} />
+                              <InputOTPSlot index={3} />
+                              <InputOTPSlot index={4} />
+                              <InputOTPSlot index={5} />
+                            </InputOTPGroup>
+                          </InputOTP>
+                        </div>
 
-                          <Button
-                            variant="ghost"
-                            onClick={() => { setCodeSent(false); setEmailForSignup(''); }}
-                            className="h-12 px-3"
+                        <Button
+                          onClick={verifyCode}
+                          className="h-12 uppercase font-black tracking-widest"
+                          disabled={isVerifying || otp.length < 6}
+                        >
+                          {isVerifying ? 'Verificando...' : 'Verificar Código'}
+                        </Button>
+
+                        <div className="flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => { setCodeSent(false); setOtp(''); setEmailForSignup(''); }}
+                            className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-sky-500 transition-colors"
                           >
                             Usar outro e-mail
-                          </Button>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={sendCode}
+                            disabled={isSendingCode || resendCooldown > 0}
+                            className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-sky-500 transition-colors disabled:opacity-40 flex items-center gap-1"
+                          >
+                            <RefreshCw className="h-3 w-3" />
+                            {resendCooldown > 0 ? `Reenviar (${resendCooldown}s)` : 'Reenviar'}
+                          </button>
                         </div>
 
-                        <div className="text-center mt-2">
-                          <p className="text-xs text-slate-400">Se não receber o e-mail, verifique a caixa de spam ou tente reenviar.</p>
-                        </div>
+                        <p className="text-xs text-slate-400 text-center">Não recebeu? Verifique a caixa de spam.</p>
                       </>
                     )}
                   </div>
@@ -455,7 +378,7 @@ const Login = () => {
                     <Auth
                       supabaseClient={supabase}
                       view={view}
-                      appearance={{ 
+                      appearance={{
                         theme: customTheme,
                         style: {
                           button: { textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: '800', fontSize: '11px', height: '48px' },
@@ -463,10 +386,10 @@ const Login = () => {
                           input: { borderRadius: '0.75rem', height: '48px' }
                         }
                       }}
-                      providers={[]} 
+                      providers={[]}
                       redirectTo={`${window.location.origin}/auth/confirm`}
                       theme="default"
-                      showLinks={false} 
+                      showLinks={false}
                       localization={{
                         variables: {
                           sign_in: {
@@ -476,14 +399,6 @@ const Login = () => {
                             password_input_placeholder: '••••••••',
                             button_label: 'Acessar Conta',
                             social_provider_text: 'Entrar com {{provider}}',
-                          },
-                          sign_up: {
-                            email_label: 'E-mail',
-                            password_label: 'Senha',
-                            email_input_placeholder: 'seu@email.com',
-                            password_input_placeholder: 'Crie uma senha segura',
-                            button_label: 'Finalizar Cadastro',
-                            social_provider_text: 'Cadastrar com {{provider}}',
                           },
                           forgotten_password: {
                             email_label: 'E-mail',
@@ -497,7 +412,7 @@ const Login = () => {
 
                     {view === 'sign_in' && (
                       <div className="mt-4 text-center">
-                        <button 
+                        <button
                           onClick={() => setView('forgotten_password')}
                           className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-sky-500 transition-colors"
                         >
@@ -505,10 +420,10 @@ const Login = () => {
                         </button>
                       </div>
                     )}
-  
+
                     {view === 'forgotten_password' && (
                       <div className="mt-4 text-center">
-                        <button 
+                        <button
                           onClick={() => setView('sign_in')}
                           className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-sky-500 transition-colors"
                         >

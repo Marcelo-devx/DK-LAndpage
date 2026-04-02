@@ -6,7 +6,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, LogIn, UserPlus, RefreshCw, Mail, CheckCircle2, KeyRound } from 'lucide-react';
+import { ArrowLeft, LogIn, UserPlus, RefreshCw, Mail, CheckCircle2, KeyRound, Gift } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { showError, showSuccess } from '@/utils/toast';
 import OtpInput from '@/components/OtpInput';
@@ -69,12 +69,29 @@ const Login = () => {
   const initialView = params.get('view') === 'sign_up' ? 'sign_up' : 'sign_in';
   const [view, setView] = useState<CustomView>(initialView as CustomView);
 
+  // Referral info
+  const [referrerName, setReferrerName] = useState<string | null>(null);
+  const [referralCode, setReferralCode] = useState<string | null>(null);
+
   // Salva o código de referral imediatamente ao montar o componente
   useEffect(() => {
     const refCode = params.get('ref');
     if (refCode) {
       sessionStorage.setItem('referral_code', refCode);
+      setReferralCode(refCode);
       console.log('[Login] Referral code saved:', refCode);
+
+      // Busca o nome de quem indicou
+      supabase
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('referral_code', refCode)
+        .single()
+        .then(({ data }) => {
+          if (data?.first_name) {
+            setReferrerName(`${data.first_name}${data.last_name ? ' ' + data.last_name : ''}`);
+          }
+        });
     }
   }, [location.search]);
 
@@ -336,6 +353,29 @@ const Login = () => {
                 {/* ── CRIAR CONTA ── */}
                 {view === 'sign_up' ? (
                   <div className="flex flex-col gap-5">
+                    {/* Banner de indicação */}
+                    {referralCode && (
+                      <div className="bg-gradient-to-r from-sky-500 to-sky-600 rounded-2xl p-4 text-white flex items-start gap-3">
+                        <div className="bg-white/20 rounded-xl p-2 shrink-0">
+                          <Gift className="h-5 w-5 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-black uppercase tracking-widest text-sky-100 mb-0.5">
+                            Convite especial
+                          </p>
+                          <p className="text-sm font-bold leading-snug">
+                            {referrerName
+                              ? <><span className="text-white">{referrerName}</span> te convidou para o CLUB DK!</>
+                              : 'Você foi convidado para o CLUB DK!'
+                            }
+                          </p>
+                          <p className="text-xs text-sky-200 mt-1">
+                            Código: <span className="font-black tracking-widest">{referralCode.toUpperCase()}</span>
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
                     {!codeSent ? (
                       <>
                         <div className="text-center space-y-1">

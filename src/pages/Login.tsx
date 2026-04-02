@@ -184,15 +184,14 @@ const Login = () => {
 
     setIsSendingCode(true);
     try {
-      // Instead of signInWithOtp, create a complete-profile token and send email via our edge function
-      // 1) Call generate-token function to create a one-time token linked to email
+      // 1) Generate token via edge function
       const gen = await supabase.functions.invoke('generate-token', {
         body: { email, type: 'complete_profile', expires_in_seconds: 60 * 60 * 24 },
       });
 
       if (gen.error) {
         console.error('[Login] generate-token error', gen.error);
-        showError('Não foi possível gerar link de confirmação.');
+        showError('Não foi possível gerar link de confirmação. Verifique os logs da Edge Function.');
         setIsSendingCode(false);
         return;
       }
@@ -200,34 +199,46 @@ const Login = () => {
       const token = gen.data?.token;
       if (!token) {
         console.error('[Login] generate-token missing token', gen);
-        showError('Não foi possível gerar link de confirmação.');
+        showError('Não foi possível gerar link de confirmação (token ausente).');
         setIsSendingCode(false);
         return;
       }
 
       const completeLink = `${window.location.origin}/complete-profile?token=${encodeURIComponent(token)}`;
 
-      // 2) Send email via Resend edge function
-      const payload = {
-        to: email,
-        subject: 'Complete seu cadastro',
-        type: 'complete_profile',
-        completeLink,
-      };
+      // 2) Send email via Resend — use fetch directly so we can read the error body
+      const SUPABASE_URL = "https://jrlozhhvwqfmjtkmvukf.supabase.co";
+      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpybG96aGh2d3FmbWp0a212dWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzNDU2NjQsImV4cCI6MjA2NzkyMTY2NH0.Do5c1-TKqpyZTJeX_hLbw1SU40CbwXfCIC-pPpcD_JM";
 
-      const res = await supabase.functions.invoke('send-email-via-resend', { body: payload });
+      const emailRes = await fetch(`${SUPABASE_URL}/functions/v1/send-email-via-resend`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'apikey': SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({
+          to: email,
+          subject: 'Complete seu cadastro - DKCWB',
+          type: 'complete_profile',
+          completeLink,
+        }),
+      });
 
-      if (res.error) {
-        console.error('[Login] send-email-via-resend error', res.error);
-        // res.data may contain the error body even on failure
-        const serverMsg = res.data?.error || (res.error as any)?.message || 'Erro ao enviar email.';
-        console.error('[Login] server error message:', serverMsg);
-        showError(serverMsg);
-      } else {
-        setEmailForSignup(email);
-        setCodeSent(true);
-        showSuccess('Enviamos um e-mail com o link para completar o cadastro. Verifique sua caixa de entrada.');
+      const emailData = await emailRes.json().catch(() => ({}));
+
+      if (!emailRes.ok) {
+        const errMsg = emailData?.error || `Erro ${emailRes.status} ao enviar email.`;
+        console.error('[Login] send-email-via-resend failed:', emailRes.status, emailData);
+        showError(errMsg);
+        return;
       }
+
+      console.log('[Login] email sent successfully', emailData);
+      setEmailForSignup(email);
+      setCodeSent(true);
+      showSuccess('Enviamos um e-mail com o link para completar o cadastro. Verifique sua caixa de entrada.');
+
     } catch (err: any) {
       console.error('[Login] Unexpected error sending complete profile link:', err);
       showError(err?.message || 'Erro inesperado. Tente novamente mais tarde.');

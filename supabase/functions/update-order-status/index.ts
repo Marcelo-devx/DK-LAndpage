@@ -29,30 +29,49 @@ serve(async (req) => {
     // Segurança: aceitar autorização via 1) Bearer JWT OR 2) webhook secret header
     const authHeader = req.headers.get('Authorization') || req.headers.get('authorization');
     const webhookSecretHeader = req.headers.get('x-webhook-secret') || req.headers.get('x-webhook-token');
-    const expectedWebhookSecret = (Deno.env.get('N8N_SECRET_TOKEN') || Deno.env.get('UPDATE_ORDER_WEBHOOK_SECRET') || Deno.env.get('WEBHOOK_SECRET') || '').trim();
+
+    // Buscar token válido do n8n: tenta Supabase Secret primeiro, depois app_settings
+    const secretFromEnv = (Deno.env.get('N8N_SECRET_TOKEN') || Deno.env.get('UPDATE_ORDER_WEBHOOK_SECRET') || Deno.env.get('WEBHOOK_SECRET') || '').trim();
+
+    // Também aceitar o token salvo em app_settings (n8n_integration_token)
+    const supabaseAdmin0 = createClient(
+      // @ts-ignore
+      Deno.env.get('SUPABASE_URL') ?? '',
+      // @ts-ignore
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+    const { data: tokenSetting } = await supabaseAdmin0
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'n8n_integration_token')
+      .maybeSingle();
+    const secretFromDb = (tokenSetting?.value || '').trim();
+
+    // Token recebido (via header ou bearer)
+    const bearerToken = authHeader?.includes('Bearer') ? authHeader.replace('Bearer ', '').trim() : null;
+    const receivedToken = webhookSecretHeader || bearerToken || '';
+
+    // Válido se bater com qualquer um dos secrets conhecidos
+    const validSecrets = [secretFromEnv, secretFromDb].filter(Boolean);
+    const isValidSecret = validSecrets.length > 0 && validSecrets.some(s => s === receivedToken);
 
     safeLog('[update-order-status] Auth check', {
       hasWebhookHeader: !!webhookSecretHeader,
       hasAuthHeader: !!authHeader,
-      hasExpectedSecret: !!expectedWebhookSecret,
-      secretMatch: webhookSecretHeader === expectedWebhookSecret,
+      hasBearerToken: !!bearerToken,
+      secretFromEnv: !!secretFromEnv,
+      secretFromDb: !!secretFromDb,
+      isValidSecret,
     });
 
     let authorizedVia = null as null | 'webhook' | 'jwt';
     let validatedUser: any = null;
 
-    // Extrair token do header Authorization (se existir)
-    const bearerToken = authHeader?.includes('Bearer') ? authHeader.replace('Bearer ', '').trim() : null;
-
-    // 1) Verificar se é o secret do n8n — pode vir via x-webhook-secret OU via Authorization: Bearer <secret>
-    const isSecretViaHeader = webhookSecretHeader && expectedWebhookSecret && webhookSecretHeader === expectedWebhookSecret;
-    const isSecretViaBearer = bearerToken && expectedWebhookSecret && bearerToken === expectedWebhookSecret;
-
-    if (isSecretViaHeader || isSecretViaBearer) {
+    if (isValidSecret) {
       authorizedVia = 'webhook';
-      safeLog('[update-order-status] Authorized via webhook secret', { method: isSecretViaBearer ? 'bearer' : 'header' });
+      safeLog('[update-order-status] Authorized via webhook secret');
     } else if (bearerToken) {
-      // 2) Tentar validar como JWT de usuário admin
+      // 2) Bearer token não bateu com nenhum secret — tentar validar como JWT de usuário admin
       const token = bearerToken;
       try {
         const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token as any);
@@ -100,8 +119,9 @@ serve(async (req) => {
       safeErrorLog('[update-order-status] Acesso negado — sem credenciais válidas', {
         hasWebhookHeader: !!webhookSecretHeader,
         hasAuthHeader: !!authHeader,
-        hasExpectedSecret: !!expectedWebhookSecret,
         hasBearerToken: !!bearerToken,
+        secretFromEnv: !!secretFromEnv,
+        secretFromDb: !!secretFromDb,
       });
       return new Response(JSON.stringify({ error: 'Acesso negado. Requer autenticação.' }), {
         status: 401,

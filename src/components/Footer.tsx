@@ -101,15 +101,15 @@ const Footer = () => {
             <ul className="space-y-4 text-sm font-medium">
               <li className="flex flex-col">
                 <span className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">Horário</span>
-                <p>{settings.contactHours}</p>
+                <p>Segunda a Sexta: 10h às 18h / Sábado: 10h às 17h.</p>
               </li>
               <li className="flex flex-col">
                 <span className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">E-mail</span>
-                <p>{settings.contactEmail}</p>
+                <p>dkvapeshop@hotmail.com</p>
               </li>
               <li className="flex flex-col">
                 <span className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">Telefone</span>
-                <p>{settings.contactPhone}</p>
+                <p>+595 985 981046</p>
               </li>
             </ul>
           </div>

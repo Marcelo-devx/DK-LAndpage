@@ -42,35 +42,23 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
 
-    // Busca usuário por email usando listUsers com filtro (suportado pelo SDK v2)
     const cleanEmail = email.toLowerCase().trim();
     console.log('[forgot-password] buscando usuário com email:', cleanEmail);
 
-    const { data: usersData, error: listError } = await supabase.auth.admin.listUsers({
-      filter: `email.eq.${cleanEmail}`,
-    } as any);
+    // Busca direta em auth.users via RPC com SECURITY DEFINER — 100% confiável
+    const { data: userId, error: userIdError } = await supabase.rpc('get_auth_user_id_by_email', {
+      p_email: cleanEmail
+    });
 
-    let user = usersData?.users?.[0];
-
-    // Fallback: se o filtro não funcionar, busca via RPC no banco
-    if (!user) {
-      console.log('[forgot-password] listUsers com filtro não retornou resultado, tentando RPC...');
-      const { data: rpcData, error: rpcError } = await supabase.rpc('get_user_id_by_email', { user_email: cleanEmail });
-      
-      if (!rpcError && rpcData) {
-        user = { id: rpcData } as any;
-        console.log('[forgot-password] usuário encontrado via RPC, id:', rpcData);
-      }
-    }
-
-    if (!user?.id) {
-      console.log('[forgot-password] usuário não encontrado para email:', cleanEmail);
+    if (userIdError || !userId) {
+      console.log('[forgot-password] usuário não encontrado para email:', cleanEmail, userIdError);
       return new Response(
         JSON.stringify({ error: 'Nenhuma conta encontrada com este e-mail. Verifique o endereço digitado.' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    const user = { id: userId };
     console.log('[forgot-password] usuário encontrado, id:', user.id);
 
     // Check if the user has a complete profile (all required fields must be filled)

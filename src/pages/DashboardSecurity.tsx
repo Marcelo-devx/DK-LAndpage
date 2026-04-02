@@ -9,25 +9,6 @@ import { Loader2, Mail, ShieldCheck, KeyRound } from 'lucide-react';
 const SUPABASE_URL = "https://jrlozhhvwqfmjtkmvukf.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpybG96aGh2d3FmbWp0a212dWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzNDU2NjQsImV4cCI6MjA2NzkyMTY2NH0.Do5c1-TKqpyZTJeX_hLbw1SU40CbwXfCIC-pPpcD_JM";
 
-// Gera senha aleatória com letras, números e símbolo
-const generatePassword = (): string => {
-  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-  const lower = 'abcdefghjkmnpqrstuvwxyz';
-  const numbers = '23456789';
-  const symbols = '!@#$%';
-  const all = upper + lower + numbers + symbols;
-  let pwd = '';
-  pwd += upper[Math.floor(Math.random() * upper.length)];
-  pwd += lower[Math.floor(Math.random() * lower.length)];
-  pwd += numbers[Math.floor(Math.random() * numbers.length)];
-  pwd += symbols[Math.floor(Math.random() * symbols.length)];
-  for (let i = 4; i < 10; i++) {
-    pwd += all[Math.floor(Math.random() * all.length)];
-  }
-  // Embaralhar
-  return pwd.split('').sort(() => Math.random() - 0.5).join('');
-};
-
 const DashboardSecurity = () => {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -37,7 +18,7 @@ const DashboardSecurity = () => {
     setLoading(true);
     const toastId = showLoading('Gerando nova senha...');
     try {
-      // 1) Pegar sessão e email do usuário
+      // 1) Pegar email do usuário logado
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user?.email) {
         dismissToast(toastId);
@@ -48,41 +29,23 @@ const DashboardSecurity = () => {
 
       const email = session.user.email;
 
-      // 2) Gerar nova senha aleatória
-      const newPassword = generatePassword();
-
-      // 3) Atualizar senha no Supabase
-      const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
-      if (updateError) {
-        dismissToast(toastId);
-        showError('Erro ao atualizar senha. Tente novamente.');
-        console.error('[DashboardSecurity] updateUser error', updateError);
-        return;
-      }
-
-      // 4) Enviar email com a nova senha via Resend
-      const emailRes = await fetch(`${SUPABASE_URL}/functions/v1/send-email-via-resend`, {
+      // 2) Delegar para a edge function forgot-password (usa service role, sem conflito de sessão)
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/forgot-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
           'apikey': SUPABASE_ANON_KEY,
         },
-        body: JSON.stringify({
-          to: email,
-          subject: 'Sua nova senha - DKCWB',
-          type: 'new_password',
-          newPassword,
-        }),
+        body: JSON.stringify({ email }),
       });
 
-      const emailData = await emailRes.json().catch(() => ({}));
+      const data = await res.json().catch(() => ({}));
       dismissToast(toastId);
 
-      if (!emailRes.ok) {
-        const errMsg = emailData?.error || 'Senha atualizada mas erro ao enviar email.';
-        console.error('[DashboardSecurity] email error', emailRes.status, emailData);
-        showError(errMsg);
+      if (!res.ok) {
+        showError(data?.error || 'Erro ao gerar nova senha. Tente novamente.');
+        console.error('[DashboardSecurity] forgot-password error', res.status, data);
         return;
       }
 

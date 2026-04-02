@@ -1,10 +1,57 @@
 import { useEffect, useState } from 'react';
 import { Truck, Clock } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+
+interface TimerMessages {
+  weekday_before: string;
+  weekday_after: string;
+  saturday_before: string;
+  saturday_after: string;
+  sunday: string;
+}
+
+const defaultMessages: TimerMessages = {
+  weekday_before: "Faça seu pedido antes das 14h para ser enviado ainda hoje! Tempo restante:",
+  weekday_after: "Fazendo seu pedido após as 14h será enviado na próxima rota!",
+  saturday_before: "Faça seu pedido antes das 12:30h para ser enviado ainda hoje! Tempo restante:",
+  saturday_after: "Fazendo o pedido após as 12:30h será enviado na próxima rota!",
+  sunday: "Hoje é Domingo. Seu pedido será enviado no próximo dia útil!",
+};
 
 const DeliveryTimerBar = () => {
   const [message, setMessage] = useState('');
   const [timeLeft, setTimeLeft] = useState<string | null>(null);
   const [showTimer, setShowTimer] = useState(false);
+  const [messages, setMessages] = useState<TimerMessages>(defaultMessages);
+
+  useEffect(() => {
+    const fetchMessages = async () => {
+      const { data } = await supabase
+        .from('app_settings')
+        .select('key, value')
+        .in('key', [
+          'timer_weekday_before',
+          'timer_weekday_after',
+          'timer_saturday_before',
+          'timer_saturday_after',
+          'timer_sunday',
+        ]);
+
+      if (data && data.length > 0) {
+        const map: Record<string, string> = {};
+        data.forEach((row) => { map[row.key] = row.value; });
+        setMessages({
+          weekday_before: map['timer_weekday_before'] || defaultMessages.weekday_before,
+          weekday_after: map['timer_weekday_after'] || defaultMessages.weekday_after,
+          saturday_before: map['timer_saturday_before'] || defaultMessages.saturday_before,
+          saturday_after: map['timer_saturday_after'] || defaultMessages.saturday_after,
+          sunday: map['timer_sunday'] || defaultMessages.sunday,
+        });
+      }
+    };
+
+    fetchMessages();
+  }, []);
 
   useEffect(() => {
     const updateTimer = () => {
@@ -14,35 +61,30 @@ const DeliveryTimerBar = () => {
       let isTimerVisible = false;
       let msg = "";
 
-      // Segunda a Sexta (1 a 5)
       if (day >= 1 && day <= 5) {
         deadline = new Date();
         deadline.setHours(14, 0, 0, 0);
         
         if (now.getTime() <= deadline.getTime()) {
           isTimerVisible = true;
-          msg = "Faça seu pedido antes das 14h para ser enviado ainda hoje! Tempo restante:";
+          msg = messages.weekday_before;
         } else {
-          msg = "Fazendo seu pedido após as 14h será enviado na próxima rota!";
+          msg = messages.weekday_after;
           isTimerVisible = false;
         }
-      } 
-      // Sábado (6)
-      else if (day === 6) {
+      } else if (day === 6) {
         deadline = new Date();
         deadline.setHours(12, 30, 0, 0);
         
         if (now.getTime() <= deadline.getTime()) {
           isTimerVisible = true;
-          msg = "Faça seu pedido antes das 12:30h para ser enviado ainda hoje! Tempo restante:";
+          msg = messages.saturday_before;
         } else {
-          msg = "Fazendo o pedido após as 12:30h será enviado na próxima rota!.";
+          msg = messages.saturday_after;
           isTimerVisible = false;
         }
-      } 
-      // Domingo (0)
-      else {
-        msg = "Hoje é Domingo. Seu pedido será enviado no próximo dia útil!";
+      } else {
+        msg = messages.sunday;
         isTimerVisible = false;
       }
 
@@ -54,9 +96,7 @@ const DeliveryTimerBar = () => {
         const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
         const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
         const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-        const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        setTimeLeft(formattedTime);
+        setTimeLeft(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
       } else {
         setTimeLeft(null);
       }
@@ -64,9 +104,8 @@ const DeliveryTimerBar = () => {
 
     updateTimer();
     const interval = setInterval(updateTimer, 1000);
-
     return () => clearInterval(interval);
-  }, []);
+  }, [messages]);
 
   return (
     <div className="w-full py-3 px-4 flex justify-center items-center text-center font-black uppercase tracking-widest shadow-lg relative z-50 bg-sky-500 text-slate-950">
@@ -76,11 +115,7 @@ const DeliveryTimerBar = () => {
         ) : (
           <Truck className="h-4 w-4 md:h-5 md:w-5 shrink-0" strokeWidth={2.5} />
         )}
-        
-        <span>
-          {message}
-        </span>
-        
+        <span>{message}</span>
         {showTimer && timeLeft && (
           <span className="bg-slate-950/20 px-2 py-0.5 rounded-md font-black tabular-nums border border-slate-950/10 inline-block min-w-[70px]">
             {timeLeft}

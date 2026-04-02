@@ -21,7 +21,8 @@ import {
   Trash2,
   Package,
   Wrench,
-  AlertTriangle
+  AlertTriangle,
+  Timer
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -124,6 +125,16 @@ const AdminCustomizer = () => {
     }
   };
 
+  const [timerMessages, setTimerMessages] = useState({
+    weekday_before: "Faça seu pedido antes das 14h para ser enviado ainda hoje! Tempo restante:",
+    weekday_after: "Fazendo seu pedido após as 14h será enviado na próxima rota!",
+    saturday_before: "Faça seu pedido antes das 12:30h para ser enviado ainda hoje! Tempo restante:",
+    saturday_after: "Fazendo o pedido após as 12:30h será enviado na próxima rota!",
+    sunday: "Hoje é Domingo. Seu pedido será enviado no próximo dia útil!",
+  });
+  const [loadingTimer, setLoadingTimer] = useState(false);
+  const [savingTimer, setSavingTimer] = useState(false);
+
   useEffect(() => {
     const checkAdmin = async () => {
       const { data: userData } = await supabase.auth.getUser();
@@ -134,13 +145,13 @@ const AdminCustomizer = () => {
       if (data?.role === 'adm') {
         setIsAdmin(true);
         fetchWebhooks();
-        fetchCategories(); // NOVO: Carregar categorias
+        fetchCategories();
+        fetchTimerMessages(); // NOVO
       } else {
         setIsAdmin(false);
       }
     };
 
-    // NOVO: Função para buscar categorias
     const fetchCategories = async () => {
       setLoadingCategories(true);
       const { data } = await supabase
@@ -153,8 +164,35 @@ const AdminCustomizer = () => {
       setLoadingCategories(false);
     };
 
+    // NOVO: Buscar mensagens do timer
+    const fetchTimerMessages = async () => {
+      setLoadingTimer(true);
+      const { data } = await supabase
+        .from('app_settings')
+        .select('key, value')
+        .in('key', [
+          'timer_weekday_before',
+          'timer_weekday_after',
+          'timer_saturday_before',
+          'timer_saturday_after',
+          'timer_sunday',
+        ]);
+
+      if (data && data.length > 0) {
+        const map: Record<string, string> = {};
+        data.forEach((row: any) => { map[row.key] = row.value; });
+        setTimerMessages(prev => ({
+          weekday_before: map['timer_weekday_before'] || prev.weekday_before,
+          weekday_after: map['timer_weekday_after'] || prev.weekday_after,
+          saturday_before: map['timer_saturday_before'] || prev.saturday_before,
+          saturday_after: map['timer_saturday_after'] || prev.saturday_after,
+          sunday: map['timer_sunday'] || prev.sunday,
+        }));
+      }
+      setLoadingTimer(false);
+    };
+
     checkAdmin();
-    // Use resilient listener handling
     const listener = supabase.auth.onAuthStateChange(() => checkAdmin());
     const subscription = (listener as any)?.data?.subscription ?? (listener as any)?.subscription ?? null;
 
@@ -284,6 +322,24 @@ const AdminCustomizer = () => {
     showSuccess(msg);
   };
 
+  const saveTimerMessages = async () => {
+    setSavingTimer(true);
+    const rows = [
+      { key: 'timer_weekday_before', value: timerMessages.weekday_before },
+      { key: 'timer_weekday_after', value: timerMessages.weekday_after },
+      { key: 'timer_saturday_before', value: timerMessages.saturday_before },
+      { key: 'timer_saturday_after', value: timerMessages.saturday_after },
+      { key: 'timer_sunday', value: timerMessages.sunday },
+    ];
+
+    for (const row of rows) {
+      await supabase.from('app_settings').upsert([row], { onConflict: 'key' });
+    }
+
+    setSavingTimer(false);
+    showSuccess('Mensagens da barra salvas!');
+  };
+
   const handleTabChange = (value: string) => {
     setActiveTab(value);
     switch (value) {
@@ -345,6 +401,7 @@ const AdminCustomizer = () => {
                 <TabsTrigger value="home" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-sky-500 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><Home className="h-3.5 w-3.5" /> Home</TabsTrigger>
                 <TabsTrigger value="login" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-indigo-500 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><LogIn className="h-3.5 w-3.5" /> Login</TabsTrigger>
                 <TabsTrigger value="maintenance" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-orange-600 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><Wrench className="h-3.5 w-3.5" /> Manutenção</TabsTrigger>
+                <TabsTrigger value="timerbar" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-sky-500 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><Timer className="h-3.5 w-3.5" /> Barra Azul</TabsTrigger>
               </TabsList>
             </div>
 
@@ -547,6 +604,89 @@ const AdminCustomizer = () => {
                     <Input value={settings.logoUrl || ''} onChange={(e) => updateSetting('logo_url', e.target.value)} />
                   </div>
                 </div>
+              </TabsContent>
+
+              {/* --- ABA BARRA AZUL (TIMER) --- */}
+              <TabsContent value="timerbar" className="space-y-6 mt-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="bg-sky-50 border border-sky-100 p-4 rounded-xl">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Timer className="h-5 w-5 text-sky-600" />
+                    <h3 className="font-bold text-sky-900 text-sm">Mensagens da Barra de Entrega</h3>
+                  </div>
+                  <p className="text-xs text-sky-700 font-medium">
+                    Edite os textos exibidos na barra azul no topo do site. As alterações são salvas ao clicar em "Salvar Mensagens".
+                  </p>
+                </div>
+
+                {loadingTimer ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-4">
+                      <div>
+                        <Label className="text-xs font-bold text-slate-700 mb-1 block uppercase tracking-wider">
+                          🟢 Seg–Sex antes das 14h (com timer)
+                        </Label>
+                        <Input
+                          value={timerMessages.weekday_before}
+                          onChange={(e) => setTimerMessages(prev => ({ ...prev, weekday_before: e.target.value }))}
+                          className="text-xs"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs font-bold text-slate-700 mb-1 block uppercase tracking-wider">
+                          🔴 Seg–Sex após as 14h
+                        </Label>
+                        <Input
+                          value={timerMessages.weekday_after}
+                          onChange={(e) => setTimerMessages(prev => ({ ...prev, weekday_after: e.target.value }))}
+                          className="text-xs"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs font-bold text-slate-700 mb-1 block uppercase tracking-wider">
+                          🟢 Sábado antes das 12:30h (com timer)
+                        </Label>
+                        <Input
+                          value={timerMessages.saturday_before}
+                          onChange={(e) => setTimerMessages(prev => ({ ...prev, saturday_before: e.target.value }))}
+                          className="text-xs"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs font-bold text-slate-700 mb-1 block uppercase tracking-wider">
+                          🔴 Sábado após as 12:30h
+                        </Label>
+                        <Input
+                          value={timerMessages.saturday_after}
+                          onChange={(e) => setTimerMessages(prev => ({ ...prev, saturday_after: e.target.value }))}
+                          className="text-xs"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs font-bold text-slate-700 mb-1 block uppercase tracking-wider">
+                          😴 Domingo
+                        </Label>
+                        <Input
+                          value={timerMessages.sunday}
+                          onChange={(e) => setTimerMessages(prev => ({ ...prev, sunday: e.target.value }))}
+                          className="text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={saveTimerMessages}
+                      disabled={savingTimer}
+                      className="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold h-11 rounded-xl shadow transition-all active:scale-95 flex items-center justify-center gap-2 text-sm"
+                    >
+                      {savingTimer ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                      {savingTimer ? 'Salvando...' : 'Salvar Mensagens'}
+                    </button>
+                  </div>
+                )}
               </TabsContent>
 
               {/* --- OUTRAS ABAS --- */}

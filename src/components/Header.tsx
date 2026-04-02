@@ -264,7 +264,7 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
       </div>
 
       {/* Desktop Header */}
-      <div className="hidden md:flex items-center gap-4 relative">
+      <div className="hidden md:flex items-center gap-4 relative px-6">
         {/* Logo Area & Mobile Menu */}
         <div className="flex items-center space-x-2 shrink-0">
           <Sheet>

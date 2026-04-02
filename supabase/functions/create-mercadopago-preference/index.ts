@@ -247,7 +247,7 @@ serve(async (req) => {
       external_reference: orderIdStr,
       payer: payerInfo,
       back_urls: {
-        success: `${backUrlBase}/compras`,
+        success: `${backUrlBase}/confirmacao-pedido/${orderIdStr}`,
         failure: `${backUrlBase}/compras`,
         pending: `${backUrlBase}/compras`
       },

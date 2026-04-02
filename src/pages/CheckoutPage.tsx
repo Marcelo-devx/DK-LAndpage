@@ -519,8 +519,7 @@ const CheckoutPage = () => {
         dismissToast(toastId);
         clearLocalCart();
         const target = pref.init_point || pref.sandbox_init_point;
-        window.open(target, '_blank');
-        navigate('/compras');
+        window.location.href = target;
       }
     } catch (e: any) {
       if (isMountedRef.current) {

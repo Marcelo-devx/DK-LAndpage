@@ -125,13 +125,15 @@ const AdminCustomizer = () => {
     }
   };
 
-  const [timerMessages, setTimerMessages] = useState({
+  const defaultTimerJson = JSON.stringify({
     weekday_before: "Faça seu pedido antes das 14h para ser enviado ainda hoje! Tempo restante:",
     weekday_after: "Fazendo seu pedido após as 14h será enviado na próxima rota!",
     saturday_before: "Faça seu pedido antes das 12:30h para ser enviado ainda hoje! Tempo restante:",
     saturday_after: "Fazendo o pedido após as 12:30h será enviado na próxima rota!",
     sunday: "Hoje é Domingo. Seu pedido será enviado no próximo dia útil!",
-  });
+  }, null, 2);
+  const [timerJson, setTimerJson] = useState(defaultTimerJson);
+  const [timerJsonError, setTimerJsonError] = useState<string | null>(null);
   const [loadingTimer, setLoadingTimer] = useState(false);
   const [savingTimer, setSavingTimer] = useState(false);
 
@@ -164,7 +166,7 @@ const AdminCustomizer = () => {
       setLoadingCategories(false);
     };
 
-    // NOVO: Buscar mensagens do timer
+    // Buscar mensagens do timer
     const fetchTimerMessages = async () => {
       setLoadingTimer(true);
       const { data } = await supabase
@@ -181,13 +183,14 @@ const AdminCustomizer = () => {
       if (data && data.length > 0) {
         const map: Record<string, string> = {};
         data.forEach((row: any) => { map[row.key] = row.value; });
-        setTimerMessages(prev => ({
-          weekday_before: map['timer_weekday_before'] || prev.weekday_before,
-          weekday_after: map['timer_weekday_after'] || prev.weekday_after,
-          saturday_before: map['timer_saturday_before'] || prev.saturday_before,
-          saturday_after: map['timer_saturday_after'] || prev.saturday_after,
-          sunday: map['timer_sunday'] || prev.sunday,
-        }));
+        const obj = {
+          weekday_before: map['timer_weekday_before'] || '',
+          weekday_after: map['timer_weekday_after'] || '',
+          saturday_before: map['timer_saturday_before'] || '',
+          saturday_after: map['timer_saturday_after'] || '',
+          sunday: map['timer_sunday'] || '',
+        };
+        setTimerJson(JSON.stringify(obj, null, 2));
       }
       setLoadingTimer(false);
     };
@@ -323,13 +326,22 @@ const AdminCustomizer = () => {
   };
 
   const saveTimerMessages = async () => {
+    let parsed: any;
+    try {
+      parsed = JSON.parse(timerJson);
+    } catch (e) {
+      setTimerJsonError('JSON inválido. Corrija antes de salvar.');
+      return;
+    }
+    setTimerJsonError(null);
     setSavingTimer(true);
+
     const rows = [
-      { key: 'timer_weekday_before', value: timerMessages.weekday_before },
-      { key: 'timer_weekday_after', value: timerMessages.weekday_after },
-      { key: 'timer_saturday_before', value: timerMessages.saturday_before },
-      { key: 'timer_saturday_after', value: timerMessages.saturday_after },
-      { key: 'timer_sunday', value: timerMessages.sunday },
+      { key: 'timer_weekday_before', value: parsed.weekday_before || '' },
+      { key: 'timer_weekday_after', value: parsed.weekday_after || '' },
+      { key: 'timer_saturday_before', value: parsed.saturday_before || '' },
+      { key: 'timer_saturday_after', value: parsed.saturday_after || '' },
+      { key: 'timer_sunday', value: parsed.sunday || '' },
     ];
 
     for (const row of rows) {
@@ -337,7 +349,7 @@ const AdminCustomizer = () => {
     }
 
     setSavingTimer(false);
-    showSuccess('Mensagens da barra salvas!');
+    showSuccess('Barra atualizada!');
   };
 
   const handleTabChange = (value: string) => {
@@ -623,58 +635,39 @@ const AdminCustomizer = () => {
                     <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-4">
-                      <div>
-                        <Label className="text-xs font-bold text-slate-700 mb-1 block uppercase tracking-wider">
-                          🟢 Seg–Sex antes das 14h (com timer)
-                        </Label>
-                        <Input
-                          value={timerMessages.weekday_before}
-                          onChange={(e) => setTimerMessages(prev => ({ ...prev, weekday_before: e.target.value }))}
-                          className="text-xs"
-                        />
+                  <div className="space-y-3">
+                    <div className="bg-slate-900 rounded-xl border border-slate-700 overflow-hidden">
+                      <div className="flex items-center justify-between px-4 py-2 border-b border-slate-700">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">JSON — Barra de Entrega</span>
+                        <button
+                          onClick={() => { setTimerJson(defaultTimerJson); setTimerJsonError(null); }}
+                          className="text-[10px] text-slate-500 hover:text-sky-400 font-bold uppercase tracking-wider transition-colors"
+                        >
+                          Resetar
+                        </button>
                       </div>
-                      <div>
-                        <Label className="text-xs font-bold text-slate-700 mb-1 block uppercase tracking-wider">
-                          🔴 Seg–Sex após as 14h
-                        </Label>
-                        <Input
-                          value={timerMessages.weekday_after}
-                          onChange={(e) => setTimerMessages(prev => ({ ...prev, weekday_after: e.target.value }))}
-                          className="text-xs"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs font-bold text-slate-700 mb-1 block uppercase tracking-wider">
-                          🟢 Sábado antes das 12:30h (com timer)
-                        </Label>
-                        <Input
-                          value={timerMessages.saturday_before}
-                          onChange={(e) => setTimerMessages(prev => ({ ...prev, saturday_before: e.target.value }))}
-                          className="text-xs"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs font-bold text-slate-700 mb-1 block uppercase tracking-wider">
-                          🔴 Sábado após as 12:30h
-                        </Label>
-                        <Input
-                          value={timerMessages.saturday_after}
-                          onChange={(e) => setTimerMessages(prev => ({ ...prev, saturday_after: e.target.value }))}
-                          className="text-xs"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs font-bold text-slate-700 mb-1 block uppercase tracking-wider">
-                          😴 Domingo
-                        </Label>
-                        <Input
-                          value={timerMessages.sunday}
-                          onChange={(e) => setTimerMessages(prev => ({ ...prev, sunday: e.target.value }))}
-                          className="text-xs"
-                        />
-                      </div>
+                      <textarea
+                        value={timerJson}
+                        onChange={(e) => { setTimerJson(e.target.value); setTimerJsonError(null); }}
+                        rows={14}
+                        spellCheck={false}
+                        className="w-full bg-transparent text-green-400 font-mono text-xs p-4 resize-none outline-none leading-relaxed"
+                      />
+                    </div>
+
+                    {timerJsonError && (
+                      <p className="text-xs text-red-500 font-bold flex items-center gap-1">
+                        ⚠️ {timerJsonError}
+                      </p>
+                    )}
+
+                    <div className="bg-slate-800 rounded-lg p-3 text-[10px] text-slate-400 font-mono leading-relaxed">
+                      <p className="text-slate-300 font-bold mb-1">Chaves disponíveis:</p>
+                      <p>• <span className="text-sky-400">weekday_before</span> — Seg–Sex antes das 14h</p>
+                      <p>• <span className="text-sky-400">weekday_after</span> — Seg–Sex após as 14h</p>
+                      <p>• <span className="text-sky-400">saturday_before</span> — Sábado antes das 12:30h</p>
+                      <p>• <span className="text-sky-400">saturday_after</span> — Sábado após as 12:30h</p>
+                      <p>• <span className="text-sky-400">sunday</span> — Domingo</p>
                     </div>
 
                     <button
@@ -683,7 +676,7 @@ const AdminCustomizer = () => {
                       className="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold h-11 rounded-xl shadow transition-all active:scale-95 flex items-center justify-center gap-2 text-sm"
                     >
                       {savingTimer ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                      {savingTimer ? 'Salvando...' : 'Salvar Mensagens'}
+                      {savingTimer ? 'Salvando...' : 'Salvar JSON'}
                     </button>
                   </div>
                 )}

@@ -35,39 +35,27 @@ import { useMercadoPagoRedirect } from "./hooks/useMercadoPagoRedirect";
 const queryClient = new QueryClient();
 
 const AppContent = () => {
-  // Tratar redirecionamentos do Mercado Pago de forma centralizada
   useMercadoPagoRedirect();
 
   const { settings } = useTheme();
   const [isAdmin, setIsAdmin] = useState(false);
-  const [checkingRole, setCheckingRole] = useState(true);
+  const [checkingRole, setCheckingRole] = useState(false);
   const adminCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const checkAdmin = async () => {
-      setCheckingRole(true);
-      
-      // Timeout de segurança: se a verificação demorar mais de 5 segundos, renderizar mesmo assim
       if (adminCheckTimeoutRef.current) {
         clearTimeout(adminCheckTimeoutRef.current);
       }
-      
-      adminCheckTimeoutRef.current = setTimeout(() => {
-        console.warn('[App] Admin check timeout - rendering anyway');
-        setCheckingRole(false);
-      }, 5000);
 
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
         if (!user) {
           setIsAdmin(false);
-          setCheckingRole(false);
-          if (adminCheckTimeoutRef.current) {
-            clearTimeout(adminCheckTimeoutRef.current);
-          }
           return;
         }
-        
+
         const { data, error } = await supabase.from('profiles').select('role').eq('id', user.id).single();
         if (!error && data?.role === 'adm') {
           setIsAdmin(true);
@@ -77,22 +65,14 @@ const AppContent = () => {
       } catch (e) {
         console.error('[App] failed to determine admin role', e);
         setIsAdmin(false);
-      } finally {
-        setCheckingRole(false);
-        if (adminCheckTimeoutRef.current) {
-          clearTimeout(adminCheckTimeoutRef.current);
-        }
       }
     };
 
-    // Run once on mount
     checkAdmin();
 
-    // Re-check on ALL auth events including INITIAL_SESSION and TOKEN_REFRESHED
-    // This ensures the app renders correctly when user returns to the browser
     const listener = supabase.auth.onAuthStateChange((event) => {
       console.log('[App] Auth state event:', event);
-      if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') {
+      if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
         checkAdmin();
       }
     });
@@ -111,12 +91,6 @@ const AppContent = () => {
     };
   }, []);
 
-  // While we're determining role, don't prematurely show maintenance screen
-  if (settings.maintenanceMode && checkingRole) {
-    return null;
-  }
-
-  // If maintenance is active and the user is NOT admin -> show maintenance screen only
   if (settings.maintenanceMode && !isAdmin) {
     return <MaintenanceScreen />;
   }

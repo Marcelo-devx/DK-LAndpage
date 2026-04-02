@@ -16,7 +16,7 @@ const LoyaltyButton = () => {
       <PopoverTrigger asChild>
         <button
           className={cn(
-            "fixed bottom-28 right-6 z-[100]", // Posicionado acima do WhatsApp
+            "fixed bottom-7 right-3 z-[100]", // Ajustado: 28px do bottom, 12px da direita
             "bg-black hover:bg-slate-900 text-white", 
             "p-4 rounded-full shadow-[0_10px_30px_-5px_rgba(0,0,0,0.5)]",
             "transition-all duration-300 hover:scale-110 active:scale-95 group",

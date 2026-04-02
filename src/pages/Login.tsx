@@ -69,6 +69,15 @@ const Login = () => {
   const initialView = params.get('view') === 'sign_up' ? 'sign_up' : 'sign_in';
   const [view, setView] = useState<CustomView>(initialView as CustomView);
 
+  // Salva o código de referral imediatamente ao montar o componente
+  useEffect(() => {
+    const refCode = params.get('ref');
+    if (refCode) {
+      sessionStorage.setItem('referral_code', refCode);
+      console.log('[Login] Referral code saved:', refCode);
+    }
+  }, [location.search]);
+
   const [emailForSignup, setEmailForSignup] = useState('');
   const [isSendingCode, setIsSendingCode] = useState(false);
   const [codeSent, setCodeSent] = useState(false);
@@ -82,19 +91,17 @@ const Login = () => {
   const [forgotSent, setForgotSent] = useState(false);
 
   useEffect(() => {
-    const refCode = params.get('ref');
-    if (refCode) sessionStorage.setItem('referral_code', refCode);
-  }, [location.search]);
-
-  useEffect(() => {
     const listener = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('[Login] Auth state changed:', event, session?.user?.id);
       if (event === 'SIGNED_IN' && session) {
+        // Vincula o referral assim que o usuário faz login/cadastro
         const storedRefCode = sessionStorage.getItem('referral_code');
         if (storedRefCode) {
           try {
+            console.log('[Login] Linking referral code:', storedRefCode);
             await supabase.rpc('link_referral', { referral_code_input: storedRefCode });
             sessionStorage.removeItem('referral_code');
+            console.log('[Login] Referral linked successfully');
           } catch (error) {
             console.error('[Login] Error linking referral:', error);
           }

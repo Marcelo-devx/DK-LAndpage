@@ -222,6 +222,11 @@ serve(async (req) => {
 
     backUrlBase = (backUrlBase || clientOrigin || '').toString().trim().replace(/\/$/, '');
 
+    // Mercado Pago rejeita URLs localhost/127.0.0.1 nas back_urls — usar sempre a URL de produção
+    if (!backUrlBase || backUrlBase.includes('localhost') || backUrlBase.includes('127.0.0.1')) {
+      backUrlBase = 'https://dkcwb.com.br';
+    }
+
     if (!backUrlBase) {
       return new Response(JSON.stringify({ success: false, error: 'URL de retorno não configurada.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,

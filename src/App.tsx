@@ -31,8 +31,6 @@ import MaintenanceScreen from "./components/MaintenanceScreen";
 import { supabase } from "./integrations/supabase/client";
 import DashboardSecurity from "./pages/DashboardSecurity";
 import { useMercadoPagoRedirect } from "./hooks/useMercadoPagoRedirect";
-// Import opcional para diagnóstico - não afeta fluxo normal
-// import DebugMercadoPago from "./pages/DebugMercadoPago";
 
 const queryClient = new QueryClient();
 
@@ -143,8 +141,6 @@ const AppContent = () => {
           <Route path="/dashboard/security" element={<DashboardSecurity />} />
           <Route path="/clube-dk" element={<LoyaltyClubPage />} />
           <Route path="/como-funciona" element={<HowItWorksPage />} />
-          {/* Rota opcional de diagnóstico - descomente para usar */}
-          {/* <Route path="/debug-mp/:id?" element={<DebugMercadoPago />} /> */}
         </Route>
         <Route path="/login" element={<Login />} />
         <Route path="/complete-profile" element={<CompleteProfilePage />} />

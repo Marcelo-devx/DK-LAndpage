@@ -48,26 +48,6 @@ const ConfirmacaoPedido = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
 
-  // === DIAGNÓSTICO MERCADO PAGO - LOGS INICIAIS ===
-  useEffect(() => {
-    console.log('=== DIAGNÓSTICO MERCADO PAGO - CONFIRMAÇÃO PEDIDO ===');
-    console.log('URL completa:', window.location.href);
-    console.log('Query params:', window.location.search);
-    console.log('Order ID do route:', id);
-    console.log('Pathname:', window.location.pathname);
-    console.log('Hash:', window.location.hash);
-    
-    // Verificar sessionStorage para ver se já carregou antes
-    const hasLoaded = sessionStorage.getItem(`mp_diag_${id}`);
-    console.log('Já carregou este pedido antes:', hasLoaded);
-    
-    // Marcar que carregou
-    sessionStorage.setItem(`mp_diag_${id}`, Date.now().toString());
-    
-    console.log('================================================');
-  }, [id]);
-  // === FIM DIAGNÓSTICO ===
-
   const safeOrder = (o: any): Order => {
     return {
       id: Number(o?.id || 0),

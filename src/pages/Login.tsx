@@ -219,7 +219,10 @@ const Login = () => {
 
       if (res.error) {
         console.error('[Login] send-email-via-resend error', res.error);
-        showError('Erro ao enviar email: ' + (res.error.message || JSON.stringify(res.error)));
+        // res.data may contain the error body even on failure
+        const serverMsg = res.data?.error || (res.error as any)?.message || 'Erro ao enviar email.';
+        console.error('[Login] server error message:', serverMsg);
+        showError(serverMsg);
       } else {
         setEmailForSignup(email);
         setCodeSent(true);

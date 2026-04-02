@@ -1,6 +1,9 @@
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 
+// @ts-ignore
+declare const Deno: any;
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -196,12 +199,12 @@ serve(async (req) => {
     if (!resendApiKey) {
       console.error('[send-email-via-resend] RESEND_API_KEY not configured')
       return new Response(
-        JSON.stringify({ error: 'Email service not configured' }),
+        JSON.stringify({ error: 'RESEND_API_KEY não configurado nos secrets da Edge Function.' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       )
     }
 
-    console.log('[send-email-via-resend] Sending email', { to, subject, type })
+    console.log('[send-email-via-resend] Sending email', { to, subject, type, fromEmail })
 
     // Use template if type is provided
     let emailHtml = html
@@ -235,8 +238,9 @@ serve(async (req) => {
 
     if (!resendResponse.ok) {
       console.error('[send-email-via-resend] Resend API error', responseData)
+      const resendMsg = responseData?.message || responseData?.name || JSON.stringify(responseData)
       return new Response(
-        JSON.stringify({ error: 'Failed to send email', details: responseData }),
+        JSON.stringify({ error: `Resend API: ${resendMsg}` }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       )
     }

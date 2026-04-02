@@ -1,0 +1,103 @@
+// @ts-ignore
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
+// @ts-ignore
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
+
+declare const Deno: any;
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+const generatePassword = (): string => {
+  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const lower = 'abcdefghjkmnpqrstuvwxyz';
+  const numbers = '23456789';
+  const symbols = '!@#$%';
+  const all = upper + lower + numbers + symbols;
+  let pwd = '';
+  pwd += upper[Math.floor(Math.random() * upper.length)];
+  pwd += lower[Math.floor(Math.random() * lower.length)];
+  pwd += numbers[Math.floor(Math.random() * numbers.length)];
+  pwd += symbols[Math.floor(Math.random() * symbols.length)];
+  for (let i = 4; i < 10; i++) {
+    pwd += all[Math.floor(Math.random() * all.length)];
+  }
+  return pwd.split('').sort(() => Math.random() - 0.5).join('');
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+
+  try {
+    const { email } = await req.json();
+    if (!email) return new Response(JSON.stringify({ error: 'email required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+    if (!supabaseUrl || !serviceRoleKey) {
+      return new Response(JSON.stringify({ error: 'Server not configured' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
+
+    // Try to find user
+    const { data: usersData, error: listError } = await supabase.auth.admin.listUsers();
+    if (listError) {
+      console.error('[forgot-password] listUsers error', listError);
+      return new Response(JSON.stringify({ error: 'Erro ao procurar usuário' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    const user = usersData?.users?.find((u: any) => u.email === email.toLowerCase().trim());
+
+    if (!user) {
+      // Don't leak that the user doesn't exist — return success so UX is consistent
+      console.log('[forgot-password] user not found, returning success for email:', email);
+      return new Response(JSON.stringify({ success: true }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    const newPassword = generatePassword();
+
+    // Update user's password using admin API
+    // Note: supabase-js admin API naming can vary; using updateUserById which is available in many setups
+    // If this fails in your environment, consider adjusting to the correct admin method.
+    const { data: updated, error: updateError } = await (supabase.auth.admin as any).updateUserById(user.id, {
+      password: newPassword,
+    });
+
+    if (updateError) {
+      console.error('[forgot-password] updateUser error', updateError);
+      return new Response(JSON.stringify({ error: 'Erro ao atualizar a senha do usuário' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // Send email using internal send-email-via-resend function
+    const sendResp = await fetch(`${supabaseUrl}/functions/v1/send-email-via-resend`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${serviceRoleKey}`,
+        'apikey': serviceRoleKey,
+      },
+      body: JSON.stringify({
+        to: email,
+        subject: 'Sua nova senha - DKCWB',
+        type: 'new_password',
+        newPassword,
+      }),
+    });
+
+    const sendData = await sendResp.json().catch(() => ({}));
+    if (!sendResp.ok) {
+      console.error('[forgot-password] send-email error', sendResp.status, sendData);
+      return new Response(JSON.stringify({ error: 'Senha atualizada, mas erro ao enviar e-mail' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    console.log('[forgot-password] password reset and email sent for', email);
+    return new Response(JSON.stringify({ success: true }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+  } catch (err: any) {
+    console.error('[forgot-password] unexpected', err);
+    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  }
+})

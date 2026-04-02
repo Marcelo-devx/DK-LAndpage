@@ -9,19 +9,26 @@ export default function ResendTestButton() {
   const sendTest = async () => {
     setLoading(true);
     try {
-      // Generate a real token via the generate-token edge function so the link is valid for testing
-      const gen = await fetch(`${window.location.origin}/api/generate-token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'rc497064@gmail.com', type: 'complete_profile', expires_in_seconds: 60 * 60 }),
+      // Use supabase.functions.invoke to generate token server-side
+      const gen = await supabase.functions.invoke('generate-token', {
+        body: { email: 'rc497064@gmail.com', type: 'complete_profile', expires_in_seconds: 60 * 60 },
       });
-      const genJson = await gen.json();
-      if (!gen.ok) {
-        showError('Erro ao gerar token: ' + (genJson?.error || JSON.stringify(genJson)));
+
+      if (gen.error) {
+        console.error('[ResendTestButton] generate-token error', gen.error);
+        showError('Erro ao gerar token: ' + (gen.error.message || JSON.stringify(gen.error)));
         setLoading(false);
         return;
       }
-      const token = genJson.token;
+
+      const token = gen.data?.token;
+      if (!token) {
+        console.error('[ResendTestButton] generate-token missing token', gen);
+        showError('Erro ao gerar token (token ausente).');
+        setLoading(false);
+        return;
+      }
+
       const payload = {
         to: 'rc497064@gmail.com',
         subject: 'Teste Resend - Complete Profile',
@@ -32,7 +39,7 @@ export default function ResendTestButton() {
       const res = await supabase.functions.invoke('send-email-via-resend', { body: payload });
 
       if (res.error) {
-        console.error('[ResendTestButton] error', res.error);
+        console.error('[ResendTestButton] send-email-via-resend error', res.error);
         showError('Erro ao enviar email: ' + (res.error.message || JSON.stringify(res.error)));
       } else {
         console.log('[ResendTestButton] response', res.data);

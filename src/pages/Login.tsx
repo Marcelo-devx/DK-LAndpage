@@ -186,21 +186,25 @@ const Login = () => {
     try {
       // Instead of signInWithOtp, create a complete-profile token and send email via our edge function
       // 1) Call generate-token function to create a one-time token linked to email
-      const tokenRes = await fetch(`${window.location.origin}/api/generate-token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, type: 'complete_profile', expires_in_seconds: 60 * 60 * 24 }),
+      const gen = await supabase.functions.invoke('generate-token', {
+        body: { email, type: 'complete_profile', expires_in_seconds: 60 * 60 * 24 },
       });
 
-      const tokenJson = await tokenRes.json();
-      if (!tokenRes.ok) {
-        const msg = tokenJson?.error || 'Não foi possível gerar link de confirmação.';
-        showError(msg);
+      if (gen.error) {
+        console.error('[Login] generate-token error', gen.error);
+        showError('Não foi possível gerar link de confirmação.');
         setIsSendingCode(false);
         return;
       }
 
-      const token = tokenJson.token;
+      const token = gen.data?.token;
+      if (!token) {
+        console.error('[Login] generate-token missing token', gen);
+        showError('Não foi possível gerar link de confirmação.');
+        setIsSendingCode(false);
+        return;
+      }
+
       const completeLink = `${window.location.origin}/complete-profile?token=${encodeURIComponent(token)}`;
 
       // 2) Send email via Resend edge function

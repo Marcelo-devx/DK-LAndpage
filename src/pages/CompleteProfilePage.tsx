@@ -143,9 +143,20 @@ const CompleteProfilePage = () => {
     const raw = getValues('cpf_cnpj') || '';
     const clean = raw.replace(/\D/g, '');
     if (clean.length < 11) return; // not enough digits yet, skip
+
+    // Prevent concurrent checks
+    if (isCheckingCpf) return;
+
     setIsCheckingCpf(true);
     setCpfError(null);
     setCpfValidated(false);
+
+    // Watchdog to ensure spinner cleared
+    const watchdog = setTimeout(() => {
+      console.warn('[CompleteProfilePage] checkCpfDuplicate watchdog cleared');
+      setIsCheckingCpf(false);
+    }, 20000);
+
     try {
       const { data: existing } = await supabase
         .from('profiles')
@@ -160,8 +171,10 @@ const CompleteProfilePage = () => {
         setCpfValidated(true);
       }
     } catch (e) {
-      // silently ignore network errors on blur check
+      console.error('[CompleteProfilePage] checkCpfDuplicate error', e);
+      // don't block user; leave cpfValidated false
     } finally {
+      clearTimeout(watchdog);
       setIsCheckingCpf(false);
     }
   };
@@ -193,12 +206,22 @@ const CompleteProfilePage = () => {
       showError("Por favor, insira um CEP válido com 8 dígitos.");
       return;
     }
+
+    // Prevent concurrent lookups
+    if (isFetchingCep) return;
+
     setIsFetchingCep(true);
     setDeliveryType(null);
 
     // Timeout wrapper to avoid hanging in case the function invocation stalls
     const TIMEOUT_MS = 10000; // 10 seconds
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    // Watchdog to ensure spinner cleared
+    const watchdog = setTimeout(() => {
+      console.warn('[CompleteProfilePage] handleCepLookup watchdog cleared');
+      setIsFetchingCep(false);
+    }, 20000);
 
     try {
       const invokePromise = supabase.functions.invoke('validate-cep', {
@@ -266,6 +289,7 @@ const CompleteProfilePage = () => {
       }
     } finally {
       if (timeoutId) clearTimeout(timeoutId);
+      clearTimeout(watchdog);
       setIsFetchingCep(false);
     }
   };

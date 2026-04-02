@@ -1,4 +1,6 @@
+// @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+// @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 declare const Deno: any;
@@ -15,32 +17,48 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     if (!supabaseUrl || !serviceRoleKey) {
-      return new Response(JSON.stringify({ error: 'Server not configured' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ error: 'Server not configured' }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
-
-    const supabase = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { autoRefreshToken: false, persistSession: false }
-    });
 
     const { email } = await req.json();
     if (!email) {
-      return new Response(JSON.stringify({ error: 'email required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ error: 'email required' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     const cleanEmail = email.toLowerCase().trim();
     const DEFAULT_PASSWORD = '123456';
 
-    // Use getUserByEmail instead of listUsers() — much faster
-    const { data: existingData } = await (supabase.auth.admin as any).getUserByEmail(cleanEmail);
+    // Check if user exists via Admin REST API (avoids listUsers() which is slow)
+    const searchRes = await fetch(
+      `${supabaseUrl}/auth/v1/admin/users?filter=${encodeURIComponent(cleanEmail)}&page=1&per_page=1`,
+      {
+        headers: {
+          'Authorization': `Bearer ${serviceRoleKey}`,
+          'apikey': serviceRoleKey,
+        },
+      }
+    );
 
-    if (existingData?.user) {
-      console.log('[create-user] User already exists:', cleanEmail);
-      return new Response(JSON.stringify({ success: true, user_id: existingData.user.id, already_exists: true }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+    if (searchRes.ok) {
+      const searchData = await searchRes.json();
+      const existingUser = searchData?.users?.find((u: any) => u.email === cleanEmail);
+      if (existingUser) {
+        console.log('[create-user] User already exists:', cleanEmail);
+        return new Response(JSON.stringify({ success: true, user_id: existingUser.id, already_exists: true }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
     }
 
     // Create user with email already confirmed and default password
+    const supabase = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    });
+
     const { data, error } = await supabase.auth.admin.createUser({
       email: cleanEmail,
       password: DEFAULT_PASSWORD,
@@ -48,8 +66,17 @@ serve(async (req) => {
     });
 
     if (error) {
+      // If user already exists (race condition), treat as success
+      if (error.message?.toLowerCase().includes('already') || error.message?.toLowerCase().includes('exists')) {
+        console.log('[create-user] User already exists (race condition):', cleanEmail);
+        return new Response(JSON.stringify({ success: true, already_exists: true }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
       console.error('[create-user] error creating user', error);
-      return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     console.log('[create-user] user created:', data.user?.id);
@@ -59,6 +86,8 @@ serve(async (req) => {
 
   } catch (err: any) {
     console.error('[create-user] unexpected', err);
-    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
   }
 })

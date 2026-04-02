@@ -399,13 +399,9 @@ const CheckoutPage = () => {
     }
   };
 
-  const handleMercadoPagoRedirect = async () => {
-    const isValid = await trigger();
-    if (!isValid) { showError("Preencha todos os dados de entrega primeiro."); return; }
+  const handleMercadoPagoRedirect = async (data: CheckoutFormData) => {
     const toastId = showLoading("Redirecionando para o pagamento...");
-    if (isMountedRef.current) setIsSubmitting(true);
     try {
-      const data = getValues();
 
       let orderId: number;
       let finalTotal: number;
@@ -538,7 +534,7 @@ const CheckoutPage = () => {
     if (!isMountedRef.current) return;
     setIsSubmitting(true);
     if (data.payment_method === 'pix') await handlePixPayment(data);
-    else await handleMercadoPagoRedirect();
+    else await handleMercadoPagoRedirect(data);
     if (isMountedRef.current) setIsSubmitting(false);
   };
 

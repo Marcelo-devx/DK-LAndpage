@@ -36,10 +36,14 @@ const AllProductsPage = () => {
   const [displayProducts, setDisplayProducts] = useState<DisplayProduct[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // now options with counts
+  const [categoryOptions, setCategoryOptions] = useState<{name:string,count:number}[]>([]);
+  const [subCategoryOptions, setSubCategoryOptions] = useState<{name:string,count:number}[]>([]);
+  const [brandOptions, setBrandOptions] = useState<{name:string,count:number}[]>([]);
+  const [flavorOptions, setFlavorOptions] = useState<{name:string,count:number}[]>([]);
+
   const [allCategories, setAllCategories] = useState<Category[]>([]);
   const [allSubCategories, setAllSubCategories] = useState<SubCategory[]>([]);
-  const [allBrands, setAllBrands] = useState<string[]>([]);
-  const [allFlavors, setAllFlavors] = useState<string[]>([]);
 
   const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
@@ -106,57 +110,14 @@ const AllProductsPage = () => {
   }, [selectedCategories, allSubCategories, availableSubCategories, normalizeString]);
 
   const fetchFilterOptions = useCallback(async () => {
-    // 1) Pegar categorias/sub-categorias 'mestras' (para manter ids e meta como show_age_restriction)
+    // keep legacy master lists for ids
     const [catRes, subCatRes] = await Promise.all([
       supabase.from('categories').select('id, name').eq('is_visible', true).order('name'),
       supabase.from('sub_categories').select('id, name, category_id').eq('is_visible', true).order('name'),
     ]);
 
-    // 2) Buscar todos os produtos visíveis (iremos derivar categorias/sub-categorias/marcas a partir daqui)
-    const { data: productsData } = await supabase
-      .from('products')
-      .select('id, category, sub_category, brand')
-      .eq('is_visible', true);
-
-    const productCategories = new Set((productsData || []).map((p: any) => p.category).filter(Boolean));
-    const productSubCategories = new Set((productsData || []).map((p: any) => p.sub_category).filter(Boolean));
-    const productBrands = new Set((productsData || []).map((p: any) => p.brand).filter(Boolean));
-
-    // 3) Para sabores: coletar flavor_ids usados por variantes e por product_flavors dos produtos encontrados
-    const productIds = (productsData || []).map((p: any) => p.id);
-    let flavorIds: number[] = [];
-    if (productIds.length > 0) {
-      const [variantRes, prodFlavorRes] = await Promise.all([
-        supabase.from('product_variants').select('flavor_id, product_id').in('product_id', productIds).eq('is_active', true),
-        supabase.from('product_flavors').select('flavor_id, product_id').in('product_id', productIds),
-      ]);
-      const idsA = (variantRes.data || []).map((v: any) => v.flavor_id).filter(Boolean);
-      const idsB = (prodFlavorRes.data || []).map((pf: any) => pf.flavor_id).filter(Boolean);
-      flavorIds = Array.from(new Set([...idsA, ...idsB]));
-    }
-
-    // 4) Buscar nomes de sabores apenas para os flavorIds encontrados
-    let flavorsData: any[] = [];
-    if (flavorIds.length > 0) {
-      const { data: fData } = await supabase
-        .from('flavors')
-        .select('id, name')
-        .in('id', flavorIds)
-        .eq('is_visible', true)
-        .order('name');
-      flavorsData = fData || [];
-    }
-
-    // 5) Filtrar as listas mestras pela existência de produtos
-    const categoriesFiltered = (catRes.data || []).filter((c: any) => productCategories.has(c.name));
-    const subCategoriesFiltered = (subCatRes.data || []).filter((sc: any) => productSubCategories.has(sc.name));
-    const brandsFiltered = Array.from(productBrands).filter(Boolean).sort();
-    const flavorsFiltered = flavorsData.map(f => f.name);
-
-    setAllCategories(categoriesFiltered);
-    setAllSubCategories(subCategoriesFiltered);
-    setAllBrands(brandsFiltered);
-    setAllFlavors(flavorsFiltered);
+    setAllCategories(catRes.data || []);
+    setAllSubCategories(subCatRes.data || []);
   }, []);
 
   useEffect(() => { fetchFilterOptions(); }, [fetchFilterOptions]);
@@ -195,11 +156,10 @@ const AllProductsPage = () => {
 
       let query = supabase
         .from('products')
-        .select('id, name, price, pix_price, image_url, category, sub_category, stock_quantity, created_at')
+        .select('id, name, price, pix_price, image_url, category, sub_category, brand, stock_quantity, created_at')
         .eq('is_visible', true);
 
       if (debouncedSearchTerm) {
-        // Busca em múltiplos campos - nome, categoria, subcategoria, marca
         const term = `%${debouncedSearchTerm}%`;
         query = query.or(
           `name.ilike.${term},category.ilike.${term},sub_category.ilike.${term},brand.ilike.${term}`
@@ -214,7 +174,6 @@ const AllProductsPage = () => {
       // Filtro de subcategoria - aplica apenas se houver subcategorias selecionadas
       if (selectedSubCategories.length > 0) {
         query = query.in('sub_category', selectedSubCategories);
-        console.log('[AllProductsPage] Filtrando por subcategorias:', selectedSubCategories);
       }
       
       // Filtro de marca
@@ -230,28 +189,22 @@ const AllProductsPage = () => {
       const [sortField, sortOrder] = sortBy.split('-');
       query = query.order(sortField, { ascending: sortOrder === 'asc' });
 
-      console.log('[AllProductsPage] Query params:', {
-        selectedCategories,
-        selectedSubCategories,
-        selectedBrands,
-        selectedFlavors,
-        sortBy
-      });
-
       const { data: parentProducts, error } = await query;
       
       if (error) { 
         console.error('[AllProductsPage] Error fetching products:', error); 
         setDisplayProducts([]); 
+        setCategoryOptions([]);
+        setSubCategoryOptions([]);
+        setBrandOptions([]);
+        setFlavorOptions([]);
         return; 
       }
-
-      console.log('[AllProductsPage] Produtos encontrados:', parentProducts?.length);
 
       const products = parentProducts || [];
       const productIds = products.map(p => p.id);
 
-      // Busca variantes dos produtos encontrados
+      // Build display list (same as before)
       const { data: variants } = productIds.length > 0
         ? await supabase.from('product_variants').select('id, product_id, price, pix_price, stock_quantity').in('product_id', productIds).eq('is_active', true)
         : { data: [] };
@@ -289,12 +242,97 @@ const AllProductsPage = () => {
         }
       });
 
+      // Agora calcular contagens dinâmicas com base na lista 'products' (após aplicar filtros atuais)
+      const catCountMap = new Map<string, number>();
+      const subCatCountMap = new Map<string, number>();
+      const brandCountMap = new Map<string, number>();
+
+      products.forEach((p: any) => {
+        if (p.category) catCountMap.set(p.category, (catCountMap.get(p.category) || 0) + 1);
+        if (p.sub_category) subCatCountMap.set(p.sub_category, (subCatCountMap.get(p.sub_category) || 0) + 1);
+        if (p.brand) brandCountMap.set(p.brand, (brandCountMap.get(p.brand) || 0) + 1);
+      });
+
+      // Sabores: buscar flavors relacionados aos productIds
+      let flavorCountMap = new Map<string, number>();
+      if (productIds.length > 0) {
+        const [variantFlavors, productFlavorRelations] = await Promise.all([
+          supabase.from('product_variants').select('flavor_id, product_id').in('product_id', productIds).eq('is_active', true),
+          supabase.from('product_flavors').select('flavor_id, product_id').in('product_id', productIds),
+        ]);
+
+        const flavorIdToProductIds = new Map<number, Set<number>>();
+        (variantFlavors.data || []).forEach((v: any) => {
+          if (!v.flavor_id) return;
+          if (!flavorIdToProductIds.has(v.flavor_id)) flavorIdToProductIds.set(v.flavor_id, new Set());
+          flavorIdToProductIds.get(v.flavor_id)!.add(v.product_id);
+        });
+        (productFlavorRelations.data || []).forEach((pf: any) => {
+          if (!pf.flavor_id) return;
+          if (!flavorIdToProductIds.has(pf.flavor_id)) flavorIdToProductIds.set(pf.flavor_id, new Set());
+          flavorIdToProductIds.get(pf.flavor_id)!.add(pf.product_id);
+        });
+
+        // Convert to counts
+        for (const [flId, prodSet] of flavorIdToProductIds.entries()) {
+          flavorCountMap.set(String(flId), prodSet.size);
+        }
+
+        // Fetch flavor names for the ids we have counts for
+        const flavorIds = Array.from(flavorCountMap.keys()).map(k => Number(k));
+        if (flavorIds.length > 0) {
+          const { data: flavorNames } = await supabase.from('flavors').select('id, name').in('id', flavorIds).eq('is_visible', true);
+          const idToName = new Map<number, string>();
+          (flavorNames || []).forEach((f: any) => idToName.set(f.id, f.name));
+
+          // Build flavorOptions
+          const flavorsArr: { name: string; count: number }[] = [];
+          for (const [id, count] of flavorCountMap.entries()) {
+            const name = idToName.get(Number(id)) || '';
+            if (name) flavorsArr.push({ name, count });
+          }
+          // Sort alpha
+          flavorsArr.sort((a, b) => a.name.localeCompare(b.name));
+          setFlavorOptions(flavorsArr);
+        } else {
+          setFlavorOptions([]);
+        }
+      } else {
+        setFlavorOptions([]);
+      }
+
+      // Build category/brand/subcategory option arrays including counts (only those with count>0 will be shown)
+      const categoriesArr = Array.from(catCountMap.entries()).map(([name, count]) => ({ name, count })).sort((a,b) => a.name.localeCompare(b.name));
+      const subCategoriesArr = Array.from(subCatCountMap.entries()).map(([name, count]) => ({ name, count })).sort((a,b) => a.name.localeCompare(b.name));
+      const brandsArr = Array.from(brandCountMap.entries()).map(([name, count]) => ({ name, count })).sort((a,b) => a.name.localeCompare(b.name));
+
+      setCategoryOptions(categoriesArr);
+      setSubCategoryOptions(subCategoriesArr);
+      setBrandOptions(brandsArr);
+
       // Ordenação por preço após o processamento (para considerar o menor preço das variantes)
       if (sortField === 'price') {
         finalDisplayList.sort((a, b) => sortOrder === 'asc' ? a.price - b.price : b.price - a.price);
       }
 
       setDisplayProducts(finalDisplayList);
+
+      // Cleanup: if any selected filters no longer exist in options, remove them
+      const validCats = categoriesArr.map(c => c.name);
+      const validSubCats = subCategoriesArr.map(s => s.name);
+      const validBrands = brandsArr.map(b => b.name);
+      const validFlavors = (flavorOptions || []).map(f => f.name);
+
+      const nextSelectedCategories = selectedCategories.filter(s => validCats.includes(s));
+      const nextSelectedSubCategories = selectedSubCategories.filter(s => validSubCats.includes(s));
+      const nextSelectedBrands = selectedBrands.filter(s => validBrands.includes(s));
+      const nextSelectedFlavors = selectedFlavors.filter(s => validFlavors.includes(s));
+
+      if (nextSelectedCategories.length !== selectedCategories.length) setSelectedCategories(nextSelectedCategories);
+      if (nextSelectedSubCategories.length !== selectedSubCategories.length) setSelectedSubCategories(nextSelectedSubCategories);
+      if (nextSelectedBrands.length !== selectedBrands.length) setSelectedBrands(nextSelectedBrands);
+      if (nextSelectedFlavors.length !== selectedFlavors.length) setSelectedFlavors(nextSelectedFlavors);
+
     } finally {
       setLoading(false);
     }
@@ -374,10 +412,10 @@ const AllProductsPage = () => {
           {/* Sidebar */}
           <div className="lg:col-span-1 mb-6 lg:mb-0">
             <ProductFilters
-              categories={allCategories.map(c => c.name)}
-              subCategories={availableSubCategories().map(sc => sc.name)}
-              brands={allBrands}
-              flavors={allFlavors}
+              categories={categoryOptions}
+              subCategories={subCategoryOptions}
+              brands={brandOptions}
+              flavors={flavorOptions}
               selectedCategories={selectedCategories}
               selectedSubCategories={selectedSubCategories}
               selectedBrands={selectedBrands}

@@ -7,11 +7,16 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { Filter, Search, X, ChevronDown, ChevronUp, SlidersHorizontal, ArrowUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+interface OptionItem {
+  name: string;
+  count: number;
+}
+
 interface ProductFiltersProps {
-  categories: string[];
-  subCategories: string[];
-  brands: string[];
-  flavors: string[];
+  categories: OptionItem[];
+  subCategories: OptionItem[];
+  brands: OptionItem[];
+  flavors: OptionItem[];
   selectedCategories: string[];
   selectedSubCategories: string[];
   selectedBrands: string[];
@@ -39,27 +44,31 @@ const FilterSection = ({
   maxVisible = 6,
 }: {
   title: string;
-  items: string[];
+  items: OptionItem[];
   selected: string[];
   onToggle: (item: string) => void;
   maxVisible?: number;
 }) => {
   const [expanded, setExpanded] = useState(false);
-  const visible = expanded ? items : items.slice(0, maxVisible);
-  const hasMore = items.length > maxVisible;
 
-  if (items.length === 0) return null;
+  // Only consider items that have count > 0
+  const availableItems = items.filter(i => i.count > 0);
+
+  const visible = expanded ? availableItems : availableItems.slice(0, maxVisible);
+  const hasMore = availableItems.length > maxVisible;
+
+  if (availableItems.length === 0) return null;
 
   return (
     <div className="space-y-2">
       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">{title}</p>
       <div className="flex flex-wrap gap-1.5">
         {visible.map((item) => {
-          const active = selected.includes(item);
+          const active = selected.includes(item.name);
           return (
             <button
-              key={item}
-              onClick={() => onToggle(item)}
+              key={item.name}
+              onClick={() => onToggle(item.name)}
               className={cn(
                 "px-3 py-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wide transition-all duration-200 border",
                 active
@@ -67,7 +76,8 @@ const FilterSection = ({
                   : "bg-white text-stone-600 border-stone-200 hover:border-sky-300 hover:text-sky-600"
               )}
             >
-              {item}
+              <span className="mr-2">{item.name}</span>
+              <span className="text-[10px] font-black text-stone-400">({item.count})</span>
             </button>
           );
         })}
@@ -80,7 +90,7 @@ const FilterSection = ({
           {expanded ? (
             <><ChevronUp className="h-3 w-3" /> Ver menos</>
           ) : (
-            <><ChevronDown className="h-3 w-3" /> +{items.length - maxVisible} mais</>
+            <><ChevronDown className="h-3 w-3" /> +{availableItems.length - maxVisible} mais</>
           )}
         </button>
       )}

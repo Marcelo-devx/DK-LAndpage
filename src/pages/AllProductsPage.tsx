@@ -123,8 +123,8 @@ const AllProductsPage = () => {
 
   useEffect(() => { fetchFilterOptions(); }, [fetchFilterOptions]);
 
-  const fetchProducts = useCallback(async () => {
-    setLoading(true);
+  const fetchProducts = useCallback(async (background = false) => {
+    if (!background) setLoading(true);
     try {
       const normalizeCategory = (s?: string) => (typeof s === 'string' ? s.trim().toLowerCase() : '');
 
@@ -136,25 +136,7 @@ const AllProductsPage = () => {
         });
       }
 
-      // Busca IDs de sabores se filtro de sabor estiver ativo
-      let productIdsFromFlavors: number[] | null = null;
-      if (selectedFlavors.length > 0) {
-        const { data: flavorIdsData } = await supabase.from('flavors').select('id').in('name', selectedFlavors);
-        if (flavorIdsData && flavorIdsData.length > 0) {
-          const flavorIds = flavorIdsData.map(f => f.id);
-          const [variantData, prodFlavorData] = await Promise.all([
-            supabase.from('product_variants').select('product_id').in('flavor_id', flavorIds),
-            supabase.from('product_flavors').select('product_id').in('flavor_id', flavorIds),
-          ]);
-          const idsA = variantData.data?.map(v => v.product_id) || [];
-          const idsB = prodFlavorData.data?.map(pf => pf.product_id) || [];
-          productIdsFromFlavors = [...new Set([...idsA, ...idsB])];
-          if (productIdsFromFlavors.length === 0) productIdsFromFlavors = [-1];
-        } else {
-          productIdsFromFlavors = [-1];
-        }
-      }
-
+      // Build the main products query
       let query = supabase
         .from('products')
         .select('id, name, price, pix_price, image_url, category, sub_category, brand, stock_quantity, created_at')
@@ -162,90 +144,110 @@ const AllProductsPage = () => {
 
       if (debouncedSearchTerm) {
         const term = `%${debouncedSearchTerm}%`;
-        query = query.or(
-          `name.ilike.${term},category.ilike.${term},sub_category.ilike.${term},brand.ilike.${term}`
-        );
+        query = query.or(`name.ilike.${term},category.ilike.${term},sub_category.ilike.${term},brand.ilike.${term}`);
       }
-      
-      // Filtro de categoria
-      if (selectedCategories.length > 0) {
-        query = query.in('category', selectedCategories);
-      }
-      
-      // Filtro de subcategoria - aplica apenas se houver subcategorias selecionadas
-      if (selectedSubCategories.length > 0) {
-        query = query.in('sub_category', selectedSubCategories);
-      }
-      
-      // Filtro de marca
-      if (selectedBrands.length > 0) {
-        query = query.in('brand', selectedBrands);
-      }
-      
-      // Filtro de sabores
-      if (productIdsFromFlavors) {
-        query = query.in('id', productIdsFromFlavors);
-      }
+
+      if (selectedCategories.length > 0) query = query.in('category', selectedCategories);
+      if (selectedSubCategories.length > 0) query = query.in('sub_category', selectedSubCategories);
+      if (selectedBrands.length > 0) query = query.in('brand', selectedBrands);
 
       const [qSortField, qSortOrder] = sortBy.split('-');
       query = query.order(qSortField, { ascending: qSortOrder === 'asc' });
 
       const { data: parentProducts, error } = await query;
-      
-      if (error) { 
-        console.error('[AllProductsPage] Error fetching products:', error); 
-        setDisplayProducts([]); 
-        setCategoryOptions([]);
-        setSubCategoryOptions([]);
-        setBrandOptions([]);
-        setFlavorOptions([]);
-        return; 
+      if (error) {
+        console.error('[AllProductsPage] Error fetching products:', error);
+        if (!background) {
+          setDisplayProducts([]);
+          setCategoryOptions([]);
+          setSubCategoryOptions([]);
+          setBrandOptions([]);
+          setFlavorOptions([]);
+        }
+        return;
       }
 
       const products = parentProducts || [];
-      const productIds = products.map(p => p.id);
 
-      // Build display list (same as before)
+      // Fast path for background updates: avoid fetching variants/flavors/counts to keep it snappy
+      if (background) {
+        const quickList: DisplayProduct[] = products.map((prod: any) => ({
+          id: prod.id,
+          name: prod.name,
+          price: prod.price,
+          pixPrice: prod.pix_price,
+          imageUrl: prod.image_url || '',
+          stockQuantity: prod.stock_quantity ?? 0,
+          hasMultipleVariants: false,
+          showAgeBadge: prod.category ? (categoriesMap[normalizeCategory(prod.category)] ?? true) : true,
+          createdAt: prod.created_at || null,
+        }));
+
+        // Keep ordering behavior consistent: prioritize available products
+        quickList.sort((a, b) => {
+          const aAvailable = (a.stockQuantity || 0) > 0;
+          const bAvailable = (b.stockQuantity || 0) > 0;
+          if (aAvailable && !bAvailable) return -1;
+          if (!aAvailable && bAvailable) return 1;
+
+          if (qSortField === 'price') {
+            const aPrice = a.price || 0;
+            const bPrice = b.price || 0;
+            return qSortOrder === 'asc' ? aPrice - bPrice : bPrice - aPrice;
+          }
+
+          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return qSortOrder === 'asc' ? aTime - bTime : bTime - aTime;
+        });
+
+        setDisplayProducts(quickList);
+        return;
+      }
+
+      // Full path (initial load or foreground): fetch variants, flavors and compute counts
+      const productIds = products.map((p: any) => p.id);
+
       const { data: variants } = productIds.length > 0
-        ? await supabase.from('product_variants').select('id, product_id, price, pix_price, stock_quantity').in('product_id', productIds).eq('is_active', true)
+        ? await supabase.from('product_variants').select('id, product_id, price, pix_price, stock_quantity, flavor_id').in('product_id', productIds).eq('is_active', true)
         : { data: [] };
 
       const finalDisplayList: DisplayProduct[] = [];
       products.forEach(prod => {
-        const prodVariants = variants?.filter(v => v.product_id === prod.id) || [];
+        const prodVariants = variants?.filter((v: any) => v.product_id === prod.id) || [];
         const showAge = prod.category ? (categoriesMap[normalizeCategory(prod.category)] ?? true) : true;
-        
+
         if (prodVariants.length > 0) {
-          const minPrice = Math.min(...prodVariants.map(v => v.price));
-          const minPixPrice = Math.min(...prodVariants.map(v => v.pix_price || v.price));
-          const totalStock = prodVariants.reduce((acc, v) => acc + (v.stock_quantity || 0), 0);
-          finalDisplayList.push({ 
-            id: prod.id, 
-            name: prod.name, 
-            price: minPrice, 
-            pixPrice: minPixPrice, 
-            imageUrl: prod.image_url || '', 
-            stockQuantity: totalStock, 
-            hasMultipleVariants: true, 
+          const minPrice = Math.min(...prodVariants.map((v: any) => v.price));
+          const minPixPrice = Math.min(...prodVariants.map((v: any) => v.pix_price || v.price));
+          const totalStock = prodVariants.reduce((acc: number, v: any) => acc + (v.stock_quantity || 0), 0);
+          finalDisplayList.push({
+            id: prod.id,
+            name: prod.name,
+            price: minPrice,
+            pixPrice: minPixPrice,
+            imageUrl: prod.image_url || '',
+            stockQuantity: totalStock,
+            hasMultipleVariants: true,
             showAgeBadge: showAge,
             createdAt: prod.created_at || null,
           });
         } else {
-          finalDisplayList.push({ 
-            id: prod.id, 
-            name: prod.name, 
-            price: prod.price, 
-            pixPrice: prod.pix_price, 
-            imageUrl: prod.image_url || '', 
-            stockQuantity: prod.stock_quantity, 
-            hasMultipleVariants: false, 
+          finalDisplayList.push({
+            id: prod.id,
+            name: prod.name,
+            price: prod.price,
+            pixPrice: prod.pix_price,
+            imageUrl: prod.image_url || '',
+            stockQuantity: prod.stock_quantity,
+            hasMultipleVariants: false,
             showAgeBadge: showAge,
             createdAt: prod.created_at || null,
           });
         }
       });
 
-      // Now calculate dynamic counts based on products
+      // Compute counts for filters (categories, subcategories, brands, flavors)
       const catCountMap = new Map<string, number>();
       const subCatCountMap = new Map<string, number>();
       const brandCountMap = new Map<string, number>();
@@ -256,7 +258,7 @@ const AllProductsPage = () => {
         if (p.brand) brandCountMap.set(p.brand, (brandCountMap.get(p.brand) || 0) + 1);
       });
 
-      // Flavors calculation
+      // Flavor counts (may be expensive) - keep as before
       let flavorCountMap = new Map<string, number>();
       if (productIds.length > 0) {
         const [variantFlavors, productFlavorRelations] = await Promise.all([
@@ -308,22 +310,20 @@ const AllProductsPage = () => {
       setSubCategoryOptions(subCategoriesArr);
       setBrandOptions(brandsArr);
 
-      // PRIORITIZE available products (stockQuantity > 0) before sorting by selected sort
+      // Prioritize available products before applying sort
       const [sField, sOrder] = sortBy.split('-');
       finalDisplayList.sort((a, b) => {
         const aAvailable = (a.stockQuantity || 0) > 0;
         const bAvailable = (b.stockQuantity || 0) > 0;
-        if (aAvailable && !bAvailable) return -1; // a before b
-        if (!aAvailable && bAvailable) return 1;  // b before a
+        if (aAvailable && !bAvailable) return -1;
+        if (!aAvailable && bAvailable) return 1;
 
-        // Both same availability -> apply selected sort
         if (sField === 'price') {
           const aPrice = a.price || 0;
           const bPrice = b.price || 0;
           return sOrder === 'asc' ? aPrice - bPrice : bPrice - aPrice;
         }
 
-        // default to createdAt
         const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
         const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
         return sOrder === 'asc' ? aTime - bTime : bTime - aTime;
@@ -331,7 +331,7 @@ const AllProductsPage = () => {
 
       setDisplayProducts(finalDisplayList);
 
-      // Cleanup: if any selected filters no longer exist in options, remove them
+      // Cleanup selected filters if they no longer exist
       const validCats = categoriesArr.map(c => c.name);
       const validSubCats = subCategoriesArr.map(s => s.name);
       const validBrands = brandsArr.map(b => b.name);
@@ -348,16 +348,70 @@ const AllProductsPage = () => {
       if (nextSelectedFlavors.length !== selectedFlavors.length) setSelectedFlavors(nextSelectedFlavors);
 
     } finally {
-      setLoading(false);
+      if (!background) setLoading(false);
     }
   }, [debouncedSearchTerm, selectedCategories, selectedSubCategories, selectedBrands, selectedFlavors, sortBy]);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
   useEffect(() => {
-    const handleVisibility = () => { if (!document.hidden) fetchProducts(); };
+    // Avoid refetching immediately on every small tab/app switch.
+    // Record when the document becomes hidden and only refetch if the user was away
+    // longer than THRESHOLD_MS. Also respond to window focus for desktop app switches.
+    let hiddenAt = 0;
+    const THRESHOLD_MS = 10 * 1000; // 10 seconds
+
+    const handleVisibility = () => {
+      try {
+        if (document.hidden) {
+          hiddenAt = Date.now();
+        } else {
+          // Came back to the page
+          if (!hiddenAt) return; // wasn't previously hidden in this session
+          const elapsed = Date.now() - hiddenAt;
+          hiddenAt = 0;
+          if (elapsed > THRESHOLD_MS) {
+            // schedule a background fetch during idle time to avoid blocking UI
+            const schedule = (cb: () => void) => {
+              if ((window as any).requestIdleCallback) {
+                (window as any).requestIdleCallback(cb, { timeout: 2000 });
+              } else {
+                setTimeout(cb, 500);
+              }
+            };
+            schedule(() => {
+              if (document.visibilityState === 'visible') fetchProducts(true);
+            });
+          }
+        }
+      } catch (e) {
+        // noop
+      }
+    };
+
+    const handleWindowFocus = () => {
+      try {
+        // If we have a recorded hiddenAt and enough time passed, trigger fetch
+        if (hiddenAt && (Date.now() - hiddenAt) > THRESHOLD_MS) {
+          const schedule = (cb: () => void) => {
+            if ((window as any).requestIdleCallback) {
+              (window as any).requestIdleCallback(cb, { timeout: 2000 });
+            } else {
+              setTimeout(cb, 500);
+            }
+          };
+          schedule(() => { if (document.visibilityState === 'visible') fetchProducts(true); });
+          hiddenAt = 0;
+        }
+      } catch (e) {}
+    };
+
     document.addEventListener('visibilitychange', handleVisibility);
-    return () => document.removeEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleWindowFocus);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleWindowFocus);
+    };
   }, [fetchProducts]);
 
   const handleClearFilters = () => {

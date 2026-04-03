@@ -45,6 +45,10 @@
 }
 
 @layer base {
+  html {
+    font-size: 80%;  /* Reduz escala global para 80% - equivalente a zoom do navegador */
+  }
+
   * {
     @apply border-border;
   }

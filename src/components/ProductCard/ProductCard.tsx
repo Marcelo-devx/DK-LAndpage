@@ -2,11 +2,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
 import { addToCart } from "@/utils/cart";
-import { ShoppingCart, Loader2, Eye } from "lucide-react";
+import { ShoppingCart, Loader2, Eye, Info } from "lucide-react";
 import { useState, memo } from "react";
 import { ProductCardProps } from "./ProductCard.types";
 import { cn } from "@/lib/utils";
 import ProductImage from "@/components/ProductImage";
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 
 const PixIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
@@ -107,39 +108,71 @@ const ProductCard = memo(({ product }: ProductCardProps) => {
                 </div>
             </div>
           </div>
-          
-          {hasMultipleVariants ? (
-            <Button 
-              className="w-full font-black uppercase text-[10px] tracking-[0.2em] mt-6 h-11 rounded-xl transition-all duration-300 shadow-md group-hover:translate-y-[-2px] bg-slate-950 hover:bg-sky-500 text-white"
-              onClick={handleViewOptions}
-              aria-label="Escolher opções"
-            >
-              <Eye className="mr-2 h-4 w-4" />
-              {/* Desktop / larger screens: single-line */}
-              <span className="hidden sm:inline">Escolher Opções</span>
-              {/* Mobile: stacked words to avoid clipping */}
-              <span className="inline sm:hidden leading-tight text-[11px] whitespace-normal text-center">
-                <span className="block">Escolher</span>
-                <span className="block">Opções</span>
-              </span>
-            </Button>
-          ) : (
-            <Button 
-              className={cn(
-                  "w-full font-black uppercase text-[10px] tracking-[0.2em] mt-6 h-11 rounded-xl transition-all duration-300 shadow-md group-hover:translate-y-[-2px]",
-                  isOutOfStock ? "bg-stone-200 text-stone-500 cursor-not-allowed hover:bg-stone-200" : "bg-slate-950 hover:bg-sky-500 text-white"
-              )}
-              onClick={handleAddToCart}
-              disabled={isAdding || isOutOfStock}
-            >
-              {isAdding ? <Loader2 className="animate-spin h-4 w-4" /> : (
-                <>
-                  <ShoppingCart className="mr-2 h-4 w-4" />
-                  {isOutOfStock ? 'Esgotado' : 'Adicionar'}
-                </>
-              )}
-            </Button>
-          )}
+
+          {/* New compact 'quick links' popover with examples for brand, category, flavor */}
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="flex items-center gap-2 px-3 py-2 bg-white border border-stone-200 rounded-md text-xs font-bold hover:bg-white/90">
+                    <Info className="h-4 w-4 text-stone-500" />
+                    Ver filtros
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent>
+                  <div className="space-y-2">
+                    {/* Example links: category, brand, and up to 2 flavors (if available) */}
+                    <div>
+                      <div className="text-[10px] font-black text-stone-400 uppercase mb-1">Categoria</div>
+                      <Link to={`/produtos?category=${encodeURIComponent(product.showAgeBadge ? 'Categoria' : '')}`} className="block text-sm text-sky-500 font-bold">Ver similar</Link>
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-black text-stone-400 uppercase mb-1">Marca</div>
+                      <Link to={`/produtos?brand=${encodeURIComponent(product.name.split(' ')[0])}`} className="block text-sm text-sky-500 font-bold">Mais da marca</Link>
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-black text-stone-400 uppercase mb-1">Sabores</div>
+                      <div className="flex gap-2 flex-wrap">
+                        <Link to={`/produtos?search=${encodeURIComponent('example flavor')}`} className="px-2 py-1 rounded-full bg-stone-100 text-xs font-bold">Example 1</Link>
+                        <Link to={`/produtos?search=${encodeURIComponent('example flavor 2')}`} className="px-2 py-1 rounded-full bg-stone-100 text-xs font-bold">Example 2</Link>
+                      </div>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {hasMultipleVariants ? (
+              <Button 
+                className="w-auto font-black uppercase text-[10px] tracking-[0.2em] h-11 rounded-xl transition-all duration-300 shadow-md group-hover:translate-y-[-2px] bg-slate-950 hover:bg-sky-500 text-white"
+                onClick={handleViewOptions}
+                aria-label="Escolher opções"
+              >
+                <Eye className="mr-2 h-4 w-4" />
+                <span className="hidden sm:inline">Escolher Opções</span>
+                <span className="inline sm:hidden leading-tight text-[11px] whitespace-normal text-center">
+                  <span className="block">Escolher</span>
+                  <span className="block">Opções</span>
+                </span>
+              </Button>
+            ) : (
+              <Button 
+                className={cn(
+                    "w-auto font-black uppercase text-[10px] tracking-[0.2em] h-11 rounded-xl transition-all duration-300 shadow-md group-hover:translate-y-[-2px]",
+                    isOutOfStock ? "bg-stone-200 text-stone-500 cursor-not-allowed hover:bg-stone-200" : "bg-slate-950 hover:bg-sky-500 text-white"
+                )}
+                onClick={handleAddToCart}
+                disabled={isAdding || isOutOfStock}
+              >
+                {isAdding ? <Loader2 className="animate-spin h-4 w-4" /> : (
+                  <>
+                    <ShoppingCart className="mr-2 h-4 w-4" />
+                    {isOutOfStock ? 'Esgotado' : 'Adicionar'}
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
     </Link>

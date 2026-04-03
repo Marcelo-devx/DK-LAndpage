@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -47,6 +47,7 @@ const ConfirmacaoPedido = () => {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
+  const hasInitializedRef = useRef(false);
 
   const safeOrder = (o: any): Order => {
     return {
@@ -134,6 +135,10 @@ const ConfirmacaoPedido = () => {
   };
 
   useEffect(() => {
+    // Prevent double-run on StrictMode or re-renders with same id
+    if (hasInitializedRef.current) return;
+    hasInitializedRef.current = true;
+
     const init = async () => {
       try {
         const params = new URLSearchParams(window.location.search);
@@ -148,22 +153,36 @@ const ConfirmacaoPedido = () => {
           const orderId = Number(cleanId);
 
           if (orderId && Number.isFinite(orderId)) {
-            // 1. Mostrar loading enquanto finaliza
+            // 1. Limpar os query params do MP da URL IMEDIATAMENTE (antes de qualquer await)
+            //    Isso evita que qualquer re-mount futuro detecte mpApproved=true novamente
+            try {
+              window.history.replaceState({}, '', `/confirmacao-pedido/${cleanId}`);
+            } catch (e) { /* ignore */ }
+
+            // 2. Mostrar loading enquanto finaliza
             setLoading(true);
 
-            // 2. Tentar finalizar o pedido no banco (idempotente)
-            try {
-              const { error: finalizeError } = await supabase.rpc('finalize_order_payment', { p_order_id: orderId });
-              if (finalizeError) {
-                console.warn('[ConfirmacaoPedido] finalize_order_payment error:', finalizeError);
-              } else {
-                console.info('[ConfirmacaoPedido] finalize_order_payment OK for order', orderId);
+            // 3. Verificar sessionStorage para evitar duplo processamento
+            const sessionKey = `mp_processed_${cleanId}`;
+            const alreadyProcessed = sessionStorage.getItem(sessionKey);
+
+            if (!alreadyProcessed) {
+              sessionStorage.setItem(sessionKey, '1');
+              try {
+                const { error: finalizeError } = await supabase.rpc('finalize_order_payment', { p_order_id: orderId });
+                if (finalizeError) {
+                  console.warn('[ConfirmacaoPedido] finalize_order_payment error:', finalizeError);
+                } else {
+                  console.info('[ConfirmacaoPedido] finalize_order_payment OK for order', orderId);
+                }
+              } catch (e) {
+                console.error('[ConfirmacaoPedido] finalize_order_payment exception:', e);
               }
-            } catch (e) {
-              console.error('[ConfirmacaoPedido] finalize_order_payment exception:', e);
+            } else {
+              console.info('[ConfirmacaoPedido] already processed order', orderId, '— skipping finalize');
             }
 
-            // 3. Buscar detalhes atualizados (sempre, mesmo se finalize falhou)
+            // 4. Buscar detalhes atualizados (sempre)
             await fetchOrderDetails();
             return;
           }

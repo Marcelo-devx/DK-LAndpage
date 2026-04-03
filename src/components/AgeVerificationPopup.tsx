@@ -10,7 +10,7 @@ const AgeVerificationPopup = () => {
     const checkVerification = () => {
       try {
         // Verifica localStorage (persistente)
-        if (localStorage.getItem('ageVerified') === 'true') {
+        if (localStorage.getItem('ageVerified') === 'true' || sessionStorage.getItem('age-verified-v2') === 'true') {
           setShouldShow(false);
           return;
         }
@@ -23,7 +23,10 @@ const AgeVerificationPopup = () => {
           path.startsWith('/confirmacao-pedido') ||
           path.startsWith('/compras')
         ) {
-          localStorage.setItem('ageVerified', 'true');
+          // marcar como verificado (persistente e por sessão) e disparar evento
+          try { localStorage.setItem('ageVerified', 'true'); } catch (e) { /* noop */ }
+          try { sessionStorage.setItem('age-verified-v2', 'true'); } catch (e) { /* noop */ }
+          try { window.dispatchEvent(new Event('ageVerified')); } catch (e) { /* noop */ }
           setShouldShow(false);
           return;
         }
@@ -40,7 +43,9 @@ const AgeVerificationPopup = () => {
   }, []);
 
   const handleConfirm = () => {
-    localStorage.setItem('ageVerified', 'true');
+    try { localStorage.setItem('ageVerified', 'true'); } catch (e) { /* noop */ }
+    try { sessionStorage.setItem('age-verified-v2', 'true'); } catch (e) { /* noop */ }
+    try { window.dispatchEvent(new Event('ageVerified')); } catch (e) { /* noop */ }
     setShouldShow(false);
   };
 

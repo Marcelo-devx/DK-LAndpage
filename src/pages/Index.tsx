@@ -139,12 +139,13 @@ const Index = () => {
           }
         };
 
+        // Always mount/open the informational popup (so it sits behind the age modal if present)
+        triggerInfoPopup();
+
+        // Keep prior age-verified listener for any other logic that depends on it
         const isAgeVerified = sessionStorage.getItem('age-verified-v2');
-        if (isAgeVerified) {
-          triggerInfoPopup();
-        } else {
+        if (!isAgeVerified) {
           const handleVerification = () => {
-            triggerInfoPopup();
             window.removeEventListener('ageVerified', handleVerification);
           };
           window.addEventListener('ageVerified', handleVerification);

@@ -46,12 +46,25 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
   
   const [categories, setCategories] = useState<Category[]>([]);
   const [subCategories, setSubCategories] = useState<SubCategory[]>([]);
+  const [availableSubCategoryNames, setAvailableSubCategoryNames] = useState<Set<string>>(new Set());
 
   const fetchNavData = async () => {
-    const { data: cats } = await supabase.from('categories').select('id, name').eq('is_visible', true).order('name');
-    const { data: subs } = await supabase.from('sub_categories').select('id, name, category_id').eq('is_visible', true).order('name');
+    const [{ data: cats }, { data: subs }, { data: productSubNames }] = await Promise.all([
+      supabase.from('categories').select('id, name').eq('is_visible', true).order('name'),
+      supabase.from('sub_categories').select('id, name, category_id').eq('is_visible', true).order('name'),
+      // fetch distinct sub_category strings from products where visible
+      supabase.from('products').select('sub_category').neq('sub_category', null).neq('sub_category', '').eq('is_visible', true),
+    ]);
+
     if (cats) setCategories(cats);
     if (subs) setSubCategories(subs);
+
+    // Build a set of available subcategory names from products
+    const names = new Set<string>();
+    (productSubNames || []).forEach((p: any) => {
+      if (p.sub_category) names.add(String(p.sub_category));
+    });
+    setAvailableSubCategoryNames(names);
   };
 
   const updateCartCount = useCallback(() => {
@@ -95,7 +108,9 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
     <NavigationMenu className="max-w-full justify-center w-full">
       <NavigationMenuList className="flex flex-wrap justify-center gap-y-0 gap-x-1">
         {categories.map((category) => {
-          const categorySubs = subCategories.filter(s => s.category_id === category.id);
+          // only show subcategories that both belong to this category and are present in availableSubCategoryNames
+          const categorySubs = subCategories
+            .filter(s => s.category_id === category.id && availableSubCategoryNames.has(String(s.name)));
           
           return (
             <NavigationMenuItem key={category.id} className="shrink-0">
@@ -175,7 +190,7 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
                                 </AccordionTrigger>
                                 <AccordionContent className="pl-4 pb-4 space-y-3">
                                     <Link to={`/produtos?category=${cat.name}`} className="block text-xs font-bold text-sky-500 uppercase tracking-widest border-b border-white/5 pb-2">Explorar Tudo</Link>
-                                    {subCategories.filter(s => s.category_id === cat.id).map(sub => (
+                                    {subCategories.filter(s => s.category_id === cat.id && availableSubCategoryNames.has(String(s.name))).map(sub => (
                                         <Link key={sub.id} to={`/produtos?category=${cat.name}&sub_category=${sub.name}`} className="block text-xs font-medium text-slate-400 uppercase tracking-widest hover:text-white" translate="no">{sub.name}</Link>
                                     ))}
                                 </AccordionContent>
@@ -297,7 +312,7 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
                                 </AccordionTrigger>
                                 <AccordionContent className="pl-4 pb-4 space-y-3">
                                     <Link to={`/produtos?category=${cat.name}`} className="block text-xs font-bold text-sky-500 uppercase tracking-widest border-b border-white/5 pb-2">Explorar Tudo</Link>
-                                    {subCategories.filter(s => s.category_id === cat.id).map(sub => (
+                                    {subCategories.filter(s => s.category_id === cat.id && availableSubCategoryNames.has(String(s.name))).map(sub => (
                                         <Link key={sub.id} to={`/produtos?category=${cat.name}&sub_category=${sub.name}`} className="block text-xs font-medium text-slate-400 uppercase tracking-widest hover:text-white" translate="no">{sub.name}</Link>
                                     ))}
                                 </AccordionContent>

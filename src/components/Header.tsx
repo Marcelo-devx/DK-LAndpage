@@ -47,13 +47,15 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [subCategories, setSubCategories] = useState<SubCategory[]>([]);
   const [availableSubCategoryNames, setAvailableSubCategoryNames] = useState<Set<string>>(new Set());
+  const [categoryBrandsMap, setCategoryBrandsMap] = useState<Record<number, string[]>>({});
+  const [categoryFlavorsMap, setCategoryFlavorsMap] = useState<Record<number, string[]>>({});
 
   const fetchNavData = async () => {
-    const [{ data: cats }, { data: subs }, { data: productSubNames }] = await Promise.all([
+    const [{ data: cats }, { data: subs }, { data: productRows }] = await Promise.all([
       supabase.from('categories').select('id, name').eq('is_visible', true).order('name'),
       supabase.from('sub_categories').select('id, name, category_id').eq('is_visible', true).order('name'),
-      // fetch distinct sub_category strings from products where visible
-      supabase.from('products').select('sub_category').neq('sub_category', null).neq('sub_category', '').eq('is_visible', true),
+      // fetch products minimal fields
+      supabase.from('products').select('id, category, brand').neq('category', null).neq('category', '').eq('is_visible', true),
     ]);
 
     if (cats) setCategories(cats);
@@ -61,10 +63,79 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
 
     // Build a set of available subcategory names from products
     const names = new Set<string>();
-    (productSubNames || []).forEach((p: any) => {
+    (productRows || []).forEach((p: any) => {
       if (p.sub_category) names.add(String(p.sub_category));
     });
     setAvailableSubCategoryNames(names);
+
+    // Build category -> brands and category -> productIds maps
+    const catNameToId = new Map<string, number>();
+    (cats || []).forEach((c: any) => { if (c.name) catNameToId.set(String(c.name), c.id); });
+
+    const catBrands: Record<number, Set<string>> = {};
+    const catProductIds: Record<number, number[]> = {};
+
+    (productRows || []).forEach((p: any) => {
+      const catId = catNameToId.get(String(p.category));
+      if (!catId) return;
+      if (!catBrands[catId]) catBrands[catId] = new Set();
+      if (p.brand) catBrands[catId].add(String(p.brand));
+      if (!catProductIds[catId]) catProductIds[catId] = [];
+      catProductIds[catId].push(p.id);
+    });
+
+    // For flavors, fetch variant/product_flavors for all product ids grouped by category
+    const categoryFlavorsResult: Record<number, Set<string>> = {};
+    const allProductIds = Object.values(catProductIds).flat();
+    if (allProductIds.length > 0) {
+      const [variantRes, prodFlavorRes] = await Promise.all([
+        supabase.from('product_variants').select('flavor_id, product_id').in('product_id', allProductIds).eq('is_active', true),
+        supabase.from('product_flavors').select('flavor_id, product_id').in('product_id', allProductIds),
+      ]);
+
+      const flavorIdToProductIdsMap: Record<number, Set<number>> = {};
+      (variantRes.data || []).forEach((v: any) => {
+        if (!v.flavor_id) return;
+        if (!flavorIdToProductIdsMap[v.flavor_id]) flavorIdToProductIdsMap[v.flavor_id] = new Set();
+        flavorIdToProductIdsMap[v.flavor_id].add(v.product_id);
+      });
+      (prodFlavorRes.data || []).forEach((pf: any) => {
+        if (!pf.flavor_id) return;
+        if (!flavorIdToProductIdsMap[pf.flavor_id]) flavorIdToProductIdsMap[pf.flavor_id] = new Set();
+        flavorIdToProductIdsMap[pf.flavor_id].add(pf.product_id);
+      });
+
+      const flavorIds = Object.keys(flavorIdToProductIdsMap).map(k => Number(k));
+      const { data: flavorNames } = flavorIds.length > 0 ? await supabase.from('flavors').select('id, name').in('id', flavorIds).eq('is_visible', true) : { data: [] };
+      const idToName = new Map<number, string>();
+      (flavorNames || []).forEach((f: any) => idToName.set(f.id, f.name));
+
+      // assign flavor names to categories based on product membership
+      for (const [flIdStr, prodSet] of Object.entries(flavorIdToProductIdsMap)) {
+        const flId = Number(flIdStr);
+        const fname = idToName.get(flId);
+        if (!fname) continue;
+        // find categories that own these products
+        for (const [catIdStr, prodIds] of Object.entries(catProductIds)) {
+          const catId = Number(catIdStr);
+          const prodSetArr = prodIds;
+          const intersects = [...prodSet].some(pid => prodSetArr.includes(pid));
+          if (intersects) {
+            if (!categoryFlavorsResult[catId]) categoryFlavorsResult[catId] = new Set();
+            categoryFlavorsResult[catId].add(fname);
+          }
+        }
+      }
+    }
+
+    // convert sets to arrays
+    const catBrandsObj: Record<number, string[]> = {};
+    Object.entries(catBrands).forEach(([k, v]) => { catBrandsObj[Number(k)] = Array.from(v).sort(); });
+    setCategoryBrandsMap(catBrandsObj);
+
+    const catFlavorsObj: Record<number, string[]> = {};
+    Object.entries(categoryFlavorsResult).forEach(([k, v]) => { catFlavorsObj[Number(k)] = Array.from(v).sort(); });
+    setCategoryFlavorsMap(catFlavorsObj);
   };
 
   const updateCartCount = useCallback(() => {
@@ -111,6 +182,10 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
           // only show subcategories that both belong to this category and are present in availableSubCategoryNames
           const categorySubs = subCategories
             .filter(s => s.category_id === category.id && availableSubCategoryNames.has(String(s.name)));
+
+          // if no subcategories available, fall back to show brands/flavors for this category
+          const fallbackBrands = categoryBrandsMap[category.id] || [];
+          const fallbackFlavors = categoryFlavorsMap[category.id] || [];
           
           return (
             <NavigationMenuItem key={category.id} className="shrink-0">
@@ -142,7 +217,34 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
                         </NavigationMenuLink>
                       ))
                     ) : (
-                      <div className="text-[11px] text-slate-500 italic font-medium p-3">Nenhuma sub-categoria encontrada.</div>
+                      // Fallback: show brands and flavors available for this category so user can filter
+                      <div className="space-y-4">
+                        {fallbackBrands.length > 0 && (
+                          <div>
+                            <h5 className="text-xs font-black uppercase text-stone-400 mb-2">Marcas</h5>
+                            <div className="flex flex-wrap gap-2">
+                              {fallbackBrands.map((b) => (
+                                <Link key={b} to={`/produtos?category=${encodeURIComponent(category.name)}&brand=${encodeURIComponent(b)}`} className="px-3 py-1.5 rounded-xl bg-white text-stone-700 hover:bg-white/90 transition-all text-xs font-bold uppercase">{b}</Link>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {fallbackFlavors.length > 0 && (
+                          <div>
+                            <h5 className="text-xs font-black uppercase text-stone-400 mb-2">Sabores</h5>
+                            <div className="flex flex-wrap gap-2">
+                              {fallbackFlavors.map((f) => (
+                                <Link key={f} to={`/produtos?category=${encodeURIComponent(category.name)}&search=${encodeURIComponent(f)}`} className="px-3 py-1.5 rounded-xl bg-white text-stone-700 hover:bg-white/90 transition-all text-xs font-bold uppercase">{f}</Link>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {fallbackBrands.length === 0 && fallbackFlavors.length === 0 && (
+                          <div className="text-[11px] text-slate-500 italic font-medium p-3">Nenhuma sub-categoria encontrada.</div>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -193,6 +295,31 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
                                     {subCategories.filter(s => s.category_id === cat.id && availableSubCategoryNames.has(String(s.name))).map(sub => (
                                         <Link key={sub.id} to={`/produtos?category=${cat.name}&sub_category=${sub.name}`} className="block text-xs font-medium text-slate-400 uppercase tracking-widest hover:text-white" translate="no">{sub.name}</Link>
                                     ))}
+                                    {/* If none, show brands/flavors */}
+                                    {subCategories.filter(s => s.category_id === cat.id && availableSubCategoryNames.has(String(s.name))).length === 0 && (
+                                      <div className="space-y-3">
+                                        {(categoryBrandsMap[cat.id] || []).length > 0 && (
+                                          <div>
+                                            <h5 className="text-xs font-black uppercase text-stone-400 mb-2">Marcas</h5>
+                                            <div className="flex flex-wrap gap-2">
+                                              {(categoryBrandsMap[cat.id] || []).map(b => (
+                                                <Link key={b} to={`/produtos?category=${cat.name}&brand=${b}`} className="px-3 py-1.5 rounded-xl bg-white text-stone-700 hover:bg-white/90 transition-all text-xs font-bold uppercase">{b}</Link>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+                                        {(categoryFlavorsMap[cat.id] || []).length > 0 && (
+                                          <div>
+                                            <h5 className="text-xs font-black uppercase text-stone-400 mb-2">Sabores</h5>
+                                            <div className="flex flex-wrap gap-2">
+                                              {(categoryFlavorsMap[cat.id] || []).map(f => (
+                                                <Link key={f} to={`/produtos?category=${cat.name}&search=${f}`} className="px-3 py-1.5 rounded-xl bg-white text-stone-700 hover:bg-white/90 transition-all text-xs font-bold uppercase">{f}</Link>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
                                 </AccordionContent>
                             </AccordionItem>
                         ))}
@@ -315,6 +442,31 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
                                     {subCategories.filter(s => s.category_id === cat.id && availableSubCategoryNames.has(String(s.name))).map(sub => (
                                         <Link key={sub.id} to={`/produtos?category=${cat.name}&sub_category=${sub.name}`} className="block text-xs font-medium text-slate-400 uppercase tracking-widest hover:text-white" translate="no">{sub.name}</Link>
                                     ))}
+                                    {/* If none, show brands/flavors */}
+                                    {subCategories.filter(s => s.category_id === cat.id && availableSubCategoryNames.has(String(s.name))).length === 0 && (
+                                      <div className="space-y-3">
+                                        {(categoryBrandsMap[cat.id] || []).length > 0 && (
+                                          <div>
+                                            <h5 className="text-xs font-black uppercase text-stone-400 mb-2">Marcas</h5>
+                                            <div className="flex flex-wrap gap-2">
+                                              {(categoryBrandsMap[cat.id] || []).map(b => (
+                                                <Link key={b} to={`/produtos?category=${cat.name}&brand=${b}`} className="px-3 py-1.5 rounded-xl bg-white text-stone-700 hover:bg-white/90 transition-all text-xs font-bold uppercase">{b}</Link>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+                                        {(categoryFlavorsMap[cat.id] || []).length > 0 && (
+                                          <div>
+                                            <h5 className="text-xs font-black uppercase text-stone-400 mb-2">Sabores</h5>
+                                            <div className="flex flex-wrap gap-2">
+                                              {(categoryFlavorsMap[cat.id] || []).map(f => (
+                                                <Link key={f} to={`/produtos?category=${cat.name}&search=${f}`} className="px-3 py-1.5 rounded-xl bg-white text-stone-700 hover:bg-white/90 transition-all text-xs font-bold uppercase">{f}</Link>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
                                 </AccordionContent>
                             </AccordionItem>
                         ))}

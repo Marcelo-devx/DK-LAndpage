@@ -17,6 +17,7 @@ interface DisplayProduct {
   variantId?: string;
   hasMultipleVariants?: boolean;
   showAgeBadge?: boolean;
+  createdAt?: string | null;
 }
 
 interface Category {
@@ -186,8 +187,8 @@ const AllProductsPage = () => {
         query = query.in('id', productIdsFromFlavors);
       }
 
-      const [sortField, sortOrder] = sortBy.split('-');
-      query = query.order(sortField, { ascending: sortOrder === 'asc' });
+      const [qSortField, qSortOrder] = sortBy.split('-');
+      query = query.order(qSortField, { ascending: qSortOrder === 'asc' });
 
       const { data: parentProducts, error } = await query;
       
@@ -226,7 +227,8 @@ const AllProductsPage = () => {
             imageUrl: prod.image_url || '', 
             stockQuantity: totalStock, 
             hasMultipleVariants: true, 
-            showAgeBadge: showAge 
+            showAgeBadge: showAge,
+            createdAt: prod.created_at || null,
           });
         } else {
           finalDisplayList.push({ 
@@ -237,12 +239,13 @@ const AllProductsPage = () => {
             imageUrl: prod.image_url || '', 
             stockQuantity: prod.stock_quantity, 
             hasMultipleVariants: false, 
-            showAgeBadge: showAge 
+            showAgeBadge: showAge,
+            createdAt: prod.created_at || null,
           });
         }
       });
 
-      // Agora calcular contagens dinâmicas com base na lista 'products' (após aplicar filtros atuais)
+      // Now calculate dynamic counts based on products
       const catCountMap = new Map<string, number>();
       const subCatCountMap = new Map<string, number>();
       const brandCountMap = new Map<string, number>();
@@ -253,7 +256,7 @@ const AllProductsPage = () => {
         if (p.brand) brandCountMap.set(p.brand, (brandCountMap.get(p.brand) || 0) + 1);
       });
 
-      // Sabores: buscar flavors relacionados aos productIds
+      // Flavors calculation
       let flavorCountMap = new Map<string, number>();
       if (productIds.length > 0) {
         const [variantFlavors, productFlavorRelations] = await Promise.all([
@@ -273,25 +276,21 @@ const AllProductsPage = () => {
           flavorIdToProductIds.get(pf.flavor_id)!.add(pf.product_id);
         });
 
-        // Convert to counts
         for (const [flId, prodSet] of flavorIdToProductIds.entries()) {
           flavorCountMap.set(String(flId), prodSet.size);
         }
 
-        // Fetch flavor names for the ids we have counts for
         const flavorIds = Array.from(flavorCountMap.keys()).map(k => Number(k));
         if (flavorIds.length > 0) {
           const { data: flavorNames } = await supabase.from('flavors').select('id, name').in('id', flavorIds).eq('is_visible', true);
           const idToName = new Map<number, string>();
           (flavorNames || []).forEach((f: any) => idToName.set(f.id, f.name));
 
-          // Build flavorOptions
           const flavorsArr: { name: string; count: number }[] = [];
           for (const [id, count] of flavorCountMap.entries()) {
             const name = idToName.get(Number(id)) || '';
             if (name) flavorsArr.push({ name, count });
           }
-          // Sort alpha
           flavorsArr.sort((a, b) => a.name.localeCompare(b.name));
           setFlavorOptions(flavorsArr);
         } else {
@@ -301,7 +300,6 @@ const AllProductsPage = () => {
         setFlavorOptions([]);
       }
 
-      // Build category/brand/subcategory option arrays including counts (only those with count>0 will be shown)
       const categoriesArr = Array.from(catCountMap.entries()).map(([name, count]) => ({ name, count })).sort((a,b) => a.name.localeCompare(b.name));
       const subCategoriesArr = Array.from(subCatCountMap.entries()).map(([name, count]) => ({ name, count })).sort((a,b) => a.name.localeCompare(b.name));
       const brandsArr = Array.from(brandCountMap.entries()).map(([name, count]) => ({ name, count })).sort((a,b) => a.name.localeCompare(b.name));
@@ -310,10 +308,26 @@ const AllProductsPage = () => {
       setSubCategoryOptions(subCategoriesArr);
       setBrandOptions(brandsArr);
 
-      // Ordenação por preço após o processamento (para considerar o menor preço das variantes)
-      if (sortField === 'price') {
-        finalDisplayList.sort((a, b) => sortOrder === 'asc' ? a.price - b.price : b.price - a.price);
-      }
+      // PRIORITIZE available products (stockQuantity > 0) before sorting by selected sort
+      const [sField, sOrder] = sortBy.split('-');
+      finalDisplayList.sort((a, b) => {
+        const aAvailable = (a.stockQuantity || 0) > 0;
+        const bAvailable = (b.stockQuantity || 0) > 0;
+        if (aAvailable && !bAvailable) return -1; // a before b
+        if (!aAvailable && bAvailable) return 1;  // b before a
+
+        // Both same availability -> apply selected sort
+        if (sField === 'price') {
+          const aPrice = a.price || 0;
+          const bPrice = b.price || 0;
+          return sOrder === 'asc' ? aPrice - bPrice : bPrice - aPrice;
+        }
+
+        // default to createdAt
+        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return sOrder === 'asc' ? aTime - bTime : bTime - aTime;
+      });
 
       setDisplayProducts(finalDisplayList);
 

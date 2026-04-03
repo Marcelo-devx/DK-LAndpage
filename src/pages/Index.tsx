@@ -133,7 +133,8 @@ const Index = () => {
         setCategories(categoriesRes.data || []);
 
         const triggerInfoPopup = () => {
-          if (popupRes.data && !sessionStorage.getItem('info_popup_seen')) {
+          // If there's an active informational popup from backend, mount and open it
+          if (popupRes.data) {
             setInfoPopup(popupRes.data);
             setIsPopupOpen(true);
           }

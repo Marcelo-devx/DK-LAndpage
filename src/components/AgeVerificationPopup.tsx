@@ -7,12 +7,27 @@ const AgeVerificationPopup = () => {
   const [shouldShow, setShouldShow] = useState(false);
 
   useEffect(() => {
+    const THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
+
     const checkVerification = () => {
       try {
-        // Verifica localStorage (persistente)
+        // Verifica localStorage (persistente) ou sessão
         if (localStorage.getItem('ageVerified') === 'true' || sessionStorage.getItem('age-verified-v2') === 'true') {
           setShouldShow(false);
           return;
+        }
+
+        // If the user returned recently from leaving the tab/app, treat as verified for session
+        const leftAt = sessionStorage.getItem('left_at');
+        if (leftAt) {
+          const leftTs = Number(leftAt);
+          if (!Number.isNaN(leftTs) && Date.now() - leftTs < THRESHOLD_MS) {
+            try { sessionStorage.setItem('age-verified-v2', 'true'); } catch (e) { /* noop */ }
+            try { window.dispatchEvent(new Event('ageVerified')); } catch (e) { /* noop */ }
+            setShouldShow(false);
+            sessionStorage.removeItem('left_at');
+            return;
+          }
         }
 
         // Verifica se vem de redirect externo (bypass automático)
@@ -40,6 +55,26 @@ const AgeVerificationPopup = () => {
     };
 
     checkVerification();
+
+    const onVisibilityChange = () => {
+      try {
+        if (document.visibilityState === 'hidden') {
+          // mark when user left the tab/app
+          sessionStorage.setItem('left_at', String(Date.now()));
+        } else if (document.visibilityState === 'visible') {
+          // when coming back, re-run verification logic - but don't immediately re-show popup if recently left
+          checkVerification();
+        }
+      } catch (e) {
+        // noop
+      }
+    };
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, []);
 
   const handleConfirm = () => {

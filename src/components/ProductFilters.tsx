@@ -270,7 +270,7 @@ const ProductFilters = (props: ProductFiltersProps) => {
   }
 
   return (
-    <aside className="sticky top-24 h-fit bg-stone-50 rounded-3xl p-6 border border-stone-100">
+    <aside className="sticky top-24 h-fit bg-stone-50 rounded-3xl p-6 border border-stone-100" style={{ maxHeight: 'calc(100vh - 6rem)', overflowY: 'auto' }}>
       <div className="flex items-center justify-between mb-6">
         <h2 className="font-black text-lg uppercase tracking-tighter italic text-charcoal-gray flex items-center gap-2">
           <SlidersHorizontal className="h-4 w-4 text-sky-500" />

@@ -137,7 +137,52 @@ const ConfirmacaoPedido = () => {
   };
 
   useEffect(() => {
-    fetchOrderDetails();
+    // If Mercado Pago redirected back with approval params, finalize first then fetch details
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const mpApproved = params.get('collection_status') === 'approved' || params.get('status') === 'approved' || params.get('payment_status') === 'approved' || params.get('collection_status') === 'paid';
+      if (mpApproved && id) {
+        const cleanId = String(id).replace(/\D/g, '');
+        const orderId = Number(cleanId);
+        if (orderId && Number.isFinite(orderId)) {
+          const schedule = (cb: () => void) => {
+            if ((window as any).requestIdleCallback) (window as any).requestIdleCallback(cb, { timeout: 2000 });
+            else setTimeout(cb, 500);
+          };
+
+          // finalize first, then fetch details to avoid race
+          schedule(async () => {
+            try {
+              const { error: finalizeError } = await supabase.rpc('finalize_order_payment', { p_order_id: orderId });
+              if (finalizeError) {
+                console.warn('[ConfirmacaoPedido] finalize_order_payment RPC returned error:', finalizeError);
+              } else {
+                console.info('[ConfirmacaoPedido] finalize_order_payment RPC executed (attempt) for order', orderId);
+              }
+            } catch (e) {
+              console.error('[ConfirmacaoPedido] error calling finalize_order_payment:', e);
+            }
+
+            // After finalize attempt, fetch order details (foreground) so UI reflects final status quickly
+            try {
+              await fetchOrderDetails();
+            } catch (e) {
+              // swallow
+            }
+          });
+        } else {
+          // fallback: if no mp params, just fetch normally
+          fetchOrderDetails();
+        }
+      } else {
+        // no mp params => normal fetch
+        fetchOrderDetails();
+      }
+    } catch (e) {
+      // noop
+      fetchOrderDetails();
+    }
+
     // background refresh when user returns to site: check again if payment status changed
     let hiddenAt = 0;
     const THRESHOLD_MS = 5000;

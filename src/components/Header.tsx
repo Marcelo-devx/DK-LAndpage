@@ -35,6 +35,12 @@ interface HeaderProps {
   onCartClick: () => void;
 }
 
+// helper normalize
+const normalizeKey = (s?: string) => {
+  if (!s) return '';
+  return s.trim().toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+};
+
 const Header = memo(({ onCartClick }: HeaderProps) => {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
@@ -46,7 +52,7 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
   
   const [categories, setCategories] = useState<Category[]>([]);
   const [subCategories, setSubCategories] = useState<SubCategory[]>([]);
-  const [availableSubCategoryNames, setAvailableSubCategoryNames] = useState<Set<string>>(new Set());
+  const [categoryProductSubsMap, setCategoryProductSubsMap] = useState<Record<number, string[]>>({});
   const [categoryBrandsMap, setCategoryBrandsMap] = useState<Record<number, string[]>>({});
   const [categoryFlavorsMap, setCategoryFlavorsMap] = useState<Record<number, string[]>>({});
 
@@ -54,37 +60,47 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
     const [{ data: cats }, { data: subs }, { data: productRows }] = await Promise.all([
       supabase.from('categories').select('id, name').eq('is_visible', true).order('name'),
       supabase.from('sub_categories').select('id, name, category_id').eq('is_visible', true).order('name'),
-      // fetch products minimal fields
-      supabase.from('products').select('id, category, brand').neq('category', null).neq('category', '').eq('is_visible', true),
+      // fetch products minimal fields including sub_category
+      supabase.from('products').select('id, category, sub_category, brand').neq('category', null).neq('category', '').eq('is_visible', true),
     ]);
 
     if (cats) setCategories(cats);
     if (subs) setSubCategories(subs);
 
-    // Build a set of available subcategory names from products
-    const names = new Set<string>();
-    (productRows || []).forEach((p: any) => {
-      if (p.sub_category) names.add(String(p.sub_category));
-    });
-    setAvailableSubCategoryNames(names);
-
-    // Build category -> brands and category -> productIds maps
+    // Build mapping categoryId -> set of product sub_category strings (exact values from products)
     const catNameToId = new Map<string, number>();
     (cats || []).forEach((c: any) => { if (c.name) catNameToId.set(String(c.name), c.id); });
 
+    const catSubsMap: Record<number, Set<string>> = {};
     const catBrands: Record<number, Set<string>> = {};
     const catProductIds: Record<number, number[]> = {};
 
     (productRows || []).forEach((p: any) => {
+      if (!p.category) return;
       const catId = catNameToId.get(String(p.category));
       if (!catId) return;
-      if (!catBrands[catId]) catBrands[catId] = new Set();
-      if (p.brand) catBrands[catId].add(String(p.brand));
+      if (p.sub_category) {
+        if (!catSubsMap[catId]) catSubsMap[catId] = new Set();
+        catSubsMap[catId].add(String(p.sub_category));
+      }
+      if (p.brand) {
+        if (!catBrands[catId]) catBrands[catId] = new Set();
+        catBrands[catId].add(String(p.brand));
+      }
       if (!catProductIds[catId]) catProductIds[catId] = [];
       catProductIds[catId].push(p.id);
     });
 
-    // For flavors, fetch variant/product_flavors for all product ids grouped by category
+    // Convert subs map to arrays
+    const catSubsObj: Record<number, string[]> = {};
+    Object.entries(catSubsMap).forEach(([k, v]) => { catSubsObj[Number(k)] = Array.from(v).sort(); });
+    setCategoryProductSubsMap(catSubsObj);
+
+    const catBrandsObj: Record<number, string[]> = {};
+    Object.entries(catBrands).forEach(([k, v]) => { catBrandsObj[Number(k)] = Array.from(v).sort(); });
+    setCategoryBrandsMap(catBrandsObj);
+
+    // For flavors per category, compute using product ids
     const categoryFlavorsResult: Record<number, Set<string>> = {};
     const allProductIds = Object.values(catProductIds).flat();
     if (allProductIds.length > 0) {
@@ -110,12 +126,10 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
       const idToName = new Map<number, string>();
       (flavorNames || []).forEach((f: any) => idToName.set(f.id, f.name));
 
-      // assign flavor names to categories based on product membership
       for (const [flIdStr, prodSet] of Object.entries(flavorIdToProductIdsMap)) {
         const flId = Number(flIdStr);
         const fname = idToName.get(flId);
         if (!fname) continue;
-        // find categories that own these products
         for (const [catIdStr, prodIds] of Object.entries(catProductIds)) {
           const catId = Number(catIdStr);
           const prodSetArr = prodIds;
@@ -127,11 +141,6 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
         }
       }
     }
-
-    // convert sets to arrays
-    const catBrandsObj: Record<number, string[]> = {};
-    Object.entries(catBrands).forEach(([k, v]) => { catBrandsObj[Number(k)] = Array.from(v).sort(); });
-    setCategoryBrandsMap(catBrandsObj);
 
     const catFlavorsObj: Record<number, string[]> = {};
     Object.entries(categoryFlavorsResult).forEach(([k, v]) => { catFlavorsObj[Number(k)] = Array.from(v).sort(); });
@@ -179,11 +188,10 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
     <NavigationMenu className="max-w-full justify-center w-full">
       <NavigationMenuList className="flex flex-wrap justify-center gap-y-0 gap-x-1">
         {categories.map((category) => {
-          // only show subcategories that both belong to this category and are present in availableSubCategoryNames
-          const categorySubs = subCategories
-            .filter(s => s.category_id === category.id && availableSubCategoryNames.has(String(s.name)));
+          // product-derived subcategories for this category (exact strings)
+          const productSubs = categoryProductSubsMap[category.id] || [];
 
-          // if no subcategories available, fall back to show brands/flavors for this category
+          // if productSubs exist, show them; otherwise show brands/flavors fallbacks
           const fallbackBrands = categoryBrandsMap[category.id] || [];
           const fallbackFlavors = categoryFlavorsMap[category.id] || [];
           
@@ -205,19 +213,18 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
                 <div className="w-[680px] max-w-[90vw] p-6 md:p-8 bg-black border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,1)] rounded-2xl">
                   <h4 className="text-[11px] font-black text-sky-500 uppercase tracking-[0.3em] border-b border-white/10 pb-3">Sub-Categorias</h4>
                   <div className="mt-4 grid grid-cols-1 gap-2 max-h-[60vh] overflow-y-auto pr-3 custom-scrollbar">
-                    {categorySubs.length > 0 ? (
-                      categorySubs.map((sub) => (
-                        <NavigationMenuLink key={sub.id} asChild>
+                    {productSubs.length > 0 ? (
+                      productSubs.map((sub) => (
+                        <NavigationMenuLink key={sub} asChild>
                           <Link
-                            to={`/produtos?category=${encodeURIComponent(category.name)}&sub_category=${encodeURIComponent(sub.name)}`}
+                            to={`/produtos?category=${encodeURIComponent(category.name)}&sub_category=${encodeURIComponent(sub)}`}
                             className="block p-3 rounded-xl hover:bg-white/5 transition-all"
                           >
-                            <span className="text-[12px] font-bold text-slate-300 hover:text-white uppercase tracking-wider" translate="no">{sub.name}</span>
+                            <span className="text-[12px] font-bold text-slate-300 hover:text-white uppercase tracking-wider" translate="no">{sub}</span>
                           </Link>
                         </NavigationMenuLink>
                       ))
                     ) : (
-                      // Fallback: show brands and flavors available for this category so user can filter
                       <div className="space-y-4">
                         {fallbackBrands.length > 0 && (
                           <div>
@@ -292,11 +299,11 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
                                 </AccordionTrigger>
                                 <AccordionContent className="pl-4 pb-4 space-y-3">
                                     <Link to={`/produtos?category=${cat.name}`} className="block text-xs font-bold text-sky-500 uppercase tracking-widest border-b border-white/5 pb-2">Explorar Tudo</Link>
-                                    {subCategories.filter(s => s.category_id === cat.id && availableSubCategoryNames.has(String(s.name))).map(sub => (
-                                        <Link key={sub.id} to={`/produtos?category=${cat.name}&sub_category=${sub.name}`} className="block text-xs font-medium text-slate-400 uppercase tracking-widest hover:text-white" translate="no">{sub.name}</Link>
-                                    ))}
-                                    {/* If none, show brands/flavors */}
-                                    {subCategories.filter(s => s.category_id === cat.id && availableSubCategoryNames.has(String(s.name))).length === 0 && (
+                                    { (categoryProductSubsMap[cat.id] || []).length > 0 ? (
+                                      (categoryProductSubsMap[cat.id] || []).map(sub => (
+                                        <Link key={sub} to={`/produtos?category=${cat.name}&sub_category=${encodeURIComponent(sub)}`} className="block text-xs font-medium text-slate-400 uppercase tracking-widest hover:text-white" translate="no">{sub}</Link>
+                                      ))
+                                    ) : (
                                       <div className="space-y-3">
                                         {(categoryBrandsMap[cat.id] || []).length > 0 && (
                                           <div>
@@ -308,12 +315,13 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
                                             </div>
                                           </div>
                                         )}
+
                                         {(categoryFlavorsMap[cat.id] || []).length > 0 && (
                                           <div>
                                             <h5 className="text-xs font-black uppercase text-stone-400 mb-2">Sabores</h5>
                                             <div className="flex flex-wrap gap-2">
                                               {(categoryFlavorsMap[cat.id] || []).map(f => (
-                                                <Link key={f} to={`/produtos?category=${cat.name}&search=${f}`} className="px-3 py-1.5 rounded-xl bg-white text-stone-700 hover:bg-white/90 transition-all text-xs font-bold uppercase">{f}</Link>
+                                                <Link key={f} to={`/produtos?category=${cat.name}&search=${encodeURIComponent(f)}`} className="px-3 py-1.5 rounded-xl bg-white text-stone-700 hover:bg-white/90 transition-all text-xs font-bold uppercase">{f}</Link>
                                               ))}
                                             </div>
                                           </div>
@@ -439,11 +447,11 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
                                 </AccordionTrigger>
                                 <AccordionContent className="pl-4 pb-4 space-y-3">
                                     <Link to={`/produtos?category=${cat.name}`} className="block text-xs font-bold text-sky-500 uppercase tracking-widest border-b border-white/5 pb-2">Explorar Tudo</Link>
-                                    {subCategories.filter(s => s.category_id === cat.id && availableSubCategoryNames.has(String(s.name))).map(sub => (
-                                        <Link key={sub.id} to={`/produtos?category=${cat.name}&sub_category=${sub.name}`} className="block text-xs font-medium text-slate-400 uppercase tracking-widest hover:text-white" translate="no">{sub.name}</Link>
-                                    ))}
-                                    {/* If none, show brands/flavors */}
-                                    {subCategories.filter(s => s.category_id === cat.id && availableSubCategoryNames.has(String(s.name))).length === 0 && (
+                                    { (categoryProductSubsMap[cat.id] || []).length > 0 ? (
+                                      (categoryProductSubsMap[cat.id] || []).map(sub => (
+                                        <Link key={sub} to={`/produtos?category=${cat.name}&sub_category=${encodeURIComponent(sub)}`} className="block text-xs font-medium text-slate-400 uppercase tracking-widest hover:text-white" translate="no">{sub}</Link>
+                                      ))
+                                    ) : (
                                       <div className="space-y-3">
                                         {(categoryBrandsMap[cat.id] || []).length > 0 && (
                                           <div>
@@ -455,12 +463,13 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
                                             </div>
                                           </div>
                                         )}
+
                                         {(categoryFlavorsMap[cat.id] || []).length > 0 && (
                                           <div>
                                             <h5 className="text-xs font-black uppercase text-stone-400 mb-2">Sabores</h5>
                                             <div className="flex flex-wrap gap-2">
                                               {(categoryFlavorsMap[cat.id] || []).map(f => (
-                                                <Link key={f} to={`/produtos?category=${cat.name}&search=${f}`} className="px-3 py-1.5 rounded-xl bg-white text-stone-700 hover:bg-white/90 transition-all text-xs font-bold uppercase">{f}</Link>
+                                                <Link key={f} to={`/produtos?category=${cat.name}&search=${encodeURIComponent(f)}`} className="px-3 py-1.5 rounded-xl bg-white text-stone-700 hover:bg-white/90 transition-all text-xs font-bold uppercase">{f}</Link>
                                               ))}
                                             </div>
                                           </div>

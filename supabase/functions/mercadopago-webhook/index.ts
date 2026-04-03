@@ -153,18 +153,20 @@ serve(async (req) => {
       })
     }
 
-    // Idempotency check
+    // Idempotency check — só bloqueia se o pedido JÁ foi finalizado com sucesso
+    // (não bloqueia por logs de 'ignored' ou 'in_process')
     try {
       const { data: existing } = await supabaseAdmin
         .from('integration_logs')
         .select('id')
         .eq('event_type', 'mercadopago_payment_processed')
+        .eq('status', 'processed')
         .filter('payload->>payment_id', 'eq', String(resourceId))
         .limit(1)
         .single()
 
       if (existing) {
-        console.log('[mercadopago-webhook] Payment already processed, ignoring:', resourceId)
+        console.log('[mercadopago-webhook] Payment already successfully processed, ignoring:', resourceId)
         return new Response(JSON.stringify({ received: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 200,
@@ -193,7 +195,7 @@ serve(async (req) => {
 
     // Process approved payment
     if (paymentStatus === 'approved') {
-      if (orderRow.status === 'Aguardando Pagamento' || orderRow.status === 'Pendente') {
+      if (orderRow.status === 'Aguardando Pagamento' || orderRow.status === 'Pendente' || orderRow.status === 'Em Preparação') {
         console.log('[mercadopago-webhook] Finalizing order:', orderId)
         const { error: finalizeError } = await supabaseAdmin.rpc('finalize_order_payment', {
           p_order_id: orderId

@@ -200,7 +200,7 @@ const ProductPage = () => {
           <div className="space-y-4 md:space-y-12">
             <div>
               <p className="text-sky-500 text-xs font-black uppercase tracking-[0.4em] mb-3">{product.category}</p>
-              <h1 className="text-4xl md:text-7xl font-black tracking-tighter leading-[0.9] mb-8 text-charcoal-gray" translate="no">
+              <h1 className="text-3xl md:text-5xl font-black tracking-tighter leading-[0.9] mb-8 text-charcoal-gray" translate="no">
                 {product.name} 
                 {selectedVariant && (
                     <span className="block text-2xl md:text-4xl text-slate-400 mt-2 italic">
@@ -229,7 +229,7 @@ const ProductPage = () => {
                     </div>
                     
                     <div className="flex flex-wrap items-baseline">
-                        <span className="text-5xl md:text-7xl font-black text-emerald-600 tracking-tighter">
+                        <span className="text-3xl md:text-5xl font-black text-emerald-600 tracking-tighter">
                             {currentPixPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                         </span>
                     </div>

@@ -144,7 +144,7 @@ const HowItWorksPage = () => {
           </div>
 
           <div className="space-y-2">
-            <h1 className="text-6xl md:text-8xl font-black italic tracking-tighter uppercase leading-none">
+            <h1 className="text-4xl md:text-6xl font-black italic tracking-tighter uppercase leading-none">
               Clube <span className="text-sky-500">DK</span>.
             </h1>
             <p className="text-xl md:text-2xl text-slate-300 font-medium max-w-2xl mx-auto leading-relaxed pt-4">
@@ -192,7 +192,7 @@ const HowItWorksPage = () => {
       <section className="py-24 bg-[#0a0f18] relative">
         <div className="container mx-auto px-4 md:px-6">
           <div className="text-center mb-20">
-            <h2 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter text-white">Jornada do <span className="text-sky-500">Membro.</span></h2>
+            <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-white">Jornada do <span className="text-sky-500">Membro.</span></h2>
             <p className="text-slate-400 mt-4 font-medium uppercase tracking-widest text-xs">Quanto mais você explora, mais portas se abrem.</p>
           </div>
 

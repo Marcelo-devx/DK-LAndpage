@@ -250,7 +250,7 @@ const Index = () => {
           <section className="container mx-auto px-4 md:px-6">
             <div className="flex flex-col md:flex-row items-start md:items-end justify-between mb-4 md:mb-8 gap-2">
                 <div>
-                    <h3 className="text-2xl md:text-5xl font-black tracking-tighter italic uppercase text-charcoal-gray" translate="no">NEW DROPS</h3>
+                    <h3 className="text-xl md:text-3xl font-black tracking-tighter italic uppercase text-charcoal-gray" translate="no">NEW DROPS</h3>
                 </div>
                 <Link to="/produtos" className="text-[10px] font-bold uppercase tracking-widest hover:text-sky-500 transition-colors text-slate-600">Ver todos →</Link>
             </div>

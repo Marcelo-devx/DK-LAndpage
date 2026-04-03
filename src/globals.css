@@ -46,7 +46,7 @@
 
 @layer base {
   html {
-    font-size: 80%;  /* Reduz escala global para 80% - equivalente a zoom do navegador */
+    font-size: 100%;  /* Restaurado para 100% para remover "zoom" global - alinha todas as páginas à mesma escala */
   }
 
   * {

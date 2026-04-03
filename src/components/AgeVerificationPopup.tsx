@@ -1,13 +1,56 @@
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ShieldAlert } from 'lucide-react';
 
-interface AgeVerificationPopupProps {
-  onConfirm: () => void;
-  onExit: () => void;
-}
+const AgeVerificationPopup = () => {
+  const [shouldShow, setShouldShow] = useState(false);
 
-const AgeVerificationPopup = ({ onConfirm, onExit }: AgeVerificationPopupProps) => {
+  useEffect(() => {
+    const checkVerification = () => {
+      try {
+        // Verifica localStorage (persistente)
+        if (localStorage.getItem('ageVerified') === 'true') {
+          setShouldShow(false);
+          return;
+        }
+
+        // Verifica se vem de redirect externo (bypass automático)
+        const path = window.location.pathname;
+        if (
+          path.startsWith('/auth/') ||
+          path.startsWith('/complete-profile') ||
+          path.startsWith('/confirmacao-pedido') ||
+          path.startsWith('/compras')
+        ) {
+          localStorage.setItem('ageVerified', 'true');
+          setShouldShow(false);
+          return;
+        }
+
+        // Mostrar popup - primeira visita
+        setShouldShow(true);
+      } catch (error) {
+        // Em caso de erro (ex: localStorage desabilitado), mostra o popup
+        setShouldShow(true);
+      }
+    };
+
+    checkVerification();
+  }, []);
+
+  const handleConfirm = () => {
+    localStorage.setItem('ageVerified', 'true');
+    setShouldShow(false);
+  };
+
+  const handleExit = () => {
+    // Redireciona para fora do site
+    window.location.href = 'https://www.google.com';
+  };
+
+  if (!shouldShow) return null;
+
   return (
     <Dialog open={true} onOpenChange={() => {}}>
       <DialogContent 
@@ -47,14 +90,14 @@ const AgeVerificationPopup = ({ onConfirm, onExit }: AgeVerificationPopupProps) 
 
           <div className="flex flex-col gap-4">
             <Button 
-              onClick={onConfirm}
+              onClick={handleConfirm}
               className="bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest h-14 rounded-xl shadow-[0_10px_20px_-5px_rgba(14,165,233,0.4)] transition-all active:scale-95"
             >
               SIM, TENHO +18 ANOS
             </Button>
             <Button 
               variant="outline"
-              onClick={onExit}
+              onClick={handleExit}
               className="border-white/10 hover:bg-red-500/10 hover:text-red-500 text-slate-400 font-black uppercase tracking-widest h-14 rounded-xl transition-all"
             >
               NÃO, QUERO SAIR

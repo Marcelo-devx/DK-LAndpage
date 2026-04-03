@@ -15,6 +15,7 @@ import BrandSection from '@/components/BrandSection';
 import InformationalPopup from '@/components/InformationalPopup';
 import { useTheme } from '@/context/ThemeContext';
 import ProductImage from '@/components/ProductImage';
+import AgeVerificationPopup from '@/components/AgeVerificationPopup';
 
 const Index = () => {
   const { settings } = useTheme();
@@ -144,9 +145,10 @@ const Index = () => {
 
   return (
     <div className="bg-off-white overflow-x-hidden text-charcoal-gray w-full transition-colors duration-500">
+      <AgeVerificationPopup />
       {infoPopup && (
-        <InformationalPopup 
-          isOpen={isPopupOpen} 
+        <InformationalPopup
+          isOpen={isPopupOpen}
           onClose={handleClosePopup}
           title={infoPopup.title}
           content={infoPopup.content}

@@ -26,7 +26,6 @@ import AuthEventHandler from "./components/AuthEventHandler";
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
 import AdminCustomizer from "./components/AdminCustomizer";
 import EmailConfirm from "./pages/EmailConfirm";
-import { AgeVerificationProvider } from "./context/AgeVerificationContext";
 import MaintenanceScreen from "./components/MaintenanceScreen";
 import { supabase } from "./integrations/supabase/client";
 import DashboardSecurity from "./pages/DashboardSecurity";
@@ -143,10 +142,8 @@ const App = () => {
           <Toaster />
           <Sonner />
           <BrowserRouter>
-            <AgeVerificationProvider>
-              <AuthEventHandler />
-              <AppContent />
-            </AgeVerificationProvider>
+            <AuthEventHandler />
+            <AppContent />
           </BrowserRouter>
         </ThemeProvider>
       </TooltipProvider>

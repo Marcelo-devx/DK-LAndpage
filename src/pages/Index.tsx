@@ -30,8 +30,29 @@ const Index = () => {
   
   const [infoPopup, setInfoPopup] = useState<{ title: string; content: string } | null>(null);
   const [isPopupOpen, setIsPopupOpen] = useState(false);
+  const [ageVerified, setAgeVerified] = useState(false);
 
   const { handleBrandClick } = useOutletContext<OutletContextType>();
+
+  // Verificar se a idade já foi confirmada antes de mostrar popup informativo
+  useEffect(() => {
+    try {
+      const verified = localStorage.getItem('ageVerified') === 'true';
+      setAgeVerified(verified);
+    } catch (e) {
+      setAgeVerified(false);
+    }
+  }, []);
+
+  // Ouvir evento de verificação de idade
+  useEffect(() => {
+    const handleAgeVerified = () => {
+      setAgeVerified(true);
+    };
+
+    window.addEventListener('ageVerified', handleAgeVerified);
+    return () => window.removeEventListener('ageVerified', handleAgeVerified);
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -145,7 +166,8 @@ const Index = () => {
 
   return (
     <div className="bg-off-white overflow-x-hidden text-charcoal-gray w-full transition-colors duration-500">
-      {infoPopup && (
+      <AgeVerificationPopup />
+      {ageVerified && infoPopup && (
         <InformationalPopup
           isOpen={isPopupOpen}
           onClose={handleClosePopup}
@@ -153,7 +175,6 @@ const Index = () => {
           content={infoPopup.content}
         />
       )}
-      <AgeVerificationPopup />
 
       {settings.showHero && heroSlides.length > 0 && (
         <section className="relative w-full overflow-hidden">

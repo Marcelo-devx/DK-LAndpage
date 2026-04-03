@@ -50,6 +50,44 @@ const settingKeysMap: Record<string, string> = {
   'show_promotions': 'showPromotions'
 };
 
+// Campo isolado para salvar a Public Key do MP diretamente no banco
+const MpPublicKeyField = () => {
+  const [value, setValue] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    supabase.from('app_settings').select('value').eq('key', 'mercadopago_public_key').maybeSingle().then(({ data }) => {
+      if (data?.value) setValue(data.value);
+      setLoaded(true);
+    });
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    const { error } = await supabase.from('app_settings').upsert([{ key: 'mercadopago_public_key', value }], { onConflict: 'key' });
+    setSaving(false);
+    if (error) showError('Erro ao salvar Public Key.');
+    else showSuccess('Public Key salva!');
+  };
+
+  if (!loaded) return <div className="h-9 bg-sky-100 rounded-lg animate-pulse" />;
+
+  return (
+    <div className="flex gap-2">
+      <Input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder="APP_USR-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+        className="font-mono text-[10px] flex-1"
+      />
+      <Button size="sm" onClick={handleSave} disabled={saving} className="bg-sky-500 hover:bg-sky-600 text-white h-10 px-3 shrink-0">
+        {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+      </Button>
+    </div>
+  );
+};
+
 const AdminCustomizer = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const { settings, updateSetting, refreshSettings, saveAllSettings } = useTheme();
@@ -615,6 +653,18 @@ const AdminCustomizer = () => {
                     <Label className="text-xs text-slate-500 mb-1">URL do Logo (opcional)</Label>
                     <Input value={settings.logoUrl || ''} onChange={(e) => updateSetting('logo_url', e.target.value)} />
                   </div>
+                </div>
+
+                {/* Mercado Pago Public Key */}
+                <div className="bg-sky-50 border border-sky-100 p-4 rounded-xl">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-sky-600 font-black text-sm">💳</span>
+                    <h3 className="font-bold text-sky-900 text-sm">Mercado Pago — Checkout Transparente</h3>
+                  </div>
+                  <p className="text-xs text-sky-700 font-medium mb-3">
+                    Cole aqui a <strong>Public Key</strong> do Mercado Pago (começa com <code>APP_USR-</code>). Encontre em: <strong>MP Developers → Suas integrações → Credenciais</strong>.
+                  </p>
+                  <MpPublicKeyField />
                 </div>
               </TabsContent>
 

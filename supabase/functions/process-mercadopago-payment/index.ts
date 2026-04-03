@@ -21,79 +21,199 @@ serve(async (req) => {
     }
 
     const supabaseAdmin = createClient(
-        // @ts-ignore
-        Deno.env.get('SUPABASE_URL') ?? '',
-        // @ts-ignore
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+      // @ts-ignore
+      Deno.env.get('SUPABASE_URL') ?? '',
+      // @ts-ignore
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
 
+    const body = await req.json();
+
+    console.log('[process-mp-payment] Payload recebido do Brick:', JSON.stringify({
+      external_reference: body.external_reference,
+      transaction_amount: body.transaction_amount,
+      payment_method_id: body.payment_method_id,
+      installments: body.installments,
+      has_token: !!body.token,
+      payer_email: body.payer?.email,
+    }));
+
+    // O CardPayment Brick do MP envia estes campos:
     const {
-      token,
-      issuer_id,
-      payment_method_id,
-      transaction_amount,
-      installments,
-      payer,
-      external_reference // Este é o nosso order_id
-    } = await req.json();
+      token,                  // card token gerado pelo Brick
+      payment_method_id,      // ex: "visa", "master"
+      installments,           // número de parcelas
+      issuer_id,              // emissor do cartão
+      external_reference,     // nosso order_id
+      transaction_amount,     // valor total
+      payer,                  // { email, identification: { type, number } }
+    } = body;
 
-    console.log(`[process-mp-payment] Recebido pagamento para pedido: ${external_reference}`);
+    if (!token) throw new Error("Token do cartão não recebido. Tente novamente.");
+    if (!external_reference) throw new Error("Referência do pedido não encontrada.");
+    if (!transaction_amount || transaction_amount <= 0) throw new Error("Valor do pedido inválido.");
 
-    const paymentPayload = {
+    const orderId = parseInt(String(external_reference));
+    if (isNaN(orderId)) throw new Error("ID do pedido inválido.");
+
+    // Verificar se o pedido existe e está aguardando pagamento
+    const { data: orderRow, error: orderErr } = await supabaseAdmin
+      .from('orders')
+      .select('id, status, total_price')
+      .eq('id', orderId)
+      .single();
+
+    if (orderErr || !orderRow) throw new Error(`Pedido #${orderId} não encontrado.`);
+
+    if (orderRow.status !== 'Aguardando Pagamento' && orderRow.status !== 'Pendente') {
+      console.warn(`[process-mp-payment] Pedido ${orderId} já está com status: ${orderRow.status}`);
+      // Se já foi finalizado, retorna sucesso sem reprocessar
+      if (orderRow.status === 'Em Preparação' || orderRow.status === 'Finalizada') {
+        return new Response(JSON.stringify({ success: true, status: 'already_processed', order_id: orderId }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        });
+      }
+    }
+
+    // Usar o total_price do banco como fonte da verdade (evita manipulação)
+    const finalAmount = Number(orderRow.total_price || transaction_amount);
+
+    const paymentPayload: any = {
       token,
-      issuer_id,
       payment_method_id,
-      transaction_amount,
-      installments,
-      payer,
-      external_reference,
+      installments: Number(installments) || 1,
+      transaction_amount: Number(finalAmount.toFixed(2)),
+      external_reference: String(orderId),
       statement_descriptor: "DKCWB",
+      payer: {
+        email: payer?.email || '',
+        identification: payer?.identification || {},
+        first_name: payer?.first_name || '',
+        last_name: payer?.last_name || '',
+      },
     };
+
+    // Adicionar issuer_id apenas se presente (alguns cartões não têm)
+    if (issuer_id) paymentPayload.issuer_id = issuer_id;
+
+    console.log('[process-mp-payment] Enviando para API do MP:', {
+      payment_method_id,
+      installments: paymentPayload.installments,
+      transaction_amount: paymentPayload.transaction_amount,
+      external_reference: paymentPayload.external_reference,
+    });
 
     const mpResponse = await fetch('https://api.mercadopago.com/v1/payments', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${MP_TOKEN}`,
         'Content-Type': 'application/json',
-        'X-Idempotency-Key': `dkcwb-${external_reference}-${Date.now()}`
+        'X-Idempotency-Key': `dkcwb-${orderId}-${Date.now()}`
       },
       body: JSON.stringify(paymentPayload),
     });
 
     const paymentData = await mpResponse.json();
 
+    console.log('[process-mp-payment] Resposta do MP:', {
+      status: paymentData.status,
+      status_detail: paymentData.status_detail,
+      id: paymentData.id,
+    });
+
     if (!mpResponse.ok) {
-      console.error("Mercado Pago API Error:", JSON.stringify(paymentData));
       const errorMessage = paymentData.cause?.[0]?.description || paymentData.message || 'Pagamento recusado.';
+      console.error('[process-mp-payment] Erro da API do MP:', JSON.stringify(paymentData));
       throw new Error(errorMessage);
     }
 
+    // Registrar log da tentativa
+    try {
+      await supabaseAdmin.from('integration_logs').insert([{
+        event_type: 'mercadopago_payment_attempt',
+        status: paymentData.status,
+        details: `payment_id=${paymentData.id} status=${paymentData.status} detail=${paymentData.status_detail}`,
+        payload: { payment_id: paymentData.id, order_id: orderId, status: paymentData.status, status_detail: paymentData.status_detail }
+      }]);
+    } catch (e) { /* ignora erros de log */ }
+
     if (paymentData.status === 'approved') {
-      console.log(`[process-mp-payment] Pagamento APROVADO para pedido: ${external_reference}. Finalizando...`);
-      const { error: finalizeError } = await supabaseAdmin.rpc('finalize_order_payment', { 
-        p_order_id: parseInt(external_reference) 
+      console.log(`[process-mp-payment] Pagamento APROVADO para pedido: ${orderId}. Finalizando...`);
+
+      const { error: finalizeError } = await supabaseAdmin.rpc('finalize_order_payment', {
+        p_order_id: orderId
       });
 
       if (finalizeError) {
-        console.error(`[process-mp-payment] Erro ao finalizar pedido ${external_reference} no banco:`, finalizeError);
-        // O pagamento foi aprovado, mas o banco falhou. Isso requer atenção manual.
-        // Poderíamos logar isso em uma tabela de "pagamentos a conciliar".
+        console.error(`[process-mp-payment] Erro ao finalizar pedido ${orderId}:`, finalizeError);
+        // Pagamento aprovado mas banco falhou — logar para conciliação manual
+        try {
+          await supabaseAdmin.from('integration_logs').insert([{
+            event_type: 'mercadopago_finalize_error',
+            status: 'error',
+            details: `Pagamento aprovado mas finalize_order_payment falhou: ${finalizeError.message}`,
+            payload: { payment_id: paymentData.id, order_id: orderId }
+          }]);
+        } catch (e) { /* ignora */ }
+      } else {
+        console.log(`[process-mp-payment] Pedido ${orderId} finalizado com sucesso.`);
       }
+
+      return new Response(JSON.stringify({
+        success: true,
+        status: paymentData.status,
+        payment_id: paymentData.id,
+        order_id: orderId,
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      });
+
+    } else if (paymentData.status === 'in_process' || paymentData.status === 'pending') {
+      // Pagamento em análise — comum em alguns cartões
+      console.warn(`[process-mp-payment] Pagamento em análise para pedido ${orderId}: ${paymentData.status_detail}`);
+      return new Response(JSON.stringify({
+        success: false,
+        status: paymentData.status,
+        error: 'Seu pagamento está em análise. Você receberá uma confirmação em breve.',
+        payment_id: paymentData.id,
+        order_id: orderId,
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      });
+
     } else {
-      console.warn(`[process-mp-payment] Pagamento para pedido ${external_reference} com status: ${paymentData.status}. Detalhe: ${paymentData.status_detail}`);
-      throw new Error(`Pagamento ${paymentData.status_detail}`);
+      // Recusado
+      const detail = paymentData.status_detail || paymentData.status;
+      const friendlyMessages: Record<string, string> = {
+        'cc_rejected_insufficient_amount': 'Saldo insuficiente no cartão.',
+        'cc_rejected_bad_filled_card_number': 'Número do cartão incorreto.',
+        'cc_rejected_bad_filled_date': 'Data de validade incorreta.',
+        'cc_rejected_bad_filled_security_code': 'Código de segurança incorreto.',
+        'cc_rejected_blacklist': 'Cartão não autorizado.',
+        'cc_rejected_call_for_authorize': 'Ligue para o banco para autorizar.',
+        'cc_rejected_card_disabled': 'Cartão desativado. Contate seu banco.',
+        'cc_rejected_duplicated_payment': 'Pagamento duplicado detectado.',
+        'cc_rejected_high_risk': 'Pagamento recusado por segurança.',
+        'cc_rejected_max_attempts': 'Limite de tentativas atingido. Tente outro cartão.',
+      };
+
+      const userMessage = friendlyMessages[detail] || `Pagamento recusado: ${detail}`;
+      console.warn(`[process-mp-payment] Pagamento recusado para pedido ${orderId}: ${detail}`);
+
+      throw new Error(userMessage);
     }
 
-    return new Response(JSON.stringify({ success: true, status: paymentData.status, order_id: external_reference }), {
+  } catch (error: any) {
+    console.error("[process-mp-payment] Erro fatal:", error?.message || error);
+    return new Response(JSON.stringify({
+      success: false,
+      error: error?.message || 'Erro ao processar pagamento. Tente novamente.'
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
-    });
-
-  } catch (error) {
-    console.error("[process-mp-payment] Erro fatal:", error);
-    return new Response(JSON.stringify({ success: false, error: error.message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400, // Usar 400 para erros de negócio/validação
     });
   }
 });

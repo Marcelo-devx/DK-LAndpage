@@ -12,8 +12,8 @@ import { Separator } from '@/components/ui/separator';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { showError, showLoading, dismissToast } from '@/utils/toast';
-import { Loader2, Search, CreditCard, MessageSquare, MapPin, Gift, X, AlertTriangle, CheckCircle2, Clock, Info, Sparkles } from 'lucide-react';
+import { showError, showLoading, dismissToast, showSuccess } from '@/utils/toast';
+import { Loader2, Search, CreditCard, MessageSquare, MapPin, Gift, X, AlertTriangle, CheckCircle2, Sparkles } from 'lucide-react';
 import { getLocalCart, ItemType, clearLocalCart } from '@/utils/localCart';
 import { maskCep, maskPhone, maskCpfCnpj } from '@/utils/masks';
 import CouponsModal from '@/components/CouponsModal';
@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 import { differenceInDays, endOfWeek, isSameWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import ProductImage from '@/components/ProductImage';
+import MercadoPagoCardForm from '@/components/MercadoPagoCardForm';
 
 interface DisplayItem {
   id: number;
@@ -86,23 +87,21 @@ const CheckoutPage = () => {
   const [isFreeShippingApplied, setIsFreeShippingApplied] = useState(false);
   const [donationAmount, setDonationAmount] = useState<number>(0);
   const [tierName, setTierName] = useState<string>('');
-
-  // ADDED: missing state variables required by the component
   const [isAddressComplete, setIsAddressComplete] = useState<boolean>(false);
-
-  // Tier benefits come from profile.loyalty_tiers.benefits (array of strings)
   const [tierBenefits, setTierBenefits] = useState<string[]>([]);
 
-  // Recent orders used for benefit calculations (created_at and benefits_used expected)
   type RecentOrder = { created_at: string; benefits_used?: string | null };
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
-
-  // Selected optional benefits (e.g. free shipping) that the user can toggle
   const [selectedBenefits, setSelectedBenefits] = useState<string[]>([]);
+
+  // Estado para controlar se o formulário do MP está visível
+  const [showMpForm, setShowMpForm] = useState(false);
+  // Armazena o orderId criado antes de mostrar o form do MP
+  const [pendingOrderId, setPendingOrderId] = useState<number | null>(null);
 
   const isMountedRef = useRef(true);
 
-  const { register, handleSubmit, setValue, getValues, watch, formState: { errors }, trigger } = useForm<CheckoutFormData>({
+  const { register, handleSubmit, setValue, getValues, watch, formState: { errors } } = useForm<CheckoutFormData>({
     resolver: zodResolver(checkoutSchema),
   });
 
@@ -206,28 +205,20 @@ const CheckoutPage = () => {
     const now = new Date();
 
     if (lowerBenefit.includes('semana')) {
-        const usedThisWeek = recentOrders.some(o => 
-            o.benefits_used && 
-            o.benefits_used.includes(benefit) && 
+        const usedThisWeek = recentOrders.some(o =>
+            o.benefits_used &&
+            o.benefits_used.includes(benefit) &&
             isSameWeek(new Date(o.created_at), now, { locale: ptBR })
         );
 
         if (usedThisWeek) {
             const endOfCurrentWeek = endOfWeek(now, { locale: ptBR });
             const daysToRenew = differenceInDays(endOfCurrentWeek, now) + 1;
-            return {
-                status: 'used',
-                label: `Renova em ${daysToRenew} dias`,
-                color: 'text-stone-400 bg-stone-100 border-stone-200'
-            };
+            return { status: 'used', label: `Renova em ${daysToRenew} dias`, color: 'text-stone-400 bg-stone-100 border-stone-200' };
         } else {
             const endOfCurrentWeek = endOfWeek(now, { locale: ptBR });
             const daysLeft = differenceInDays(endOfCurrentWeek, now);
-            return {
-                status: 'available',
-                label: daysLeft === 0 ? 'Expira HOJE!' : `Expira em ${daysLeft} dias`,
-                color: 'text-sky-600 bg-sky-50 border-sky-200'
-            };
+            return { status: 'available', label: daysLeft === 0 ? 'Expira HOJE!' : `Expira em ${daysLeft} dias`, color: 'text-sky-600 bg-sky-50 border-sky-200' };
         }
     }
 
@@ -237,23 +228,17 @@ const CheckoutPage = () => {
   const handleRedemption = useCallback(() => { if (user) { fetchUserData(user); } }, [user, fetchUserData]);
 
   useEffect(() => {
-    // Carregar carrinho e verificar sessão (mas não redirecionar para login)
     const loadCheckout = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       const u = session?.user;
       if (isMountedRef.current) setUser(u);
-      
-      if (u) {
-        await fetchUserData(u);
-      }
-      
+      if (u) await fetchUserData(u);
       await fetchCartItems();
       if (isMountedRef.current) setLoading(false);
     };
-    
+
     loadCheckout();
-    
-    // Background refresh when returning focus - only update small bits (shipping cost/user session)
+
     let hiddenAt = 0;
     const THRESHOLD_MS = 5000;
 
@@ -346,19 +331,21 @@ const CheckoutPage = () => {
     return () => clearTimeout(timeoutId);
   }, [watchedNeighborhood, watchedCity, selectedBenefits, deliveryType]);
 
+  // ============================================================
+  // PIX WHATSAPP — NÃO ALTERADO
+  // ============================================================
   const handlePixPayment = async (data: CheckoutFormData) => {
     const toastId = showLoading("Criando seu pedido PIX...");
     try {
       if (user) {
-        // Usuário logado - usa a função original
         const bStrings = [...tierBenefits.filter(isPassiveBenefit), ...selectedBenefits];
         const { data: o, error: err } = await supabase.rpc('create_pending_order_from_local_cart', {
           shipping_cost_input: shippingCost,
-          shipping_address_input: data, 
+          shipping_address_input: data,
           cart_items_input: getLocalCart(),
-          user_coupon_id_input: selectedCoupon?.user_coupon_id, 
+          user_coupon_id_input: selectedCoupon?.user_coupon_id,
           benefits_input: bStrings.length ? `Nível ${tierName}: ${bStrings.join(', ')}` : null,
-          payment_method_input: 'pix', 
+          payment_method_input: 'pix',
           donation_amount_input: donationAmount
         });
         if (err) throw err;
@@ -367,11 +354,9 @@ const CheckoutPage = () => {
         const createdOrderId = typeof rawOrderId === 'string' ? Number(rawOrderId) : rawOrderId;
 
         if (!isMountedRef.current) return;
-
         dismissToast(toastId);
         clearLocalCart();
 
-        // Disparar webhook para o n8n (fire-and-forget, não bloqueia o fluxo)
         (async () => {
           try {
             const { data: { session } } = await supabase.auth.getSession();
@@ -388,15 +373,12 @@ const CheckoutPage = () => {
             }
           } catch (invokeEx) {
             console.error('[CheckoutPage] trigger-integration error (pix/logged):', invokeEx);
-            try {
-              await supabase.from('integration_logs').insert([{ event_type: 'order_created', status: 'failed', details: String(invokeEx), payload: { order_id: createdOrderId } }]);
-            } catch (_) {}
+            try { await supabase.from('integration_logs').insert([{ event_type: 'order_created', status: 'failed', details: String(invokeEx), payload: { order_id: createdOrderId } }]); } catch (_) {}
           }
         })();
 
         if (isMountedRef.current) navigate(`/confirmacao-pedido/${createdOrderId}`);
       } else {
-        // Convidado - usa a nova função
         const { data: o, error: err } = await supabase.rpc('create_guest_order', {
           p_email: data.email,
           p_first_name: data.first_name,
@@ -415,11 +397,9 @@ const CheckoutPage = () => {
         const createdOrderId = typeof rawOrderId === 'string' ? Number(rawOrderId) : rawOrderId;
 
         if (!isMountedRef.current) return;
-
         dismissToast(toastId);
         clearLocalCart();
 
-        // Disparar webhook para o n8n (fire-and-forget, não bloqueia o fluxo)
         (async () => {
           try {
             const { error: invokeErr } = await supabase.functions.invoke('trigger-integration', {
@@ -434,9 +414,7 @@ const CheckoutPage = () => {
             }
           } catch (invokeEx) {
             console.error('[CheckoutPage] trigger-integration error (pix/guest):', invokeEx);
-            try {
-              await supabase.from('integration_logs').insert([{ event_type: 'order_created', status: 'failed', details: String(invokeEx), payload: { order_id: createdOrderId, guest_email: data.email } }]);
-            } catch (_) {}
+            try { await supabase.from('integration_logs').insert([{ event_type: 'order_created', status: 'failed', details: String(invokeEx), payload: { order_id: createdOrderId, guest_email: data.email } }]); } catch (_) {}
           }
         })();
 
@@ -450,16 +428,19 @@ const CheckoutPage = () => {
     }
   };
 
-  const handleMercadoPagoRedirect = async (data: CheckoutFormData) => {
-    const toastId = showLoading("Redirecionando para o pagamento...");
-    try {
+  // ============================================================
+  // CARTÃO DE CRÉDITO — CHECKOUT TRANSPARENTE
+  // Passo 1: Criar o pedido e mostrar o formulário do MP
+  // ============================================================
+  const handlePrepareCardPayment = async (data: CheckoutFormData) => {
+    if (!isAddressComplete) { showError("Preencha todos os dados de entrega."); return; }
+    setIsSubmitting(true);
+    const toastId = showLoading("Preparando pagamento...");
 
+    try {
       let orderId: number;
-      let finalTotal: number;
-      let shippingAddress: any;
 
       if (user) {
-        // Usuário logado
         const bStrings = [...tierBenefits.filter(isPassiveBenefit), ...selectedBenefits];
         const { data: orderData, error: orderError } = await supabase.rpc('create_pending_order_from_local_cart', {
           shipping_cost_input: shippingCost,
@@ -473,9 +454,7 @@ const CheckoutPage = () => {
         if (orderError) throw new Error(orderError.message || "Erro ao criar pedido.");
         const rawOrderId: any = (orderData as any)?.new_order_id ?? (orderData as any)?.order_id ?? (orderData as any)?.id ?? orderData;
         orderId = typeof rawOrderId === 'string' ? Number(rawOrderId) : rawOrderId;
-        if (!orderId || !Number.isFinite(Number(orderId))) throw new Error('Não foi possível criar o pedido (ID ausente).');
       } else {
-        // Convidado
         const { data: orderData, error: orderError } = await supabase.rpc('create_guest_order', {
           p_email: data.email,
           p_first_name: data.first_name,
@@ -491,106 +470,165 @@ const CheckoutPage = () => {
         if (orderError) throw new Error(orderError.message || "Erro ao criar pedido.");
         const rawOrderId: any = (orderData as any)?.new_order_id ?? (orderData as any)?.order_id ?? (orderData as any)?.id ?? orderData;
         orderId = typeof rawOrderId === 'string' ? Number(rawOrderId) : rawOrderId;
-        if (!orderId || !Number.isFinite(Number(orderId))) throw new Error('Não foi possível criar o pedido (ID ausente).');
       }
 
-      // Disparar webhook para o n8n (fire-and-forget, não bloqueia o fluxo do MP)
+      if (!orderId || !Number.isFinite(Number(orderId))) throw new Error('Não foi possível criar o pedido.');
+
+      dismissToast(toastId);
+      setPendingOrderId(orderId);
+      setShowMpForm(true);
+
+      // Disparar webhook (fire-and-forget)
       (async () => {
         try {
           const { data: { session } } = await supabase.auth.getSession();
           const authToken = session?.access_token;
-          const invokeOpts: any = { body: { order_id: orderId, event_type: 'order_created', guest_email: data.email } };
+          const invokeOpts: any = { body: { order_id: orderId, event_type: 'order_created', guest_email: getValues('email') } };
           if (authToken) invokeOpts.headers = { Authorization: `Bearer ${authToken}` };
-          const { error: invokeErr } = await supabase.functions.invoke('trigger-integration', invokeOpts);
-          if (invokeErr) {
-            console.warn('[CheckoutPage] trigger-integration warning (mp):', invokeErr);
-          } else {
-            console.info('[CheckoutPage] trigger-integration dispatched (mp)', orderId);
-          }
-        } catch (invokeEx) {
-          console.error('[CheckoutPage] trigger-integration error (mp):', invokeEx);
-        }
+          await supabase.functions.invoke('trigger-integration', invokeOpts);
+        } catch (e) { console.warn('[CheckoutPage] trigger-integration warning (card):', e); }
       })();
 
-      // Sempre buscar total_price diretamente do banco — fonte da verdade
+    } catch (e: any) {
+      dismissToast(toastId);
+      showError(e?.message || "Erro ao preparar pagamento.");
+    } finally {
+      if (isMountedRef.current) setIsSubmitting(false);
+    }
+  };
+
+  // ============================================================
+  // CARTÃO DE CRÉDITO — CHECKOUT TRANSPARENTE
+  // Passo 2: Receber o token do Brick e processar o pagamento
+  // ============================================================
+  const handleMpCardSubmit = async (cardBrickResult: any) => {
+    if (!pendingOrderId) { showError("Pedido não encontrado. Tente novamente."); return; }
+    setIsSubmitting(true);
+    const toastId = showLoading("Processando pagamento...");
+
+    try {
+      // Buscar total real do banco
       const { data: orderRow, error: orderRowError } = await supabase
         .from('orders')
         .select('total_price, shipping_address')
-        .eq('id', orderId)
+        .eq('id', pendingOrderId)
         .single();
 
-      if (orderRowError || !orderRow) throw new Error('Pedido não encontrado após criação.');
+      if (orderRowError || !orderRow) throw new Error('Pedido não encontrado.');
 
-      finalTotal = Number(orderRow.total_price || 0);
-      shippingAddress = orderRow.shipping_address || data;
+      const finalTotal = Number(orderRow.total_price || 0);
+      if (!finalTotal || finalTotal <= 0) throw new Error('Total do pedido inválido.');
 
-      if (!finalTotal || finalTotal <= 0) throw new Error('Total do pedido inválido. Verifique os itens e tente novamente.');
-
-      if (!isMountedRef.current) return;
+      const formData = getValues();
+      const cleanCpf = formData.cpf_cnpj.replace(/\D/g, '');
 
       const { data: { session } } = await supabase.auth.getSession();
       const authToken = session?.access_token;
 
       const invokeOptions: any = {
         body: {
-          shipping_address: shippingAddress,
-          order_id: orderId,
-          total_price: finalTotal,
-          origin: window.location.origin,
-          guest_email: data.email,
-          guest_phone: data.phone.replace(/\D/g, ''),
-          guest_cpf_cnpj: data.cpf_cnpj.replace(/\D/g, '')
+          // Dados do Brick (token, installments, payment_method_id, etc.)
+          ...cardBrickResult,
+          // Dados do pedido
+          external_reference: String(pendingOrderId),
+          transaction_amount: finalTotal,
+          // Dados do pagador
+          payer: {
+            email: formData.email,
+            identification: {
+              type: cleanCpf.length > 11 ? 'CNPJ' : 'CPF',
+              number: cleanCpf,
+            },
+            first_name: formData.first_name,
+            last_name: formData.last_name,
+          },
         }
       };
       if (authToken) invokeOptions.headers = { Authorization: `Bearer ${authToken}` };
 
-      console.log('[CheckoutPage] invoking create-mercadopago-preference', { orderId, finalTotal });
+      console.log('[CheckoutPage] invoking process-mercadopago-payment', { orderId: pendingOrderId, finalTotal });
 
-      const { data: pref, error: prefError } = await supabase.functions.invoke('create-mercadopago-preference', invokeOptions);
+      const { data: result, error: payError } = await supabase.functions.invoke('process-mercadopago-payment', invokeOptions);
 
-      if (prefError) throw new Error(prefError.message || 'Erro ao criar preferência de pagamento.');
-      if (!isMountedRef.current) return;
+      if (payError) throw new Error(payError.message || 'Erro ao processar pagamento.');
+      if (!result?.success) throw new Error(result?.error || 'Pagamento não aprovado.');
 
-      if (!pref?.success && pref?.error) {
-        throw new Error(pref.error);
-      }
+      dismissToast(toastId);
+      clearLocalCart();
+      showSuccess('Pagamento aprovado! 🎉');
 
-      if (pref?.mp_error) {
-        const mpErr = pref.mp_error;
-        const userMsg = pref.error || (mpErr && (mpErr.message || JSON.stringify(mpErr))) || 'Erro no Mercado Pago.';
-        throw new Error(`Mercado Pago: ${userMsg}`);
-      }
+      if (isMountedRef.current) navigate(`/confirmacao-pedido/${pendingOrderId}`);
 
-      if (!pref?.init_point && !pref?.sandbox_init_point) {
-        console.error('[CheckoutPage] unexpected MP response:', pref);
-        throw new Error('Não foi possível obter a URL de pagamento. Tente novamente.');
-      }
-
-      if (isMountedRef.current) {
-        dismissToast(toastId);
-        clearLocalCart();
-        const target = pref.init_point || pref.sandbox_init_point;
-        window.location.href = target;
-      }
     } catch (e: any) {
-      if (isMountedRef.current) {
-        dismissToast(toastId);
-        showError(e?.message || "Não foi possível iniciar o pagamento. Tente novamente.");
-        setIsSubmitting(false);
-      }
+      dismissToast(toastId);
+      showError(e?.message || "Pagamento recusado. Verifique os dados do cartão e tente novamente.");
+      if (isMountedRef.current) setIsSubmitting(false);
     }
   };
 
   const onSubmit = async (data: CheckoutFormData) => {
     if (!isMountedRef.current) return;
-    setIsSubmitting(true);
-    if (data.payment_method === 'pix') await handlePixPayment(data);
-    else await handleMercadoPagoRedirect(data);
-    if (isMountedRef.current) setIsSubmitting(false);
+    if (data.payment_method === 'pix') {
+      setIsSubmitting(true);
+      await handlePixPayment(data);
+      if (isMountedRef.current) setIsSubmitting(false);
+    } else {
+      // Para cartão, handlePrepareCardPayment já gerencia o isSubmitting
+      await handlePrepareCardPayment(data);
+    }
   };
 
   if (loading) return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-sky-400" /></div>;
 
+  // ============================================================
+  // TELA DO FORMULÁRIO DE CARTÃO (após criar o pedido)
+  // ============================================================
+  if (showMpForm && pendingOrderId) {
+    return (
+      <div className="container mx-auto px-4 md:px-6 py-4 md:py-10 text-charcoal-gray max-w-2xl">
+        <div className="mb-8">
+          <button
+            onClick={() => { setShowMpForm(false); setPendingOrderId(null); }}
+            className="text-xs text-slate-500 hover:text-slate-700 font-bold uppercase tracking-widest flex items-center gap-2 mb-6 transition-colors"
+          >
+            ← Voltar ao checkout
+          </button>
+          <h1 className="text-3xl font-black italic uppercase tracking-tighter text-charcoal-gray">Pagamento com Cartão.</h1>
+          <p className="text-sm text-slate-500 mt-2 font-medium">Pedido <span className="font-black text-sky-600">#{pendingOrderId}</span> — Total: <span className="font-black text-sky-600">R$ {total.toFixed(2).replace('.', ',')}</span></p>
+        </div>
+
+        <Card className="bg-white border-stone-200 shadow-xl rounded-[2rem] overflow-hidden">
+          <CardHeader className="bg-stone-50 border-b border-stone-100 p-8">
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-sky-100 rounded-2xl">
+                <CreditCard className="h-6 w-6 text-sky-600" />
+              </div>
+              <div>
+                <CardTitle className="font-black text-2xl uppercase tracking-tighter italic">Dados do Cartão.</CardTitle>
+                <p className="text-xs text-slate-500 mt-1 font-medium">Ambiente seguro — seus dados são criptografados pelo Mercado Pago</p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-8">
+            <MercadoPagoCardForm
+              amount={total}
+              onSubmit={handleMpCardSubmit}
+              isSubmitting={isSubmitting}
+            />
+          </CardContent>
+        </Card>
+
+        <div className="mt-6 flex items-center justify-center gap-3 text-xs text-slate-400 font-medium">
+          <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" /></svg>
+          Pagamento 100% seguro via Mercado Pago
+        </div>
+      </div>
+    );
+  }
+
+  // ============================================================
+  // TELA PRINCIPAL DO CHECKOUT
+  // ============================================================
   return (
     <div className="container mx-auto px-4 md:px-6 py-4 md:py-10 text-charcoal-gray">
       <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 lg:grid-cols-2 lg:gap-16">
@@ -634,13 +672,13 @@ const CheckoutPage = () => {
                         const selectable = isSelectableBenefit(benefit);
                         const info = getBenefitInfo(benefit);
                         const isUsed = info.status === 'used';
-                        
+
                         if (selectable) {
                             return (
                                 <div key={benefit} className={cn(
                                     "group relative flex items-start space-x-5 p-5 rounded-2xl border transition-all duration-300",
-                                    isUsed 
-                                        ? "bg-white/5 border-white/5 opacity-40" 
+                                    isUsed
+                                        ? "bg-white/5 border-white/5 opacity-40"
                                         : "bg-white/5 border-white/10 hover:border-sky-500/50 hover:bg-white/[0.08] cursor-pointer"
                                 )}>
                                     <div className="pt-1">
@@ -686,7 +724,7 @@ const CheckoutPage = () => {
                         );
                     })}
                 </div>
-                
+
                 <div className="pt-4">
                     <p className="text-[9px] text-slate-500 font-medium uppercase tracking-widest text-center">
                         Benefícios aplicados automaticamente com base no seu nível de fidelidade.
@@ -703,15 +741,69 @@ const CheckoutPage = () => {
             <CardContent className="p-8 space-y-6">
               <div className="space-y-3 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">{items.map(i => (<div key={i.id} className="flex items-center justify-between bg-stone-50 p-3 rounded-xl border border-stone-100"><div className="flex items-center gap-3"><ProductImage src={i.image_url} alt={i.name} className="h-12 w-12 object-cover rounded-lg" /><div><p className="font-black text-[10px] uppercase">{i.name}</p><p className="text-[9px] text-slate-400 font-bold">QTD: {i.quantity}</p></div></div><p className="font-black text-sky-600 text-sm">R$ {(getItemPrice(i) * i.quantity).toFixed(2)}</p></div>))}</div>
               <div className="space-y-2"><Label className="text-[10px] uppercase text-slate-400">Cupom</Label><Select onValueChange={handleCouponChange} value={selectedCoupon?.user_coupon_id.toString() || 'none'}><SelectTrigger className="rounded-xl h-12"><SelectValue placeholder="Aplicar cupom" /></SelectTrigger><SelectContent>{coupons.map(c => <SelectItem key={c.user_coupon_id} value={c.user_coupon_id.toString()}>{c.name}</SelectItem>)}<SelectItem value="none">Nenhum</SelectItem></SelectContent></Select></div>
-              <div className="space-y-3 bg-stone-50 p-6 rounded-2xl border border-stone-100"><div className="flex justify-between text-[10px] font-bold uppercase text-slate-500"><span>Subtotal</span><span>R$ {subtotal.toFixed(2)}</span></div>{selectedCoupon && <div className="flex justify-between text-[10px] font-bold uppercase text-green-600"><span>Desconto</span><span>- R$ {discount.toFixed(2)}</span></div>}<div className="flex justify-between text-[10px] font-bold uppercase text-slate-500"><span>Frete</span><span className={isFreeShippingApplied ? "text-green-600" : ""}>{isFreeShippingApplied ? "GRÁTIS" : `R$ ${shippingCost.toFixed(2)}`}</span></div>{donationAmount > 0 && <div className="flex justify-between text-[10px] font-bold uppercase text-rose-600"><span>Doação</span><span>+ R$ {donationAmount.toFixed(2)}</span></div>}<Separator /><div className="flex justify-between font-black text-3xl italic uppercase tracking-tighter"><span>Total</span><span className="text-sky-600">R$ {total.toFixed(2).replace('.', ',')}</span></div></div>
+              <div className="space-y-3 bg-stone-50 p-6 rounded-2xl border border-stone-100">
+                <div className="flex justify-between text-[10px] font-bold uppercase text-slate-500"><span>Subtotal</span><span>R$ {subtotal.toFixed(2)}</span></div>
+                {selectedCoupon && <div className="flex justify-between text-[10px] font-bold uppercase text-green-600"><span>Desconto</span><span>- R$ {discount.toFixed(2)}</span></div>}
+                <div className="flex justify-between text-[10px] font-bold uppercase text-slate-500"><span>Frete</span><span className={isFreeShippingApplied ? "text-green-600" : ""}>{isFreeShippingApplied ? "GRÁTIS" : `R$ ${shippingCost.toFixed(2)}`}</span></div>
+                {donationAmount > 0 && <div className="flex justify-between text-[10px] font-bold uppercase text-rose-600"><span>Doação</span><span>+ R$ {donationAmount.toFixed(2)}</span></div>}
+                <Separator />
+                <div className="flex justify-between font-black text-3xl italic uppercase tracking-tighter"><span>Total</span><span className="text-sky-600">R$ {total.toFixed(2).replace('.', ',')}</span></div>
+              </div>
               <div className="space-y-3"><Label className="text-[10px] uppercase text-slate-400">Doação Solidária</Label><div className="flex flex-wrap items-center gap-2">{[2, 5, 10].map(val => (<Button key={val} type="button" variant={donationAmount === val ? 'default' : 'outline'} onClick={() => setDonationAmount(prev => (prev === val ? 0 : val))} className={cn("rounded-lg h-10 text-xs font-bold", donationAmount === val && "bg-rose-500 hover:bg-rose-600")}>R$ {val.toFixed(2)}</Button>))}{donationAmount > 0 && (<Button type="button" variant="ghost" size="icon" onClick={() => setDonationAmount(0)} className="text-rose-500 hover:text-rose-700"><X className="h-4 w-4" /></Button>)}</div></div>
-              <div className="space-y-3"><Label className="text-[10px] uppercase text-slate-400">Método de Pagamento</Label>{!isAddressComplete && (<Alert variant="destructive" className="bg-red-50 border-red-100 text-red-700"><AlertTriangle className="h-4 w-4" /><AlertTitle className="font-bold">Endereço Incompleto</AlertTitle><AlertDescription className="text-xs">Preencha todos os seus dados de entrega para liberar as opções de pagamento.</AlertDescription></Alert>)}<div className="grid grid-cols-2 gap-3"><Button type="button" onClick={() => setValue('payment_method', 'mercadopago')} disabled={!isCreditCardEnabled || !isAddressComplete} className={cn("h-16 flex-col gap-1 rounded-xl border", paymentMethod === 'mercadopago' ? "bg-sky-500 text-white border-sky-400" : "bg-stone-50 text-slate-500")}><CreditCard className="h-4 w-4" /><span className="text-[9px] uppercase font-black">Cartão</span></Button><Button type="button" onClick={() => setValue('payment_method', 'pix')} disabled={!isAddressComplete} className={cn("h-16 flex-col gap-1 rounded-xl border", paymentMethod === 'pix' ? "bg-sky-500 text-white border-sky-400" : "bg-stone-50 text-slate-500")}><MessageSquare className="h-4 w-4" /><span className="text-[9px] uppercase font-black">PIX WhatsApp</span></Button></div>{paymentMethod === 'mercadopago' && (<Alert className="mt-4 bg-amber-50 border-amber-100"><AlertTitle className="text-sm">Atenção</AlertTitle><AlertDescription className="text-sm text-stone-600">O cartão de crédito deve estar no mesmo nome e CPF/CNPJ cadastrados no site para evitar recusas no pagamento.</AlertDescription></Alert>)}</div>
-              {paymentMethod === 'pix' && (<Button type="submit" disabled={isSubmitting || !isAddressComplete} className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95">{isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : "Finalizar com PIX"}</Button>)}
-              {paymentMethod === 'mercadopago' && (<Button type="submit" disabled={isSubmitting || !isCreditCardEnabled || !isAddressComplete} className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95">{isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : "Pagar com Mercado Pago"}</Button>)}
+
+              <div className="space-y-3">
+                <Label className="text-[10px] uppercase text-slate-400">Método de Pagamento</Label>
+                {!isAddressComplete && (
+                  <Alert variant="destructive" className="bg-red-50 border-red-100 text-red-700">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle className="font-bold">Endereço Incompleto</AlertTitle>
+                    <AlertDescription className="text-xs">Preencha todos os seus dados de entrega para liberar as opções de pagamento.</AlertDescription>
+                  </Alert>
+                )}
+                <div className="grid grid-cols-2 gap-3">
+                  <Button
+                    type="button"
+                    onClick={() => setValue('payment_method', 'mercadopago')}
+                    disabled={!isCreditCardEnabled || !isAddressComplete}
+                    className={cn("h-16 flex-col gap-1 rounded-xl border", paymentMethod === 'mercadopago' ? "bg-sky-500 text-white border-sky-400" : "bg-stone-50 text-slate-500")}
+                  >
+                    <CreditCard className="h-4 w-4" />
+                    <span className="text-[9px] uppercase font-black">Cartão</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => setValue('payment_method', 'pix')}
+                    disabled={!isAddressComplete}
+                    className={cn("h-16 flex-col gap-1 rounded-xl border", paymentMethod === 'pix' ? "bg-sky-500 text-white border-sky-400" : "bg-stone-50 text-slate-500")}
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                    <span className="text-[9px] uppercase font-black">PIX WhatsApp</span>
+                  </Button>
+                </div>
+
+                {paymentMethod === 'mercadopago' && (
+                  <div className="bg-sky-50 border border-sky-100 rounded-xl p-4 flex items-start gap-3">
+                    <CreditCard className="h-4 w-4 text-sky-600 mt-0.5 shrink-0" />
+                    <p className="text-xs text-sky-700 font-medium">
+                      Você será direcionado para um formulário seguro do Mercado Pago para inserir os dados do cartão. Parcelamento em até 12x disponível.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {paymentMethod === 'pix' && (
+                <Button type="submit" disabled={isSubmitting || !isAddressComplete} className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95">
+                  {isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : "Finalizar com PIX"}
+                </Button>
+              )}
+              {paymentMethod === 'mercadopago' && (
+                <Button type="submit" disabled={isSubmitting || !isCreditCardEnabled || !isAddressComplete} className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95">
+                  {isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : "Inserir Dados do Cartão →"}
+                </Button>
+              )}
             </CardContent>
           </Card>
         </div>
-
       </form>
       <CouponsModal isOpen={isCouponsModalOpen} onOpenChange={setIsCouponsModalOpen} userPoints={userPoints} onRedemption={handleRedemption} />
     </div>

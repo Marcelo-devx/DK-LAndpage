@@ -200,7 +200,7 @@ const CompleteProfilePage = () => {
   const isReadyToSubmit = requiredFieldsFilled && accepted && !cpfError && !isCheckingCpf && cpfValidated;
 
   const handleCepLookup = async () => {
-    const cep = getValues('cep');
+    const cep = (getValues('cep') || '').toString();
     const cleanedCep = cep.replace(/\D/g, '');
     if (cleanedCep.length !== 8) {
       showError("Por favor, insira um CEP válido com 8 dígitos.");
@@ -268,10 +268,10 @@ const CompleteProfilePage = () => {
         return;
       }
 
-      setValue('street', data.logradouro);
-      setValue('neighborhood', data.bairro);
-      setValue('city', data.localidade);
-      setValue('state', data.uf);
+      setValue('street', data.logradouro || '');
+      setValue('neighborhood', data.bairro || '');
+      setValue('city', data.localidade || '');
+      setValue('state', data.uf || '');
       
       if (data.deliveryType === 'correios') {
         setDeliveryType('correios');
@@ -433,6 +433,7 @@ const CompleteProfilePage = () => {
                               setCpfValidated(false);
                             }}
                             onBlur={() => {
+                              // trigger validation and duplicate check
                               field.onBlur();
                               checkCpfDuplicate();
                             }}
@@ -520,7 +521,14 @@ const CompleteProfilePage = () => {
                 <div className="space-y-2">
                   <Label htmlFor="cep" className="text-charcoal-gray">CEP {requiredStar('cep') && <span className="text-red-500">*</span>}</Label>
                   <div className="flex items-center space-x-3">
-                    <Input id="cep" {...register('cep')} onChange={(e) => e.target.value = maskCep(e.target.value)} className="bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors" />
+                    <Controller
+                      name="cep"
+                      control={control}
+                      defaultValue=""
+                      render={({ field }) => (
+                        <Input id="cep" value={field.value} onChange={(e) => field.onChange(maskCep(e.target.value))} className="bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors" />
+                      )}
+                    />
                     <Button type="button" size="icon" onClick={handleCepLookup} disabled={isFetchingCep} className="bg-sky-500 hover:bg-sky-400 text-white h-12 w-14 rounded-xl shrink-0 shadow-md">
                       {isFetchingCep ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
                     </Button>

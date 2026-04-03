@@ -32,7 +32,14 @@ import { supabase } from "./integrations/supabase/client";
 import DashboardSecurity from "./pages/DashboardSecurity";
 import { useMercadoPagoRedirect } from "./hooks/useMercadoPagoRedirect";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 const AppContent = () => {
   useMercadoPagoRedirect();
@@ -72,7 +79,8 @@ const AppContent = () => {
 
     const listener = supabase.auth.onAuthStateChange((event) => {
       console.log('[App] Auth state event:', event);
-      if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+      // TOKEN_REFRESHED não requer re-verificação — evita re-render ao voltar de outra aba
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
         checkAdmin();
       }
     });

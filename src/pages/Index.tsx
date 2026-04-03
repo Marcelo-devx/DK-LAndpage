@@ -133,20 +133,33 @@ const Index = () => {
         setCategories(categoriesRes.data || []);
 
         const triggerInfoPopup = () => {
-          // If there's an active informational popup from backend, mount and open it
-          if (popupRes.data) {
+          // Mount the informational popup when there's active data, but keep it closed
+          // until the user confirms age. Also respect if the popup was already seen.
+          if (popupRes.data && !sessionStorage.getItem('info_popup_seen')) {
             setInfoPopup(popupRes.data);
-            setIsPopupOpen(true);
+            setIsPopupOpen(false); // keep closed until age is confirmed
           }
         };
 
-        // Always mount/open the informational popup (so it sits behind the age modal if present)
+        // Mount the informational popup (hidden) if available
         triggerInfoPopup();
 
-        // Keep prior age-verified listener for any other logic that depends on it
-        const isAgeVerified = sessionStorage.getItem('age-verified-v2');
-        if (!isAgeVerified) {
+        // Determine if age already verified (localStorage or sessionStorage)
+        const isAgeVerifiedNow = (localStorage.getItem('ageVerified') === 'true') || (sessionStorage.getItem('age-verified-v2') === 'true');
+
+        if (isAgeVerifiedNow) {
+          setAgeVerified(true);
+          // If age already verified, open the informational popup if present
+          if (popupRes.data && !sessionStorage.getItem('info_popup_seen')) {
+            setIsPopupOpen(true);
+          }
+        } else {
+          // Wait for age verification event, then open the informational popup
           const handleVerification = () => {
+            setAgeVerified(true);
+            if (popupRes.data && !sessionStorage.getItem('info_popup_seen')) {
+              setIsPopupOpen(true);
+            }
             window.removeEventListener('ageVerified', handleVerification);
           };
           window.addEventListener('ageVerified', handleVerification);

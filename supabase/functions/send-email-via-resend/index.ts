@@ -131,8 +131,10 @@ const templates = {
         .logo span { color: #0ea5e9; }
         .content { padding: 40px 20px; text-align: center; }
         .password-box {
+          /* strong fallback color for clients that strip backgrounds: use dark text so it's always readable */
           background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
-          color: white;
+          background-color: #0ea5e9; /* fallback */
+          color: #0f172a; /* change to dark so it remains visible on white backgrounds */
           padding: 25px 30px;
           border-radius: 12px;
           font-size: 28px;
@@ -140,7 +142,7 @@ const templates = {
           letter-spacing: 4px;
           margin: 30px auto;
           max-width: 320px;
-          text-shadow: 1px 1px 3px rgba(0,0,0,0.2);
+          text-shadow: 1px 1px 3px rgba(0,0,0,0.02);
           word-break: break-all;
         }
         .info { color: #64748b; font-size: 14px; margin-top: 20px; }
@@ -157,7 +159,11 @@ const templates = {
           <h2 style="font-size: 24px; margin-bottom: 10px; color: #0f172a;">Sua Nova Senha</h2>
           <p style="color: #64748b;">Conforme solicitado, geramos uma nova senha para sua conta:</p>
 
-          <div class="password-box">${password}</div>
+          <!-- password shown inside a styled box, but also repeated as plain dark text for email clients that strip styles -->
+          <div class="password-box" style="color:#0f172a; background-color:#0ea5e9;">${password}</div>
+
+          <!-- Plain visible copy for maximum compatibility -->
+          <p style="color:#0f172a; font-size:20px; font-weight:800; margin-top:10px;">Senha: ${password}</p>
 
           <p style="color: #64748b;">Use essa senha para acessar o site. Após entrar, você pode alterá-la novamente na área de segurança do seu dashboard.</p>
 

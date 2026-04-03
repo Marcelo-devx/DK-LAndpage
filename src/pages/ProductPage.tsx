@@ -54,10 +54,11 @@ const ProductPage = () => {
   const [quantity, setQuantity] = useState(1);
 
   useEffect(() => {
-    const fetchProductData = async () => {
+    const fetchProductData = async (background = false) => {
       if (!id) return;
-      setLoading(true);
+      if (!background) setLoading(true);
 
+      // Fetch product row
       const { data: productData, error } = await supabase
         .from('products')
         .select('*')
@@ -65,9 +66,10 @@ const ProductPage = () => {
         .eq('is_visible', true)
         .single();
 
-      if (error) { setLoading(false); return; }
+      if (error) { if (!background) setLoading(false); return; }
       setProduct(productData);
 
+      // Fetch variants (only minimal work on background)
       const { data: variantsData } = await supabase
         .from('product_variants')
         .select(`id, flavor_id, volume_ml, price, pix_price, stock_quantity, ohms, color`)
@@ -75,15 +77,19 @@ const ProductPage = () => {
         .eq('is_active', true);
 
       if (variantsData && variantsData.length > 0) {
-        const flavorIds = variantsData.filter(v => v.flavor_id).map(v => v.flavor_id);
-        const { data: flavorsData } = await supabase.from('flavors').select('id, name').in('id', flavorIds);
-        
-        const mappedVariants = variantsData.map(v => ({ 
+        const flavorIds = variantsData.filter((v: any) => v.flavor_id).map((v: any) => v.flavor_id);
+        let flavorsData: any[] = [];
+        if (!background && flavorIds.length > 0) {
+          const res = await supabase.from('flavors').select('id, name').in('id', flavorIds);
+          flavorsData = res.data || [];
+        }
+
+        const mappedVariants = variantsData.map((v: any) => ({ 
             ...v, 
-            flavor_name: flavorsData?.find(f => f.id === v.flavor_id)?.name 
+            flavor_name: flavorsData.find(f => f.id === v.flavor_id)?.name
         }));
-        
-        mappedVariants.sort((a, b) => {
+
+        mappedVariants.sort((a: any, b: any) => {
             if (a.stock_quantity > 0 && b.stock_quantity <= 0) return -1;
             if (a.stock_quantity <= 0 && b.stock_quantity > 0) return 1;
             return a.price - b.price;
@@ -92,11 +98,53 @@ const ProductPage = () => {
         setVariants(mappedVariants as any);
       }
 
-      setLoading(false);
+      if (!background) setLoading(false);
     };
 
     fetchProductData();
     window.scrollTo(0, 0);
+
+    // Background refresh when returning to tab/window. Use small threshold and requestIdleCallback.
+    let hiddenAt = 0;
+    const THRESHOLD_MS = 5000; // 5s
+
+    const handleVisibility = () => {
+      try {
+        if (document.hidden) hiddenAt = Date.now();
+        else {
+          if (!hiddenAt) return;
+          const elapsed = Date.now() - hiddenAt;
+          hiddenAt = 0;
+          if (elapsed > THRESHOLD_MS) {
+            const schedule = (cb: () => void) => {
+              if ((window as any).requestIdleCallback) (window as any).requestIdleCallback(cb, { timeout: 2000 });
+              else setTimeout(cb, 500);
+            };
+            schedule(() => { if (document.visibilityState === 'visible') fetchProductData(true); });
+          }
+        }
+      } catch (e) {}
+    };
+
+    const handleFocus = () => {
+      try {
+        if (hiddenAt && (Date.now() - hiddenAt) > THRESHOLD_MS) {
+          const schedule = (cb: () => void) => {
+            if ((window as any).requestIdleCallback) (window as any).requestIdleCallback(cb, { timeout: 2000 });
+            else setTimeout(cb, 500);
+          };
+          schedule(() => { if (document.visibilityState === 'visible') fetchProductData(true); });
+          hiddenAt = 0;
+        }
+      } catch (e) {}
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [id]);
 
   useEffect(() => {

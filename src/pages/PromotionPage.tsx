@@ -37,14 +37,11 @@ const PromotionPage = () => {
   const [loadingRelated, setLoadingRelated] = useState(true);
 
   useEffect(() => {
-    const fetchPromotionData = async () => {
+    const fetchPromotionData = async (background = false) => {
       if (!id) return;
       
-      setLoading(true);
-      setLoadingRelated(true);
-      setPromotion(null);
-      setRelatedPromotions([]);
-
+      if (!background) { setLoading(true); setLoadingRelated(true); setPromotion(null); setRelatedPromotions([]); }
+      
       const { data, error } = await supabase
         .from('promotions')
         .select('id, name, description, price, image_url, stock_quantity')
@@ -53,14 +50,12 @@ const PromotionPage = () => {
 
       if (error) {
         console.error("Error fetching promotion:", error);
-        setPromotion(null);
-        setLoading(false);
-        setLoadingRelated(false);
+        if (!background) { setPromotion(null); setLoading(false); setLoadingRelated(false); }
         return;
       }
       
       setPromotion(data);
-      setLoading(false);
+      if (!background) setLoading(false);
 
       const { data: relatedData, error: relatedError } = await supabase
         .from('promotions')
@@ -72,13 +67,50 @@ const PromotionPage = () => {
       if (relatedError) {
         console.error("Error fetching related promotions:", relatedError);
       } else if (relatedData) {
-        setRelatedPromotions(relatedData);
+        if (!background) setRelatedPromotions(relatedData);
       }
-      setLoadingRelated(false);
+      if (!background) setLoadingRelated(false);
     };
 
     fetchPromotionData();
     window.scrollTo(0, 0);
+
+    let hiddenAt = 0;
+    const THRESHOLD_MS = 5000;
+    const handleVisibility = () => {
+      try {
+        if (document.hidden) hiddenAt = Date.now();
+        else {
+          if (!hiddenAt) return;
+          const elapsed = Date.now() - hiddenAt;
+          hiddenAt = 0;
+          if (elapsed > THRESHOLD_MS) {
+            const schedule = (cb: () => void) => {
+              if ((window as any).requestIdleCallback) (window as any).requestIdleCallback(cb, { timeout: 2000 });
+              else setTimeout(cb, 500);
+            };
+            schedule(() => { if (document.visibilityState === 'visible') fetchPromotionData(true); });
+          }
+        }
+      } catch (e) {}
+    };
+
+    const handleFocus = () => {
+      try {
+        if (hiddenAt && (Date.now() - hiddenAt) > THRESHOLD_MS) {
+          const schedule = (cb: () => void) => {
+            if ((window as any).requestIdleCallback) (window as any).requestIdleCallback(cb, { timeout: 2000 });
+            else setTimeout(cb, 500);
+          };
+          schedule(() => { if (document.visibilityState === 'visible') fetchPromotionData(true); });
+          hiddenAt = 0;
+        }
+      } catch (e) {}
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleFocus);
+    return () => { document.removeEventListener('visibilitychange', handleVisibility); window.removeEventListener('focus', handleFocus); };
   }, [id]);
 
   const handleIncrease = () => setQuantity(prev => prev + 1);

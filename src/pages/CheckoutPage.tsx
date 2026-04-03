@@ -252,6 +252,57 @@ const CheckoutPage = () => {
     };
     
     loadCheckout();
+    
+    // Background refresh when returning focus - only update small bits (shipping cost/user session)
+    let hiddenAt = 0;
+    const THRESHOLD_MS = 5000;
+
+    const handleVisibility = () => {
+      try {
+        if (document.hidden) hiddenAt = Date.now();
+        else {
+          if (!hiddenAt) return;
+          const elapsed = Date.now() - hiddenAt;
+          hiddenAt = 0;
+          if (elapsed > THRESHOLD_MS) {
+            const schedule = (cb: () => void) => {
+              if ((window as any).requestIdleCallback) (window as any).requestIdleCallback(cb, { timeout: 2000 });
+              else setTimeout(cb, 500);
+            };
+            schedule(async () => {
+              try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session?.user) await fetchUserData(session.user);
+                await fetchCartItems();
+              } catch (e) { }
+            });
+          }
+        }
+      } catch (e) {}
+    };
+
+    const handleFocus = () => {
+      try {
+        if (hiddenAt && (Date.now() - hiddenAt) > THRESHOLD_MS) {
+          const schedule = (cb: () => void) => {
+            if ((window as any).requestIdleCallback) (window as any).requestIdleCallback(cb, { timeout: 2000 });
+            else setTimeout(cb, 500);
+          };
+          schedule(async () => {
+            try {
+              const { data: { session } } = await supabase.auth.getSession();
+              if (session?.user) await fetchUserData(session.user);
+              await fetchCartItems();
+            } catch (e) { }
+          });
+          hiddenAt = 0;
+        }
+      } catch (e) {}
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleFocus);
+    return () => { document.removeEventListener('visibilitychange', handleVisibility); window.removeEventListener('focus', handleFocus); };
   }, [fetchUserData, fetchCartItems]);
 
   const handleCouponChange = (val: string) => {

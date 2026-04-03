@@ -138,6 +138,44 @@ const ConfirmacaoPedido = () => {
 
   useEffect(() => {
     fetchOrderDetails();
+    // background refresh when user returns to site: check again if payment status changed
+    let hiddenAt = 0;
+    const THRESHOLD_MS = 5000;
+
+    const handleVisibility = () => {
+      try {
+        if (document.hidden) hiddenAt = Date.now();
+        else {
+          if (!hiddenAt) return;
+          const elapsed = Date.now() - hiddenAt;
+          hiddenAt = 0;
+          if (elapsed > THRESHOLD_MS) {
+            const schedule = (cb: () => void) => {
+              if ((window as any).requestIdleCallback) (window as any).requestIdleCallback(cb, { timeout: 2000 });
+              else setTimeout(cb, 500);
+            };
+            schedule(() => { if (document.visibilityState === 'visible') fetchOrderDetails(); });
+          }
+        }
+      } catch (e) {}
+    };
+
+    const handleFocus = () => {
+      try {
+        if (hiddenAt && (Date.now() - hiddenAt) > THRESHOLD_MS) {
+          const schedule = (cb: () => void) => {
+            if ((window as any).requestIdleCallback) (window as any).requestIdleCallback(cb, { timeout: 2000 });
+            else setTimeout(cb, 500);
+          };
+          schedule(() => { if (document.visibilityState === 'visible') fetchOrderDetails(); });
+          hiddenAt = 0;
+        }
+      } catch (e) {}
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleFocus);
+    return () => { document.removeEventListener('visibilitychange', handleVisibility); window.removeEventListener('focus', handleFocus); };
   }, [id]);
 
   // Ensure header/cart badge reflects the current (cleared) local cart

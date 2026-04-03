@@ -167,7 +167,7 @@ const Index = () => {
   return (
     <div className="bg-off-white overflow-x-hidden text-charcoal-gray w-full transition-colors duration-500">
       <AgeVerificationPopup />
-      {ageVerified && infoPopup && (
+      {infoPopup && isPopupOpen && (
         <InformationalPopup
           isOpen={isPopupOpen}
           onClose={handleClosePopup}

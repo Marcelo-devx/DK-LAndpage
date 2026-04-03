@@ -20,7 +20,20 @@ export const useAgeVerification = () => {
 // Síncrono para evitar flash de conteúdo
 const checkInitialVerification = () => {
   try {
-    return sessionStorage.getItem('age-verified-v2') === 'true';
+    // Já verificado nesta sessão
+    if (sessionStorage.getItem('age-verified-v2') === 'true') return true;
+    // Vindo de redirect externo (Mercado Pago, e-mail, etc.) — considerar verificado
+    // pois o usuário já passou pela verificação antes de chegar ao checkout
+    const path = window.location.pathname;
+    if (
+      path.startsWith('/confirmacao-pedido/') ||
+      path.startsWith('/compras') ||
+      path.startsWith('/auth/')
+    ) {
+      sessionStorage.setItem('age-verified-v2', 'true');
+      return true;
+    }
+    return false;
   } catch (error) {
     return false;
   }

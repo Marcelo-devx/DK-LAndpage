@@ -76,9 +76,6 @@ const ConfirmacaoPedido = () => {
     setLoading(true);
     setErrorMessage(null);
 
-    // The :id param might be just a number, or it could have MP query params appended
-    // e.g. "123" or the URL might be /confirmacao-pedido/123?collection_id=...
-    // useParams only gives us the path segment, so id should be clean, but let's be safe
     const cleanId = id.replace(/\D/g, '');
     if (!cleanId) {
       setErrorMessage('ID do pedido inválido.');
@@ -137,69 +134,64 @@ const ConfirmacaoPedido = () => {
   };
 
   useEffect(() => {
-    // If Mercado Pago redirected back with approval params, finalize first then fetch details
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const mpApproved = params.get('collection_status') === 'approved' || params.get('status') === 'approved' || params.get('payment_status') === 'approved' || params.get('collection_status') === 'paid';
-      if (mpApproved && id) {
-        const cleanId = String(id).replace(/\D/g, '');
-        const orderId = Number(cleanId);
-        if (orderId && Number.isFinite(orderId)) {
-          const schedule = (cb: () => void) => {
-            if ((window as any).requestIdleCallback) (window as any).requestIdleCallback(cb, { timeout: 2000 });
-            else setTimeout(cb, 500);
-          };
+    const init = async () => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const mpApproved =
+          params.get('collection_status') === 'approved' ||
+          params.get('status') === 'approved' ||
+          params.get('payment_status') === 'approved' ||
+          params.get('collection_status') === 'paid';
 
-          // finalize first, then fetch details to avoid race
-          schedule(async () => {
+        if (mpApproved && id) {
+          const cleanId = String(id).replace(/\D/g, '');
+          const orderId = Number(cleanId);
+
+          if (orderId && Number.isFinite(orderId)) {
+            // 1. Mostrar loading enquanto finaliza
+            setLoading(true);
+
+            // 2. Tentar finalizar o pedido no banco (idempotente)
             try {
               const { error: finalizeError } = await supabase.rpc('finalize_order_payment', { p_order_id: orderId });
               if (finalizeError) {
-                console.warn('[ConfirmacaoPedido] finalize_order_payment RPC returned error:', finalizeError);
+                console.warn('[ConfirmacaoPedido] finalize_order_payment error:', finalizeError);
               } else {
-                console.info('[ConfirmacaoPedido] finalize_order_payment RPC executed (attempt) for order', orderId);
+                console.info('[ConfirmacaoPedido] finalize_order_payment OK for order', orderId);
               }
             } catch (e) {
-              console.error('[ConfirmacaoPedido] error calling finalize_order_payment:', e);
+              console.error('[ConfirmacaoPedido] finalize_order_payment exception:', e);
             }
 
-            // After finalize attempt, fetch order details (foreground) so UI reflects final status quickly
-            try {
-              await fetchOrderDetails();
-            } catch (e) {
-              // swallow
-            }
-          });
-        } else {
-          // fallback: if no mp params, just fetch normally
-          fetchOrderDetails();
+            // 3. Buscar detalhes atualizados (sempre, mesmo se finalize falhou)
+            await fetchOrderDetails();
+            return;
+          }
         }
-      } else {
-        // no mp params => normal fetch
-        fetchOrderDetails();
+      } catch (e) {
+        console.error('[ConfirmacaoPedido] init error:', e);
       }
-    } catch (e) {
-      // noop
-      fetchOrderDetails();
-    }
 
-    // background refresh when user returns to site: check again if payment status changed
+      // Sem params do MP: busca normal
+      await fetchOrderDetails();
+    };
+
+    init();
+
+    // Background refresh quando o usuário volta para a aba
     let hiddenAt = 0;
     const THRESHOLD_MS = 5000;
 
     const handleVisibility = () => {
       try {
-        if (document.hidden) hiddenAt = Date.now();
-        else {
+        if (document.hidden) {
+          hiddenAt = Date.now();
+        } else {
           if (!hiddenAt) return;
           const elapsed = Date.now() - hiddenAt;
           hiddenAt = 0;
           if (elapsed > THRESHOLD_MS) {
-            const schedule = (cb: () => void) => {
-              if ((window as any).requestIdleCallback) (window as any).requestIdleCallback(cb, { timeout: 2000 });
-              else setTimeout(cb, 500);
-            };
-            schedule(() => { if (document.visibilityState === 'visible') fetchOrderDetails(); });
+            setTimeout(() => { if (document.visibilityState === 'visible') fetchOrderDetails(); }, 300);
           }
         }
       } catch (e) {}
@@ -208,11 +200,7 @@ const ConfirmacaoPedido = () => {
     const handleFocus = () => {
       try {
         if (hiddenAt && (Date.now() - hiddenAt) > THRESHOLD_MS) {
-          const schedule = (cb: () => void) => {
-            if ((window as any).requestIdleCallback) (window as any).requestIdleCallback(cb, { timeout: 2000 });
-            else setTimeout(cb, 500);
-          };
-          schedule(() => { if (document.visibilityState === 'visible') fetchOrderDetails(); });
+          setTimeout(() => { if (document.visibilityState === 'visible') fetchOrderDetails(); }, 300);
           hiddenAt = 0;
         }
       } catch (e) {}
@@ -220,7 +208,10 @@ const ConfirmacaoPedido = () => {
 
     document.addEventListener('visibilitychange', handleVisibility);
     window.addEventListener('focus', handleFocus);
-    return () => { document.removeEventListener('visibilitychange', handleVisibility); window.removeEventListener('focus', handleFocus); };
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [id]);
 
   // Ensure header/cart badge reflects the current (cleared) local cart

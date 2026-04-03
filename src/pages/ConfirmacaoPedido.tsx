@@ -171,7 +171,7 @@ const ConfirmacaoPedido = () => {
 
   if (errorMessage) {
     return (
-      <div className="container mx-auto px-4 py-16 text-center">
+      <div className="container mx-auto px-4 md:px-6 py-4 md:py-10 text-center">
         <h1 className="font-serif text-2xl text-charcoal-gray mb-4">Não foi possível carregar o pedido</h1>
         <p className="text-sm text-stone-500 mb-6">{errorMessage}</p>
         <div className="flex items-center justify-center gap-3">
@@ -184,7 +184,7 @@ const ConfirmacaoPedido = () => {
 
   if (!order) {
     return (
-      <div className="container mx-auto px-4 py-16 text-center">
+      <div className="container mx-auto px-4 md:px-6 py-4 md:py-10 text-center">
         <h1 className="font-serif text-4xl text-charcoal-gray mb-4">Pedido não encontrado</h1>
         <Button asChild><Link to="/compras">Ver meus pedidos</Link></Button>
       </div>
@@ -201,8 +201,8 @@ const ConfirmacaoPedido = () => {
   const finalTotal = Number(order.total_price) || 0; // total final já gravado no pedido
 
   return (
-    <div className="bg-off-white min-h-screen py-12 md:py-20 text-charcoal-gray">
-      <div className="container mx-auto px-4">
+    <div className="bg-off-white min-h-screen py-4 md:py-10 text-charcoal-gray">
+      <div className="container mx-auto px-4 md:px-6">
         <Card className="max-w-3xl mx-auto bg-white border border-stone-200 shadow-2xl rounded-[2.5rem] overflow-hidden">
           <CardHeader className={cn(
             "text-center p-8 border-b border-stone-100",

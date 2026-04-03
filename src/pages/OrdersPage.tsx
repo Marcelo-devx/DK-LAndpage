@@ -116,7 +116,7 @@ const OrdersPage = () => {
   if (loading) return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-sky-400" /></div>;
 
   return (
-    <div className="container mx-auto px-4 py-12 md:py-20 text-charcoal-gray">
+    <div className="container mx-auto px-4 md:px-6 py-4 md:py-10 text-charcoal-gray">
       <header className="mb-12 max-w-5xl mx-auto">
         <h1 className="text-4xl font-extrabold tracking-tight uppercase text-charcoal-gray">Minhas Compras.</h1>
         <p className="text-stone-600 font-semibold mt-2">Acompanhe seus pedidos e histórico de exclusividade.</p>

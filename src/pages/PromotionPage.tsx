@@ -93,7 +93,7 @@ const PromotionPage = () => {
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-8 md:py-16">
+      <div className="container mx-auto px-4 md:px-6 py-4 md:py-10">
         <div className="grid md:grid-cols-2 gap-8 md:gap-16 items-start">
           <Skeleton className="w-full h-[500px] rounded-lg" />
           <div className="flex flex-col space-y-6">
@@ -112,7 +112,7 @@ const PromotionPage = () => {
 
   if (!promotion) {
     return (
-      <div className="container mx-auto px-4 py-16 text-center">
+      <div className="container mx-auto px-4 md:px-6 py-4 md:py-10 text-center">
         <h1 className="font-serif text-4xl text-charcoal-gray mb-4">Promoção não encontrada</h1>
         <p className="text-stone-600 mb-8">A promoção que você está procurando não existe ou foi removida.</p>
         <Button asChild>
@@ -126,18 +126,18 @@ const PromotionPage = () => {
 
   return (
     <>
-      <div className="container mx-auto px-4 py-8 md:py-16">
+      <div className="container mx-auto px-4 md:px-6 py-4 md:py-10">
         <div className="grid md:grid-cols-2 gap-8 md:gap-16 items-start">
           
           <div className="w-full">
-            <ProductImage 
-              src={promotion.image_url || 'https://picsum.photos/600/800'} 
-              alt={promotion.name} 
+            <ProductImage
+              src={promotion.image_url || 'https://picsum.photos/600/800'}
+              alt={promotion.name}
               className="w-full h-auto object-cover rounded-lg shadow-lg"
             />
           </div>
 
-          <div className="flex flex-col space-y-6">
+          <div className="flex flex-col space-y-4 md:space-y-12">
             <div>
               <p className="text-sm uppercase tracking-widest text-stone-500">Promoção</p>
               <h1 className="font-serif text-4xl md:text-5xl font-medium text-charcoal-gray mt-2">{promotion.name}</h1>
@@ -181,7 +181,7 @@ const PromotionPage = () => {
 
       {relatedPromotions.length > 0 && (
         <ScrollAnimationWrapper>
-          <section className="bg-stone-100 py-16">
+          <section className="bg-stone-100 py-8 md:py-16">
             <div className="container mx-auto px-4">
               <h2 className="font-serif text-3xl md:text-4xl text-center text-charcoal-gray mb-12">
                 Outras Promoções

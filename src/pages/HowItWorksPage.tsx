@@ -167,7 +167,7 @@ const HowItWorksPage = () => {
       {/* BENEFÍCIOS SECTION */}
       <section className="py-24 bg-[#05080f] relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-sky-900/20 via-[#05080f] to-[#05080f]" />
-        <div className="container mx-auto px-6 relative z-10">
+        <div className="container mx-auto px-4 md:px-6 relative z-10">
           <div className="text-center mb-20">
             <h2 className="text-3xl md:text-5xl font-black uppercase tracking-widest text-white mb-4">Benefícios <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-indigo-400">Exclusivos</span></h2>
             <div className="h-1 w-24 bg-gradient-to-r from-transparent via-red-500 to-transparent mx-auto" />
@@ -190,7 +190,7 @@ const HowItWorksPage = () => {
 
       {/* JORNADA DE EXCLUSIVIDADE */}
       <section className="py-24 bg-[#0a0f18] relative">
-        <div className="container mx-auto px-6">
+        <div className="container mx-auto px-4 md:px-6">
           <div className="text-center mb-20">
             <h2 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter text-white">Jornada do <span className="text-sky-500">Membro.</span></h2>
             <p className="text-slate-400 mt-4 font-medium uppercase tracking-widest text-xs">Quanto mais você explora, mais portas se abrem.</p>
@@ -260,7 +260,7 @@ const HowItWorksPage = () => {
 
       {/* NÍVEIS SECTION VERTICAL */}
       <section className="py-24 bg-white relative">
-        <div className="container mx-auto px-6">
+        <div className="container mx-auto px-4 md:px-6">
           <div className="text-center mb-16 space-y-4">
             <h2 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter text-slate-900">Níveis de Exclusividade</h2>
             <p className="text-slate-500 font-medium max-w-2xl mx-auto text-sm md:text-base">Seu status é atualizado automaticamente com base no seu volume de compras dos últimos 6 meses.</p>

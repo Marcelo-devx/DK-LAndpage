@@ -376,7 +376,7 @@ const AllProductsPage = () => {
   return (
     <div className="min-h-screen bg-off-white">
 
-      <div className="container mx-auto px-4 py-8 md:py-10">
+      <div className="container mx-auto px-4 md:px-6 py-4 md:py-10">
         {/* Active filters bar */}
         {totalActiveFilters > 0 && (
           <div className="mb-6 flex flex-wrap items-center gap-2">

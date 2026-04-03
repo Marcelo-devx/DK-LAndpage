@@ -158,7 +158,7 @@ const Dashboard = () => {
   ];
 
   return (
-    <div className="container mx-auto px-4 py-12 max-w-4xl text-charcoal-gray">
+    <div className="container mx-auto px-4 md:px-6 py-4 md:py-10 max-w-4xl text-charcoal-gray">
       <header className="mb-12 relative">
         <div className="flex justify-between items-start">
             <div>

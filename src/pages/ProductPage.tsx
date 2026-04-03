@@ -159,7 +159,7 @@ const ProductPage = () => {
     return parts.join(' - ');
   };
 
-  if (loading) return <div className="container mx-auto px-6 py-10"><Skeleton className="w-full h-[500px] rounded-3xl bg-gray-200" /></div>;
+  if (loading) return <div className="container mx-auto px-4 md:px-6 py-4 md:py-10"><Skeleton className="w-full h-[500px] rounded-3xl bg-gray-200" /></div>;
   if (!product) return null;
 
   const currentFullPrice = selectedVariant ? selectedVariant.price : product.price;
@@ -171,7 +171,7 @@ const ProductPage = () => {
 
   return (
     <div className="bg-off-white min-h-screen text-charcoal-gray pb-20">
-      <div className="container mx-auto px-6 py-6 md:py-12">
+      <div className="container mx-auto px-4 md:px-6 py-4 md:py-10">
         <div className="md:hidden mb-4">
           <Button variant="ghost" onClick={() => navigate(-1)} className="text-stone-500 hover:text-charcoal-gray transition-colors">
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -197,7 +197,7 @@ const ProductPage = () => {
             )}
           </div>
 
-          <div className="space-y-8 md:space-y-12">
+          <div className="space-y-4 md:space-y-12">
             <div>
               <p className="text-sky-500 text-xs font-black uppercase tracking-[0.4em] mb-3">{product.category}</p>
               <h1 className="text-4xl md:text-7xl font-black tracking-tighter leading-[0.9] mb-8 text-charcoal-gray" translate="no">

@@ -155,7 +155,7 @@ const ReferralsPage = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-12 md:py-20 text-charcoal-gray">
+    <div className="container mx-auto px-4 md:px-6 py-4 md:py-10 text-charcoal-gray">
       <Card className="max-w-2xl mx-auto bg-white border border-stone-200 shadow-xl rounded-[2.5rem] overflow-hidden">
         <CardHeader className="p-8 md:p-10 text-center border-b border-stone-100 bg-gradient-to-br from-sky-50 to-stone-50">
           <div className="inline-flex p-4 bg-sky-100 rounded-3xl mb-5 mx-auto">

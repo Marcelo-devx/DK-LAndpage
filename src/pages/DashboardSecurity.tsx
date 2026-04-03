@@ -62,7 +62,7 @@ const DashboardSecurity = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-12 max-w-lg">
+    <div className="container mx-auto px-4 md:px-6 py-4 md:py-10 max-w-lg">
       <Card className="border border-stone-200 shadow-sm rounded-2xl overflow-hidden">
         <CardHeader className="text-center pb-2 pt-8">
           <div className="mx-auto w-14 h-14 bg-rose-50 rounded-2xl flex items-center justify-center mb-4">

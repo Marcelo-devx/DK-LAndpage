@@ -541,9 +541,9 @@ const CheckoutPage = () => {
   if (loading) return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-sky-400" /></div>;
 
   return (
-    <div className="container mx-auto px-4 py-8 md:py-16 text-charcoal-gray">
+    <div className="container mx-auto px-4 md:px-6 py-4 md:py-10 text-charcoal-gray">
       <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 lg:grid-cols-2 lg:gap-16">
-        <div className="space-y-8">
+        <div className="space-y-4 md:space-y-12">
           <Card className="bg-white border-stone-200 shadow-xl rounded-[2rem] overflow-hidden">
             <CardHeader className="bg-stone-50 border-b border-stone-100 p-8"><div className="flex items-center space-x-4"><div className="p-3 bg-sky-100 rounded-2xl"><MapPin className="h-6 w-6 text-sky-600" /></div><CardTitle className="font-black text-2xl uppercase tracking-tighter italic">Dados de Entrega.</CardTitle></div></CardHeader>
             <CardContent className="p-8 space-y-6">

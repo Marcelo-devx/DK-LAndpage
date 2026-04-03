@@ -145,7 +145,7 @@ const ProfilePage = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-12 md:py-20 text-charcoal-gray">
+    <div className="container mx-auto px-4 md:px-6 py-4 md:py-10 text-charcoal-gray">
       <Tabs defaultValue={defaultTab} className="max-w-4xl mx-auto">
         <TabsList className="grid w-full grid-cols-2 bg-stone-100 border border-stone-200 h-14 rounded-2xl p-1">
           <TabsTrigger value="profile" className="data-[state=active]:bg-sky-500 data-[state=active]:text-white text-stone-500 rounded-xl font-bold uppercase text-xs tracking-widest">Meus Dados</TabsTrigger>

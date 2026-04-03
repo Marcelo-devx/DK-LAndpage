@@ -145,7 +145,6 @@ const Index = () => {
 
   return (
     <div className="bg-off-white overflow-x-hidden text-charcoal-gray w-full transition-colors duration-500">
-      <AgeVerificationPopup />
       {infoPopup && (
         <InformationalPopup
           isOpen={isPopupOpen}
@@ -154,6 +153,7 @@ const Index = () => {
           content={infoPopup.content}
         />
       )}
+      <AgeVerificationPopup />
 
       {settings.showHero && heroSlides.length > 0 && (
         <section className="relative w-full overflow-hidden">

@@ -63,15 +63,15 @@ const parseHtmlToReact = (html: string) => {
 
         switch (tag) {
           case 'p':
-            return <p key={idx} className={`text-slate-300 text-sm md:text-base leading-relaxed mb-3 ${alignClass}`.trim()}>{children}</p>;
+            return <p key={idx} className={`text-slate-300 text-xs md:text-base leading-relaxed mb-2 md:mb-3 ${alignClass}`.trim()}>{children}</p>;
           case 'br':
             return <br key={idx} />;
           case 'ul':
-            return <ul key={idx} className={`list-disc list-inside ml-4 text-slate-300 text-sm md:text-base leading-relaxed ${alignClass}`.trim()}>{children}</ul>;
+            return <ul key={idx} className={`list-disc list-inside ml-2 md:ml-4 text-slate-300 text-xs md:text-base leading-relaxed ${alignClass}`.trim()}>{children}</ul>;
           case 'ol':
-            return <ol key={idx} className={`list-decimal list-inside ml-4 text-slate-300 text-sm md:text-base leading-relaxed ${alignClass}`.trim()}>{children}</ol>;
+            return <ol key={idx} className={`list-decimal list-inside ml-2 md:ml-4 text-slate-300 text-xs md:text-base leading-relaxed ${alignClass}`.trim()}>{children}</ol>;
           case 'li':
-            return <li key={idx} className={`${alignClass} mb-1`.trim()}>{children}</li>;
+            return <li key={idx} className={`${alignClass} mb-1 md:mb-1.5`.trim()}>{children}</li>;
           case 'strong':
           case 'b':
             return <strong key={idx} className="font-black text-white">{children}</strong>;
@@ -110,7 +110,7 @@ const parseHtmlToReact = (html: string) => {
     // fallback: plain text with simple line breaks
     const plain = html.replace(/<[^>]*>/g, '');
     return plain.split(/\r?\n/).map((line, i) => (
-      <p key={i} className="text-slate-300 text-sm md:text-base leading-relaxed mb-2">{line}</p>
+      <p key={i} className="text-slate-300 text-xs md:text-base leading-relaxed mb-2 md:mb-3">{line}</p>
     ));
   }
 };
@@ -123,8 +123,8 @@ const InformationalPopup = ({ isOpen, onClose, title, content, onAccept }: Infor
 
   return (
     <Dialog open={isOpen} onOpenChange={() => {}}>
-      <DialogContent 
-        className="w-[95vw] sm:max-w-2xl bg-slate-900 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] p-0 overflow-hidden rounded-[1.5rem] md:rounded-[2rem] max-h-[90vh] md:max-h-[90vh] flex flex-col outline-none [&>button]:hidden"
+      <DialogContent
+        className="w-[95vw] sm:max-w-2xl bg-slate-900 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] p-0 overflow-hidden rounded-[1.5rem] md:rounded-[2rem] max-h-[92vh] md:max-h-[90vh] flex flex-col outline-none [&>button]:hidden z-[10000]"
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
         aria-describedby="info-popup-desc"
@@ -134,55 +134,55 @@ const InformationalPopup = ({ isOpen, onClose, title, content, onAccept }: Infor
         </DialogDescription>
 
         {/* Barra superior de destaque */}
-        <div className="h-1.5 md:h-1.5 bg-gradient-to-r from-sky-500 to-indigo-500 w-full shrink-0" />
-        
+        <div className="h-1 md:h-1.5 bg-gradient-to-r from-sky-500 to-indigo-500 w-full shrink-0" />
+
         <div className="flex flex-col flex-1 overflow-hidden">
           {/* Header com ajuste mobile */}
-          <div className="px-4 py-4 md:px-10 md:py-6 flex flex-col flex-shrink-0">
-            <DialogHeader className="items-center text-center mb-3 md:mb-6 shrink-0">
-              <div className="flex items-center justify-center mb-3 md:mb-4">
-                <div className="p-2 md:p-2.5 bg-sky-500/20 rounded-xl md:rounded-2xl">
-                  <Info className="h-5 w-5 md:h-7 md:w-7 text-sky-400 shrink-0" />
+          <div className="px-4 py-3 md:px-10 md:py-6 flex flex-col flex-shrink-0">
+            <DialogHeader className="items-center text-center mb-2 md:mb-6 shrink-0">
+              <div className="flex items-center justify-center mb-2 md:mb-4">
+                <div className="p-1.5 md:p-2.5 bg-sky-500/20 rounded-xl md:rounded-2xl">
+                  <Info className="h-4 w-4 md:h-7 md:w-7 text-sky-400 shrink-0" />
                 </div>
               </div>
-              <DialogTitle className="font-black text-xl md:text-4xl text-white tracking-tighter italic uppercase leading-tight text-center break-words">
+              <DialogTitle className="font-black text-lg md:text-4xl text-white tracking-tighter italic uppercase leading-tight text-center break-words px-2 md:px-0">
                 {title}.
               </DialogTitle>
             </DialogHeader>
 
             {/* Área de conteúdo com rolagem otimizada */}
-            <div className="flex-1 overflow-y-auto pr-1 md:pr-2 custom-scrollbar" id="info-popup-desc">
-              <div className="pb-4">
+            <div className="flex-1 overflow-y-auto pr-1 md:pr-2 custom-scrollbar min-h-0" id="info-popup-desc">
+              <div className="pb-3 md:pb-4">
                 {parseHtmlToReact(content)}
               </div>
             </div>
           </div>
 
           {/* Footer com botões otimizados para mobile */}
-          <DialogFooter className="px-4 py-4 md:px-10 md:py-6 flex flex-col sm:flex-row sm:justify-center gap-3 shrink-0">
+          <DialogFooter className="px-4 py-3 md:px-10 md:py-6 flex flex-col sm:flex-row sm:justify-center gap-2 md:gap-3 shrink-0 border-t border-white/5">
             {onAccept ? (
               <>
-                <Button 
-                  type="button" 
-                  onClick={handleAccept} 
-                  className="w-full sm:w-full md:w-auto bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest h-11 md:h-14 px-4 md:px-12 rounded-xl shadow-[0_10px_20px_-5px_rgba(14,165,233,0.4)] transition-all active:scale-95 text-wrap break-words"
+                <Button
+                  type="button"
+                  onClick={handleAccept}
+                  className="w-full sm:w-full md:w-auto bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest h-10 md:h-14 px-3 md:px-12 rounded-xl shadow-[0_10px_20px_-5px_rgba(14,165,233,0.4)] transition-all active:scale-95 text-xs md:text-base"
                 >
                   Aceitar e Continuar
                 </Button>
-                <Button 
-                  type="button" 
-                  onClick={onClose} 
+                <Button
+                  type="button"
+                  onClick={onClose}
                   variant="ghost"
-                  className="w-full sm:w-full md:w-auto bg-white/5 text-white font-black uppercase tracking-widest h-11 md:h-14 px-4 md:px-12 rounded-xl border border-white/10 hover:bg-white/10"
+                  className="w-full sm:w-full md:w-auto bg-white/5 text-white font-black uppercase tracking-widest h-10 md:h-14 px-3 md:px-12 rounded-xl border border-white/10 hover:bg-white/10 text-xs md:text-base"
                 >
                   Fechar
                 </Button>
               </>
             ) : (
-              <Button 
-                type="button" 
-                onClick={onClose} 
-                className="w-full sm:w-full md:w-auto bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest h-11 md:h-14 px-4 md:px-12 rounded-xl shadow-[0_10px_20px_-5px_rgba(14,165,233,0.4)] transition-all active:scale-95"
+              <Button
+                type="button"
+                onClick={onClose}
+                className="w-full sm:w-full md:w-auto bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest h-10 md:h-14 px-3 md:px-12 rounded-xl shadow-[0_10px_20px_-5px_rgba(14,165,233,0.4)] transition-all active:scale-95 text-xs md:text-base"
               >
                 Entendi
               </Button>

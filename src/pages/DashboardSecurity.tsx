@@ -21,6 +21,20 @@ const DashboardSecurity = () => {
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [changing, setChanging] = useState(false);
 
+  // helper: fetch with timeout
+  const fetchWithTimeout = async (url: string, options: RequestInit = {}, timeout = 15000) => {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    try {
+      const res = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(id);
+      return res;
+    } catch (err) {
+      clearTimeout(id);
+      throw err;
+    }
+  };
+
   const checks = useMemo(() => ({
     length: newPassword.length >= 8,
     upper: /[A-Z]/.test(newPassword),
@@ -48,7 +62,7 @@ const DashboardSecurity = () => {
       const email = session.user.email;
 
       // 2) Delegar para a edge function forgot-password (usa service role, sem conflito de sessão)
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/forgot-password`, {
+      const res = await fetchWithTimeout(`${SUPABASE_URL}/functions/v1/forgot-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -56,7 +70,7 @@ const DashboardSecurity = () => {
           'apikey': SUPABASE_ANON_KEY,
         },
         body: JSON.stringify({ email }),
-      });
+      }, 20000);
 
       const data = await res.json().catch(() => ({}));
       dismissToast(toastId);
@@ -71,8 +85,12 @@ const DashboardSecurity = () => {
       showSuccess('Nova senha enviada para seu e-mail!');
 
     } catch (err: any) {
-      dismissToast(toastId);
-      showError(err.message || 'Erro inesperado. Tente novamente.');
+      dismissToast(undefined as any);
+      if (err.name === 'AbortError') {
+        showError('Tempo excedido ao enviar pedido. Tente novamente.');
+      } else {
+        showError(err.message || 'Erro inesperado. Tente novamente.');
+      }
       console.error('[DashboardSecurity] unexpected', err);
     } finally {
       setLoading(false);
@@ -90,6 +108,15 @@ const DashboardSecurity = () => {
     setChanging(true);
     const toastId = showLoading('Atualizando senha...');
 
+    // watchdog to avoid infinite loading
+    let timedOut = false;
+    const watchdog = setTimeout(() => {
+      timedOut = true;
+      try { dismissToast(toastId); } catch (e) {}
+      setChanging(false);
+      showError('Tempo excedido. Tente novamente mais tarde.');
+    }, 20000);
+
     try {
       // get user email
       const { data: { session } } = await supabase.auth.getSession();
@@ -97,6 +124,8 @@ const DashboardSecurity = () => {
         dismissToast(toastId);
         showError('Sessão expirada. Por favor, faça login novamente.');
         navigate('/login');
+        clearTimeout(watchdog);
+        setChanging(false);
         return;
       }
       const email = session.user.email;
@@ -107,6 +136,7 @@ const DashboardSecurity = () => {
         dismissToast(toastId);
         showError('Senha atual incorreta.');
         setChanging(false);
+        clearTimeout(watchdog);
         return;
       }
 
@@ -125,23 +155,26 @@ const DashboardSecurity = () => {
         setConfirmNewPassword('');
         setManualMode(false);
 
-        // invoke edge function to notify user
+        // invoke edge function to notify user (non-blocking but with timeout)
         try {
-          const res = await fetch('https://jrlozhhvwqfmjtkmvukf.supabase.co/functions/v1/notify-password-change', {
+          const notifyRes = await fetchWithTimeout('https://jrlozhhvwqfmjtkmvukf.supabase.co/functions/v1/notify-password-change', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, name: session.user.user_metadata?.full_name || session.user.email }),
-          });
-          if (!res.ok) console.error('[DashboardSecurity] notify-password-change failed', res.status);
+          }, 7000);
+          if (!notifyRes.ok) console.error('[DashboardSecurity] notify-password-change failed', notifyRes.status);
         } catch (e) {
-          console.error('[DashboardSecurity] notify-password-change error', e);
+          if ((e as any).name === 'AbortError') console.error('[DashboardSecurity] notify-password-change timeout');
+          else console.error('[DashboardSecurity] notify-password-change error', e);
         }
       }
     } catch (err: any) {
       dismissToast(toastId);
+      if (timedOut) return;
       showError(err.message || 'Erro inesperado.');
       console.error('[DashboardSecurity] manual change unexpected', err);
     } finally {
+      clearTimeout(watchdog);
       setChanging(false);
     }
   };

@@ -11,9 +11,9 @@ const AuthEventHandler = () => {
       
       if (event === 'PASSWORD_RECOVERY') {
         navigate('/update-password');
-      } else if (event === 'SIGNED_OUT') {
-        navigate('/');
       }
+      // SIGNED_OUT removido - o componente que iniciou o logout cuida da navegação
+      // para evitar conflitos de navegação múltipla
       // TOKEN_REFRESHED, INITIAL_SESSION, SIGNED_IN — não fazem nada aqui
       // para evitar re-renders ou reloads desnecessários ao voltar de outra aba
     });

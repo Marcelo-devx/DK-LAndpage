@@ -65,10 +65,9 @@ const Footer = () => {
     };
   }, []);
 
-  // Prefer settings values; fall back to the requested fallback email/phone
   const contactEmail = settings.contactEmail || 'dondkcwb@protonmail.com';
-  const contactPhone = settings.contactPhone || '+595 985 981046';
-  const contactHours = settings.contactHours || 'Segunda a Sexta: 10h às 18h / Sábado: 10h às 17h.';
+  const contactPhone = settings.contactPhone || '+595 985 981 046';
+  const contactHours = settings.contactHours || 'Seg - Sex: 10:00 - 18:00 | Sábados: 10:00 - 17:00';
 
   return (
     <footer className="bg-white text-slate-500 border-t border-slate-200">
@@ -100,7 +99,8 @@ const Footer = () => {
             <ul className="space-y-4 text-sm xl:text-base font-medium">
               <li className="flex flex-col">
                 <span className="text-[10px] xl:text-xs text-slate-400 uppercase tracking-widest mb-1">Horário</span>
-                <p>{contactHours}</p>
+                <p>Seg - Sex: 10:00 - 18:00</p>
+                <p>Sábados: 10:00 - 17:00</p>
               </li>
               <li className="flex flex-col">
                 <span className="text-[10px] xl:text-xs text-slate-400 uppercase tracking-widest mb-1">E-mail</span>

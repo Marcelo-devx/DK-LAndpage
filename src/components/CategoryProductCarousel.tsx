@@ -111,26 +111,26 @@ const CategoryProductCarousel = memo(({ categoryName, showAgeBadge = true }: Cat
   }, [categoryName, showAgeBadge]);
 
   return (
-    <section className="container mx-auto px-6 py-8 md:py-16">
-      <div className="flex items-end justify-between mb-8 md:mb-12">
+    <section className="container mx-auto px-4 md:px-6 xl:px-8 py-6 md:py-12 xl:py-16">
+      <div className="flex items-end justify-between mb-6 md:mb-10 xl:mb-12">
         <div>
-          <h3 className="text-3xl md:text-5xl font-black tracking-tighter italic" translate="no">
+          <h3 className="text-2xl md:text-4xl xl:text-5xl font-black tracking-tighter italic" translate="no">
             {categoryName}
           </h3>
         </div>
         {products.length > 0 && (
-          <Link to={`/produtos?category=${categoryName}`} className="text-[10px] font-bold uppercase tracking-widest hover:text-sky-400 transition-colors hidden md:block">
+          <Link to={`/produtos?category=${categoryName}`} className="text-[10px] xl:text-xs font-bold uppercase tracking-widest hover:text-sky-400 transition-colors hidden md:block">
             Ver tudo →
           </Link>
         )}
       </div>
 
-      <div className="min-h-[250px] md:min-h-[300px]">
+      <div className="min-h-[250px] md:min-h-[300px] xl:min-h-[340px]">
         {loading ? (
           <Carousel opts={{ align: "start" }} className="w-full">
             <CarouselContent className="-ml-3 md:-ml-4">
               {Array.from({ length: 4 }).map((_, i) => (
-                <CarouselItem key={i} className="pl-3 md:pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4">
+                <CarouselItem key={i} className="pl-3 md:pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/5">
                   <Skeleton className="aspect-square bg-white/5 rounded-2xl md:rounded-3xl" />
                 </CarouselItem>
               ))}
@@ -140,7 +140,7 @@ const CategoryProductCarousel = memo(({ categoryName, showAgeBadge = true }: Cat
           <Carousel opts={{ align: "start", loop: products.length > 4 }} className="w-full">
             <CarouselContent className="-ml-3 md:-ml-4">
               {products.map((p, idx) => (
-                <CarouselItem key={`${p.id}-${idx}`} className="pl-3 md:pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4">
+                <CarouselItem key={`${p.id}-${idx}`} className="pl-3 md:pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/5">
                   <ProductCard product={{ 
                     id: p.id, 
                     name: p.name, 

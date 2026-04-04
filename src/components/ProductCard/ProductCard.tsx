@@ -74,18 +74,18 @@ const ProductCard = memo(({ product }: ProductCardProps) => {
           )}
         </div>
         
-        <CardContent className="p-3 md:p-5 flex-grow flex flex-col">
+        <CardContent className="p-3 md:p-4 xl:p-5 flex-grow flex flex-col">
           <div className="flex-grow space-y-2">
-            <h3 className="text-slate-900 text-[11px] md:text-sm font-bold tracking-tight line-clamp-2 group-hover:text-sky-600 transition-colors leading-tight" translate="no">
+            <h3 className="text-slate-900 text-[11px] md:text-sm xl:text-[15px] font-bold tracking-tight line-clamp-2 group-hover:text-sky-600 transition-colors leading-tight" translate="no">
               {product.name}
             </h3>
             
             <div className="space-y-0.5">
               {/* Preço cheio + parcelamento */}
-              <p className="text-[11px] md:text-[13px] font-black text-slate-900 leading-none">
+              <p className="text-[11px] md:text-[13px] xl:text-sm font-black text-slate-900 leading-none">
                 {pricePrefix}{formattedFullPrice}
               </p>
-              <p className="text-[9px] md:text-[10px] text-slate-500 font-medium">
+              <p className="text-[9px] md:text-[10px] xl:text-[11px] text-slate-500 font-medium">
                 3x de <span className="font-black">{installmentValue}</span> <span className="text-sky-600 font-black uppercase">cartão</span>
               </p>
               
@@ -98,7 +98,7 @@ const ProductCard = memo(({ product }: ProductCardProps) => {
                   </div>
                   <span className="text-[8px] font-black text-emerald-600/60 uppercase">à vista</span>
                 </div>
-                <p className="text-lg md:text-2xl font-black text-emerald-600 tracking-tighter leading-none">
+                <p className="text-lg md:text-xl xl:text-2xl font-black text-emerald-600 tracking-tighter leading-none">
                   {pricePrefix}{formattedPixPrice}
                 </p>
               </div>
@@ -109,7 +109,7 @@ const ProductCard = memo(({ product }: ProductCardProps) => {
           <div className="mt-3">
             {hasMultipleVariants ? (
               <Button 
-                className="w-full font-black uppercase text-[9px] md:text-[10px] tracking-widest h-9 md:h-11 rounded-xl transition-all duration-300 bg-slate-950 hover:bg-sky-500 text-white whitespace-nowrap"
+                className="w-full font-black uppercase text-[9px] md:text-[10px] xl:text-[11px] tracking-widest h-9 md:h-10 xl:h-11 rounded-xl transition-all duration-300 bg-slate-950 hover:bg-sky-500 text-white whitespace-nowrap"
                 onClick={handleViewOptions}
                 aria-label="Escolher opções"
               >
@@ -119,7 +119,7 @@ const ProductCard = memo(({ product }: ProductCardProps) => {
             ) : (
               <Button 
                 className={cn(
-                    "w-full font-black uppercase text-[9px] md:text-[10px] tracking-widest h-9 md:h-11 rounded-xl transition-all duration-300 whitespace-nowrap",
+                    "w-full font-black uppercase text-[9px] md:text-[10px] xl:text-[11px] tracking-widest h-9 md:h-10 xl:h-11 rounded-xl transition-all duration-300 whitespace-nowrap",
                     isOutOfStock ? "bg-stone-200 text-stone-500 cursor-not-allowed hover:bg-stone-200" : "bg-slate-950 hover:bg-sky-500 text-white"
                 )}
                 onClick={handleAddToCart}

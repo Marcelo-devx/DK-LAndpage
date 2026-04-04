@@ -418,127 +418,58 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
       </div>
 
       {/* Desktop Header */}
-      <div className="hidden md:flex items-center gap-4 relative px-6">
-        {/* Logo Area & Mobile Menu */}
-        <div className="flex items-center space-x-2 shrink-0">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="hover:bg-white/10 text-white md:hidden">
-                <Menu className="h-6 w-6" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="bg-black border-white/10 text-white p-0 w-[300px]">
-              <div className="p-6 border-b border-white/5">
-                <h1 className="text-2xl font-black italic tracking-tighter text-sky-500 uppercase">MENU DKCWB.</h1>
-              </div>
-              
-              <div className="p-6 overflow-y-auto max-h-[calc(100vh-100px)] custom-scrollbar">
-                <nav className="flex flex-col gap-8">
-                  <div className="space-y-4">
-                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Navegação Principal</h3>
-                    <Link to="/produtos" className="block text-lg font-black uppercase tracking-widest hover:text-sky-400">Todos Produtos</Link>
-                    <Link to="/compras" className="block text-lg font-black uppercase tracking-widest hover:text-sky-400">Meus Pedidos</Link>
-                    <Link to="/como-funciona" className="block text-lg font-black uppercase tracking-widest hover:text-sky-400">Clube DK</Link>
-                  </div>
-
-                  <div className="space-y-4">
-                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Categorias</h3>
-                    <Accordion type="single" collapsible className="w-full">
-                        {categories.map((cat) => (
-                            <AccordionItem key={cat.id} value={`cat-${cat.id}`} className="border-white/5">
-                                <AccordionTrigger className="text-sm font-black uppercase tracking-widest hover:no-underline py-4" translate="no">
-                                    {cat.name}
-                                </AccordionTrigger>
-                                <AccordionContent className="pl-4 pb-4 space-y-3">
-                                    <Link to={`/produtos?category=${cat.name}`} className="block text-xs font-bold text-sky-500 uppercase tracking-widest border-b border-white/5 pb-2">Explorar Tudo</Link>
-                                    { (categoryProductSubsMap[cat.id] || []).length > 0 ? (
-                                      (categoryProductSubsMap[cat.id] || []).map(sub => (
-                                        <Link key={sub} to={`/produtos?category=${cat.name}&sub_category=${encodeURIComponent(sub)}`} className="block text-xs font-medium text-slate-400 uppercase tracking-widest hover:text-white" translate="no">{sub}</Link>
-                                      ))
-                                    ) : (
-                                      <div className="space-y-3">
-                                        {(categoryBrandsMap[cat.id] || []).length > 0 && (
-                                          <div>
-                                            <h5 className="text-xs font-black uppercase text-stone-400 mb-2">Marcas</h5>
-                                            <div className="flex flex-wrap gap-2">
-                                              {(categoryBrandsMap[cat.id] || []).map(b => (
-                                                <Link key={b} to={`/produtos?category=${cat.name}&brand=${b}`} className="px-3 py-1.5 rounded-xl bg-white text-stone-700 hover:bg-white/90 transition-all text-xs font-bold uppercase">{b}</Link>
-                                              ))}
-                                            </div>
-                                          </div>
-                                        )}
-
-                                        {(categoryFlavorsMap[cat.id] || []).length > 0 && (
-                                          <div>
-                                            <h5 className="text-xs font-black uppercase text-stone-400 mb-2">Sabores</h5>
-                                            <div className="flex flex-wrap gap-2">
-                                              {(categoryFlavorsMap[cat.id] || []).map(f => (
-                                                <Link key={f} to={`/produtos?category=${cat.name}&search=${encodeURIComponent(f)}`} className="px-3 py-1.5 rounded-xl bg-white text-stone-700 hover:bg-white/90 transition-all text-xs font-bold uppercase">{f}</Link>
-                                              ))}
-                                            </div>
-                                          </div>
-                                        )}
-                                      </div>
-                                    )}
-                                </AccordionContent>
-                            </AccordionItem>
-                        ))}
-                    </Accordion>
-                  </div>
-                </nav>
-              </div>
-            </SheetContent>
-          </Sheet>
-          
-          <Link to="/" className="flex items-center group ml-1 md:ml-0">
+      <div className="hidden md:flex items-center gap-3 lg:gap-5 xl:gap-6 px-4 lg:px-8 xl:px-12 py-0">
+        {/* Logo Area */}
+        <div className="flex items-center shrink-0">
+          <Link to="/" className="flex items-center group">
             {loadingLogo ? (
-              <Skeleton className="h-10 w-24 bg-white/10" />
+              <Skeleton className="h-12 lg:h-14 xl:h-16 w-28 bg-white/10" />
             ) : logoUrl ? (
-              <img src={logoUrl} alt="Logo" className="h-10 md:h-16 w-auto transition-all duration-300 group-hover:scale-110" />
+              <img src={logoUrl} alt="Logo" className="h-12 lg:h-14 xl:h-16 w-auto transition-all duration-300 group-hover:scale-110" />
             ) : (
-              <h1 className="text-2xl md:text-4xl font-black italic tracking-tighter text-sky-500 group-hover:scale-105 transition-transform uppercase" translate="no">DKCWB.</h1>
+              <h1 className="text-3xl lg:text-4xl xl:text-5xl font-black italic tracking-tighter text-sky-500 group-hover:scale-105 transition-transform uppercase" translate="no">DKCWB.</h1>
             )}
           </Link>
         </div>
 
-        {/* Search Bar (Centered on Desktop) */}
-        <div className="hidden lg:flex absolute left-1/2 transform -translate-x-1/2 w-full max-w-2xl px-8">
+        {/* Search Bar — flex-1 centered */}
+        <div className="flex-1 max-w-xl lg:max-w-2xl xl:max-w-3xl mx-auto">
           <form onSubmit={handleSearch} className="w-full relative">
             <Input 
               type="text" 
               placeholder="Pesquisar na DKCWB..." 
-              className="w-full h-12 pl-5 pr-12 rounded-xl border-transparent bg-white/5 text-white placeholder:text-slate-500 focus:bg-white/10 transition-all border-white/5 focus:border-sky-500 shadow-inner"
+              className="w-full h-11 lg:h-12 pl-5 pr-12 rounded-xl border-transparent bg-white/5 text-white placeholder:text-slate-500 focus:bg-white/10 transition-all border-white/5 focus:border-sky-500 shadow-inner text-sm"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
-            <Button type="submit" size="icon" className="absolute right-1 top-1 h-10 w-10 bg-transparent hover:bg-white/5 text-slate-400 hover:text-sky-500 rounded-lg">
-              <Search className="h-5 w-5" />
+            <Button type="submit" size="icon" className="absolute right-1 top-1 h-9 lg:h-10 w-9 lg:w-10 bg-transparent hover:bg-white/5 text-slate-400 hover:text-sky-500 rounded-lg">
+              <Search className="h-4 w-4 lg:h-5 lg:w-5" />
             </Button>
           </form>
         </div>
 
         {/* Icons Area (Right) */}
-        <div className="flex items-center space-x-3 md:space-x-6 shrink-0 ml-auto">
+        <div className="flex items-center space-x-2 lg:space-x-4 xl:space-x-6 shrink-0">
            
-           <Link to="/como-funciona" className="hidden sm:flex items-center gap-2 group">
-             <Trophy className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
-             <div className="hidden lg:flex flex-col leading-none">
+           <Link to="/como-funciona" className="flex items-center gap-1.5 lg:gap-2 group">
+             <Trophy className="h-5 w-5 lg:h-6 lg:w-6 text-white group-hover:text-sky-500 transition-colors" />
+             <div className="hidden xl:flex flex-col leading-none">
                  <span className="text-[9px] text-slate-400 font-black uppercase">Clube</span>
                  <span className="text-[11px] text-white font-black uppercase tracking-tighter">Vantagens</span>
              </div>
            </Link>
 
-           <Link to="/compras" className="hidden sm:flex items-center gap-2 group">
-             <Package className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
-             <div className="hidden lg:flex flex-col leading-none">
+           <Link to="/compras" className="flex items-center gap-1.5 lg:gap-2 group">
+             <Package className="h-5 w-5 lg:h-6 lg:w-6 text-white group-hover:text-sky-500 transition-colors" />
+             <div className="hidden xl:flex flex-col leading-none">
                  <span className="text-[9px] text-slate-400 font-black uppercase">Meus</span>
                  <span className="text-[11px] text-white font-black uppercase tracking-tighter">Pedidos</span>
              </div>
            </Link>
 
-           <Link to={session ? "/dashboard" : "/login"} className="flex items-center gap-2 group relative">
-             <User className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
-             <div className="hidden lg:flex flex-col leading-none">
+           <Link to={session ? "/dashboard" : "/login"} className="flex items-center gap-1.5 lg:gap-2 group relative">
+             <User className="h-5 w-5 lg:h-6 lg:w-6 text-white group-hover:text-sky-500 transition-colors" />
+             <div className="hidden xl:flex flex-col leading-none">
                  <span className="text-[9px] text-slate-400 font-black uppercase">
                      {session ? 'Olá, Membro' : 'Acesse'}
                  </span>
@@ -548,16 +479,16 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
              </div>
            </Link>
 
-           <button onClick={onCartClick} className="flex items-center gap-2 group relative">
+           <button onClick={onCartClick} className="flex items-center gap-1.5 lg:gap-2 group relative">
              <div className="relative">
-                 <ShoppingCart className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
+                 <ShoppingCart className="h-5 w-5 lg:h-6 lg:w-6 text-white group-hover:text-sky-500 transition-colors" />
                  {cartCount > 0 && (
                      <span className="absolute -top-2 -right-2 bg-sky-500 text-white text-[9px] font-black h-4.5 w-4.5 min-w-[18px] flex items-center justify-center rounded-full shadow-lg ring-2 ring-black">
                      {cartCount}
                      </span>
                  )}
              </div>
-             <div className="hidden lg:flex flex-col leading-none">
+             <div className="hidden xl:flex flex-col leading-none">
                  <span className="text-[9px] text-slate-400 font-black uppercase">Meu</span>
                  <span className="text-[11px] text-white font-black uppercase tracking-tighter">Carrinho</span>
              </div>
@@ -565,9 +496,9 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
          </div>
        </div>
 
-      {/* CATEGORY BAR (DESKTOP) - Permitindo quebra de linha */}
+      {/* CATEGORY BAR (DESKTOP) */}
       <div className="hidden md:block border-t border-white/10 bg-black">
-        <div className="container mx-auto px-6 py-2">
+        <div className="container mx-auto px-4 lg:px-8 xl:px-12 py-1 xl:py-2">
           <DesktopNav />
         </div>
       </div>

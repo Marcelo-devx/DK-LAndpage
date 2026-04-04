@@ -24,7 +24,7 @@ const BrandSection = ({ brands, loading, onBrandClick }: BrandSectionProps) => {
   const validBrands = brands.filter(b => b.name && b.name.toLowerCase() !== 'null');
 
   return (
-    <section className="container mx-auto px-6 py-12 hidden md:block">
+    <section className="container mx-auto px-4 md:px-6 xl:px-8 py-8 md:py-12 xl:py-16 hidden md:block">
       {loading ? (
         <div className="flex justify-center items-center gap-6">
           {Array.from({ length: 6 }).map((_, index) => (
@@ -39,10 +39,10 @@ const BrandSection = ({ brands, loading, onBrandClick }: BrandSectionProps) => {
         >
           <CarouselContent className="-ml-4">
             {validBrands.map((brand) => (
-              <CarouselItem key={brand.name} className="pl-4 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/6">
+              <CarouselItem key={brand.name} className="pl-4 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/6 xl:basis-1/6 2xl:basis-[12.5%]">
                 <div 
                   onClick={() => onBrandClick(brand.name)}
-                  className="group relative flex items-center justify-center h-24 bg-gradient-to-b from-white to-slate-200 border border-white/20 rounded-2xl cursor-pointer transition-all duration-500 hover:border-sky-500/50 hover:shadow-[0_10px_40px_-10px_rgba(14,165,233,0.3)] overflow-hidden shadow-inner"
+                  className="group relative flex items-center justify-center h-24 xl:h-28 bg-gradient-to-b from-white to-slate-200 border border-white/20 rounded-2xl cursor-pointer transition-all duration-500 hover:border-sky-500/50 hover:shadow-[0_10px_40px_-10px_rgba(14,165,233,0.3)] overflow-hidden shadow-inner"
                 >
                   {/* Subtle light reflection on the top */}
                   <div className="absolute inset-x-0 top-0 h-px bg-white/50" />

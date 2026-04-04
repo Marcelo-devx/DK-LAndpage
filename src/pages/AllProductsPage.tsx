@@ -480,7 +480,7 @@ const AllProductsPage = () => {
   return (
     <div className="min-h-screen bg-off-white">
 
-      <div className="container mx-auto px-4 md:px-6 py-4 md:py-10">
+      <div className="container mx-auto px-4 md:px-6 xl:px-8 2xl:px-12 py-4 md:py-10 xl:py-12">
         {/* Active filters bar */}
         {totalActiveFilters > 0 && (
           <div className="mb-6 flex flex-wrap items-center gap-2">
@@ -526,7 +526,7 @@ const AllProductsPage = () => {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 lg:gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 xl:grid-cols-5 lg:gap-8 xl:gap-10">
           {/* Sidebar */}
           <div className="lg:col-span-1 mb-6 lg:mb-0">
             <ProductFilters
@@ -549,7 +549,7 @@ const AllProductsPage = () => {
           </div>
 
           {/* Products grid */}
-          <main className="lg:col-span-3">
+          <main className="lg:col-span-3 xl:col-span-4">
             {/* Results count */}
             {!loading && (
               <div className="flex items-center justify-between mb-5">
@@ -563,7 +563,7 @@ const AllProductsPage = () => {
             )}
 
             {loading ? (
-              <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-5">
+              <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 md:gap-5 xl:gap-6">
                 {Array.from({ length: 9 }).map((_, index) => (
                   <div key={index} className="flex flex-col space-y-2">
                     <Skeleton className="w-full rounded-2xl aspect-[4/5] bg-stone-200" />
@@ -574,7 +574,7 @@ const AllProductsPage = () => {
                 ))}
               </div>
             ) : displayProducts.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-5">
+              <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 md:gap-5 xl:gap-6">
                 {displayProducts.map((product, idx) => (
                   <ProductCard
                     key={`${product.id}-${idx}`}

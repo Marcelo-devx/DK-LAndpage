@@ -192,8 +192,8 @@ const Index = () => {
       )}
 
       {settings.showHero && heroSlides.length > 0 && (
-        <section className="relative w-full overflow-hidden">
-          <Carousel plugins={[Autoplay({ delay: 5000 })]} className="w-full">
+        <section className="relative w-full overflow-hidden min-h-[200px] md:min-h-[350px] lg:min-h-[420px] xl:min-h-[500px]">
+          <Carousel plugins={[Autoplay({ delay: 5000 })]} className="w-full h-full">
             <CarouselContent>
               {heroSlides.map((slide, index) => (
                 <CarouselItem key={index}>
@@ -215,7 +215,7 @@ const Index = () => {
         </section>
       )}
 
-      <div className="space-y-4 md:space-y-12 py-4 md:py-10">
+      <div className="space-y-4 md:space-y-12 xl:space-y-16 py-4 md:py-10 xl:py-14">
         
         {settings.showInfo && (
           <ScrollAnimationWrapper>
@@ -231,9 +231,9 @@ const Index = () => {
 
         {settings.showPromotions && promotions.length > 0 && (
           <ScrollAnimationWrapper>
-            <section className="container mx-auto px-4 md:px-6">
-              <h2 className="text-[10px] md:text-xs font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-4 md:mb-8 text-center">Ofertas Exclusivas</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+            <section className="container mx-auto px-4 md:px-6 xl:px-8">
+              <h2 className="text-[10px] md:text-xs xl:text-sm font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-4 md:mb-8 xl:mb-10 text-center">Ofertas Exclusivas</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3 gap-4 md:gap-6 xl:gap-8">
                 {promotions.slice(0, 3).map((promo) => (
                   <CategoryCarouselCard 
                     key={promo.id}
@@ -247,23 +247,23 @@ const Index = () => {
         )}
 
         <ScrollAnimationWrapper>
-          <section className="container mx-auto px-4 md:px-6">
-            <div className="flex flex-col md:flex-row items-start md:items-end justify-between mb-4 md:mb-8 gap-2">
+          <section className="container mx-auto px-4 md:px-6 xl:px-8">
+            <div className="flex flex-col md:flex-row items-start md:items-end justify-between mb-4 md:mb-8 xl:mb-10 gap-2">
                 <div>
-                    <h3 className="text-xl md:text-3xl font-black tracking-tighter italic uppercase text-charcoal-gray" translate="no">NEW DROPS</h3>
+                    <h3 className="text-xl md:text-3xl xl:text-4xl font-black tracking-tighter italic uppercase text-charcoal-gray" translate="no">NEW DROPS</h3>
                 </div>
-                <Link to="/produtos" className="text-[10px] font-bold uppercase tracking-widest hover:text-sky-500 transition-colors text-slate-600">Ver todos →</Link>
+                <Link to="/produtos" className="text-[10px] xl:text-xs font-bold uppercase tracking-widest hover:text-sky-500 transition-colors text-slate-600">Ver todos →</Link>
             </div>
             
             <Carousel opts={{ align: "start", loop: displayedProducts.length > 4 }} className="w-full">
               <CarouselContent className="-ml-3 md:-ml-4">
                 {loadingProducts ? Array.from({ length: 4 }).map((_, i) => (
-                  <CarouselItem key={i} className="pl-3 md:pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4">
+                  <CarouselItem key={i} className="pl-3 md:pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/5">
                     <Skeleton className="aspect-square bg-slate-200 rounded-2xl md:rounded-3xl" />
                   </CarouselItem>
                 )) : displayedProducts.length > 0 ?
                   displayedProducts.map((p, idx) => (
-                    <CarouselItem key={`${p.id}-${idx}`} className="pl-3 md:pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4">
+                    <CarouselItem key={`${p.id}-${idx}`} className="pl-3 md:pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/5">
                       <ProductCard product={{ id: p.id, name: p.name, price: p.price, pixPrice: p.pixPrice, imageUrl: p.imageUrl, stockQuantity: p.stockQuantity, variantId: p.variantId, hasMultipleVariants: p.hasMultipleVariants, showAgeBadge: p.showAgeBadge }} />
                     </CarouselItem>
                   )) : (
@@ -286,10 +286,10 @@ const Index = () => {
 
         {featuredProducts.length > 0 && (
           <ScrollAnimationWrapper>
-            <section className="bg-white py-8 md:py-16 rounded-[3rem] mx-4 md:mx-0 shadow-sm border border-stone-100">
-              <div className="container mx-auto px-4 md:px-6">
-                <h2 className="text-[10px] md:text-xs font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-4 md:mb-8 text-center">Seleção Premium</h2>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
+            <section className="bg-white py-8 md:py-16 xl:py-20 rounded-[3rem] mx-4 md:mx-6 xl:mx-8 shadow-sm border border-stone-100">
+              <div className="container mx-auto px-4 md:px-6 xl:px-8">
+                <h2 className="text-[10px] md:text-xs xl:text-sm font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-4 md:mb-8 xl:mb-10 text-center">Seleção Premium</h2>
+                <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-3 md:gap-6 xl:gap-8">
                   {featuredProducts.map((p, idx) => (
                     <ProductCard key={`${p.id}-${idx}`} product={{ id: p.id, name: p.name, price: p.price, pixPrice: p.pixPrice, imageUrl: p.imageUrl, stockQuantity: p.stockQuantity, variantId: p.variantId, hasMultipleVariants: p.hasMultipleVariants, showAgeBadge: p.showAgeBadge }} />
                   ))}

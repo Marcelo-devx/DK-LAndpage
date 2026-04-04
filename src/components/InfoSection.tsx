@@ -91,10 +91,10 @@ const InfoSection = () => {
   }
 
   return (
-    <section className="py-4 md:py-12">
-      <div className="container mx-auto px-4 md:px-6">
-        {/* Info Bar Carousel - Texto escuro e fundo branco */}
-        <div className="mb-8 md:mb-20 bg-white p-6 md:p-10 rounded-3xl md:rounded-[2.5rem] border border-stone-200 shadow-sm relative">
+    <section className="py-4 md:py-10 xl:py-14">
+      <div className="container mx-auto px-4 md:px-6 xl:px-8">
+        {/* Info Bar Carousel */}
+        <div className="mb-8 md:mb-16 xl:mb-20 bg-white p-6 md:p-8 xl:p-12 rounded-3xl md:rounded-[2.5rem] border border-stone-200 shadow-sm relative">
           <Carousel opts={{ align: "start", loop: true }} className="w-full">
             <CarouselContent className="-ml-4">
               {infoBarItems.map((item, index) => {
@@ -102,12 +102,12 @@ const InfoSection = () => {
                 return (
                   <CarouselItem key={index} className="pl-4 basis-full sm:basis-1/2 md:basis-1/4">
                     <div className="flex flex-col md:flex-row items-center text-center md:text-left md:space-x-5 group h-full px-8 md:px-0">
-                      <div className="p-2.5 bg-sky-50 rounded-xl md:rounded-2xl group-hover:bg-sky-100 transition-colors shrink-0 mb-3 md:mb-0">
-                        {Icon && <Icon className="h-6 w-6 md:h-7 md:w-7 text-sky-600" />}
+                      <div className="p-2.5 xl:p-3 bg-sky-50 rounded-xl md:rounded-2xl group-hover:bg-sky-100 transition-colors shrink-0 mb-3 md:mb-0">
+                        {Icon && <Icon className="h-6 w-6 md:h-7 md:w-7 xl:h-8 xl:w-8 text-sky-600" />}
                       </div>
                       <div className="min-w-0">
-                        <p className="font-black text-xs uppercase tracking-widest text-charcoal-gray leading-tight">{item.title}</p>
-                        <p className="text-[11px] md:text-sm text-stone-500 font-medium mt-1 leading-tight">{item.subtitle}</p>
+                        <p className="font-black text-xs xl:text-sm uppercase tracking-widest text-charcoal-gray leading-tight">{item.title}</p>
+                        <p className="text-[11px] md:text-sm xl:text-base text-stone-500 font-medium mt-1 leading-tight">{item.subtitle}</p>
                       </div>
                     </div>
                   </CarouselItem>
@@ -125,7 +125,7 @@ const InfoSection = () => {
                 <CarouselItem key={index} className="pl-6 basis-full sm:basis-1/2 md:basis-1/3">
                   <Link to={card.link_url || '#'} className="block group w-full relative">
                     <div className="absolute -inset-1 bg-sky-500/10 rounded-[1.5rem] md:rounded-[2rem] blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <Card className="overflow-hidden rounded-[1.5rem] md:rounded-[2rem] shadow-lg h-[180px] md:h-[240px] border border-stone-100 relative bg-white">
+                    <Card className="overflow-hidden rounded-[1.5rem] md:rounded-[2rem] shadow-lg h-[180px] md:h-[240px] xl:h-[300px] border border-stone-100 relative bg-white">
                       <img
                         src={card.image_url}
                         alt={`Info card ${index + 1}`}

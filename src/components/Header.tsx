@@ -102,7 +102,9 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
     if (allProductIds.length > 0) {
       // fetch variant stocks and flavor relations in parallel
       const [variantStockRes, prodFlavorRes] = await Promise.all([
-        supabase.from('product_variants').select('product_id, stock_quantity').in('product_id', allProductIds).eq('is_active', true),
+        // include flavor_id on variants (many stores put flavor on variants)
+        supabase.from('product_variants').select('product_id, stock_quantity, flavor_id').in('product_id', allProductIds).eq('is_active', true),
+        // also fetch product_flavors table as fallback if some relations are stored there
         supabase.from('product_flavors').select('flavor_id, product_id').in('product_id', allProductIds),
       ]);
 
@@ -150,9 +152,13 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
 
       // Build flavorId -> productIds map using variant & product_flavor data
       const flavorIdToProductIdsMap: Record<number, Set<number>> = {};
+      // Prefer flavor info from variants (if flavor_id is stored on variants)
       (variantStockRes.data || []).forEach((v: any) => {
-        // we don't have flavor_id in this variantStockRes; product_flavors will cover flavor relations
+        if (!v.flavor_id) return;
+        if (!flavorIdToProductIdsMap[v.flavor_id]) flavorIdToProductIdsMap[v.flavor_id] = new Set();
+        flavorIdToProductIdsMap[v.flavor_id].add(v.product_id);
       });
+      // Also include mappings from product_flavors table (fallback)
       (prodFlavorRes.data || []).forEach((pf: any) => {
         if (!pf.flavor_id) return;
         if (!flavorIdToProductIdsMap[pf.flavor_id]) flavorIdToProductIdsMap[pf.flavor_id] = new Set();

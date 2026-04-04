@@ -136,7 +136,24 @@ const AllProductsPage = () => {
         });
       }
 
-      // Build the main products query
+      // If the search term matches a flavor name, collect product IDs linked to that flavor
+      let flavorMatchProductIds: number[] = [];
+      if (debouncedSearchTerm) {
+        const { data: matchedFlavors } = await supabase.from('flavors').select('id').ilike('name', `%${debouncedSearchTerm}%`).eq('is_visible', true);
+        const flavorIds = (matchedFlavors || []).map((f: any) => f.id).filter(Boolean);
+        if (flavorIds.length > 0) {
+          const [{ data: variantMatches }, { data: pfMatches }] = await Promise.all([
+            supabase.from('product_variants').select('product_id').in('flavor_id', flavorIds).eq('is_active', true),
+            supabase.from('product_flavors').select('product_id').in('flavor_id', flavorIds),
+          ]);
+          const ids = new Set<number>();
+          (variantMatches || []).forEach((v: any) => ids.add(v.product_id));
+          (pfMatches || []).forEach((pf: any) => ids.add(pf.product_id));
+          flavorMatchProductIds = Array.from(ids);
+        }
+      }
+
+      // Build the base query for text/category/brand/subcategory matches
       let query = supabase
         .from('products')
         .select('id, name, price, pix_price, image_url, category, sub_category, brand, stock_quantity, created_at')
@@ -155,6 +172,19 @@ const AllProductsPage = () => {
       query = query.order(qSortField, { ascending: qSortOrder === 'asc' });
 
       const { data: parentProducts, error } = await query;
+
+      // If we found product IDs by flavor, fetch those products and merge with parentProducts
+      let mergedProducts = parentProducts || [];
+      if (flavorMatchProductIds.length > 0) {
+        const { data: flavorProducts } = await supabase.from('products').select('id, name, price, pix_price, image_url, category, sub_category, brand, stock_quantity, created_at').in('id', flavorMatchProductIds).eq('is_visible', true);
+        const map = new Map<number, any>();
+        (mergedProducts || []).forEach((p: any) => map.set(p.id, p));
+        (flavorProducts || []).forEach((p: any) => map.set(p.id, p));
+        mergedProducts = Array.from(map.values());
+      }
+
+      const products = mergedProducts || [];
+
       if (error) {
         console.error('[AllProductsPage] Error fetching products:', error);
         if (!background) {
@@ -166,8 +196,6 @@ const AllProductsPage = () => {
         }
         return;
       }
-
-      const products = parentProducts || [];
 
       // Fast path for background updates: avoid fetching variants/flavors/counts to keep it snappy
       if (background) {

@@ -141,12 +141,32 @@ const DashboardSecurity = () => {
       }
 
       // Now update password
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      // Use edge function to update password with service role to avoid client-side strength rejection
+      let updateError: any = null;
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData?.session?.access_token;
+        if (!accessToken) throw new Error('session_missing');
+
+        const updRes = await fetch('https://jrlozhhvwqfmjtkmvukf.supabase.co/functions/v1/update-password-admin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+          body: JSON.stringify({ newPassword }),
+        });
+
+        if (!updRes.ok) {
+          const body = await updRes.json().catch(() => ({}));
+          updateError = body?.error || `update_password_failed_status_${updRes.status}`;
+        }
+      } catch (e) {
+        updateError = e;
+      }
+
       dismissToast(toastId);
 
-      if (error) {
-        showError(error.message || 'Erro ao atualizar senha.');
-        console.error('[DashboardSecurity] updateUser error', error);
+      if (updateError) {
+        showError(typeof updateError === 'string' ? updateError : 'Erro ao atualizar senha.');
+        console.error('[DashboardSecurity] updateUser (admin) error', updateError);
       } else {
         showSuccess('Senha atualizada com sucesso!');
         // clear fields

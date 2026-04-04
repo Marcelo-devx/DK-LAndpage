@@ -121,16 +121,8 @@ const Dashboard = () => {
       showError('Erro ao encerrar sessão. Tentando forçar logout...');
     }
 
-    // Navigate to home and force a full reload to ensure all app state is reset.
-    try {
-      navigate('/');
-    } catch (e) {
-      // ignore navigation error
-    }
-    // Small timeout to ensure navigation runs before reload
-    setTimeout(() => {
-      window.location.href = '/';
-    }, 150);
+    // Navigate to login page after logout
+    navigate('/login');
   };
 
   const handleRefresh = () => {

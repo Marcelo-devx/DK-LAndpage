@@ -205,6 +205,7 @@ const AllProductsPage = () => {
           price: prod.price,
           pixPrice: prod.pix_price,
           imageUrl: prod.image_url || '',
+          // Use product-level stock as best-effort in quick path
           stockQuantity: prod.stock_quantity ?? 0,
           hasMultipleVariants: false,
           showAgeBadge: prod.category ? (categoriesMap[normalizeCategory(prod.category)] ?? true) : true,
@@ -213,8 +214,8 @@ const AllProductsPage = () => {
 
         // Keep ordering behavior consistent: prioritize available products
         quickList.sort((a, b) => {
-          const aAvailable = (a.stockQuantity || 0) > 0;
-          const bAvailable = (b.stockQuantity || 0) > 0;
+          const aAvailable = (a.stockQuantity ?? 0) > 0;
+          const bAvailable = (b.stockQuantity ?? 0) > 0;
           if (aAvailable && !bAvailable) return -1;
           if (!aAvailable && bAvailable) return 1;
 
@@ -248,7 +249,9 @@ const AllProductsPage = () => {
         if (prodVariants.length > 0) {
           const minPrice = Math.min(...prodVariants.map((v: any) => v.price));
           const minPixPrice = Math.min(...prodVariants.map((v: any) => v.pix_price || v.price));
-          const totalStock = prodVariants.reduce((acc: number, v: any) => acc + (v.stock_quantity || 0), 0);
+          // Total stock should consider both product-level stock and variant-level stock
+          const variantStock = prodVariants.reduce((acc: number, v: any) => acc + (v.stock_quantity || 0), 0);
+          const totalStock = (prod.stock_quantity || 0) + variantStock;
           finalDisplayList.push({
             id: prod.id,
             name: prod.name,
@@ -261,13 +264,14 @@ const AllProductsPage = () => {
             createdAt: prod.created_at || null,
           });
         } else {
+          const totalStock = (prod.stock_quantity || 0);
           finalDisplayList.push({
             id: prod.id,
             name: prod.name,
             price: prod.price,
             pixPrice: prod.pix_price,
             imageUrl: prod.image_url || '',
-            stockQuantity: prod.stock_quantity,
+            stockQuantity: totalStock,
             hasMultipleVariants: false,
             showAgeBadge: showAge,
             createdAt: prod.created_at || null,
@@ -363,8 +367,8 @@ const AllProductsPage = () => {
       // Prioritize available products before applying sort
       const [sField, sOrder] = sortBy.split('-');
       finalDisplayList.sort((a, b) => {
-        const aAvailable = (a.stockQuantity || 0) > 0;
-        const bAvailable = (b.stockQuantity || 0) > 0;
+        const aAvailable = (a.stockQuantity ?? 0) > 0;
+        const bAvailable = (b.stockQuantity ?? 0) > 0;
         if (aAvailable && !bAvailable) return -1;
         if (!aAvailable && bAvailable) return 1;
 

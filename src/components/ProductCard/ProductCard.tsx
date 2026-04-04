@@ -49,7 +49,10 @@ const ProductCard = memo(({ product }: ProductCardProps) => {
         ? `/produto/${product.id}?variant=${product.variantId}`
         : `/produto/${product.id}`;
   
-  const isOutOfStock = product.stockQuantity !== undefined && product.stockQuantity <= 0 && !hasMultipleVariants;
+  // Consider a product out of stock whenever the known stock quantity is 0 or less,
+  // independent of whether it has multiple variants. This ensures products with
+  // total variant stock = 0 are shown as esgotado and do not get priority.
+  const isOutOfStock = typeof product.stockQuantity === 'number' ? product.stockQuantity <= 0 : false;
 
   return (
     <Link to={linkUrl} className="group block h-full">

@@ -124,6 +124,18 @@ const DashboardSecurity = () => {
         setNewPassword('');
         setConfirmNewPassword('');
         setManualMode(false);
+
+        // invoke edge function to notify user
+        try {
+          const res = await fetch('https://jrlozhhvwqfmjtkmvukf.supabase.co/functions/v1/notify-password-change', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, name: session.user.user_metadata?.full_name || session.user.email }),
+          });
+          if (!res.ok) console.error('[DashboardSecurity] notify-password-change failed', res.status);
+        } catch (e) {
+          console.error('[DashboardSecurity] notify-password-change error', e);
+        }
       }
     } catch (err: any) {
       dismissToast(toastId);

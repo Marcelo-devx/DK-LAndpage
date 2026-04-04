@@ -66,7 +66,7 @@ const Footer = () => {
   }, []);
 
   const contactEmail = settings.contactEmail || 'dondkcwb@protonmail.com';
-  const contactPhone = settings.contactPhone || '+595 985 981 046';
+  const contactPhone = settings.contactPhone || '+595 985 981 046'; // Número do Paraguai (+595)
   const contactHours = settings.contactHours || 'Seg - Sex: 10:00 - 18:00 | Sábados: 10:00 - 17:00';
 
   return (

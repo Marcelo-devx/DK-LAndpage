@@ -315,8 +315,8 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
   return (
     <header className="bg-black border-b border-white/10 w-full">
       {/* Mobile Header with Back Button */}
-      <div className="md:hidden flex items-center justify-between gap-4 px-4 py-3">
-        {/* Logo and Back Button */}
+      <div className="md:hidden flex items-center justify-between gap-3 px-4 py-3">
+        {/* Logo and Menu Button */}
         <div className="flex items-center space-x-2 shrink-0">
           <Sheet>
             <SheetTrigger asChild>
@@ -398,54 +398,13 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
           </Link>
         </div>
 
-        {/* Search Bar (Mobile) */}
-        <div className="flex-1 max-w-xl mx-8">
-          <form onSubmit={handleSearch} className="w-full relative">
-            <Input 
-              type="text" 
-              placeholder="Pesquisar..." 
-              className="w-full h-10 pl-4 pr-10 rounded-lg border-white/10 bg-white/5 text-sm text-white placeholder:text-slate-500"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            <Button type="submit" size="icon" className="absolute right-0 top-0 h-10 w-10 bg-transparent text-slate-500">
-              <Search className="h-4 w-4" />
-            </Button>
-          </form>
-        </div>
-
-        {/* Icons Area (Right) */}
-        <div className="flex items-center space-x-3 md:space-x-6 shrink-0">
-          
-          <Link to="/como-funciona" className="hidden sm:flex items-center gap-2 group">
-            <Trophy className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
-            <div className="hidden lg:flex flex-col leading-none">
-                <span className="text-[9px] text-slate-400 font-black uppercase">Clube</span>
-                <span className="text-[11px] text-white font-black uppercase tracking-tighter">Vantagens</span>
-            </div>
-          </Link>
-
-          <Link to="/compras" className="hidden sm:flex items-center gap-2 group">
-            <Package className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
-            <div className="hidden lg:flex flex-col leading-none">
-                <span className="text-[9px] text-slate-400 font-black uppercase">Meus</span>
-                <span className="text-[11px] text-white font-black uppercase tracking-tighter">Pedidos</span>
-            </div>
-          </Link>
-
-          <Link to={session ? "/dashboard" : "/login"} className="flex items-center gap-2 group relative">
+        {/* Icons Area (Right) — no search bar here */}
+        <div className="flex items-center space-x-4 shrink-0 ml-auto">
+          <Link to={session ? "/dashboard" : "/login"} className="flex items-center group relative">
             <User className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
-            <div className="hidden lg:flex flex-col leading-none">
-                <span className="text-[9px] text-slate-400 font-black uppercase">
-                    {session ? 'Olá, Membro' : 'Acesse'}
-                </span>
-                <span className="text-[11px] text-white font-black uppercase tracking-tighter">
-                    {session ? 'Sua Conta' : 'Sua Conta'}
-                </span>
-            </div>
           </Link>
 
-          <button onClick={onCartClick} className="flex items-center gap-2 group relative">
+          <button onClick={onCartClick} className="flex items-center group relative">
             <div className="relative">
                 <ShoppingCart className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
                 {cartCount > 0 && (
@@ -453,10 +412,6 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
                     {cartCount}
                     </span>
                 )}
-            </div>
-            <div className="hidden lg:flex flex-col leading-none">
-                <span className="text-[9px] text-slate-400 font-black uppercase">Meu</span>
-                <span className="text-[11px] text-white font-black uppercase tracking-tighter">Carrinho</span>
             </div>
           </button>
         </div>

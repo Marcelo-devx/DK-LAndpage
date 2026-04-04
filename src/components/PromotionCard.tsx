@@ -29,10 +29,10 @@ const PromotionCard = ({ promotion }: PromotionCardProps) => {
     <Link to={promotion.url} className="group block h-full">
       <Card className={`w-full h-full mx-auto border border-stone-200 hover:shadow-xl transition-shadow duration-300 rounded-lg overflow-hidden bg-white flex flex-col ${isOutOfStock ? 'opacity-80' : ''}`}>
         <div className="overflow-hidden aspect-square">
-          <ProductImage 
-            src={promotion.imageUrl} 
-            alt={promotion.name} 
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
+          <ProductImage
+            src={promotion.imageUrl}
+            alt={promotion.name}
+            className="w-full h-full object-cover"
           />
         </div>
         <CardContent className="p-4 text-center flex-grow flex flex-col justify-between">

@@ -15,7 +15,7 @@ const Footer = () => {
     // Verifica se o link no banco está incorreto e corrige automaticamente
     const correctAndSaveInstagram = async () => {
       const currentUrl = settings.socialInstagram?.trim();
-      
+
       // Se estiver vazio, for '#' ou não for o link correto, atualiza
       if (!currentUrl || currentUrl === '#' || currentUrl !== CORRECT_INSTAGRAM_URL) {
         console.log('[Footer] Corrigindo link do Instagram no banco...');
@@ -47,7 +47,6 @@ const Footer = () => {
 
     getSession();
 
-    // keep a reference to the subscription object so cleanup is safe
     const listener = supabase.auth.onAuthStateChange((_event, currentSession) => {
       setSession(currentSession ?? null);
     });
@@ -55,21 +54,21 @@ const Footer = () => {
     return () => {
       mounted = false;
       try {
-        // listener may be undefined or shaped differently across SDK versions
         if (listener && (listener as any).data && (listener as any).data.subscription) {
           (listener as any).data.subscription.unsubscribe();
         } else if (listener && (listener as any).unsubscribe) {
-          // some versions return a simple unsubscribe function
           (listener as any).unsubscribe();
         }
       } catch (e) {
-        // swallow to avoid breaking unmount
         console.warn('[Footer] failed to unsubscribe auth listener', e);
       }
     };
   }, []);
 
-  // NOTE: logout button removed from footer per request.
+  // Prefer settings values; fall back to the requested fallback email/phone
+  const contactEmail = settings.contactEmail || 'dondkcwb@protonmail.com';
+  const contactPhone = settings.contactPhone || '+595 985 981046';
+  const contactHours = settings.contactHours || 'Segunda a Sexta: 10h às 18h / Sábado: 10h às 17h.';
 
   return (
     <footer className="bg-white text-slate-500 border-t border-slate-200">
@@ -101,15 +100,19 @@ const Footer = () => {
             <ul className="space-y-4 text-sm font-medium">
               <li className="flex flex-col">
                 <span className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">Horário</span>
-                <p>Segunda a Sexta: 10h às 18h / Sábado: 10h às 17h.</p>
+                <p>{contactHours}</p>
               </li>
               <li className="flex flex-col">
                 <span className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">E-mail</span>
-                <p>dkvapeshop@hotmail.com</p>
+                <p>
+                  <a href={`mailto:${contactEmail}`} className="hover:text-sky-500 transition-colors">{contactEmail}</a>
+                </p>
               </li>
               <li className="flex flex-col">
                 <span className="text-[10px] text-slate-400 uppercase tracking-widest mb-1">Telefone</span>
-                <p>+595 985 981046</p>
+                <p>
+                  <a href={`tel:${contactPhone.replace(/\s+/g, '')}`} className="hover:text-sky-500 transition-colors">{contactPhone}</a>
+                </p>
               </li>
             </ul>
           </div>
@@ -121,8 +124,6 @@ const Footer = () => {
                   <Instagram size={22} />
                 </a>
               </div>
-
-              {/* logout removed - nothing rendered here */}
             </div>
           </div>
         </div>

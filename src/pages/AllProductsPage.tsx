@@ -262,10 +262,27 @@ const AllProductsPage = () => {
       let flavorCountMap = new Map<string, number>();
       if (productIds.length > 0) {
         const [variantFlavors, productFlavorRelations] = await Promise.all([
-          supabase.from('product_variants').select('flavor_id, product_id').in('product_id', productIds).eq('is_active', true),
+          // include flavor_id and stock to determine availability on variants
+          supabase.from('product_variants').select('flavor_id, product_id, stock_quantity').in('product_id', productIds).eq('is_active', true),
           supabase.from('product_flavors').select('flavor_id, product_id').in('product_id', productIds),
         ]);
 
+        // Determine availability per product: product.stock_quantity OR sum of variant stock > 0
+        const variantSumByProduct: Record<number, number> = {};
+        (variantFlavors.data || []).forEach((v: any) => {
+          if (typeof v.product_id !== 'number') return;
+          variantSumByProduct[v.product_id] = (variantSumByProduct[v.product_id] || 0) + (v.stock_quantity || 0);
+        });
+
+        const productAvailable = new Set<number>();
+        (products || []).forEach((p: any) => {
+          const pid = p.id;
+          const prodStock = p.stock_quantity || 0;
+          const varStock = variantSumByProduct[pid] || 0;
+          if (prodStock > 0 || varStock > 0) productAvailable.add(pid);
+        });
+
+        // Build mapping flavorId -> set of productIds (prefer variant flavor_id, fallback to product_flavors)
         const flavorIdToProductIds = new Map<number, Set<number>>();
         (variantFlavors.data || []).forEach((v: any) => {
           if (!v.flavor_id) return;
@@ -278,8 +295,13 @@ const AllProductsPage = () => {
           flavorIdToProductIds.get(pf.flavor_id)!.add(pf.product_id);
         });
 
+        // Count only available products per flavor
         for (const [flId, prodSet] of flavorIdToProductIds.entries()) {
-          flavorCountMap.set(String(flId), prodSet.size);
+          let count = 0;
+          for (const pid of Array.from(prodSet)) {
+            if (productAvailable.has(pid)) count++;
+          }
+          if (count > 0) flavorCountMap.set(String(flId), count);
         }
 
         const flavorIds = Array.from(flavorCountMap.keys()).map(k => Number(k));

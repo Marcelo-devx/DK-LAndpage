@@ -1,5 +1,9 @@
+// @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+// @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+
+declare const Deno: any;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,7 +20,9 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Server not configured' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    });
 
     const { email, code } = await req.json();
     if (!email || !code) {
@@ -36,13 +42,13 @@ serve(async (req) => {
 
     if (error || !data) {
       console.error('[validate-token] not found', { email, code, error });
-      return new Response(JSON.stringify({ error: 'Código inválido ou expirado.' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ success: false, error: 'Código inválido ou expirado.' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     const expiresAt = new Date(data.expires_at);
     if (expiresAt.getTime() < Date.now()) {
       console.error('[validate-token] expired', { email, code });
-      return new Response(JSON.stringify({ error: 'Código expirado. Solicite um novo.' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ success: false, error: 'Código expirado. Solicite um novo.' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     // Mark as used

@@ -169,9 +169,15 @@ const Login = () => {
         try {
           const { data: profile } = await supabase
             .from('profiles')
-            .select('first_name, last_name, phone, cpf_cnpj, gender, date_of_birth, cep, street, number, neighborhood, city, state')
+            .select('first_name, last_name, phone, cpf_cnpj, gender, date_of_birth, cep, street, number, neighborhood, city, state, must_change_password')
             .eq('id', session.user.id)
             .single();
+
+          // Prioridade 1: Usuário precisa trocar a senha temporária
+          if (profile?.must_change_password) {
+            navigate('/update-password', { replace: true, state: { mandatory: true } });
+            return;
+          }
 
           const isProfileComplete = profile &&
             profile.first_name && profile.last_name && profile.phone &&

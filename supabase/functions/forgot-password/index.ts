@@ -46,7 +46,7 @@ serve(async (req) => {
     const cleanEmail = email.toLowerCase().trim();
     console.log('[forgot-password] buscando usuário com email:', cleanEmail);
 
-    // Busca direta em auth.users via RPC com SECURITY DEFINER — 100% confiável
+    // Busca direta em auth.users via RPC com SECURITY DEFINER
     const { data: userId, error: userIdError } = await supabase.rpc('get_auth_user_id_by_email', {
       p_email: cleanEmail
     });
@@ -62,15 +62,13 @@ serve(async (req) => {
     const user = { id: userId };
     console.log('[forgot-password] usuário encontrado, id:', user.id);
 
-    // Gera nova senha independente do perfil estar completo ou não.
-    // Usuários com cadastro incompleto (senha padrão 123456) também podem redefinir.
+    // Gera nova senha
     let newPassword = '';
     const MAX_ATTEMPTS = 6;
 
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       const candidate = generatePassword();
 
-      // Se anonKey disponível, verifica colisão com senha atual
       if (anonKey) {
         try {
           const authResp = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
@@ -84,7 +82,6 @@ serve(async (req) => {
           });
 
           if (authResp.ok) {
-            // Candidato igual à senha atual -> regenerar
             console.log('[forgot-password] generated password collides with current password, regenerating (attempt', attempt + 1, ')');
             continue;
           }
@@ -114,6 +111,19 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Erro ao atualizar a senha do usuário' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
+    // Seta must_change_password = true no perfil do usuário
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({ must_change_password: true })
+      .eq('id', user.id);
+
+    if (profileError) {
+      console.warn('[forgot-password] failed to set must_change_password flag:', profileError);
+      // Não bloqueia o fluxo — a senha já foi atualizada
+    } else {
+      console.log('[forgot-password] must_change_password=true setado para user:', user.id);
+    }
+
     // Envia e-mail com nova senha
     const sendResp = await fetch(`${supabaseUrl}/functions/v1/send-email-via-resend`, {
       method: 'POST',
@@ -124,7 +134,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         to: email,
-        subject: 'Sua nova senha - DKCWB',
+        subject: 'Sua nova senha temporária - DKCWB',
         type: 'new_password',
         newPassword,
       }),

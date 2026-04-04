@@ -168,26 +168,14 @@ const DashboardSecurity = () => {
         showError(typeof updateError === 'string' ? updateError : 'Erro ao atualizar senha.');
         console.error('[DashboardSecurity] updateUser (admin) error', updateError);
       } else {
-        showSuccess('Senha atualizada com sucesso!');
+        showSuccess('Senha atualizada com sucesso! Um e-mail de confirmação foi enviado.');
         // clear fields
         setCurrentPassword('');
         setNewPassword('');
         setConfirmNewPassword('');
         setManualMode(false);
-
-        // invoke edge function to notify user (non-blocking but with timeout)
-        try {
-          const notifyRes = await fetchWithTimeout('https://jrlozhhvwqfmjtkmvukf.supabase.co/functions/v1/notify-password-change', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, name: session.user.user_metadata?.full_name || session.user.email }),
-          }, 7000);
-          if (!notifyRes.ok) console.error('[DashboardSecurity] notify-password-change failed', notifyRes.status);
-        } catch (e) {
-          if ((e as any).name === 'AbortError') console.error('[DashboardSecurity] notify-password-change timeout');
-          else console.error('[DashboardSecurity] notify-password-change error', e);
-        }
       }
+
     } catch (err: any) {
       dismissToast(toastId);
       if (timedOut) return;

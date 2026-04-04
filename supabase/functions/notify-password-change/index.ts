@@ -1,4 +1,7 @@
+// @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
+
+declare const Deno: any;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -28,44 +31,37 @@ serve(async (req) => {
     return new Response('Missing email', { status: 400, headers: corsHeaders })
   }
 
-  // Read secrets (set these in Supabase Console: Edge Functions -> Manage Secrets)
-  const MAILGUN_API_KEY = Deno.env.get('MAILGUN_API_KEY') || ''
-  const MAILGUN_DOMAIN = Deno.env.get('MAILGUN_DOMAIN') || ''
-  const SENDER_EMAIL = Deno.env.get('SENDER_EMAIL') || `no-reply@${MAILGUN_DOMAIN}`
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 
-  if (!MAILGUN_API_KEY || !MAILGUN_DOMAIN) {
-    console.error('[notify-password-change] missing mailgun secrets')
-    return new Response('Email service not configured', { status: 500, headers: corsHeaders })
+  if (!supabaseUrl || !serviceRoleKey) {
+    console.error('[notify-password-change] missing supabase env vars')
+    return new Response('Server not configured', { status: 500, headers: corsHeaders })
   }
 
-  // Build email content
-  const subject = 'Sua senha foi alterada com sucesso'
-  const text = `Olá ${name || ''},\n\nEsta é uma confirmação de que sua senha foi alterada com sucesso. Se você não realizou esta alteração, por favor entre em contato com o suporte imediatamente.`
-  const html = `<p>Olá ${name || ''},</p><p>Esta é uma confirmação de que sua senha foi alterada com sucesso. Se você não realizou esta alteração, por favor entre em contato com o suporte imediatamente.</p>`
-
   try {
-    const form = new FormData()
-    form.append('from', SENDER_EMAIL)
-    form.append('to', email)
-    form.append('subject', subject)
-    form.append('text', text)
-    form.append('html', html)
-
-    const res = await fetch(`https://api.mailgun.net/v3/${MAILGUN_DOMAIN}/messages`, {
+    const res = await fetch(`${supabaseUrl}/functions/v1/send-email-via-resend`, {
       method: 'POST',
       headers: {
-        'Authorization': 'Basic ' + btoa('api:' + MAILGUN_API_KEY),
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${serviceRoleKey}`,
+        'apikey': serviceRoleKey,
       },
-      body: form,
+      body: JSON.stringify({
+        to: email,
+        subject: 'Sua senha foi alterada com sucesso - CLUB DK',
+        type: 'password_changed',
+        name,
+      }),
     })
 
     if (!res.ok) {
       const errText = await res.text().catch(() => '')
-      console.error('[notify-password-change] mailgun error', { status: res.status, body: errText })
+      console.error('[notify-password-change] send-email-via-resend error', { status: res.status, body: errText })
       return new Response('Failed to send email', { status: 502, headers: corsHeaders })
     }
 
-    console.log('[notify-password-change] email sent', { to: email })
+    console.log('[notify-password-change] email de notificação enviado com sucesso', { to: email })
     return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   } catch (err) {
     console.error('[notify-password-change] unexpected error', { error: String(err) })

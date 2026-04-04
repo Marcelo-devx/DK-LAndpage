@@ -233,6 +233,66 @@ const templates = {
     </body>
     </html>
   `,
+  passwordChanged: (name: string) => `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Senha Alterada com Sucesso</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { text-align: center; padding: 30px 0; border-bottom: 3px solid #0ea5e9; }
+        .logo { font-size: 32px; font-weight: 900; text-transform: uppercase; letter-spacing: -1px; }
+        .logo span { color: #0ea5e9; }
+        .content { padding: 40px 20px; text-align: center; }
+        .icon-box {
+          width: 72px;
+          height: 72px;
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0 auto 24px;
+          font-size: 36px;
+        }
+        .alert-box {
+          background: #fef3c7;
+          border: 1px solid #fcd34d;
+          border-radius: 10px;
+          padding: 14px 18px;
+          color: #92400e;
+          font-size: 13px;
+          margin-top: 24px;
+          text-align: left;
+        }
+        .footer { text-align: center; padding: 20px; color: #94a3b8; font-size: 12px; border-top: 1px solid #e2e8f0; margin-top: 30px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <div class="logo">CLUB<span>DK</span></div>
+        </div>
+        <div class="content">
+          <div class="icon-box">✓</div>
+          <h2 style="font-size: 24px; margin-bottom: 10px; color: #0f172a;">Senha Alterada com Sucesso</h2>
+          <p style="color: #64748b;">Olá${name ? ' ' + name : ''},</p>
+          <p style="color: #64748b;">Sua senha foi alterada com sucesso em <strong>${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' })}</strong>.</p>
+          <p style="color: #64748b;">Se você realizou esta alteração, pode ignorar este e-mail.</p>
+          <div class="alert-box">
+            ⚠️ <strong>Não foi você?</strong> Se você não realizou esta alteração, entre em contato com nosso suporte imediatamente pelo WhatsApp ou e-mail para proteger sua conta.
+          </div>
+        </div>
+        <div class="footer">
+          <p>© ${new Date().getFullYear()} CLUB DK. Todos os direitos reservados.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `,
 }
 
 serve(async (req) => {
@@ -243,7 +303,7 @@ serve(async (req) => {
   console.log('[send-email-via-resend] Received request')
 
   try {
-    const { to, subject, html, type, code, resetLink, completeLink, newPassword } = await req.json()
+    const { to, subject, html, type, code, resetLink, completeLink, newPassword, name } = await req.json()
 
     // Validate required fields
     if (!to || !subject) {
@@ -282,6 +342,9 @@ serve(async (req) => {
     } else if (type === 'new_password' && newPassword) {
       emailHtml = templates.newPassword(newPassword)
       console.log('[send-email-via-resend] Using new password template')
+    } else if (type === 'password_changed') {
+      emailHtml = templates.passwordChanged(name || '')
+      console.log('[send-email-via-resend] Using password changed template')
     }
 
     // Send email via Resend API

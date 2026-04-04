@@ -2,12 +2,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
 import { addToCart } from "@/utils/cart";
-import { ShoppingCart, Loader2, Eye, Info } from "lucide-react";
+import { ShoppingCart, Loader2, Eye } from "lucide-react";
 import { useState, memo } from "react";
 import { ProductCardProps } from "./ProductCard.types";
 import { cn } from "@/lib/utils";
 import ProductImage from "@/components/ProductImage";
-import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 
 const PixIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
@@ -61,9 +60,8 @@ const ProductCard = memo(({ product }: ProductCardProps) => {
             alt={product.name} 
             className={cn("w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 ease-out", isOutOfStock && "grayscale")} 
           />
-          {/* Age restriction badge controlled by category setting */}
           {product.showAgeBadge !== false && !isOutOfStock && (
-            <div className="absolute inset-x-0 bottom-0 bg-black/80 backdrop-blur-sm py-1.5 px-2 text-[8px] font-black text-white uppercase text-center tracking-[0.2em] z-10">
+            <div className="absolute inset-x-0 bottom-0 bg-black/80 backdrop-blur-sm py-1 px-2 text-[7px] font-black text-white uppercase text-center tracking-[0.15em] z-10">
               Apenas Maiores de 18 Anos
             </div>
           )}
@@ -76,97 +74,60 @@ const ProductCard = memo(({ product }: ProductCardProps) => {
           )}
         </div>
         
-        <CardContent className="p-4 md:p-5 flex-grow flex flex-col">
-          <div className="flex-grow space-y-3">
-            <h3 className="text-slate-900 text-xs md:text-sm font-bold tracking-tight line-clamp-2 h-8 md:h-10 group-hover:text-sky-600 transition-colors leading-tight" translate="no">
+        <CardContent className="p-3 md:p-5 flex-grow flex flex-col">
+          <div className="flex-grow space-y-2">
+            <h3 className="text-slate-900 text-[11px] md:text-sm font-bold tracking-tight line-clamp-2 group-hover:text-sky-600 transition-colors leading-tight" translate="no">
               {product.name}
             </h3>
             
-            <div className="space-y-0.5 pt-1">
-                <p className="text-[13px] md:text-[14px] font-black text-slate-900 leading-none">
-                    {pricePrefix}{formattedFullPrice}
-                </p>
-                
-                <p className="text-[10px] md:text-[11px] text-slate-900 font-medium tracking-tight">
-                    até <span className="font-black uppercase">3x</span> de <span className="font-black">{installmentValue}</span> <span className="text-[9px] font-black uppercase text-sky-600">no cartão</span>
-                </p>
-                
-                <div className="flex flex-col gap-1 pt-3">
-                    <div className="flex items-center gap-1.5">
-                        <div className="flex items-center justify-center p-1 bg-emerald-50 text-emerald-600 rounded-md border border-emerald-100">
-                          <PixIcon className="h-3.5 w-3.5" />
-                          <span className="text-[9px] font-black ml-1 uppercase tracking-wider">pix</span>
-                        </div>
-                        <span className="text-[10px] font-black text-emerald-600/60 uppercase">à vista</span>
-                    </div>
-                    
-                    <div className="flex items-baseline gap-1.5">
-                        <span className="text-3xl md:text-4xl font-black text-emerald-600 tracking-tighter leading-none">
-                            {pricePrefix}{formattedPixPrice}
-                        </span>
-                    </div>
+            <div className="space-y-0.5">
+              {/* Preço cheio + parcelamento */}
+              <p className="text-[11px] md:text-[13px] font-black text-slate-900 leading-none">
+                {pricePrefix}{formattedFullPrice}
+              </p>
+              <p className="text-[9px] md:text-[10px] text-slate-500 font-medium">
+                3x de <span className="font-black">{installmentValue}</span> <span className="text-sky-600 font-black uppercase">cartão</span>
+              </p>
+              
+              {/* Bloco PIX */}
+              <div className="pt-1.5">
+                <div className="flex items-center gap-1 mb-0.5">
+                  <div className="flex items-center justify-center px-1.5 py-0.5 bg-emerald-50 text-emerald-600 rounded border border-emerald-100">
+                    <PixIcon className="h-2.5 w-2.5" />
+                    <span className="text-[8px] font-black ml-0.5 uppercase">pix</span>
+                  </div>
+                  <span className="text-[8px] font-black text-emerald-600/60 uppercase">à vista</span>
                 </div>
+                <p className="text-lg md:text-2xl font-black text-emerald-600 tracking-tighter leading-none">
+                  {pricePrefix}{formattedPixPrice}
+                </p>
+              </div>
             </div>
           </div>
 
-          {/* New compact 'quick links' popover with examples for brand, category, flavor */}
-          <div className="mt-4 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button className="flex items-center gap-2 px-3 py-2 bg-white border border-stone-200 rounded-md text-xs font-bold hover:bg-white/90">
-                    <Info className="h-4 w-4 text-stone-500" />
-                    Ver filtros
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent>
-                  <div className="space-y-2">
-                    {/* Example links: category, brand, and up to 2 flavors (if available) */}
-                    <div>
-                      <div className="text-[10px] font-black text-stone-400 uppercase mb-1">Categoria</div>
-                      <Link to={`/produtos?category=${encodeURIComponent(product.showAgeBadge ? 'Categoria' : '')}`} className="block text-sm text-sky-500 font-bold">Ver similar</Link>
-                    </div>
-                    <div>
-                      <div className="text-[10px] font-black text-stone-400 uppercase mb-1">Marca</div>
-                      <Link to={`/produtos?brand=${encodeURIComponent(product.name.split(' ')[0])}`} className="block text-sm text-sky-500 font-bold">Mais da marca</Link>
-                    </div>
-                    <div>
-                      <div className="text-[10px] font-black text-stone-400 uppercase mb-1">Sabores</div>
-                      <div className="flex gap-2 flex-wrap">
-                        <Link to={`/produtos?search=${encodeURIComponent('example flavor')}`} className="px-2 py-1 rounded-full bg-stone-100 text-xs font-bold">Example 1</Link>
-                        <Link to={`/produtos?search=${encodeURIComponent('example flavor 2')}`} className="px-2 py-1 rounded-full bg-stone-100 text-xs font-bold">Example 2</Link>
-                      </div>
-                    </div>
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </div>
-
+          {/* Botão de ação */}
+          <div className="mt-3">
             {hasMultipleVariants ? (
               <Button 
-                className="w-auto font-black uppercase text-[10px] tracking-[0.2em] h-11 rounded-xl transition-all duration-300 shadow-md group-hover:translate-y-[-2px] bg-slate-950 hover:bg-sky-500 text-white"
+                className="w-full font-black uppercase text-[9px] md:text-[10px] tracking-widest h-9 md:h-11 rounded-xl transition-all duration-300 bg-slate-950 hover:bg-sky-500 text-white whitespace-nowrap"
                 onClick={handleViewOptions}
                 aria-label="Escolher opções"
               >
-                <Eye className="mr-2 h-4 w-4" />
-                <span className="hidden sm:inline">Escolher Opções</span>
-                <span className="inline sm:hidden leading-tight text-[11px] whitespace-normal text-center">
-                  <span className="block">Escolher</span>
-                  <span className="block">Opções</span>
-                </span>
+                <Eye className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                Ver Opções
               </Button>
             ) : (
               <Button 
                 className={cn(
-                    "w-auto font-black uppercase text-[10px] tracking-[0.2em] h-11 rounded-xl transition-all duration-300 shadow-md group-hover:translate-y-[-2px]",
+                    "w-full font-black uppercase text-[9px] md:text-[10px] tracking-widest h-9 md:h-11 rounded-xl transition-all duration-300 whitespace-nowrap",
                     isOutOfStock ? "bg-stone-200 text-stone-500 cursor-not-allowed hover:bg-stone-200" : "bg-slate-950 hover:bg-sky-500 text-white"
                 )}
                 onClick={handleAddToCart}
                 disabled={isAdding || isOutOfStock}
               >
-                {isAdding ? <Loader2 className="animate-spin h-4 w-4" /> : (
+                {isAdding ? <Loader2 className="animate-spin h-3.5 w-3.5" /> : (
                   <>
-                    <ShoppingCart className="mr-2 h-4 w-4" />
+                    <ShoppingCart className="mr-1.5 h-3.5 w-3.5 shrink-0" />
                     {isOutOfStock ? 'Esgotado' : 'Adicionar'}
                   </>
                 )}

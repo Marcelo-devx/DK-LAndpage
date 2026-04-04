@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { showError, showSuccess, showLoading, dismissToast } from '@/utils/toast';
-import { Loader2, Mail, ShieldCheck, KeyRound } from 'lucide-react';
+import { Loader2, Mail, ShieldCheck, KeyRound, Lock, Check, X } from 'lucide-react';
 
 const SUPABASE_URL = "https://jrlozhhvwqfmjtkmvukf.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpybG96aGh2d3FmbWp0a212dWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzNDU2NjQsImV4cCI6MjA2NzkyMTY2NH0.Do5c1-TKqpyZTJeX_hLbw1SU40CbwXfCIC-pPpcD_JM";
@@ -12,7 +12,25 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const DashboardSecurity = () => {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [manualMode, setManualMode] = useState(false);
   const navigate = useNavigate();
+
+  // manual change states
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [changing, setChanging] = useState(false);
+
+  const checks = useMemo(() => ({
+    length: newPassword.length >= 8,
+    upper: /[A-Z]/.test(newPassword),
+    number: /\d/.test(newPassword),
+    special: /[^A-Za-z0-9]/.test(newPassword),
+    match: newPassword.length > 0 && newPassword === confirmNewPassword,
+    notSameAsCurrent: currentPassword.length > 0 ? newPassword !== currentPassword : true,
+  }), [newPassword, confirmNewPassword, currentPassword]);
+
+  const allValid = checks.length && checks.upper && checks.number && checks.special && checks.match && checks.notSameAsCurrent;
 
   const handleSendNewPassword = async () => {
     setLoading(true);
@@ -61,6 +79,68 @@ const DashboardSecurity = () => {
     }
   };
 
+  const handleManualChange = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!allValid) {
+      if (!checks.notSameAsCurrent) showError('A nova senha não pode ser igual à senha atual.');
+      else showError('A nova senha não atende aos requisitos.');
+      return;
+    }
+
+    setChanging(true);
+    const toastId = showLoading('Atualizando senha...');
+
+    try {
+      // get user email
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.email) {
+        dismissToast(toastId);
+        showError('Sessão expirada. Por favor, faça login novamente.');
+        navigate('/login');
+        return;
+      }
+      const email = session.user.email;
+
+      // Re-authenticate using current password
+      const signRes = await supabase.auth.signInWithPassword({ email, password: currentPassword });
+      if (signRes.error) {
+        dismissToast(toastId);
+        showError('Senha atual incorreta.');
+        setChanging(false);
+        return;
+      }
+
+      // Now update password
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      dismissToast(toastId);
+
+      if (error) {
+        showError(error.message || 'Erro ao atualizar senha.');
+        console.error('[DashboardSecurity] updateUser error', error);
+      } else {
+        showSuccess('Senha atualizada com sucesso!');
+        // clear fields
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmNewPassword('');
+        setManualMode(false);
+      }
+    } catch (err: any) {
+      dismissToast(toastId);
+      showError(err.message || 'Erro inesperado.');
+      console.error('[DashboardSecurity] manual change unexpected', err);
+    } finally {
+      setChanging(false);
+    }
+  };
+
+  const Requirement = ({ met, label }: { met: boolean; label: string }) => (
+    <div className={`flex items-center gap-2 text-xs font-medium transition-colors ${met ? 'text-emerald-400' : 'text-slate-500'}`}>
+      {met ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
+      {label}
+    </div>
+  );
+
   return (
     <div className="container mx-auto px-4 md:px-6 py-4 md:py-10 max-w-lg">
       <Card className="border border-stone-200 shadow-sm rounded-2xl overflow-hidden">
@@ -97,6 +177,78 @@ const DashboardSecurity = () => {
                   <><Mail className="h-4 w-4" /> Enviar Nova Senha por E-mail</>
                 )}
               </Button>
+
+              <div className="text-center text-sm text-slate-500">ou</div>
+
+              <div className="text-center">
+                <Button variant="outline" onClick={() => setManualMode(!manualMode)} className="uppercase font-bold tracking-widest text-xs">
+                  {manualMode ? 'Cancelar alteração manual' : 'Redefinir usando sua senha atual'}
+                </Button>
+              </div>
+
+              {manualMode && (
+                <form onSubmit={handleManualChange} className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase">Senha Atual</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                      <input
+                        type="password"
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        className="pl-10 h-11 w-full rounded-xl border border-white/5 px-3"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase">Nova Senha</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                      <input
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        className="pl-10 h-11 w-full rounded-xl border border-white/5 px-3"
+                        placeholder="••••••••"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {newPassword.length > 0 && (
+                    <div className="grid grid-cols-2 gap-2 p-3 rounded-xl border border-white/5">
+                      <Requirement met={checks.length} label="8+ caracteres" />
+                      <Requirement met={checks.upper} label="Letra maiúscula" />
+                      <Requirement met={checks.number} label="Número" />
+                      <Requirement met={checks.special} label="Caractere especial" />
+                      <Requirement met={checks.notSameAsCurrent} label="Diferente da senha atual" />
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase">Confirmar Nova Senha</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                      <input
+                        type="password"
+                        value={confirmNewPassword}
+                        onChange={(e) => setConfirmNewPassword(e.target.value)}
+                        className="pl-10 h-11 w-full rounded-xl border border-white/5 px-3"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button type="submit" disabled={changing} className="flex-1 h-11 uppercase font-black">
+                      {changing ? <><Loader2 className="h-4 w-4 animate-spin" /> Atualizando...</> : 'Atualizar senha agora'}
+                    </Button>
+                    <Button variant="outline" onClick={() => setManualMode(false)} className="h-11">Cancelar</Button>
+                  </div>
+                </form>
+              )}
             </>
           ) : (
             <div className="text-center space-y-4 py-4">

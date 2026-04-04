@@ -69,7 +69,7 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
 
     // Build mapping categoryId -> set of product sub_category strings (exact values from products)
     const catNameToId = new Map<string, number>();
-    (cats || []).forEach((c: any) => { if (c.name) catNameToId.set(String(c.name), c.id); });
+    (cats || []).forEach((c: any) => { if (c.name) catNameToId.set(normalizeKey(String(c.name)), c.id); });
 
     const catSubsMap: Record<number, Set<string>> = {};
     const catBrands: Record<number, Set<string>> = {};
@@ -77,15 +77,15 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
 
     (productRows || []).forEach((p: any) => {
       if (!p.category) return;
-      const catId = catNameToId.get(String(p.category));
+      const catId = catNameToId.get(normalizeKey(String(p.category)));
       if (!catId) return;
       if (p.sub_category) {
         if (!catSubsMap[catId]) catSubsMap[catId] = new Set();
-        catSubsMap[catId].add(String(p.sub_category));
+        catSubsMap[catId].add(String(p.sub_category).trim());
       }
       if (p.brand) {
         if (!catBrands[catId]) catBrands[catId] = new Set();
-        catBrands[catId].add(String(p.brand));
+        catBrands[catId].add(String(p.brand).trim());
       }
       if (!catProductIds[catId]) catProductIds[catId] = [];
       catProductIds[catId].push(p.id);

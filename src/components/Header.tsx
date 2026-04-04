@@ -92,10 +92,7 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
       productInfo[p.id] = { id: p.id, category: String(p.category), brand: p.brand, sub_category: p.sub_category, stock_quantity: p.stock_quantity ?? 0 };
     });
 
-    // Convert subs map to arrays
-    const catSubsObj: Record<number, string[]> = {};
-    Object.entries(catSubsMap).forEach(([k, v]) => { catSubsObj[Number(k)] = Array.from(v).sort(); });
-    setCategoryProductSubsMap(catSubsObj);
+    // DON'T set sub-categories yet: we will filter them by availability below
 
     // Now compute availability per product (consider product stock_quantity OR sum of variant stock)
     const categoryFlavorsResult: Record<number, Set<string>> = {};
@@ -123,6 +120,20 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
         const varStock = variantSumByProduct[pid] || 0;
         productAvailable[pid] = (prodStock > 0) || (varStock > 0);
       });
+
+      // Build category sub-categories only from available products
+      const catSubsFilteredObj: Record<number, string[]> = {};
+      Object.entries(catProductIds).forEach(([catIdStr, prodIds]) => {
+        const catId = Number(catIdStr);
+        const subsSet = new Set<string>();
+        prodIds.forEach(pid => {
+          if (!productAvailable[pid]) return;
+          const sub = productInfo[pid]?.sub_category;
+          if (sub) subsSet.add(String(sub).trim());
+        });
+        if (subsSet.size > 0) catSubsFilteredObj[catId] = Array.from(subsSet).sort();
+      });
+      setCategoryProductSubsMap(catSubsFilteredObj);
 
       // Build categoryBrands only from available products
       Object.entries(catProductIds).forEach(([catIdStr, prodIds]) => {

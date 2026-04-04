@@ -36,6 +36,7 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
     if (!supabaseUrl || !serviceRoleKey) {
       return new Response(JSON.stringify({ error: 'Server not configured' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
@@ -90,7 +91,50 @@ serve(async (req) => {
       );
     }
 
-    const newPassword = generatePassword();
+    // Generate a password that is *very unlikely* to equal the current one.
+    // As an extra precaution, we attempt to detect collisions by trying to sign in with the generated password
+    // using the public auth endpoint. If sign-in succeeds, the generated password equals the current one -> regenerate.
+    let newPassword = '';
+    const MAX_ATTEMPTS = 6;
+
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      const candidate = generatePassword();
+
+      // If anon key is present, try to authenticate with this candidate to detect collision
+      if (anonKey) {
+        try {
+          const authResp = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': anonKey,
+              'Authorization': `Bearer ${anonKey}`,
+            },
+            body: JSON.stringify({ email: cleanEmail, password: candidate }),
+          });
+
+          if (authResp.ok) {
+            // Candidate matches current password -> regenerate
+            console.log('[forgot-password] generated password collides with current password, regenerating (attempt', attempt + 1, ')');
+            continue;
+          }
+        } catch (e) {
+          console.warn('[forgot-password] auth check failed, proceeding assuming no collision', e);
+          // If auth check fails for network reasons, proceed with candidate
+          newPassword = candidate;
+          break;
+        }
+      }
+
+      // If no anonKey or authResp not ok, accept candidate
+      newPassword = candidate;
+      break;
+    }
+
+    if (!newPassword) {
+      console.error('[forgot-password] failed to generate non-colliding password after attempts');
+      return new Response(JSON.stringify({ error: 'Erro ao gerar nova senha. Tente novamente.' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
 
     // Update user's password using admin API
     const { error: updateError } = await supabase.auth.admin.updateUserById(user.id, {

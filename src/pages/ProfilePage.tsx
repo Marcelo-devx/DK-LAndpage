@@ -248,7 +248,18 @@ const ProfilePage = () => {
                     <div className="space-y-3">
                       <Label htmlFor="cep" className="text-xs font-black uppercase tracking-[0.2em] text-stone-500">CEP</Label>
                       <div className="flex items-center space-x-3">
-                        <Input id="cep" {...register('cep')} onChange={(e) => e.target.value = maskCep(e.target.value)} className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" />
+                        <Input
+                          id="cep"
+                          {...register('cep')}
+                          onChange={(e) => {
+                            const masked = maskCep(e.target.value);
+                            e.target.value = masked;
+                            if (masked.replace(/\D/g, '').length === 8) {
+                              setTimeout(() => handleCepLookup(), 100);
+                            }
+                          }}
+                          className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors"
+                        />
                         <Button type="button" size="icon" onClick={handleCepLookup} disabled={isFetchingCep} className="bg-sky-500 hover:bg-sky-400 text-white h-12 w-12 rounded-xl shrink-0">
                           {isFetchingCep ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
                         </Button>

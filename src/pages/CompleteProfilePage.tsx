@@ -526,7 +526,18 @@ const CompleteProfilePage = () => {
                       control={control}
                       defaultValue=""
                       render={({ field }) => (
-                        <Input id="cep" value={field.value} onChange={(e) => field.onChange(maskCep(e.target.value))} className="bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors" />
+                        <Input
+                          id="cep"
+                          value={field.value}
+                          onChange={(e) => {
+                            const masked = maskCep(e.target.value);
+                            field.onChange(masked);
+                            if (masked.replace(/\D/g, '').length === 8) {
+                              setTimeout(() => handleCepLookup(), 100);
+                            }
+                          }}
+                          className="bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors"
+                        />
                       )}
                     />
                     <Button type="button" size="icon" onClick={handleCepLookup} disabled={isFetchingCep} className="bg-sky-500 hover:bg-sky-400 text-white h-12 w-14 rounded-xl shrink-0 shadow-md">

@@ -62,45 +62,15 @@ serve(async (req) => {
     const user = { id: userId };
     console.log('[forgot-password] usuário encontrado, id:', user.id);
 
-    // Check if the user has a complete profile (all required fields must be filled)
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('first_name, last_name, phone, cpf_cnpj, gender, date_of_birth, cep, street, number, neighborhood, city, state')
-      .eq('id', user.id)
-      .single();
-
-    if (profileError || !profile) {
-      console.log('[forgot-password] perfil não encontrado para usuário:', user.id);
-      return new Response(
-        JSON.stringify({ error: 'Cadastro incompleto. Finalize seu cadastro antes de redefinir a senha.' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const isProfileComplete =
-      profile.first_name && profile.last_name && profile.phone &&
-      profile.cpf_cnpj && profile.gender && profile.date_of_birth &&
-      profile.cep && profile.street && profile.number &&
-      profile.neighborhood && profile.city && profile.state;
-
-    if (!isProfileComplete) {
-      console.log('[forgot-password] perfil incompleto para usuário:', user.id, profile);
-      return new Response(
-        JSON.stringify({ error: 'Cadastro incompleto. Finalize seu cadastro antes de redefinir a senha.' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Generate a password that is *very unlikely* to equal the current one.
-    // As an extra precaution, we attempt to detect collisions by trying to sign in with the generated password
-    // using the public auth endpoint. If sign-in succeeds, the generated password equals the current one -> regenerate.
+    // Gera nova senha independente do perfil estar completo ou não.
+    // Usuários com cadastro incompleto (senha padrão 123456) também podem redefinir.
     let newPassword = '';
     const MAX_ATTEMPTS = 6;
 
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       const candidate = generatePassword();
 
-      // If anon key is present, try to authenticate with this candidate to detect collision
+      // Se anonKey disponível, verifica colisão com senha atual
       if (anonKey) {
         try {
           const authResp = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
@@ -114,19 +84,17 @@ serve(async (req) => {
           });
 
           if (authResp.ok) {
-            // Candidate matches current password -> regenerate
+            // Candidato igual à senha atual -> regenerar
             console.log('[forgot-password] generated password collides with current password, regenerating (attempt', attempt + 1, ')');
             continue;
           }
         } catch (e) {
           console.warn('[forgot-password] auth check failed, proceeding assuming no collision', e);
-          // If auth check fails for network reasons, proceed with candidate
           newPassword = candidate;
           break;
         }
       }
 
-      // If no anonKey or authResp not ok, accept candidate
       newPassword = candidate;
       break;
     }
@@ -136,7 +104,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Erro ao gerar nova senha. Tente novamente.' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // Update user's password using admin API
+    // Atualiza senha via admin API
     const { error: updateError } = await supabase.auth.admin.updateUserById(user.id, {
       password: newPassword,
     });
@@ -146,7 +114,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Erro ao atualizar a senha do usuário' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // Send email with new password
+    // Envia e-mail com nova senha
     const sendResp = await fetch(`${supabaseUrl}/functions/v1/send-email-via-resend`, {
       method: 'POST',
       headers: {

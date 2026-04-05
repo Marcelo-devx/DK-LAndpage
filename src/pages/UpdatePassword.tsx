@@ -136,17 +136,7 @@ const UpdatePassword = () => {
         return;
       }
 
-      // Limpar flag must_change_password
-      try {
-        await supabase
-          .from('profiles')
-          .update({ must_change_password: false })
-          .eq('id', userId);
-        console.log('[UpdatePassword] must_change_password limpo com sucesso');
-      } catch (err) {
-        console.warn('[UpdatePassword] Erro ao limpar must_change_password:', err);
-      }
-
+      // must_change_password é limpo pela edge function update-password-admin via service role
       clearTimeout(watchdog);
       dismissToast(toastId);
       setLoading(false);

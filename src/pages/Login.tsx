@@ -164,6 +164,8 @@ const Login = () => {
       if (handled) return;
       handled = true;
 
+      console.log('[Login] redirectAfterLogin iniciado para user:', session.user.id);
+
       const storedRefCode = sessionStorage.getItem('referral_code');
       if (storedRefCode) {
         try {
@@ -173,14 +175,18 @@ const Login = () => {
       }
 
       try {
-        const { data: profile } = await supabase
+        console.log('[Login] buscando perfil...');
+        const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('first_name, last_name, phone, cpf_cnpj, gender, date_of_birth, cep, street, number, neighborhood, city, state, must_change_password')
           .eq('id', session.user.id)
           .single();
 
+        console.log('[Login] perfil recebido:', { profile, profileError });
+
         // Prioridade 1: Usuário precisa trocar a senha temporária
         if (profile?.must_change_password) {
+          console.log('[Login] must_change_password=true → /update-password');
           navigate('/update-password', { replace: true, state: { mandatory: true } });
           return;
         }
@@ -191,17 +197,21 @@ const Login = () => {
           profile.cep && profile.street && profile.number &&
           profile.neighborhood && profile.city && profile.state;
 
+        console.log('[Login] isProfileComplete:', isProfileComplete, '→ redirecionando para:', !isProfileComplete ? '/complete-profile' : from);
+
         if (!isProfileComplete) {
           navigate('/complete-profile', { replace: true });
         } else {
           navigate(from, { replace: true });
         }
       } catch (err) {
+        console.error('[Login] erro ao buscar perfil:', err);
         navigate(from, { replace: true });
       }
     };
 
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('[Login] onAuthStateChange:', event, 'handled:', handled);
       // Só age em SIGNED_IN — ignora INITIAL_SESSION para não redirecionar usuários
       // que já estavam logados e voltaram para a página de login
       if (event === 'SIGNED_IN' && session) {

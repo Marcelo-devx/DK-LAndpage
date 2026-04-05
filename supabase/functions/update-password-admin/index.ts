@@ -71,6 +71,19 @@ serve(async (req) => {
 
     console.log('[update-password-admin] senha atualizada com sucesso para userId:', userId);
 
+    // Limpar must_change_password via service role (bypassa RLS — garantido)
+    const { error: profileUpdateError } = await supabase
+      .from('profiles')
+      .update({ must_change_password: false })
+      .eq('id', userId);
+
+    if (profileUpdateError) {
+      console.error('[update-password-admin] falha ao limpar must_change_password:', profileUpdateError);
+      // Não bloqueia o fluxo — a senha já foi atualizada
+    } else {
+      console.log('[update-password-admin] must_change_password=false limpo com sucesso para userId:', userId);
+    }
+
     // Notificar usuário por e-mail (não bloqueia o fluxo)
     try {
       const notifyRes = await fetch(`${supabaseUrl}/functions/v1/notify-password-change`, {

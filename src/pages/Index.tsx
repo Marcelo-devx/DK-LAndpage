@@ -192,7 +192,7 @@ const Index = () => {
       )}
 
       {settings.showHero && heroSlides.length > 0 && (
-        <section className="relative w-full overflow-hidden min-h-[140px] md:min-h-[240px] lg:min-h-[300px] xl:min-h-[360px]">
+        <section className="relative w-full overflow-hidden min-h-[100px] md:min-h-[200px] lg:min-h-[260px] xl:min-h-[320px]">
           <Carousel plugins={[Autoplay({ delay: 5000 })]} className="w-full h-full">
             <CarouselContent>
               {heroSlides.map((slide, index) => (

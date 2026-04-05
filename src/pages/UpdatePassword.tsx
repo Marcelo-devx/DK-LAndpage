@@ -59,8 +59,10 @@ const UpdatePassword = () => {
 
     setLoading(true);
     const toastId = showLoading('Atualizando sua senha...');
+    console.log('[UpdatePassword] Iniciando atualização de senha para usuário');
 
-    const { error } = await supabase.auth.updateUser({ password });
+    const { error, data } = await supabase.auth.updateUser({ password });
+    console.log('[UpdatePassword] Resultado updateUser:', { error, userId: data?.user?.id });
 
     if (error) {
       dismissToast(toastId);
@@ -70,18 +72,54 @@ const UpdatePassword = () => {
     }
 
     // Limpa o flag must_change_password no perfil
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.user?.id) {
-      await supabase
-        .from('profiles')
-        .update({ must_change_password: false })
-        .eq('id', session.user.id);
+    if (data?.user?.id) {
+      try {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({ must_change_password: false })
+          .eq('id', data.user.id);
+        
+        console.log('[UpdatePassword] Resultado atualização perfil:', { profileError });
+        
+        if (profileError) {
+          console.warn('[UpdatePassword] Erro ao atualizar must_change_password:', profileError);
+        }
+      } catch (err) {
+        console.error('[UpdatePassword] Exceção ao atualizar perfil:', err);
+      }
     }
 
     dismissToast(toastId);
     setLoading(false);
     showSuccess('Senha criada com sucesso! Bem-vindo(a)!');
-    navigate('/', { replace: true });
+
+    // Verificar se o perfil está completo para decidir redirecionamento
+    if (data?.user?.id) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('first_name, last_name, phone, cpf_cnpj, gender, date_of_birth, cep, street, number, neighborhood, city, state')
+        .eq('id', data.user.id)
+        .single();
+
+      const isProfileComplete = profile &&
+        profile.first_name && profile.last_name && profile.phone &&
+        profile.cpf_cnpj && profile.gender && profile.date_of_birth &&
+        profile.cep && profile.street && profile.number &&
+        profile.neighborhood && profile.city && profile.state;
+
+      console.log('[UpdatePassword] Perfil completo?', { isProfileComplete, hasProfile: !!profile });
+
+      if (!isProfileComplete) {
+        console.log('[UpdatePassword] Redirecionando para complete-profile');
+        navigate('/complete-profile', { replace: true });
+      } else {
+        console.log('[UpdatePassword] Redirecionando para home');
+        navigate('/', { replace: true });
+      }
+    } else {
+      console.log('[UpdatePassword] Redirecionando para home (sem user.id)');
+      navigate('/', { replace: true });
+    }
   };
 
   const Requirement = ({ met, label }: { met: boolean; label: string }) => (

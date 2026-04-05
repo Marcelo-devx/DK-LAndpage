@@ -70,30 +70,42 @@ const isSelectableBenefit = (benefit: string) => {
   return b.includes('frete');
 };
 
+// Detects mobile browsers (Android / iOS) at module level — stable, no re-computation needed.
+const isMobileBrowser = (() => {
+  try {
+    return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  } catch {
+    return false;
+  }
+})();
+
 const CheckoutPage = () => {
   const navigate = useNavigate();
 
-  // Safe navigation helper: on mobile browsers (Android/iOS) use full page navigation
-  // to avoid SPA routing issues after async redirects (payment flows, focus/visibility events).
-  const safeNavigate = (url: string, options?: { replace?: boolean; state?: any }) => {
+  /**
+   * safeNavigate — wraps React Router navigate with a full-page fallback for mobile browsers.
+   *
+   * On Android/iOS, SPA navigation via React Router can silently fail or produce blank screens
+   * when called after async operations (payment callbacks, visibility-change re-fetches, etc.).
+   * Using window.location guarantees the browser performs a real navigation and re-mounts the
+   * target page cleanly, at the cost of losing in-memory React state (which is fine here because
+   * we always want a fresh page after checkout).
+   */
+  const safeNavigate = useCallback((url: string, options?: { replace?: boolean }) => {
     try {
-      const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : '';
-      const isMobileBrowser = /Android|iPhone|iPad|iPod/i.test(ua);
       if (isMobileBrowser) {
-        // Use full navigation to ensure proper page load and avoid history/state issues on some Android browsers
         if (options?.replace) {
           window.location.replace(url);
         } else {
           window.location.href = url;
         }
       } else {
-        navigate(url, { replace: !!options?.replace, state: options?.state });
+        navigate(url, { replace: !!options?.replace });
       }
-    } catch (e) {
-      // fallback
-      try { window.location.href = url; } catch (e) { /* ignore */ }
+    } catch {
+      try { window.location.href = url; } catch { /* ignore */ }
     }
-  };
+  }, [navigate]);
 
   const [items, setItems] = useState<DisplayItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -117,9 +129,7 @@ const CheckoutPage = () => {
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
   const [selectedBenefits, setSelectedBenefits] = useState<string[]>([]);
 
-  // Estado para controlar se o formulário do MP está visível
   const [showMpForm, setShowMpForm] = useState(false);
-  // Armazena o orderId criado antes de mostrar o form do MP
   const [pendingOrderId, setPendingOrderId] = useState<number | null>(null);
 
   const isMountedRef = useRef(true);
@@ -166,39 +176,60 @@ const CheckoutPage = () => {
 
   const fetchCartItems = useCallback(async () => {
     const localCart = getLocalCart();
-    if (localCart.length === 0) { if (isMountedRef.current) safeNavigate('/', { replace: true }); return; }
+    if (localCart.length === 0) {
+      if (isMountedRef.current) safeNavigate('/', { replace: true });
+      return;
+    }
     const productIds = localCart.filter(i => i.itemType === 'product').map(i => i.itemId);
     const promotionIds = localCart.filter(i => i.itemType === 'promotion').map(i => i.itemId);
-    const { data: products } = await supabase.from('products').select('id, name, price, pix_price, image_url').in('id', productIds);
-    const { data: promotions } = await supabase.from('promotions').select('id, name, price, pix_price, image_url').in('id', promotionIds);
     const variantIds = localCart.filter(i => i.variantId).map(i => i.variantId!);
-    const { data: variants } = await supabase.from('product_variants').select('id, price, pix_price').in('id', variantIds);
+
+    const [productsRes, promotionsRes, variantsRes] = await Promise.all([
+      productIds.length > 0
+        ? supabase.from('products').select('id, name, price, pix_price, image_url').in('id', productIds)
+        : Promise.resolve({ data: [] }),
+      promotionIds.length > 0
+        ? supabase.from('promotions').select('id, name, price, pix_price, image_url').in('id', promotionIds)
+        : Promise.resolve({ data: [] }),
+      variantIds.length > 0
+        ? supabase.from('product_variants').select('id, price, pix_price').in('id', variantIds)
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    const products = (productsRes as any).data;
+    const promotions = (promotionsRes as any).data;
+    const variants = (variantsRes as any).data;
+
     const finalItems = localCart.map(cartItem => {
       let details: any = null;
-      let price = 0; let pixPrice: number | null = null;
+      let price = 0;
+      let pixPrice: number | null = null;
       if (cartItem.itemType === 'product') {
-        details = products?.find(p => p.id === cartItem.itemId);
+        details = products?.find((p: any) => p.id === cartItem.itemId);
         if (details) {
           price = details.price; pixPrice = details.pix_price;
           if (cartItem.variantId && variants) {
-            const v = variants.find(v => v.id === cartItem.variantId);
+            const v = variants.find((v: any) => v.id === cartItem.variantId);
             if (v) { price = v.price; pixPrice = v.pix_price; }
           }
         }
       } else {
-        details = promotions?.find(p => p.id === cartItem.itemId);
+        details = promotions?.find((p: any) => p.id === cartItem.itemId);
         if (details) { price = details.price; pixPrice = details.pix_price; }
       }
-      return details ? { id: cartItem.itemId, itemId: cartItem.itemId, itemType: cartItem.itemType, quantity: cartItem.quantity, name: details.name, price: price, pixPrice: pixPrice, image_url: details.image_url || '' } : null;
+      return details
+        ? { id: cartItem.itemId, itemId: cartItem.itemId, itemType: cartItem.itemType, quantity: cartItem.quantity, name: details.name, price, pixPrice, image_url: details.image_url || '' }
+        : null;
     }).filter((i): i is DisplayItem => i !== null);
+
     if (isMountedRef.current) setItems(finalItems);
-  }, [navigate]);
+  }, [safeNavigate]);
 
   const fetchUserData = useCallback(async (currentUser: any) => {
     const [profileRes, couponsRes, ordersRes] = await Promise.all([
-        supabase.from('profiles').select('*, loyalty_tiers ( name, benefits )').eq('id', currentUser.id).single(),
-        supabase.from('user_coupons').select('id, expires_at, coupons ( name, discount_value, minimum_order_value )').eq('user_id', currentUser.id).eq('is_used', false).gt('expires_at', new Date().toISOString()),
-        supabase.from('orders').select('created_at, benefits_used').eq('user_id', currentUser.id).neq('status', 'Cancelado').order('created_at', { ascending: false }).limit(10)
+      supabase.from('profiles').select('*, loyalty_tiers ( name, benefits )').eq('id', currentUser.id).single(),
+      supabase.from('user_coupons').select('id, expires_at, coupons ( name, discount_value, minimum_order_value )').eq('user_id', currentUser.id).eq('is_used', false).gt('expires_at', new Date().toISOString()),
+      supabase.from('orders').select('created_at, benefits_used').eq('user_id', currentUser.id).neq('status', 'Cancelado').order('created_at', { ascending: false }).limit(10),
     ]);
 
     const profile = profileRes.data;
@@ -208,13 +239,13 @@ const CheckoutPage = () => {
       setValue('payment_method', profile.is_credit_card_enabled ? 'mercadopago' : 'pix');
       const fields: (keyof CheckoutFormData)[] = ['email', 'first_name', 'last_name', 'phone', 'cep', 'street', 'number', 'neighborhood', 'city', 'state', 'complement', 'cpf_cnpj'];
       fields.forEach(f => {
-          let val = profile[f] || '';
-          if (f === 'email') val = currentUser.email || '';
-          if (f === 'phone') val = val ? maskPhone(val) : '';
-          if (f === 'cep') val = val ? maskCep(val) : '';
-          if (f === 'cpf_cnpj') val = val ? maskCpfCnpj(val) : '';
-          // @ts-ignore
-          setValue(f, val);
+        let val = profile[f] || '';
+        if (f === 'email') val = currentUser.email || '';
+        if (f === 'phone') val = val ? maskPhone(val) : '';
+        if (f === 'cep') val = val ? maskCep(val) : '';
+        if (f === 'cpf_cnpj') val = val ? maskCpfCnpj(val) : '';
+        // @ts-ignore
+        setValue(f, val);
       });
       setUserPoints(profile.points);
     }
@@ -228,21 +259,20 @@ const CheckoutPage = () => {
     const now = new Date();
 
     if (lowerBenefit.includes('semana')) {
-        const usedThisWeek = recentOrders.some(o =>
-            o.benefits_used &&
-            o.benefits_used.includes(benefit) &&
-            isSameWeek(new Date(o.created_at), now, { locale: ptBR })
-        );
-
-        if (usedThisWeek) {
-            const endOfCurrentWeek = endOfWeek(now, { locale: ptBR });
-            const daysToRenew = differenceInDays(endOfCurrentWeek, now) + 1;
-            return { status: 'used', label: `Renova em ${daysToRenew} dias`, color: 'text-stone-400 bg-stone-100 border-stone-200' };
-        } else {
-            const endOfCurrentWeek = endOfWeek(now, { locale: ptBR });
-            const daysLeft = differenceInDays(endOfCurrentWeek, now);
-            return { status: 'available', label: daysLeft === 0 ? 'Expira HOJE!' : `Expira em ${daysLeft} dias`, color: 'text-sky-600 bg-sky-50 border-sky-200' };
-        }
+      const usedThisWeek = recentOrders.some(o =>
+        o.benefits_used &&
+        o.benefits_used.includes(benefit) &&
+        isSameWeek(new Date(o.created_at), now, { locale: ptBR })
+      );
+      if (usedThisWeek) {
+        const endOfCurrentWeek = endOfWeek(now, { locale: ptBR });
+        const daysToRenew = differenceInDays(endOfCurrentWeek, now) + 1;
+        return { status: 'used', label: `Renova em ${daysToRenew} dias`, color: 'text-stone-400 bg-stone-100 border-stone-200' };
+      } else {
+        const endOfCurrentWeek = endOfWeek(now, { locale: ptBR });
+        const daysLeft = differenceInDays(endOfCurrentWeek, now);
+        return { status: 'available', label: daysLeft === 0 ? 'Expira HOJE!' : `Expira em ${daysLeft} dias`, color: 'text-sky-600 bg-sky-50 border-sky-200' };
+      }
     }
 
     return { status: 'active', label: 'Ativo', color: 'text-emerald-600 bg-emerald-50 border-emerald-200' };
@@ -262,55 +292,56 @@ const CheckoutPage = () => {
 
     loadCheckout();
 
+    // On mobile, visibilitychange and focus events can fire unexpectedly after returning from
+    // a payment page or switching apps. We debounce re-fetches and only trigger after a meaningful
+    // absence (>5s) to avoid unnecessary Supabase calls and UI flickers.
     let hiddenAt = 0;
     const THRESHOLD_MS = 5000;
 
+    const schedule = (cb: () => void) => {
+      if ((window as any).requestIdleCallback) {
+        (window as any).requestIdleCallback(cb, { timeout: 2000 });
+      } else {
+        setTimeout(cb, 500);
+      }
+    };
+
+    const refetch = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) await fetchUserData(session.user);
+        await fetchCartItems();
+      } catch { /* ignore */ }
+    };
+
     const handleVisibility = () => {
       try {
-        if (document.hidden) hiddenAt = Date.now();
-        else {
+        if (document.hidden) {
+          hiddenAt = Date.now();
+        } else {
           if (!hiddenAt) return;
           const elapsed = Date.now() - hiddenAt;
           hiddenAt = 0;
-          if (elapsed > THRESHOLD_MS) {
-            const schedule = (cb: () => void) => {
-              if ((window as any).requestIdleCallback) (window as any).requestIdleCallback(cb, { timeout: 2000 });
-              else setTimeout(cb, 500);
-            };
-            schedule(async () => {
-              try {
-                const { data: { session } } = await supabase.auth.getSession();
-                if (session?.user) await fetchUserData(session.user);
-                await fetchCartItems();
-              } catch (e) { }
-            });
-          }
+          if (elapsed > THRESHOLD_MS) schedule(refetch);
         }
-      } catch (e) {}
+      } catch { /* ignore */ }
     };
 
     const handleFocus = () => {
       try {
         if (hiddenAt && (Date.now() - hiddenAt) > THRESHOLD_MS) {
-          const schedule = (cb: () => void) => {
-            if ((window as any).requestIdleCallback) (window as any).requestIdleCallback(cb, { timeout: 2000 });
-            else setTimeout(cb, 500);
-          };
-          schedule(async () => {
-            try {
-              const { data: { session } } = await supabase.auth.getSession();
-              if (session?.user) await fetchUserData(session.user);
-              await fetchCartItems();
-            } catch (e) { }
-          });
           hiddenAt = 0;
+          schedule(refetch);
         }
-      } catch (e) {}
+      } catch { /* ignore */ }
     };
 
     document.addEventListener('visibilitychange', handleVisibility);
     window.addEventListener('focus', handleFocus);
-    return () => { document.removeEventListener('visibilitychange', handleVisibility); window.removeEventListener('focus', handleFocus); };
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [fetchUserData, fetchCartItems]);
 
   const handleCouponChange = (val: string) => {
@@ -332,9 +363,12 @@ const CheckoutPage = () => {
     try {
       const { data, error } = await supabase.functions.invoke('validate-cep', { body: { cep: cleanedCep } });
       if (error) { showError("Endereço não encontrado."); return; }
-      setValue('street', data.logradouro); setValue('neighborhood', data.bairro); setValue('city', data.localidade); setValue('state', data.uf);
+      setValue('street', data.logradouro);
+      setValue('neighborhood', data.bairro);
+      setValue('city', data.localidade);
+      setValue('state', data.uf);
       setDeliveryType(data.deliveryType === 'correios' ? 'correios' : 'local');
-    } catch (e) { showError("Erro ao buscar CEP."); } finally { if (isMountedRef.current) setIsFetchingCep(false); }
+    } catch { showError("Erro ao buscar CEP."); } finally { if (isMountedRef.current) setIsFetchingCep(false); }
   };
 
   useEffect(() => {
@@ -355,11 +389,13 @@ const CheckoutPage = () => {
   }, [watchedNeighborhood, watchedCity, selectedBenefits, deliveryType]);
 
   // ============================================================
-  // PIX WHATSAPP — NÃO ALTERADO
+  // PIX WHATSAPP
   // ============================================================
   const handlePixPayment = async (data: CheckoutFormData) => {
     const toastId = showLoading("Criando seu pedido PIX...");
     try {
+      let createdOrderId: number;
+
       if (user) {
         const bStrings = [...tierBenefits.filter(isPassiveBenefit), ...selectedBenefits];
         const { data: o, error: err } = await supabase.rpc('create_pending_order_from_local_cart', {
@@ -369,38 +405,11 @@ const CheckoutPage = () => {
           user_coupon_id_input: selectedCoupon?.user_coupon_id,
           benefits_input: bStrings.length ? `Nível ${tierName}: ${bStrings.join(', ')}` : null,
           payment_method_input: 'pix',
-          donation_amount_input: donationAmount
+          donation_amount_input: donationAmount,
         });
         if (err) throw err;
-
-        const rawOrderId: any = (o as any)?.new_order_id ?? (o as any)?.order_id ?? (o as any)?.id ?? o;
-        const createdOrderId = typeof rawOrderId === 'string' ? Number(rawOrderId) : rawOrderId;
-
-        if (!isMountedRef.current) return;
-        dismissToast(toastId);
-        clearLocalCart();
-
-        (async () => {
-          try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const authToken = session?.access_token;
-            const invokeOpts: any = { body: { order_id: createdOrderId, event_type: 'order_created' } };
-            if (authToken) invokeOpts.headers = { Authorization: `Bearer ${authToken}` };
-            const { error: invokeErr } = await supabase.functions.invoke('trigger-integration', invokeOpts);
-            if (invokeErr) {
-              console.warn('[CheckoutPage] trigger-integration warning (pix/logged):', invokeErr);
-              await supabase.from('integration_logs').insert([{ event_type: 'order_created', status: 'failed', details: String(invokeErr), payload: { order_id: createdOrderId } }]);
-            } else {
-              console.info('[CheckoutPage] trigger-integration dispatched (pix/logged)', createdOrderId);
-              await supabase.from('integration_logs').insert([{ event_type: 'order_created', status: 'sent', details: 'Dispatched via trigger-integration', payload: { order_id: createdOrderId } }]);
-            }
-          } catch (invokeEx) {
-            console.error('[CheckoutPage] trigger-integration error (pix/logged):', invokeEx);
-            try { await supabase.from('integration_logs').insert([{ event_type: 'order_created', status: 'failed', details: String(invokeEx), payload: { order_id: createdOrderId } }]); } catch (_) {}
-          }
-        })();
-
-        if (isMountedRef.current) safeNavigate(`/confirmacao-pedido/${createdOrderId}`);
+        const raw: any = (o as any)?.new_order_id ?? (o as any)?.order_id ?? (o as any)?.id ?? o;
+        createdOrderId = typeof raw === 'string' ? Number(raw) : raw;
       } else {
         const { data: o, error: err } = await supabase.rpc('create_guest_order', {
           p_email: data.email,
@@ -412,37 +421,34 @@ const CheckoutPage = () => {
           p_shipping_address: data,
           p_cart_items: getLocalCart(),
           p_payment_method: 'pix',
-          p_donation_amount: donationAmount
+          p_donation_amount: donationAmount,
         });
         if (err) throw err;
-
-        const rawOrderId: any = (o as any)?.new_order_id ?? (o as any)?.order_id ?? (o as any)?.id ?? o;
-        const createdOrderId = typeof rawOrderId === 'string' ? Number(rawOrderId) : rawOrderId;
-
-        if (!isMountedRef.current) return;
-        dismissToast(toastId);
-        clearLocalCart();
-
-        (async () => {
-          try {
-            const { error: invokeErr } = await supabase.functions.invoke('trigger-integration', {
-              body: { order_id: createdOrderId, event_type: 'order_created', guest_email: data.email }
-            });
-            if (invokeErr) {
-              console.warn('[CheckoutPage] trigger-integration warning (pix/guest):', invokeErr);
-              await supabase.from('integration_logs').insert([{ event_type: 'order_created', status: 'failed', details: String(invokeErr), payload: { order_id: createdOrderId, guest_email: data.email } }]);
-            } else {
-              console.info('[CheckoutPage] trigger-integration dispatched (pix/guest)', createdOrderId);
-              await supabase.from('integration_logs').insert([{ event_type: 'order_created', status: 'sent', details: 'Dispatched via trigger-integration (guest)', payload: { order_id: createdOrderId, guest_email: data.email } }]);
-            }
-          } catch (invokeEx) {
-            console.error('[CheckoutPage] trigger-integration error (pix/guest):', invokeEx);
-            try { await supabase.from('integration_logs').insert([{ event_type: 'order_created', status: 'failed', details: String(invokeEx), payload: { order_id: createdOrderId, guest_email: data.email } }]); } catch (_) {}
-          }
-        })();
-
-        if (isMountedRef.current) safeNavigate(`/confirmacao-pedido/${createdOrderId}`);
+        const raw: any = (o as any)?.new_order_id ?? (o as any)?.order_id ?? (o as any)?.id ?? o;
+        createdOrderId = typeof raw === 'string' ? Number(raw) : raw;
       }
+
+      if (!isMountedRef.current) return;
+      dismissToast(toastId);
+      clearLocalCart();
+
+      // Fire-and-forget webhook
+      (async () => {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const authToken = session?.access_token;
+          const invokeOpts: any = { body: { order_id: createdOrderId, event_type: 'order_created', guest_email: data.email } };
+          if (authToken) invokeOpts.headers = { Authorization: `Bearer ${authToken}` };
+          const { error: invokeErr } = await supabase.functions.invoke('trigger-integration', invokeOpts);
+          const status = invokeErr ? 'failed' : 'sent';
+          const details = invokeErr ? String(invokeErr) : 'Dispatched via trigger-integration';
+          await supabase.from('integration_logs').insert([{ event_type: 'order_created', status, details, payload: { order_id: createdOrderId } }]);
+        } catch (ex) {
+          try { await supabase.from('integration_logs').insert([{ event_type: 'order_created', status: 'failed', details: String(ex), payload: { order_id: createdOrderId } }]); } catch { /* ignore */ }
+        }
+      })();
+
+      safeNavigate(`/confirmacao-pedido/${createdOrderId}`);
     } catch (e: any) {
       if (isMountedRef.current) {
         dismissToast(toastId);
@@ -452,8 +458,7 @@ const CheckoutPage = () => {
   };
 
   // ============================================================
-  // CARTÃO DE CRÉDITO — CHECKOUT TRANSPARENTE
-  // Passo 1: Criar o pedido e mostrar o formulário do MP
+  // CARTÃO — Passo 1: criar pedido e mostrar form do MP
   // ============================================================
   const handlePrepareCardPayment = async (data: CheckoutFormData) => {
     if (!isAddressComplete) { showError("Preencha todos os dados de entrega."); return; }
@@ -475,8 +480,8 @@ const CheckoutPage = () => {
           donation_amount_input: donationAmount,
         });
         if (orderError) throw new Error(orderError.message || "Erro ao criar pedido.");
-        const rawOrderId: any = (orderData as any)?.new_order_id ?? (orderData as any)?.order_id ?? (orderData as any)?.id ?? orderData;
-        orderId = typeof rawOrderId === 'string' ? Number(rawOrderId) : rawOrderId;
+        const raw: any = (orderData as any)?.new_order_id ?? (orderData as any)?.order_id ?? (orderData as any)?.id ?? orderData;
+        orderId = typeof raw === 'string' ? Number(raw) : raw;
       } else {
         const { data: orderData, error: orderError } = await supabase.rpc('create_guest_order', {
           p_email: data.email,
@@ -488,11 +493,11 @@ const CheckoutPage = () => {
           p_shipping_address: data,
           p_cart_items: getLocalCart(),
           p_payment_method: 'Cartão de Crédito',
-          p_donation_amount: donationAmount
+          p_donation_amount: donationAmount,
         });
         if (orderError) throw new Error(orderError.message || "Erro ao criar pedido.");
-        const rawOrderId: any = (orderData as any)?.new_order_id ?? (orderData as any)?.order_id ?? (orderData as any)?.id ?? orderData;
-        orderId = typeof rawOrderId === 'string' ? Number(rawOrderId) : rawOrderId;
+        const raw: any = (orderData as any)?.new_order_id ?? (orderData as any)?.order_id ?? (orderData as any)?.id ?? orderData;
+        orderId = typeof raw === 'string' ? Number(raw) : raw;
       }
 
       if (!orderId || !Number.isFinite(Number(orderId))) throw new Error('Não foi possível criar o pedido.');
@@ -501,7 +506,7 @@ const CheckoutPage = () => {
       setPendingOrderId(orderId);
       setShowMpForm(true);
 
-      // Disparar webhook (fire-and-forget)
+      // Fire-and-forget webhook
       (async () => {
         try {
           const { data: { session } } = await supabase.auth.getSession();
@@ -521,8 +526,7 @@ const CheckoutPage = () => {
   };
 
   // ============================================================
-  // CARTÃO DE CRÉDITO — CHECKOUT TRANSPARENTE
-  // Passo 2: Receber o token do Brick e processar o pagamento
+  // CARTÃO — Passo 2: processar pagamento com token do Brick
   // ============================================================
   const handleMpCardSubmit = async (cardBrickResult: any) => {
     if (!pendingOrderId) { showError("Pedido não encontrado. Tente novamente."); return; }
@@ -530,7 +534,6 @@ const CheckoutPage = () => {
     const toastId = showLoading("Processando pagamento...");
 
     try {
-      // Buscar total real do banco
       const { data: orderRow, error: orderRowError } = await supabase
         .from('orders')
         .select('total_price, shipping_address')
@@ -550,12 +553,9 @@ const CheckoutPage = () => {
 
       const invokeOptions: any = {
         body: {
-          // Dados do Brick (token, installments, payment_method_id, etc.)
           ...cardBrickResult,
-          // Dados do pedido
           external_reference: String(pendingOrderId),
           transaction_amount: finalTotal,
-          // Dados do pagador
           payer: {
             email: formData.email,
             identification: {
@@ -565,11 +565,9 @@ const CheckoutPage = () => {
             first_name: formData.first_name,
             last_name: formData.last_name,
           },
-        }
+        },
       };
       if (authToken) invokeOptions.headers = { Authorization: `Bearer ${authToken}` };
-
-      console.log('[CheckoutPage] invoking process-mercadopago-payment', { orderId: pendingOrderId, finalTotal });
 
       const { data: result, error: payError } = await supabase.functions.invoke('process-mercadopago-payment', invokeOptions);
 
@@ -580,8 +578,7 @@ const CheckoutPage = () => {
       clearLocalCart();
       showSuccess('Pagamento aprovado! 🎉');
 
-      if (isMountedRef.current) safeNavigate(`/confirmacao-pedido/${pendingOrderId}`);
-
+      safeNavigate(`/confirmacao-pedido/${pendingOrderId}`);
     } catch (e: any) {
       dismissToast(toastId);
       showError(e?.message || "Pagamento recusado. Verifique os dados do cartão e tente novamente.");
@@ -596,7 +593,6 @@ const CheckoutPage = () => {
       await handlePixPayment(data);
       if (isMountedRef.current) setIsSubmitting(false);
     } else {
-      // Para cartão, handlePrepareCardPayment já gerencia o isSubmitting
       await handlePrepareCardPayment(data);
     }
   };
@@ -676,83 +672,69 @@ const CheckoutPage = () => {
             <Card className="bg-slate-950 border-white/10 shadow-2xl rounded-[2.5rem] overflow-hidden">
               <CardHeader className="bg-white/5 border-b border-white/5 p-8">
                 <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                        <div className="p-3 bg-sky-500/20 rounded-2xl border border-sky-500/30">
-                            <Gift className="h-6 w-6 text-sky-400" />
-                        </div>
-                        <div>
-                            <CardTitle className="font-black text-2xl uppercase tracking-tighter italic text-white">
-                                Privilégios {tierName}.
-                            </CardTitle>
-                            <p className="text-[10px] font-black text-sky-500 uppercase tracking-[0.2em] mt-1">Clube DK Exclusive</p>
-                        </div>
+                  <div className="flex items-center space-x-4">
+                    <div className="p-3 bg-sky-500/20 rounded-2xl border border-sky-500/30">
+                      <Gift className="h-6 w-6 text-sky-400" />
                     </div>
-                    <Sparkles className="h-6 w-6 text-sky-500/40" />
+                    <div>
+                      <CardTitle className="font-black text-2xl uppercase tracking-tighter italic text-white">Privilégios {tierName}.</CardTitle>
+                      <p className="text-[10px] font-black text-sky-500 uppercase tracking-[0.2em] mt-1">Clube DK Exclusive</p>
+                    </div>
+                  </div>
+                  <Sparkles className="h-6 w-6 text-sky-500/40" />
                 </div>
               </CardHeader>
               <CardContent className="p-8 space-y-6">
                 <div className="grid gap-4">
-                    {tierBenefits.map(benefit => {
-                        const selectable = isSelectableBenefit(benefit);
-                        const info = getBenefitInfo(benefit);
-                        const isUsed = info.status === 'used';
+                  {tierBenefits.map(benefit => {
+                    const selectable = isSelectableBenefit(benefit);
+                    const info = getBenefitInfo(benefit);
+                    const isUsed = info.status === 'used';
 
-                        if (selectable) {
-                            return (
-                                <div key={benefit} className={cn(
-                                    "group relative flex items-start space-x-5 p-5 rounded-2xl border transition-all duration-300",
-                                    isUsed
-                                        ? "bg-white/5 border-white/5 opacity-40"
-                                        : "bg-white/5 border-white/10 hover:border-sky-500/50 hover:bg-white/[0.08] cursor-pointer"
-                                )}>
-                                    <div className="pt-1">
-                                        <Checkbox
-                                            id={benefit}
-                                            checked={selectedBenefits.includes(benefit)}
-                                            disabled={isUsed}
-                                            onCheckedChange={(checked) => {
-                                                setSelectedBenefits(prev =>
-                                                    checked ? [...prev, benefit] : prev.filter(b => b !== benefit)
-                                                );
-                                            }}
-                                            className="h-5 w-5 border-white/20 data-[state=checked]:bg-sky-500 data-[state=checked]:border-sky-500"
-                                        />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <Label htmlFor={benefit} className={cn(
-                                            "text-sm font-black uppercase tracking-tight cursor-pointer block mb-1.5 transition-colors",
-                                            isUsed ? "text-slate-500" : "text-white group-hover:text-sky-400"
-                                        )}>
-                                            {benefit}
-                                        </Label>
-                                        <div className="flex items-center gap-2">
-                                            <div className={cn("px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border", info.color)}>
-                                                {info.label}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    {!isUsed && <div className="absolute top-4 right-4 w-2 h-2 bg-sky-500 rounded-full animate-pulse" />}
-                                </div>
-                            );
-                        }
-
-                        return (
-                            <div key={benefit} className="flex items-center space-x-4 bg-white/[0.03] p-4 rounded-2xl border border-white/5">
-                                <div className="p-2 bg-emerald-500/10 rounded-lg">
-                                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                                </div>
-                                <span className="text-xs font-bold text-slate-300 uppercase tracking-wide">
-                                    {benefit}
-                                </span>
+                    if (selectable) {
+                      return (
+                        <div key={benefit} className={cn(
+                          "group relative flex items-start space-x-5 p-5 rounded-2xl border transition-all duration-300",
+                          isUsed ? "bg-white/5 border-white/5 opacity-40" : "bg-white/5 border-white/10 hover:border-sky-500/50 hover:bg-white/[0.08] cursor-pointer"
+                        )}>
+                          <div className="pt-1">
+                            <Checkbox
+                              id={benefit}
+                              checked={selectedBenefits.includes(benefit)}
+                              disabled={isUsed}
+                              onCheckedChange={(checked) => {
+                                setSelectedBenefits(prev => checked ? [...prev, benefit] : prev.filter(b => b !== benefit));
+                              }}
+                              className="h-5 w-5 border-white/20 data-[state=checked]:bg-sky-500 data-[state=checked]:border-sky-500"
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <Label htmlFor={benefit} className={cn("text-sm font-black uppercase tracking-tight cursor-pointer block mb-1.5 transition-colors", isUsed ? "text-slate-500" : "text-white group-hover:text-sky-400")}>
+                              {benefit}
+                            </Label>
+                            <div className="flex items-center gap-2">
+                              <div className={cn("px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border", info.color)}>{info.label}</div>
                             </div>
-                        );
-                    })}
-                </div>
+                          </div>
+                          {!isUsed && <div className="absolute top-4 right-4 w-2 h-2 bg-sky-500 rounded-full animate-pulse" />}
+                        </div>
+                      );
+                    }
 
+                    return (
+                      <div key={benefit} className="flex items-center space-x-4 bg-white/[0.03] p-4 rounded-2xl border border-white/5">
+                        <div className="p-2 bg-emerald-500/10 rounded-lg">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                        </div>
+                        <span className="text-xs font-bold text-slate-300 uppercase tracking-wide">{benefit}</span>
+                      </div>
+                    );
+                  })}
+                </div>
                 <div className="pt-4">
-                    <p className="text-[9px] text-slate-500 font-medium uppercase tracking-widest text-center">
-                        Benefícios aplicados automaticamente com base no seu nível de fidelidade.
-                    </p>
+                  <p className="text-[9px] text-slate-500 font-medium uppercase tracking-widest text-center">
+                    Benefícios aplicados automaticamente com base no seu nível de fidelidade.
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -763,8 +745,29 @@ const CheckoutPage = () => {
           <Card className="bg-white border-stone-200 shadow-xl rounded-[2rem] overflow-hidden">
             <CardHeader className="bg-stone-50 p-8"><CardTitle className="font-black text-2xl uppercase tracking-tighter italic">Resumo do Pedido.</CardTitle></CardHeader>
             <CardContent className="p-8 space-y-6">
-              <div className="space-y-3 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">{items.map(i => (<div key={i.id} className="flex items-center justify-between bg-stone-50 p-3 rounded-xl border border-stone-100"><div className="flex items-center gap-3"><ProductImage src={i.image_url} alt={i.name} className="h-12 w-12 object-cover rounded-lg" /><div><p className="font-black text-[10px] uppercase">{i.name}</p><p className="text-[9px] text-slate-400 font-bold">QTD: {i.quantity}</p></div></div><p className="font-black text-sky-600 text-sm">R$ {(getItemPrice(i) * i.quantity).toFixed(2)}</p></div>))}</div>
-              <div className="space-y-2"><Label className="text-[10px] uppercase text-slate-400">Cupom</Label><Select onValueChange={handleCouponChange} value={selectedCoupon?.user_coupon_id.toString() || 'none'}><SelectTrigger className="rounded-xl h-12"><SelectValue placeholder="Aplicar cupom" /></SelectTrigger><SelectContent>{coupons.map(c => <SelectItem key={c.user_coupon_id} value={c.user_coupon_id.toString()}>{c.name}</SelectItem>)}<SelectItem value="none">Nenhum</SelectItem></SelectContent></Select></div>
+              <div className="space-y-3 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+                {items.map(i => (
+                  <div key={i.id} className="flex items-center justify-between bg-stone-50 p-3 rounded-xl border border-stone-100">
+                    <div className="flex items-center gap-3">
+                      <ProductImage src={i.image_url} alt={i.name} className="h-12 w-12 object-cover rounded-lg" />
+                      <div><p className="font-black text-[10px] uppercase">{i.name}</p><p className="text-[9px] text-slate-400 font-bold">QTD: {i.quantity}</p></div>
+                    </div>
+                    <p className="font-black text-sky-600 text-sm">R$ {(getItemPrice(i) * i.quantity).toFixed(2)}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-[10px] uppercase text-slate-400">Cupom</Label>
+                <Select onValueChange={handleCouponChange} value={selectedCoupon?.user_coupon_id.toString() || 'none'}>
+                  <SelectTrigger className="rounded-xl h-12"><SelectValue placeholder="Aplicar cupom" /></SelectTrigger>
+                  <SelectContent>
+                    {coupons.map(c => <SelectItem key={c.user_coupon_id} value={c.user_coupon_id.toString()}>{c.name}</SelectItem>)}
+                    <SelectItem value="none">Nenhum</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="space-y-3 bg-stone-50 p-6 rounded-2xl border border-stone-100">
                 <div className="flex justify-between text-[10px] font-bold uppercase text-slate-500"><span>Subtotal</span><span>R$ {subtotal.toFixed(2)}</span></div>
                 {selectedCoupon && <div className="flex justify-between text-[10px] font-bold uppercase text-green-600"><span>Desconto</span><span>- R$ {discount.toFixed(2)}</span></div>}
@@ -773,7 +776,16 @@ const CheckoutPage = () => {
                 <Separator />
                 <div className="flex justify-between font-black text-3xl italic uppercase tracking-tighter"><span>Total</span><span className="text-sky-600">R$ {total.toFixed(2).replace('.', ',')}</span></div>
               </div>
-              <div className="space-y-3"><Label className="text-[10px] uppercase text-slate-400">Doação Solidária</Label><div className="flex flex-wrap items-center gap-2">{[2, 5, 10].map(val => (<Button key={val} type="button" variant={donationAmount === val ? 'default' : 'outline'} onClick={() => setDonationAmount(prev => (prev === val ? 0 : val))} className={cn("rounded-lg h-10 text-xs font-bold", donationAmount === val && "bg-rose-500 hover:bg-rose-600")}>R$ {val.toFixed(2)}</Button>))}{donationAmount > 0 && (<Button type="button" variant="ghost" size="icon" onClick={() => setDonationAmount(0)} className="text-rose-500 hover:text-rose-700"><X className="h-4 w-4" /></Button>)}</div></div>
+
+              <div className="space-y-3">
+                <Label className="text-[10px] uppercase text-slate-400">Doação Solidária</Label>
+                <div className="flex flex-wrap items-center gap-2">
+                  {[2, 5, 10].map(val => (
+                    <Button key={val} type="button" variant={donationAmount === val ? 'default' : 'outline'} onClick={() => setDonationAmount(prev => (prev === val ? 0 : val))} className={cn("rounded-lg h-10 text-xs font-bold", donationAmount === val && "bg-rose-500 hover:bg-rose-600")}>R$ {val.toFixed(2)}</Button>
+                  ))}
+                  {donationAmount > 0 && (<Button type="button" variant="ghost" size="icon" onClick={() => setDonationAmount(0)} className="text-rose-500 hover:text-rose-700"><X className="h-4 w-4" /></Button>)}
+                </div>
+              </div>
 
               <div className="space-y-3">
                 <Label className="text-[10px] uppercase text-slate-400">Método de Pagamento</Label>
@@ -785,21 +797,11 @@ const CheckoutPage = () => {
                   </Alert>
                 )}
                 <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    type="button"
-                    onClick={() => setValue('payment_method', 'mercadopago')}
-                    disabled={!isCreditCardEnabled || !isAddressComplete}
-                    className={cn("h-16 flex-col gap-1 rounded-xl border", paymentMethod === 'mercadopago' ? "bg-sky-500 text-white border-sky-400" : "bg-stone-50 text-slate-500")}
-                  >
+                  <Button type="button" onClick={() => setValue('payment_method', 'mercadopago')} disabled={!isCreditCardEnabled || !isAddressComplete} className={cn("h-16 flex-col gap-1 rounded-xl border", paymentMethod === 'mercadopago' ? "bg-sky-500 text-white border-sky-400" : "bg-stone-50 text-slate-500")}>
                     <CreditCard className="h-4 w-4" />
                     <span className="text-[9px] uppercase font-black">Cartão</span>
                   </Button>
-                  <Button
-                    type="button"
-                    onClick={() => setValue('payment_method', 'pix')}
-                    disabled={!isAddressComplete}
-                    className={cn("h-16 flex-col gap-1 rounded-xl border", paymentMethod === 'pix' ? "bg-sky-500 text-white border-sky-400" : "bg-stone-50 text-slate-500")}
-                  >
+                  <Button type="button" onClick={() => setValue('payment_method', 'pix')} disabled={!isAddressComplete} className={cn("h-16 flex-col gap-1 rounded-xl border", paymentMethod === 'pix' ? "bg-sky-500 text-white border-sky-400" : "bg-stone-50 text-slate-500")}>
                     <MessageSquare className="h-4 w-4" />
                     <span className="text-[9px] uppercase font-black">PIX WhatsApp</span>
                   </Button>

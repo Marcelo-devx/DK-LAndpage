@@ -291,6 +291,32 @@ const CheckoutPage = () => {
 
   useEffect(() => {
     const loadCheckout = async () => {
+      // ── Restaurar estado do formulário MP após recarregamento ──────────────
+      const savedOrderId = sessionStorage.getItem('mp_pending_order_id');
+      if (savedOrderId) {
+        const restoredId = Number(savedOrderId);
+        if (restoredId && Number.isFinite(restoredId)) {
+          setPendingOrderId(restoredId);
+          pendingOrderIdRef.current = restoredId;
+          setShowMpForm(true);
+          showMpFormRef.current = true;
+          // Buscar o total do pedido para exibir corretamente
+          try {
+            const { data: orderRow } = await supabase
+              .from('orders')
+              .select('total_price')
+              .eq('id', restoredId)
+              .single();
+            if (orderRow?.total_price) {
+              // total será calculado a partir do pedido salvo
+            }
+          } catch { /* ignore */ }
+          setLoading(false);
+          return;
+        }
+      }
+      // ──────────────────────────────────────────────────────────────────────
+
       const { data: { session } } = await supabase.auth.getSession();
       const u = session?.user;
       if (isMountedRef.current) setUser(u);
@@ -457,6 +483,7 @@ const CheckoutPage = () => {
       if (!isMountedRef.current) return;
       dismissToast(toastId);
       clearLocalCart();
+      sessionStorage.removeItem('mp_pending_order_id');
 
       // Fire-and-forget webhook
       (async () => {
@@ -531,6 +558,8 @@ const CheckoutPage = () => {
       dismissToast(toastId);
       setPendingOrderId(orderId);
       setShowMpForm(true);
+      // Persistir para sobreviver a recarregamentos / redirect do MP
+      sessionStorage.setItem('mp_pending_order_id', String(orderId));
 
       // Fire-and-forget webhook
       (async () => {
@@ -602,6 +631,7 @@ const CheckoutPage = () => {
 
       dismissToast(toastId);
       clearLocalCart();
+      sessionStorage.removeItem('mp_pending_order_id');
       showSuccess('Pagamento aprovado! 🎉');
 
       safeNavigate(`/confirmacao-pedido/${pendingOrderId}`);
@@ -634,7 +664,7 @@ const CheckoutPage = () => {
       <div className="container mx-auto px-4 md:px-6 py-4 md:py-10 text-charcoal-gray max-w-2xl">
         <div className="mb-8">
           <button
-            onClick={() => { setShowMpForm(false); setPendingOrderId(null); }}
+            onClick={() => { sessionStorage.removeItem('mp_pending_order_id'); setShowMpForm(false); setPendingOrderId(null); }}
             className="text-xs text-slate-500 hover:text-slate-700 font-bold uppercase tracking-widest flex items-center gap-2 mb-6 transition-colors"
           >
             ← Voltar ao checkout

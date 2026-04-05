@@ -1,21 +1,28 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 
 /**
- * ScrollToTop — resets the window scroll position to the top on every route change.
- * Must be rendered inside <BrowserRouter> so it has access to useLocation.
+ * ScrollToTop — resets the window scroll position to the top on every ROUTE change.
+ * Ignores query string changes (search) to avoid breaking Mercado Pago redirect flow.
  */
 const ScrollToTop = () => {
-  const { pathname, search } = useLocation();
+  const { pathname } = useLocation();
+  const prevPathnameRef = useRef<string | null>(null);
 
   useEffect(() => {
+    // Só rola para o topo se o pathname realmente mudou (ignora mudança de ?search)
+    if (prevPathnameRef.current === pathname) return;
+    prevPathnameRef.current = pathname;
+
+    // Rotas do fluxo de pagamento gerenciam o próprio scroll
+    if (pathname.startsWith('/checkout') || pathname.startsWith('/confirmacao-pedido')) return;
+
     try {
-      // 'instant' avoids the smooth-scroll animation that can look janky on mobile
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
     } catch {
       window.scrollTo(0, 0);
     }
-  }, [pathname, search]);
+  }, [pathname]);
 
   return null;
 };

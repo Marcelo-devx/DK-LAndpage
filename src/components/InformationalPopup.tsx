@@ -80,13 +80,13 @@ const parseHtmlToReact = (html: string) => {
 
         switch (tag) {
           case 'p':
-            return <p key={idx} className={`text-slate-300 text-xs md:text-base leading-relaxed mb-2 md:mb-3 ${alignClass}`.trim()}>{children}</p>;
+            return <p key={idx} className={`text-slate-300 text-sm md:text-base leading-relaxed mb-2 md:mb-3 ${alignClass}`.trim()}>{children}</p>;
           case 'br':
             return <br key={idx} />;
           case 'ul':
-            return <ul key={idx} className={`list-disc list-inside ml-2 md:ml-4 text-slate-300 text-xs md:text-base leading-relaxed ${alignClass}`.trim()}>{children}</ul>;
+            return <ul key={idx} className={`list-disc list-inside ml-2 md:ml-4 text-slate-300 text-sm md:text-base leading-relaxed ${alignClass}`.trim()}>{children}</ul>;
           case 'ol':
-            return <ol key={idx} className={`list-decimal list-inside ml-2 md:ml-4 text-slate-300 text-xs md:text-base leading-relaxed ${alignClass}`.trim()}>{children}</ol>;
+            return <ol key={idx} className={`list-decimal list-inside ml-2 md:ml-4 text-slate-300 text-sm md:text-base leading-relaxed ${alignClass}`.trim()}>{children}</ol>;
           case 'li':
             return <li key={idx} className={`${alignClass} mb-1 md:mb-1.5`.trim()}>{children}</li>;
           case 'strong':
@@ -160,7 +160,7 @@ const InformationalPopup = ({ isOpen, onClose, title, content, onAccept }: Infor
   return (
     <Dialog open={isOpen} onOpenChange={() => {}}>
       <DialogContent
-        className="w-[95vw] sm:max-w-2xl bg-slate-900 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] p-0 overflow-hidden rounded-[1.5rem] md:rounded-[2rem] max-h-[90vh] flex flex-col outline-none [&>button]:hidden z-[10000]"
+        className="w-[92vw] sm:max-w-2xl bg-slate-900 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] p-0 overflow-hidden rounded-[1.5rem] md:rounded-[2rem] flex flex-col outline-none [&>button]:hidden z-[10000] !top-[50%] !translate-y-[-50%] !max-h-[85vh] sm:!max-h-[90vh]"
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
         aria-describedby="info-popup-desc"
@@ -198,8 +198,8 @@ const InformationalPopup = ({ isOpen, onClose, title, content, onAccept }: Infor
         </div>
 
         {/* Conteúdo — única parte que rola */}
-        <div className="flex-1 overflow-y-auto px-4 md:px-10 custom-scrollbar min-h-0 pb-6" id="info-popup-desc">
-          <div className="pb-4">
+        <div className="flex-1 overflow-y-auto px-5 md:px-10 custom-scrollbar min-h-0" id="info-popup-desc">
+          <div className="py-3 md:py-4">
             {parseHtmlToReact(content)}
           </div>
         </div>

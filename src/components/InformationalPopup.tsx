@@ -136,10 +136,10 @@ const InformationalPopup = ({ isOpen, onClose, title, content, onAccept }: Infor
         <div className="relative shrink-0">
           <button
             onClick={onClose}
-            className="absolute top-2 right-3 md:top-3 md:right-4 z-50 p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white/60 hover:text-white transition-all"
+            className="absolute top-2 right-3 md:top-3 md:right-4 z-50 p-2.5 rounded-full bg-white/8 hover:bg-white/16 text-white/80 hover:text-white transition-all"
             aria-label="Fechar"
           >
-            <X className="h-4 w-4 md:h-5 md:w-5" />
+            <X className="h-5 w-5 md:h-5 md:w-5" />
           </button>
 
           {/* Header */}
@@ -147,10 +147,10 @@ const InformationalPopup = ({ isOpen, onClose, title, content, onAccept }: Infor
             <DialogHeader className="items-center text-center">
               <div className="flex items-center justify-center mb-2 md:mb-4">
                 <div className="p-1.5 md:p-2.5 bg-sky-500/20 rounded-xl md:rounded-2xl">
-                  <Info className="h-4 w-4 md:h-7 md:w-7 text-sky-400 shrink-0" />
+                  <Info className="h-5 w-5 md:h-7 md:w-7 text-sky-400 shrink-0" />
                 </div>
               </div>
-              <DialogTitle className="font-black text-lg md:text-4xl text-white tracking-tighter italic uppercase leading-tight text-center break-words px-2 md:px-0">
+              <DialogTitle className="font-black text-2xl md:text-4xl text-white tracking-tighter italic uppercase leading-tight text-center break-words px-2 md:px-0">
                 {title}.
               </DialogTitle>
             </DialogHeader>
@@ -158,14 +158,14 @@ const InformationalPopup = ({ isOpen, onClose, title, content, onAccept }: Infor
         </div>
 
         {/* Conteúdo — única parte que rola */}
-        <div className="flex-1 overflow-y-auto px-4 md:px-10 custom-scrollbar min-h-0" id="info-popup-desc">
+        <div className="flex-1 overflow-y-auto px-4 md:px-10 custom-scrollbar min-h-0 pb-6" id="info-popup-desc">
           <div className="pb-4">
             {parseHtmlToReact(content)}
           </div>
         </div>
 
         {/* Footer com botão — fixo, sempre visível */}
-        <DialogFooter className="px-4 py-3 md:px-10 md:py-5 flex flex-col sm:flex-row sm:justify-center gap-2 md:gap-3 shrink-0 border-t border-white/10 bg-slate-900">
+        <DialogFooter style={{paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)'}} className="px-4 py-3 md:px-10 md:py-5 flex flex-col sm:flex-row sm:justify-center gap-2 md:gap-3 shrink-0 border-t border-white/10 bg-slate-900">
           {onAccept ? (
             <>
               <Button

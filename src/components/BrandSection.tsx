@@ -24,11 +24,11 @@ const BrandSection = ({ brands, loading, onBrandClick }: BrandSectionProps) => {
   const validBrands = brands.filter(b => b.name && b.name.toLowerCase() !== 'null');
 
   return (
-    <section className="container mx-auto px-4 md:px-6 xl:px-8 py-8 md:py-12 xl:py-16 hidden md:block">
+    <section className="container mx-auto px-4 md:px-6 xl:px-8 py-4 md:py-6 xl:py-8 hidden md:block">
       {loading ? (
-        <div className="flex justify-center items-center gap-6">
+        <div className="flex justify-center items-center gap-4">
           {Array.from({ length: 6 }).map((_, index) => (
-            <Skeleton key={index} className="h-20 w-40 rounded-2xl bg-white/5" />
+            <Skeleton key={index} className="h-16 w-32 rounded-2xl bg-white/5" />
           ))}
         </div>
       ) : (
@@ -37,24 +37,24 @@ const BrandSection = ({ brands, loading, onBrandClick }: BrandSectionProps) => {
           opts={{ align: "start", loop: validBrands.length > 6 }}
           className="w-full"
         >
-          <CarouselContent className="-ml-4">
+          <CarouselContent className="-ml-2">
             {validBrands.map((brand) => (
-              <CarouselItem key={brand.name} className="pl-4 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/6 xl:basis-1/6 2xl:basis-[12.5%]">
+              <CarouselItem key={brand.name} className="pl-2 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/6 xl:basis-1/6 2xl:basis-[12.5%]">
                 <div 
                   onClick={() => onBrandClick(brand.name)}
-                  className="group relative flex items-center justify-center h-24 xl:h-28 bg-gradient-to-b from-white to-slate-200 border border-white/20 rounded-2xl cursor-pointer transition-all duration-500 hover:border-sky-500/50 hover:shadow-[0_10px_40px_-10px_rgba(14,165,233,0.3)] overflow-hidden shadow-inner"
+                  className="group relative flex items-center justify-center h-20 xl:h-24 bg-gradient-to-b from-white to-slate-200 border border-white/20 rounded-2xl cursor-pointer transition-all duration-400 hover:border-sky-500/50 hover:shadow-[0_8px_30px_-10px_rgba(14,165,233,0.25)] overflow-hidden shadow-inner"
                 >
                   {/* Subtle light reflection on the top */}
-                  <div className="absolute inset-x-0 top-0 h-px bg-white/50" />
+                  <div className="absolute inset-x-0 top-0 h-px bg-white/40" />
                   
                   {/* Hover overlay that matches the site's accent */}
-                  <div className="absolute inset-0 bg-sky-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                  <div className="absolute inset-0 bg-sky-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-400" />
                   
                   {brand.image_url ? (
                     <img 
                       src={brand.image_url} 
                       alt={brand.name} 
-                      className="max-h-[70%] w-[80%] object-contain transition-all duration-500 group-hover:scale-110 drop-shadow-sm"
+                      className="max-h-[60%] w-[80%] object-contain transition-all duration-500 group-hover:scale-105 drop-shadow-sm"
                     />
                   ) : (
                     <span className="text-sm font-black tracking-widest text-slate-800 group-hover:text-sky-600 transition-colors px-4 text-center leading-tight">

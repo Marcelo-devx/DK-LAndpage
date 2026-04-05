@@ -99,42 +99,70 @@ const CompleteProfilePage = () => {
   }, [searchParams, navigate, setValue]);
 
   useEffect(() => {
-    // If user is logged in, we can fetch profile and prefill
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+    // Aguarda o Supabase restaurar a sessão do localStorage após reload
+    // getSession() pode retornar null antes da sessão ser restaurada
+    let resolved = false;
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // Só processa INITIAL_SESSION ou SIGNED_IN — ignora eventos subsequentes
+      if (resolved) return;
+      if (event !== 'INITIAL_SESSION' && event !== 'SIGNED_IN') return;
+
+      resolved = true;
+
       if (!session) {
-        // keep loading false if token flow handled it
-        setLoading(false);
+        // Sem sessão e sem token na URL → vai para login
+        const hasToken = searchParams.get('token');
+        if (!hasToken) {
+          setLoading(false);
+        }
         return;
       }
+
       setUser(session.user);
+
       const { data: profile } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', session.user.id)
         .single();
 
-      const isProfileComplete = profile && 
-        profile.first_name && 
-        profile.last_name && 
-        profile.date_of_birth && 
-        profile.phone && 
+      const isProfileComplete = profile &&
+        profile.first_name &&
+        profile.last_name &&
+        profile.date_of_birth &&
+        profile.phone &&
         profile.cpf_cnpj &&
         profile.gender &&
-        profile.cep && 
-        profile.street && 
-        profile.number && 
-        profile.neighborhood && 
-        profile.city && 
+        profile.cep &&
+        profile.street &&
+        profile.number &&
+        profile.neighborhood &&
+        profile.city &&
         profile.state;
 
       if (isProfileComplete) {
         navigate('/');
+        return;
       }
+
       setLoading(false);
+    });
+
+    // Timeout de segurança: se o evento demorar mais de 5s, libera a tela
+    const safetyTimeout = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        console.warn('[CompleteProfilePage] onAuthStateChange timeout — liberando tela');
+        setLoading(false);
+      }
+    }, 5000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(safetyTimeout);
     };
-    checkSession();
-  }, [navigate]);
+  }, [navigate, searchParams]);
 
   // watch required fields to determine whether to enable submit and to show '*' markers
   const watched = watch();
@@ -383,9 +411,6 @@ const CompleteProfilePage = () => {
           <CardDescription className="text-stone-500 font-medium text-lg mt-2">
             Finalize suas informações para acessar a loja.
           </CardDescription>
-          <div className="mt-3 mx-auto max-w-sm bg-sky-50 border border-sky-200 rounded-xl px-4 py-3 text-sm text-sky-800">
-            🔑 Sua senha padrão é <span className="font-black tracking-widest">123456</span>. Você pode alterá-la no seu dashboard após o cadastro.
-          </div>
         </CardHeader>
         <CardContent className="p-8 md:p-12">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">

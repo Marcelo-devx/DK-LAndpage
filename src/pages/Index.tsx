@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useOutletContext, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useOutletContext, useNavigate } from 'react-router-dom';
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
 import ProductCard from "@/components/ProductCard";
@@ -20,7 +20,6 @@ import AgeVerificationPopup from '@/components/AgeVerificationPopup';
 const Index = () => {
   const { settings } = useTheme();
   const navigate = useNavigate();
-  const location = useLocation();
   const [displayedProducts, setDisplayedProducts] = useState<any[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [heroSlides, setHeroSlides] = useState<any[]>([]);
@@ -35,17 +34,7 @@ const Index = () => {
 
   const { handleBrandClick } = useOutletContext<OutletContextType>();
 
-  // Ensure we scroll to top when the home route is visited
-  useEffect(() => {
-    if (location.pathname === '/') {
-      try { window.scrollTo({ top: 0, left: 0, behavior: 'auto' }); } catch (e) { window.scrollTo(0,0); }
-    }
-  }, [location.pathname]);
-
-  // Also always scroll to top when this component mounts (covers back navigation)
-  useEffect(() => {
-    try { window.scrollTo({ top: 0, left: 0, behavior: 'auto' }); } catch (e) { window.scrollTo(0,0); }
-  }, []);
+  // Scroll to top is handled globally by ScrollToTop in App.tsx
 
   // Verificar se a idade já foi confirmada antes de mostrar popup informativo
   useEffect(() => {

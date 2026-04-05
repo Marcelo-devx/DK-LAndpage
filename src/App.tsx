@@ -23,6 +23,7 @@ import HowItWorksPage from "./pages/HowItWorksPage";
 import AdminLogistics from "./pages/AdminLogistics";
 import UpdatePassword from "./pages/UpdatePassword";
 import AuthEventHandler from "./components/AuthEventHandler";
+import ScrollToTop from "./components/ScrollToTop";
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
 import AdminCustomizer from "./components/AdminCustomizer";
 import EmailConfirm from "./pages/EmailConfirm";
@@ -142,6 +143,7 @@ const App = () => {
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            <ScrollToTop />
             <AuthEventHandler />
             <AppContent />
           </BrowserRouter>

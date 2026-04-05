@@ -94,14 +94,14 @@ const InfoSection = () => {
     <section className="py-4 md:py-10 xl:py-14">
       <div className="container mx-auto px-4 md:px-6 xl:px-8">
         {/* Info Bar Carousel */}
-        <div className="mb-8 md:mb-16 xl:mb-20 bg-white p-6 md:p-8 xl:p-12 rounded-3xl md:rounded-[2.5rem] border border-stone-200 shadow-sm relative">
+        <div className="mb-6 md:mb-10 xl:mb-12 bg-white p-4 md:p-6 xl:p-8 rounded-3xl md:rounded-[2.5rem] border border-stone-200 shadow-sm relative">
           <Carousel opts={{ align: "start", loop: true }} className="w-full">
             <CarouselContent className="-ml-4">
               {infoBarItems.map((item, index) => {
                 const Icon = icons[item.icon_name];
                 return (
                   <CarouselItem key={index} className="pl-4 basis-full sm:basis-1/2 md:basis-1/4">
-                    <div className="flex flex-col md:flex-row items-center text-center md:text-left md:space-x-5 group h-full px-8 md:px-0">
+                    <div className="flex flex-col md:flex-row items-center text-center md:text-left md:space-x-4 group h-full px-6 md:px-0">
                       <div className="p-2.5 xl:p-3 bg-sky-50 rounded-xl md:rounded-2xl group-hover:bg-sky-100 transition-colors shrink-0 mb-3 md:mb-0">
                         {Icon && <Icon className="h-6 w-6 md:h-7 md:w-7 xl:h-8 xl:w-8 text-sky-600" />}
                       </div>

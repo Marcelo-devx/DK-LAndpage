@@ -215,7 +215,7 @@ const Index = () => {
         </section>
       )}
 
-      <div className="space-y-4 md:space-y-12 xl:space-y-16 py-4 md:py-10 xl:py-14">
+      <div className="space-y-6 md:space-y-8 xl:space-y-10 py-4 md:py-6 xl:py-8">
         
         {settings.showInfo && (
           <ScrollAnimationWrapper>

@@ -124,7 +124,7 @@ const InformationalPopup = ({ isOpen, onClose, title, content, onAccept }: Infor
   return (
     <Dialog open={isOpen} onOpenChange={() => {}}>
       <DialogContent
-        className="w-[95vw] sm:max-w-2xl bg-slate-900 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] p-0 overflow-hidden rounded-[1.5rem] md:rounded-[2rem] max-h-[90vh] flex flex-col outline-none [&>button]:hidden z-[10000]"
+        className="relative w-[95vw] sm:max-w-2xl bg-slate-900 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] p-0 overflow-hidden rounded-[1.5rem] md:rounded-[2rem] max-h-[90vh] flex flex-col outline-none [&>button]:hidden z-[10000]"
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
         aria-describedby="info-popup-desc"
@@ -136,14 +136,17 @@ const InformationalPopup = ({ isOpen, onClose, title, content, onAccept }: Infor
         {/* Barra superior de destaque */}
         <div className="h-1 md:h-1.5 bg-gradient-to-r from-sky-500 to-indigo-500 w-full shrink-0" />
 
-        {/* Botão fechar no canto superior direito */}
-        <button
+        {/* Botão fechar no canto superior direito (não é um <button> direto para evitar o seletor [&>button]:hidden) */}
+        <div
+          role="button"
+          tabIndex={0}
           onClick={onClose}
-          className="absolute top-3 right-3 md:top-4 md:right-4 z-10 p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white/60 hover:text-white transition-all"
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClose(); } }}
           aria-label="Fechar"
+          className="absolute top-3 right-3 md:top-4 md:right-4 z-10 p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white/60 hover:text-white transition-all cursor-pointer"
         >
           <X className="h-4 w-4 md:h-5 md:w-5" />
-        </button>
+        </div>
 
         {/* Header — fixo, não rola */}
         <div className="px-4 pt-4 pb-2 md:px-10 md:pt-6 md:pb-3 shrink-0">

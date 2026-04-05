@@ -274,33 +274,7 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
                         </NavigationMenuLink>
                       ))
                     ) : (
-                      <div className="space-y-4">
-                        {fallbackBrands.length > 0 && (
-                          <div>
-                            <h5 className="text-xs font-black uppercase text-stone-400 mb-2">Marcas</h5>
-                            <div className="flex flex-wrap gap-2">
-                              {fallbackBrands.map((b) => (
-                                <Link key={b} to={`/produtos?category=${encodeURIComponent(category.name)}&brand=${encodeURIComponent(b)}`} className="px-3 py-1.5 rounded-xl bg-white text-stone-700 hover:bg-white/90 transition-all text-xs font-bold uppercase">{b}</Link>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {fallbackFlavors.length > 0 && (
-                          <div>
-                            <h5 className="text-xs font-black uppercase text-stone-400 mb-2">Sabores</h5>
-                            <div className="flex flex-wrap gap-2">
-                              {fallbackFlavors.map((f) => (
-                                <Link key={f} to={`/produtos?category=${encodeURIComponent(category.name)}&search=${encodeURIComponent(f)}`} className="px-3 py-1.5 rounded-xl bg-white text-stone-700 hover:bg-white/90 transition-all text-xs font-bold uppercase">{f}</Link>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {fallbackBrands.length === 0 && fallbackFlavors.length === 0 && (
-                          <div className="text-[11px] text-slate-500 italic font-medium p-3">Nenhuma sub-categoria encontrada.</div>
-                        )}
-                      </div>
+                      <div className="text-[11px] text-slate-500 italic font-medium p-3">Nenhuma sub-categoria encontrada.</div>
                     )}
                   </div>
                 </div>
@@ -353,29 +327,7 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
                                         <Link key={sub} to={`/produtos?category=${cat.name}&sub_category=${encodeURIComponent(sub)}`} className="block text-xs font-medium text-slate-400 uppercase tracking-widest hover:text-white" translate="no">{sub}</Link>
                                       ))
                                     ) : (
-                                      <div className="space-y-3">
-                                        {(categoryBrandsMap[cat.id] || []).length > 0 && (
-                                          <div>
-                                            <h5 className="text-xs font-black uppercase text-stone-400 mb-2">Marcas</h5>
-                                            <div className="flex flex-wrap gap-2">
-                                              {(categoryBrandsMap[cat.id] || []).map(b => (
-                                                <Link key={b} to={`/produtos?category=${cat.name}&brand=${b}`} className="px-3 py-1.5 rounded-xl bg-white text-stone-700 hover:bg-white/90 transition-all text-xs font-bold uppercase">{b}</Link>
-                                              ))}
-                                            </div>
-                                          </div>
-                                        )}
-
-                                        {(categoryFlavorsMap[cat.id] || []).length > 0 && (
-                                          <div>
-                                            <h5 className="text-xs font-black uppercase text-stone-400 mb-2">Sabores</h5>
-                                            <div className="flex flex-wrap gap-2">
-                                              {(categoryFlavorsMap[cat.id] || []).map(f => (
-                                                <Link key={f} to={`/produtos?category=${cat.name}&search=${encodeURIComponent(f)}`} className="px-3 py-1.5 rounded-xl bg-white text-stone-700 hover:bg-white/90 transition-all text-xs font-bold uppercase">{f}</Link>
-                                              ))}
-                                            </div>
-                                          </div>
-                                        )}
-                                      </div>
+                                      <div className="text-[11px] text-slate-500 italic">Nenhuma sub-categoria encontrada.</div>
                                     )}
                                 </AccordionContent>
                             </AccordionItem>

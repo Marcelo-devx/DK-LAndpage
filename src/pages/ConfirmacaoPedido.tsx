@@ -84,6 +84,12 @@ const ConfirmacaoPedido = () => {
       return;
     }
 
+    // Timeout de 8s para evitar loading infinito ao voltar de outra aba
+    const timeoutId = setTimeout(() => {
+      setLoading(false);
+      setErrorMessage('Tempo limite excedido. Tente novamente.');
+    }, 8000);
+
     try {
       // Strategy 1: Try edge function first (uses service role, bypasses RLS)
       try {
@@ -94,6 +100,7 @@ const ConfirmacaoPedido = () => {
         if (payload?.success && payload?.order) {
           setOrder(safeOrder(payload.order));
           setItems(safeItems(payload.items || []));
+          clearTimeout(timeoutId);
           setLoading(false);
           return;
         }
@@ -117,16 +124,19 @@ const ConfirmacaoPedido = () => {
           .eq('order_id', cleanId);
 
         setItems(safeItems(itemsData || []));
+        clearTimeout(timeoutId);
         setLoading(false);
         return;
       }
 
       // Both strategies failed
+      clearTimeout(timeoutId);
       setErrorMessage('Pedido não encontrado. Verifique o número do pedido.');
       setLoading(false);
 
     } catch (e: any) {
       console.error('Unexpected error fetching order details:', e);
+      clearTimeout(timeoutId);
       setErrorMessage('Ocorreu um erro ao carregar o pedido.');
       setOrder(null);
       setItems([]);

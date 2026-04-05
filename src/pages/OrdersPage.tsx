@@ -63,31 +63,47 @@ const OrdersPage = () => {
   // O OrdersPage sempre buscará os pedidos normalmente
 
   const fetchOrders = useCallback(async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { navigate('/login'); setLoading(false); return; }
+    // Timeout de 5s para evitar loading infinito ao voltar de outra aba
+    const timeoutId = setTimeout(() => {
+      setLoading(false);
+    }, 5000);
 
-    const { data: ordersData, error: ordersError } = await supabase
-      .from('orders')
-      .select('id, created_at, total_price, shipping_cost, donation_amount, status, delivery_status, payment_method, shipping_address')
-      .eq('user_id', session.user.id)
-      .order('created_at', { ascending: false });
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        clearTimeout(timeoutId);
+        navigate('/login');
+        setLoading(false);
+        return;
+      }
 
-    if (ordersError) { console.error(ordersError); setLoading(false); return; }
-    if (!ordersData || ordersData.length === 0) { setOrders([]); setLoading(false); return; }
+      const { data: ordersData, error: ordersError } = await supabase
+        .from('orders')
+        .select('id, created_at, total_price, shipping_cost, donation_amount, status, delivery_status, payment_method, shipping_address')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false });
 
-    const orderIds = ordersData.map(o => o.id);
-    const { data: itemsData } = await supabase.from('order_items').select('order_id, item_id, item_type, name_at_purchase, quantity, price_at_purchase').in('order_id', orderIds);
-    const { data: reviewsData } = await supabase.from('reviews').select('product_id, order_id').eq('user_id', session.user.id).in('order_id', orderIds);
+      if (ordersError) { console.error(ordersError); clearTimeout(timeoutId); setLoading(false); return; }
+      if (!ordersData || ordersData.length === 0) { setOrders([]); clearTimeout(timeoutId); setLoading(false); return; }
 
-    const reviewedItems = reviewsData ? reviewsData.map(r => `${r.order_id}-${r.product_id}`) : [];
-    const ordersWithDetails = ordersData.map(order => ({
-      ...order,
-      order_items: (itemsData || []).filter(item => item.order_id === order.id),
-      reviewed_products: reviewedItems.filter(r => r.startsWith(`${order.id}-`)).map(r => parseInt(r.split('-')[1])),
-    }));
+      const orderIds = ordersData.map(o => o.id);
+      const { data: itemsData } = await supabase.from('order_items').select('order_id, item_id, item_type, name_at_purchase, quantity, price_at_purchase').in('order_id', orderIds);
+      const { data: reviewsData } = await supabase.from('reviews').select('product_id, order_id').eq('user_id', session.user.id).in('order_id', orderIds);
 
-    setOrders(ordersWithDetails as Order[]);
-    setLoading(false);
+      const reviewedItems = reviewsData ? reviewsData.map(r => `${r.order_id}-${r.product_id}`) : [];
+      const ordersWithDetails = ordersData.map(order => ({
+        ...order,
+        order_items: (itemsData || []).filter(item => item.order_id === order.id),
+        reviewed_products: reviewedItems.filter(r => r.startsWith(`${order.id}-`)).map(r => parseInt(r.split('-')[1])),
+      }));
+
+      setOrders(ordersWithDetails as Order[]);
+    } catch (e: any) {
+      console.error('[OrdersPage] fetchOrders error:', e);
+    } finally {
+      clearTimeout(timeoutId);
+      setLoading(false);
+    }
   }, [navigate]);
 
   useEffect(() => {

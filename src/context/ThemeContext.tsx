@@ -88,98 +88,117 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const refreshSettings = async () => {
-    // order by newest first so we pick the latest value when duplicates exist
-    const { data, error } = await supabase.from('app_settings').select('key, value, created_at').order('created_at', { ascending: false });
-    
-    if (error) {
-      console.error('[ThemeContext] refreshSettings supabase error', error);
-      return;
-    }
-    
-    if (data) {
-      const newSettings = { ...defaultSettings };
+    // Timeout de 5s para evitar loading infinito ao voltar de outra aba
+    const timeout = new Promise<null>((_, reject) =>
+      setTimeout(() => reject(new Error('timeout')), 5000)
+    );
 
-      // Build a map of latest values per key to avoid duplicate-row ambiguity
-      const latest: Record<string, string> = {};
-      for (const row of data) {
-        if (!(row.key in latest)) latest[row.key] = row.value;
-      }
-
-      // If there's a footer_config (atomic JSON) use it first
-      if (latest['footer_config']) {
-        try {
-          const parsed = JSON.parse(latest['footer_config']);
-          if (parsed.contactEmail) newSettings.contactEmail = parsed.contactEmail;
-          if (parsed.contactPhone) newSettings.contactPhone = parsed.contactPhone;
-          if (parsed.contactHours) newSettings.contactHours = parsed.contactHours;
-          if (parsed.socialFacebook) newSettings.socialFacebook = parsed.socialFacebook;
-          if (parsed.socialInstagram) newSettings.socialInstagram = parsed.socialInstagram;
-          if (parsed.socialTwitter) newSettings.socialTwitter = parsed.socialTwitter;
-          if (parsed.logoUrl) newSettings.logoUrl = parsed.logoUrl;
-        } catch (e) {
-          console.warn('Invalid footer_config JSON', e);
-        }
-      }
-
-      // Individual keys (only apply when footer_config not overriding)
-      if (latest['site_background_color']) newSettings.backgroundColor = latest['site_background_color'] || '#F4EEE3';
-      if (latest['site_primary_color']) newSettings.primaryColor = latest['site_primary_color'] || '#0ea5e9';
-      if (latest['site_text_color']) newSettings.textColor = latest['site_text_color'] || '#0f172a';
-      if (latest['show_hero_banner']) newSettings.showHero = latest['show_hero_banner'] === 'true';
-      if (latest['show_info_section']) newSettings.showInfo = latest['show_info_section'] === 'true';
-      if (latest['show_promotions']) newSettings.showPromotions = latest['show_promotions'] === 'true';
-      if (latest['show_brands']) newSettings.showBrands = latest['show_brands'] === 'true';
-      if (latest['header_announcement_text']) newSettings.headerAnnouncement = latest['header_announcement_text'] || '';
-      if (latest['logo_url'] && !latest['footer_config']) newSettings.logoUrl = latest['logo_url'];
-      if (latest['footer_banner_title']) newSettings.footerBannerTitle = latest['footer_banner_title'] || '';
-      if (latest['footer_banner_subtitle']) newSettings.footerBannerSubtitle = latest['footer_banner_subtitle'] || '';
-      if (latest['footer_banner_button_text']) newSettings.footerBannerButtonText = latest['footer_banner_button_text'] || '';
-      if (latest['contact_email'] && !latest['footer_config']) newSettings.contactEmail = latest['contact_email'] || '';
-      if (latest['contact_phone'] && !latest['footer_config']) newSettings.contactPhone = latest['contact_phone'] || '';
-      if (latest['contact_hours'] && !latest['footer_config']) newSettings.contactHours = latest['contact_hours'] || '';
-      if (latest['social_facebook'] && !latest['footer_config']) newSettings.socialFacebook = latest['social_facebook'] || '';
-      if (latest['social_instagram'] && !latest['footer_config']) newSettings.socialInstagram = latest['social_instagram'] || '';
-      if (latest['social_twitter'] && !latest['footer_config']) newSettings.socialTwitter = latest['social_twitter'] || '';
-      if (latest['login_title']) newSettings.loginTitle = latest['login_title'] || 'DKCWB';
-      if (latest['login_subtitle']) newSettings.loginSubtitle = latest['login_subtitle'] || 'Acesso Exclusivo';
-      if (latest['dashboard_greeting']) newSettings.dashboardGreeting = latest['dashboard_greeting'] || 'Olá';
-      if (latest['dashboard_subtitle']) newSettings.dashboardSubtitle = latest['dashboard_subtitle'] || 'Bem-vindo à sua conta exclusiva DKCWB.';
-      if (latest['dashboard_points_label']) newSettings.dashboardPointsLabel = latest['dashboard_points_label'] || 'Saldo acumulado';
-      if (latest['dashboard_button_text']) newSettings.dashboardButtonText = latest['dashboard_button_text'] || 'Resgatar Cupons';
-      if (latest['maintenance_mode']) newSettings.maintenanceMode = latest['maintenance_mode'] === 'true';
-
-      setSettings(newSettings);
-      applyColors(newSettings);
-    }
-
-    // Additionally, prefer footer_settings table as single source of truth for footer data
     try {
-      const { data: footerRow, error: footerError } = await supabase
-        .from('footer_settings')
-        .select('contact_email, contact_phone, contact_hours, social_facebook, social_instagram, social_twitter, logo_url')
-        .eq('id', '00000000-0000-0000-0000-000000000001')
-        .single();
+      const fetchPromise = supabase
+        .from('app_settings')
+        .select('key, value, created_at')
+        .order('created_at', { ascending: false });
 
-      if (!footerError && footerRow) {
-        setSettings((prev) => {
-          const merged = {
-            ...prev,
-            contactEmail: footerRow.contact_email || prev.contactEmail,
-            contactPhone: footerRow.contact_phone || prev.contactPhone,
-            contactHours: footerRow.contact_hours || prev.contactHours,
-            socialFacebook: footerRow.social_facebook || prev.socialFacebook,
-            socialInstagram: footerRow.social_instagram || prev.socialInstagram,
-            socialTwitter: footerRow.social_twitter || prev.socialTwitter,
-            logoUrl: footerRow.logo_url || prev.logoUrl,
-          };
-          applyColors(merged);
-          return merged;
-        });
-      } else if (footerError) {
-        console.warn('[ThemeContext] footer_settings read error', footerError);
+      const result = await Promise.race([fetchPromise, timeout]) as any;
+      const { data, error } = result;
+
+      if (error) {
+        console.error('[ThemeContext] refreshSettings supabase error', error);
+        return;
       }
-    } catch (e) {
-      console.warn('[ThemeContext] failed to read footer_settings', e);
+
+      if (data) {
+        const newSettings = { ...defaultSettings };
+        const latest: Record<string, string> = {};
+        for (const row of data) {
+          if (!(row.key in latest)) latest[row.key] = row.value;
+        }
+
+        if (latest['footer_config']) {
+          try {
+            const parsed = JSON.parse(latest['footer_config']);
+            if (parsed.contactEmail) newSettings.contactEmail = parsed.contactEmail;
+            if (parsed.contactPhone) newSettings.contactPhone = parsed.contactPhone;
+            if (parsed.contactHours) newSettings.contactHours = parsed.contactHours;
+            if (parsed.socialFacebook) newSettings.socialFacebook = parsed.socialFacebook;
+            if (parsed.socialInstagram) newSettings.socialInstagram = parsed.socialInstagram;
+            if (parsed.socialTwitter) newSettings.socialTwitter = parsed.socialTwitter;
+            if (parsed.logoUrl) newSettings.logoUrl = parsed.logoUrl;
+          } catch (e) {
+            console.warn('Invalid footer_config JSON', e);
+          }
+        }
+
+        if (latest['site_background_color']) newSettings.backgroundColor = latest['site_background_color'] || '#F4EEE3';
+        if (latest['site_primary_color']) newSettings.primaryColor = latest['site_primary_color'] || '#0ea5e9';
+        if (latest['site_text_color']) newSettings.textColor = latest['site_text_color'] || '#0f172a';
+        if (latest['show_hero_banner']) newSettings.showHero = latest['show_hero_banner'] === 'true';
+        if (latest['show_info_section']) newSettings.showInfo = latest['show_info_section'] === 'true';
+        if (latest['show_promotions']) newSettings.showPromotions = latest['show_promotions'] === 'true';
+        if (latest['show_brands']) newSettings.showBrands = latest['show_brands'] === 'true';
+        if (latest['header_announcement_text']) newSettings.headerAnnouncement = latest['header_announcement_text'] || '';
+        if (latest['logo_url'] && !latest['footer_config']) newSettings.logoUrl = latest['logo_url'];
+        if (latest['footer_banner_title']) newSettings.footerBannerTitle = latest['footer_banner_title'] || '';
+        if (latest['footer_banner_subtitle']) newSettings.footerBannerSubtitle = latest['footer_banner_subtitle'] || '';
+        if (latest['footer_banner_button_text']) newSettings.footerBannerButtonText = latest['footer_banner_button_text'] || '';
+        if (latest['contact_email'] && !latest['footer_config']) newSettings.contactEmail = latest['contact_email'] || '';
+        if (latest['contact_phone'] && !latest['footer_config']) newSettings.contactPhone = latest['contact_phone'] || '';
+        if (latest['contact_hours'] && !latest['footer_config']) newSettings.contactHours = latest['contact_hours'] || '';
+        if (latest['social_facebook'] && !latest['footer_config']) newSettings.socialFacebook = latest['social_facebook'] || '';
+        if (latest['social_instagram'] && !latest['footer_config']) newSettings.socialInstagram = latest['social_instagram'] || '';
+        if (latest['social_twitter'] && !latest['footer_config']) newSettings.socialTwitter = latest['social_twitter'] || '';
+        if (latest['login_title']) newSettings.loginTitle = latest['login_title'] || 'DKCWB';
+        if (latest['login_subtitle']) newSettings.loginSubtitle = latest['login_subtitle'] || 'Acesso Exclusivo';
+        if (latest['dashboard_greeting']) newSettings.dashboardGreeting = latest['dashboard_greeting'] || 'Olá';
+        if (latest['dashboard_subtitle']) newSettings.dashboardSubtitle = latest['dashboard_subtitle'] || 'Bem-vindo à sua conta exclusiva DKCWB.';
+        if (latest['dashboard_points_label']) newSettings.dashboardPointsLabel = latest['dashboard_points_label'] || 'Saldo acumulado';
+        if (latest['dashboard_button_text']) newSettings.dashboardButtonText = latest['dashboard_button_text'] || 'Resgatar Cupons';
+        if (latest['maintenance_mode']) newSettings.maintenanceMode = latest['maintenance_mode'] === 'true';
+
+        setSettings(newSettings);
+        applyColors(newSettings);
+      }
+
+      // Additionally, prefer footer_settings table as single source of truth for footer data
+      try {
+        const footerFetch = supabase
+          .from('footer_settings')
+          .select('contact_email, contact_phone, contact_hours, social_facebook, social_instagram, social_twitter, logo_url')
+          .eq('id', '00000000-0000-0000-0000-000000000001')
+          .single();
+
+        const footerResult = await Promise.race([footerFetch, new Promise<null>((_, rej) => setTimeout(() => rej(new Error('timeout')), 3000))]) as any;
+        const { data: footerRow, error: footerError } = footerResult;
+
+        if (!footerError && footerRow) {
+          setSettings((prev) => {
+            const merged = {
+              ...prev,
+              contactEmail: footerRow.contact_email || prev.contactEmail,
+              contactPhone: footerRow.contact_phone || prev.contactPhone,
+              contactHours: footerRow.contact_hours || prev.contactHours,
+              socialFacebook: footerRow.social_facebook || prev.socialFacebook,
+              socialInstagram: footerRow.social_instagram || prev.socialInstagram,
+              socialTwitter: footerRow.social_twitter || prev.socialTwitter,
+              logoUrl: footerRow.logo_url || prev.logoUrl,
+            };
+            applyColors(merged);
+            return merged;
+          });
+        } else if (footerError) {
+          console.warn('[ThemeContext] footer_settings read error', footerError);
+        }
+      } catch (e) {
+        console.warn('[ThemeContext] failed to read footer_settings', e);
+      }
+    } catch (e: any) {
+      if (e?.message === 'timeout') {
+        console.warn('[ThemeContext] refreshSettings timed out — using default/cached settings');
+        // Aplica as cores dos defaults para garantir que o app renderize corretamente
+        applyColors(defaultSettings);
+      } else {
+        console.error('[ThemeContext] refreshSettings error', e);
+      }
     }
   };
 
@@ -383,14 +402,11 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     let isMounted = true;
     
-    // catch any errors from refreshSettings to avoid unhandled promise rejections
     refreshSettings()
       .catch((e) => {
         console.error('[ThemeContext] refreshSettings failed', e);
-        // Even if refreshSettings fails, the app should still render with default settings
       })
       .finally(() => {
-        // Ensure we never get stuck in a loading state
         if (isMounted) {
           console.log('[ThemeContext] Settings initialized');
         }

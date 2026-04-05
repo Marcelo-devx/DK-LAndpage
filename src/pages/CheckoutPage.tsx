@@ -292,38 +292,50 @@ const CheckoutPage = () => {
 
   useEffect(() => {
     const loadCheckout = async () => {
-      // ── Restaurar estado do formulário MP após recarregamento ──────────────
-      const savedOrderId = sessionStorage.getItem('mp_pending_order_id');
-      if (savedOrderId) {
-        const restoredId = Number(savedOrderId);
-        if (restoredId && Number.isFinite(restoredId)) {
-          setPendingOrderId(restoredId);
-          pendingOrderIdRef.current = restoredId;
-          setShowMpForm(true);
-          showMpFormRef.current = true;
-          // Buscar o total do pedido para exibir corretamente
-          try {
-            const { data: orderRow } = await supabase
-              .from('orders')
-              .select('total_price')
-              .eq('id', restoredId)
-              .single();
-            if (orderRow?.total_price) {
-              setCardFormAmount(Number(orderRow.total_price));
-            }
-          } catch { /* ignore */ }
-          setLoading(false);
-          return;
-        }
-      }
-      // ──────────────────────────────────────────────────────────────────────
+      // Timeout de 8s para evitar loading infinito ao voltar de outra aba
+      const timeoutId = setTimeout(() => {
+        if (isMountedRef.current) setLoading(false);
+      }, 8000);
 
-      const { data: { session } } = await supabase.auth.getSession();
-      const u = session?.user;
-      if (isMountedRef.current) setUser(u);
-      if (u) await fetchUserData(u);
-      await fetchCartItems();
-      if (isMountedRef.current) setLoading(false);
+      try {
+        // ── Restaurar estado do formulário MP após recarregamento ──────────────
+        const savedOrderId = sessionStorage.getItem('mp_pending_order_id');
+        if (savedOrderId) {
+          const restoredId = Number(savedOrderId);
+          if (restoredId && Number.isFinite(restoredId)) {
+            setPendingOrderId(restoredId);
+            pendingOrderIdRef.current = restoredId;
+            setShowMpForm(true);
+            showMpFormRef.current = true;
+            // Buscar o total do pedido para exibir corretamente
+            try {
+              const { data: orderRow } = await supabase
+                .from('orders')
+                .select('total_price')
+                .eq('id', restoredId)
+                .single();
+              if (orderRow?.total_price) {
+                setCardFormAmount(Number(orderRow.total_price));
+              }
+            } catch { /* ignore */ }
+            clearTimeout(timeoutId);
+            if (isMountedRef.current) setLoading(false);
+            return;
+          }
+        }
+        // ──────────────────────────────────────────────────────────────────────
+
+        const { data: { session } } = await supabase.auth.getSession();
+        const u = session?.user;
+        if (isMountedRef.current) setUser(u);
+        if (u) await fetchUserData(u);
+        await fetchCartItems();
+      } catch (e) {
+        console.error('[CheckoutPage] loadCheckout error:', e);
+      } finally {
+        clearTimeout(timeoutId);
+        if (isMountedRef.current) setLoading(false);
+      }
     };
 
     loadCheckout();

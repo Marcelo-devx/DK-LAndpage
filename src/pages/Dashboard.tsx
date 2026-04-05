@@ -30,13 +30,19 @@ const Dashboard = () => {
 
   const fetchDashboardData = useCallback(async () => {
     setLoading(true);
+
+    // Timeout de 5s para evitar loading infinito ao voltar de outra aba
+    const timeoutId = setTimeout(() => {
+      setLoading(false);
+    }, 5000);
+
     try {
         const { data: { session }, error: authError } = await supabase.auth.getSession();
         
         if (authError) throw authError;
         
         if (!session) {
-          // ensure we clear the loading spinner before navigating to login
+          clearTimeout(timeoutId);
           setLoading(false);
           navigate('/login');
           return;
@@ -62,9 +68,8 @@ const Dashboard = () => {
         
     } catch (error: any) {
         console.error("Erro ao carregar dashboard:", error);
-        // Não mostramos erro visual intrusivo para não assustar o usuário, 
-        // mas logamos e garantimos que a tela carregue o que der.
     } finally {
+        clearTimeout(timeoutId);
         setLoading(false);
     }
   }, [navigate]);

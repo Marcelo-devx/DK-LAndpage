@@ -42,6 +42,11 @@ const Index = () => {
     }
   }, [location.pathname]);
 
+  // Also always scroll to top when this component mounts (covers back navigation)
+  useEffect(() => {
+    try { window.scrollTo({ top: 0, left: 0, behavior: 'auto' }); } catch (e) { window.scrollTo(0,0); }
+  }, []);
+
   // Verificar se a idade já foi confirmada antes de mostrar popup informativo
   useEffect(() => {
     try {

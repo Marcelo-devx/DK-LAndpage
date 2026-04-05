@@ -31,6 +31,7 @@ interface Variant {
   stock_quantity: number;
   ohms: string | null;
   color: string | null;
+  size: string | null;
   flavor_name?: string;
 }
 
@@ -70,7 +71,7 @@ const ProductPage = () => {
 
       const { data: variantsData } = await supabase
         .from('product_variants')
-        .select(`id, flavor_id, volume_ml, price, pix_price, stock_quantity, ohms, color`)
+        .select(`id, flavor_id, volume_ml, price, pix_price, stock_quantity, ohms, color, size`)
         .eq('product_id', id)
         .eq('is_active', true);
 
@@ -87,6 +88,7 @@ const ProductPage = () => {
             // Treat empty strings as null so getVariantLabel works correctly
             ohms: v.ohms || null,
             color: v.color || null,
+            size: v.size || null,
             flavor_name: flavorsData.find(f => f.id === v.flavor_id)?.name
         }));
 
@@ -184,6 +186,7 @@ const ProductPage = () => {
   const getVariantLabel = (v: Variant) => {
     if (v.flavor_name) return v.flavor_name;
     if (v.color) return v.color;
+    if (v.size) return v.size;
     if (v.ohms) {
       const cleanOhm = v.ohms.replace(/[^\d.,]/g, '');
       return `${cleanOhm}Ω`;
@@ -195,6 +198,7 @@ const ProductPage = () => {
   const getVariantTypeInfo = (v: Variant) => {
     if (v.flavor_name) return { icon: Droplets, label: 'Sabor' };
     if (v.color) return { icon: Palette, label: 'Cor' };
+    if (v.size) return { icon: FileText, label: 'Tamanho' };
     if (v.ohms) return { icon: Zap, label: 'Resistência' };
     if (v.volume_ml) return { icon: FileText, label: 'Volume' };
     return null;

@@ -46,6 +46,15 @@ serve(async (req) => {
 
     console.log('[validate-cep] endereço encontrado:', addressData.localidade, '/', addressData.uf)
 
+    // Regra de Negócio: Apenas Paraná
+    if (addressData.uf !== 'PR') {
+      console.log('[validate-cep] CEP fora do PR:', addressData.uf)
+      return new Response(JSON.stringify({ error: `No momento, realizamos entregas apenas no estado do Paraná. O CEP informado pertence a ${addressData.localidade} / ${addressData.uf}.` }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400,
+      })
+    }
+
     // Identificar tipo de entrega sugerido
     const city = addressData.localidade?.trim().toLowerCase()
 

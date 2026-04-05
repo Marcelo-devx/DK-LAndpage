@@ -8,13 +8,20 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { Loader2, Lock, ShieldCheck, Check, X, AlertTriangle } from 'lucide-react';
 
-const translateSupabaseError = (msg: string): string => {
-  if (msg.includes('weak') || msg.includes('easy to guess'))
-    return 'Essa senha é muito comum e fácil de adivinhar. Por favor, escolha uma senha mais forte e única.';
-  if (msg.includes('same as'))
+const SUPABASE_URL = "https://jrlozhhvwqfmjtkmvukf.supabase.co";
+
+const translateError = (msg: string): string => {
+  const m = msg.toLowerCase();
+  if (m.includes('pwned') || m.includes('vazamento') || m.includes('comprometida'))
+    return 'Esta senha foi encontrada em vazamentos de dados. Escolha uma senha diferente e mais segura.';
+  if (m.includes('weak') || m.includes('easy to guess') || m.includes('comum'))
+    return 'Essa senha é muito comum. Por favor, escolha uma senha mais forte e única.';
+  if (m.includes('same as') || m.includes('igual'))
     return 'A nova senha não pode ser igual à senha temporária. Crie uma senha própria.';
-  if (msg.includes('at least'))
-    return 'A senha deve ter pelo menos 6 caracteres.';
+  if (m.includes('at least') || m.includes('caracteres'))
+    return 'A senha deve ter pelo menos 8 caracteres.';
+  if (m.includes('session') || m.includes('sessão') || m.includes('token'))
+    return 'Sessão expirada. Por favor, faça login novamente.';
   return msg;
 };
 
@@ -57,83 +64,126 @@ const UpdatePassword = () => {
     if (!checks.match) { showError('As senhas não coincidem.'); return; }
 
     setLoading(true);
-    const toastId = showLoading('Atualizando sua senha...');
-    console.log('[UpdatePassword] Iniciando atualização de senha para usuário');
+    const toastId = showLoading('Criando sua senha...');
 
-    const { error, data } = await supabase.auth.updateUser({ password });
-    console.log('[UpdatePassword] Resultado updateUser:', { error, userId: data?.user?.id });
-
-    if (error) {
+    // Watchdog: garante que o loading nunca trava para sempre
+    const watchdog = setTimeout(() => {
       dismissToast(toastId);
       setLoading(false);
-      showError(translateSupabaseError(error.message));
-      return;
-    }
+      showError('A operação demorou demais. Tente novamente.');
+      console.error('[UpdatePassword] watchdog disparado — updateUser travou');
+    }, 20000);
 
-    // Limpa o flag must_change_password no perfil
-    if (data?.user?.id) {
+    try {
+      console.log('[UpdatePassword] Buscando sessão...');
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        clearTimeout(watchdog);
+        dismissToast(toastId);
+        setLoading(false);
+        showError('Sessão expirada. Por favor, faça login novamente.');
+        navigate('/login', { replace: true });
+        return;
+      }
+
+      const accessToken = session.access_token;
+      const userId = session.user.id;
+      const userEmail = session.user.email || '';
+
+      console.log('[UpdatePassword] Chamando update-password-admin via edge function...');
+
+      // Usar a edge function com service role — evita o travamento do client-side updateUser
+      const controller = new AbortController();
+      const fetchTimeout = setTimeout(() => controller.abort(), 18000);
+
+      let updRes: Response;
       try {
-        const { error: profileError } = await supabase
+        updRes = await fetch(`${SUPABASE_URL}/functions/v1/update-password-admin`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({ newPassword: password }),
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(fetchTimeout);
+      }
+
+      const updData = await updRes.json().catch(() => ({}));
+      console.log('[UpdatePassword] Resultado update-password-admin:', { status: updRes.status, data: updData });
+
+      if (!updRes.ok) {
+        clearTimeout(watchdog);
+        dismissToast(toastId);
+        setLoading(false);
+        showError(translateError(updData?.error || `Erro ao atualizar senha (${updRes.status})`));
+        return;
+      }
+
+      // Limpar flag must_change_password
+      try {
+        await supabase
           .from('profiles')
           .update({ must_change_password: false })
-          .eq('id', data.user.id);
-
-        console.log('[UpdatePassword] Resultado atualização perfil:', { profileError });
-
-        if (profileError) {
-          console.warn('[UpdatePassword] Erro ao atualizar must_change_password:', profileError);
-        }
+          .eq('id', userId);
+        console.log('[UpdatePassword] must_change_password limpo com sucesso');
       } catch (err) {
-        console.error('[UpdatePassword] Exceção ao atualizar perfil:', err);
+        console.warn('[UpdatePassword] Erro ao limpar must_change_password:', err);
       }
-    }
 
-    dismissToast(toastId);
-    setLoading(false);
-    showSuccess('Senha criada com sucesso! Bem-vindo(a)!');
+      // Verificar se o perfil está completo
+      let isProfileComplete = false;
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('first_name, last_name, phone, cpf_cnpj, gender, date_of_birth, cep, street, number, neighborhood, city, state')
+          .eq('id', userId)
+          .single();
 
-    // Verificar perfil e buscar nome para o e-mail
-    let isProfileComplete = false;
-    let firstName = '';
+        isProfileComplete = !!(profile &&
+          profile.first_name && profile.last_name && profile.phone &&
+          profile.cpf_cnpj && profile.gender && profile.date_of_birth &&
+          profile.cep && profile.street && profile.number &&
+          profile.neighborhood && profile.city && profile.state);
 
-    if (data?.user?.id) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('first_name, last_name, phone, cpf_cnpj, gender, date_of_birth, cep, street, number, neighborhood, city, state')
-        .eq('id', data.user.id)
-        .single();
+        console.log('[UpdatePassword] Perfil completo?', { isProfileComplete });
+      } catch (err) {
+        console.warn('[UpdatePassword] Erro ao verificar perfil:', err);
+      }
 
-      firstName = profile?.first_name || '';
+      clearTimeout(watchdog);
+      dismissToast(toastId);
+      setLoading(false);
+      showSuccess('Senha criada com sucesso! Bem-vindo(a)!');
 
-      isProfileComplete = !!(profile &&
-        profile.first_name && profile.last_name && profile.phone &&
-        profile.cpf_cnpj && profile.gender && profile.date_of_birth &&
-        profile.cep && profile.street && profile.number &&
-        profile.neighborhood && profile.city && profile.state);
+      // Nota: o e-mail de confirmação já é enviado automaticamente pela edge function update-password-admin
 
-      console.log('[UpdatePassword] Perfil completo?', { isProfileComplete });
-    }
+      // Redirecionar com reload completo para evitar conflito de listeners
+      setTimeout(() => {
+        if (!isProfileComplete) {
+          console.log('[UpdatePassword] Redirecionando para complete-profile');
+          window.location.href = '/complete-profile';
+        } else {
+          console.log('[UpdatePassword] Redirecionando para home');
+          window.location.href = '/';
+        }
+      }, 800);
 
-    // Enviar e-mail de confirmação de senha alterada (não bloqueia o fluxo)
-    supabase.functions.invoke('notify-password-change', {
-      body: {
-        email: data?.user?.email || '',
-        name: firstName,
-      },
-    }).then(() => {
-      console.log('[UpdatePassword] E-mail de confirmação enviado com sucesso');
-    }).catch(err => {
-      console.warn('[UpdatePassword] Erro ao enviar e-mail de confirmação:', err);
-    });
+    } catch (err: any) {
+      clearTimeout(watchdog);
+      dismissToast(toastId);
+      setLoading(false);
 
-    // Usar window.location.href para forçar reload completo e evitar
-    // conflito com listeners do Login.tsx que ainda estão em memória
-    if (!isProfileComplete) {
-      console.log('[UpdatePassword] Redirecionando para complete-profile');
-      window.location.href = '/complete-profile';
-    } else {
-      console.log('[UpdatePassword] Redirecionando para home');
-      window.location.href = '/';
+      if (err?.name === 'AbortError') {
+        showError('A operação demorou demais. Tente novamente.');
+        console.error('[UpdatePassword] fetch abortado por timeout');
+      } else {
+        showError(translateError(err?.message || 'Erro inesperado. Tente novamente.'));
+        console.error('[UpdatePassword] erro inesperado:', err);
+      }
     }
   };
 
@@ -198,6 +248,7 @@ const UpdatePassword = () => {
                   placeholder="••••••••"
                   required
                   autoFocus
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -223,6 +274,7 @@ const UpdatePassword = () => {
                   className="pl-10 h-12 bg-slate-950 border-white/10 text-white rounded-xl focus:border-sky-500 transition-colors"
                   placeholder="••••••••"
                   required
+                  disabled={loading}
                 />
               </div>
               {confirmPassword.length > 0 && !checks.match && (
@@ -251,6 +303,7 @@ const UpdatePassword = () => {
                   type="button"
                   onClick={() => navigate('/')}
                   className="text-xs text-slate-500 hover:text-slate-300 transition-colors font-medium"
+                  disabled={loading}
                 >
                   Cancelar e voltar para a loja
                 </button>

@@ -50,8 +50,7 @@ interface DesktopNavProps {
 const DesktopNav = memo(({ categories, categoryProductSubsMap }: DesktopNavProps) => (
   <NavigationMenu className="max-w-full justify-center w-full">
     <NavigationMenuList className="flex flex-wrap justify-center gap-y-0 gap-x-1">
-      {(Array.isArray(categories) ? categories : []).map((category) => {
-        // product-derived subcategories for this category (exact strings)
+      {(categories ?? []).map((category) => {
         const productSubs = categoryProductSubsMap[category.id] || [];
         
         return (
@@ -108,73 +107,67 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   
   const [categories, setCategories] = useState<Category[]>([]);
-  const [subCategories, setSubCategories] = useState<SubCategory[]>([]);
   const [categoryProductSubsMap, setCategoryProductSubsMap] = useState<Record<number, string[]>>({});
-  const [categoryBrandsMap, setCategoryBrandsMap] = useState<Record<number, string[]>>({});
-  const [categoryFlavorsMap, setCategoryFlavorsMap] = useState<Record<number, string[]>>({});
 
   const fetchNavData = async () => {
     try {
-      const [cats, subs, productRows] = await Promise.all([
+      // Destructure .data de cada query corretamente
+      const [catsRes, subsRes, productsRes] = await Promise.all([
         supabase.from('categories').select('id, name').eq('is_visible', true).order('name'),
         supabase.from('sub_categories').select('id, name, category_id').eq('is_visible', true).order('name'),
-        supabase.from('products').select('id, category, sub_category, brand, stock_quantity').neq('category', null).neq('category', '').eq('is_visible', true),
+        supabase.from('products').select('id, category, sub_category, stock_quantity').neq('category', null).neq('category', '').eq('is_visible', true),
       ]);
 
-      // Garante que sempre definimos arrays válidos, mesmo se a query falhar
-      setCategories(Array.isArray(cats) ? cats : []);
-      setSubCategories(Array.isArray(subs) ? subs : []);
+      const cats: Category[] = catsRes.data ?? [];
+      const subs: SubCategory[] = subsRes.data ?? [];
+      const productRows = productsRes.data ?? [];
+
+      // Sempre define arrays válidos
+      setCategories(cats);
 
       const catNameToId = new Map<string, number>();
-      (Array.isArray(cats) ? cats : []).forEach((c: any) => { if (c.name) catNameToId.set(normalizeKey(String(c.name)), c.id); });
+      cats.forEach((c) => { if (c.name) catNameToId.set(normalizeKey(c.name), c.id); });
 
       const catProductIds: Record<number, number[]> = {};
-      const productInfo: Record<number, { id: number; category: string; brand?: string | null; sub_category?: string | null; stock_quantity?: number | null }> = {};
+      const productStockMap: Record<number, number> = {};
 
-      (Array.isArray(productRows) ? productRows : []).forEach((p: any) => {
+      productRows.forEach((p: any) => {
         if (!p.category) return;
         const catId = catNameToId.get(normalizeKey(String(p.category)));
         if (!catId) return;
         if (!catProductIds[catId]) catProductIds[catId] = [];
         catProductIds[catId].push(p.id);
-        productInfo[p.id] = { id: p.id, category: String(p.category), brand: p.brand, sub_category: p.sub_category, stock_quantity: p.stock_quantity ?? 0 };
+        productStockMap[p.id] = p.stock_quantity ?? 0;
       });
 
       const allProductIds = Object.values(catProductIds).flat();
-      const productAvailable: Record<number, boolean> = {};
 
       if (allProductIds.length > 0) {
-        // Fetch variant stocks AND product_sub_categories in parallel
         const [variantStockRes, productSubCatsRes] = await Promise.all([
           supabase.from('product_variants').select('product_id, stock_quantity').in('product_id', allProductIds).eq('is_active', true),
           supabase.from('product_sub_categories').select('product_id, sub_category_id').in('product_id', allProductIds),
         ]);
 
-        // Sum variant stock per product
         const variantSumByProduct: Record<number, number> = {};
-        (variantStockRes.data || []).forEach((v: any) => {
+        (variantStockRes.data ?? []).forEach((v: any) => {
           if (typeof v.product_id !== 'number') return;
           variantSumByProduct[v.product_id] = (variantSumByProduct[v.product_id] || 0) + (v.stock_quantity || 0);
         });
 
-        // Determine availability
+        const productAvailable: Record<number, boolean> = {};
         allProductIds.forEach(pid => {
-          const prodStock = productInfo[pid]?.stock_quantity || 0;
-          const varStock = variantSumByProduct[pid] || 0;
-          productAvailable[pid] = (prodStock > 0) || (varStock > 0);
+          productAvailable[pid] = (productStockMap[pid] > 0) || (variantSumByProduct[pid] > 0);
         });
 
-        // Build sub_category_id -> sub_category name map from already-fetched subs
         const subIdToName = new Map<number, string>();
         const subIdToCatId = new Map<number, number>();
-        (Array.isArray(subs) ? subs : []).forEach((s: any) => {
+        subs.forEach((s) => {
           subIdToName.set(s.id, s.name);
           subIdToCatId.set(s.id, s.category_id);
         });
 
-        // Build categoryId -> set of sub-category names (only from available products)
         const catSubsMap: Record<number, Set<string>> = {};
-        (productSubCatsRes.data || []).forEach((psc: any) => {
+        (productSubCatsRes.data ?? []).forEach((psc: any) => {
           const pid = psc.product_id;
           const subId = psc.sub_category_id;
           if (!productAvailable[pid]) return;
@@ -191,13 +184,10 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
         });
         setCategoryProductSubsMap(catSubsFilteredObj);
       }
-
-      // Clear brands/flavors maps — no longer used in nav
-      setCategoryBrandsMap({});
-      setCategoryFlavorsMap({});
     } catch (error) {
       console.error('[Header] Error fetching nav data:', error);
-      // Não quebra a app se falhar o fetch de navegação
+      // Garante que categories nunca fica undefined/null
+      setCategories(prev => Array.isArray(prev) ? prev : []);
     }
   };
 
@@ -225,7 +215,7 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
         const { data: { session: currentSession } } = await supabase.auth.getSession();
         if (isMounted) setSession(currentSession);
         updateCartCount();
-        fetchNavData();
+        if (isMounted) fetchNavData();
       } catch (error) {
         console.error('[Header] Error fetching session:', error);
       }
@@ -234,9 +224,6 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
     fetchInitialData();
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, currentSession) => {
-      // TOKEN_REFRESHED happens every time the user returns from another app on mobile.
-      // Updating session state on that event causes a Header re-render that breaks the page.
-      // Only update session on meaningful auth events.
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED' || event === 'INITIAL_SESSION') {
         if (isMounted) setSession(currentSession);
       }
@@ -257,11 +244,13 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
     }
   };
 
+  // Garante que categories é sempre um array antes de renderizar
+  const safeCategories = Array.isArray(categories) ? categories : [];
+
   return (
     <header className="bg-black border-b border-white/10 w-full">
-      {/* Mobile Header with Back Button */}
+      {/* Mobile Header */}
       <div className="md:hidden flex items-center justify-between gap-3 px-4 py-3">
-        {/* Logo and Menu Button */}
         <div className="flex items-center space-x-2 shrink-0">
           <Sheet>
             <SheetTrigger asChild>
@@ -286,23 +275,23 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
                   <div className="space-y-4">
                     <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-700">Categorias</h3>
                     <Accordion type="single" collapsible className="w-full">
-                        {(Array.isArray(categories) ? categories : []).map((cat) => (
-                            <AccordionItem key={cat.id} value={`cat-${cat.id}`} className="border-white/5">
-                                <AccordionTrigger className="text-sm font-black uppercase tracking-widest hover:no-underline py-4" translate="no">
-                                    {cat.name}
-                                </AccordionTrigger>
-                                <AccordionContent className="pl-4 pb-4 space-y-3">
-                                    <Link to={`/produtos?category=${cat.name}`} className="block text-xs font-bold text-sky-500 uppercase tracking-widest border-b border-white/5 pb-2">Explorar Tudo</Link>
-                                    { (categoryProductSubsMap[cat.id] || []).length > 0 ? (
-                                      (categoryProductSubsMap[cat.id] || []).map(sub => (
-                                        <Link key={sub} to={`/produtos?category=${cat.name}&sub_category=${encodeURIComponent(sub)}`} className="block text-xs font-medium text-slate-400 uppercase tracking-widest hover:text-white" translate="no">{sub}</Link>
-                                      ))
-                                    ) : (
-                                      <div className="text-[11px] text-slate-700 italic">Nenhuma sub-categoria encontrada.</div>
-                                    )}
-                                </AccordionContent>
-                            </AccordionItem>
-                        ))}
+                      {safeCategories.map((cat) => (
+                        <AccordionItem key={cat.id} value={`cat-${cat.id}`} className="border-white/5">
+                          <AccordionTrigger className="text-sm font-black uppercase tracking-widest hover:no-underline py-4" translate="no">
+                            {cat.name}
+                          </AccordionTrigger>
+                          <AccordionContent className="pl-4 pb-4 space-y-3">
+                            <Link to={`/produtos?category=${cat.name}`} className="block text-xs font-bold text-sky-500 uppercase tracking-widest border-b border-white/5 pb-2">Explorar Tudo</Link>
+                            {(categoryProductSubsMap[cat.id] || []).length > 0 ? (
+                              (categoryProductSubsMap[cat.id] || []).map(sub => (
+                                <Link key={sub} to={`/produtos?category=${cat.name}&sub_category=${encodeURIComponent(sub)}`} className="block text-xs font-medium text-slate-400 uppercase tracking-widest hover:text-white" translate="no">{sub}</Link>
+                              ))
+                            ) : (
+                              <div className="text-[11px] text-slate-700 italic">Nenhuma sub-categoria encontrada.</div>
+                            )}
+                          </AccordionContent>
+                        </AccordionItem>
+                      ))}
                     </Accordion>
                   </div>
                 </nav>
@@ -321,7 +310,6 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
           </Link>
         </div>
 
-        {/* Icons Area (Right) — no search bar here */}
         <div className="flex items-center space-x-4 shrink-0 ml-auto">
           <Link to={session ? "/dashboard" : "/login"} className="flex items-center group relative">
             <User className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
@@ -329,12 +317,12 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
 
           <button onClick={onCartClick} className="flex items-center group relative">
             <div className="relative">
-                <ShoppingCart className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
-                {cartCount > 0 && (
-                    <span className="absolute -top-2 -right-2 bg-sky-500 text-white text-[9px] font-black h-4.5 w-4.5 min-w-[18px] flex items-center justify-center rounded-full shadow-lg ring-2 ring-black">
-                    {cartCount}
-                    </span>
-                )}
+              <ShoppingCart className="h-6 w-6 text-white group-hover:text-sky-500 transition-colors" />
+              {cartCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-sky-500 text-white text-[9px] font-black h-4.5 w-4.5 min-w-[18px] flex items-center justify-center rounded-full shadow-lg ring-2 ring-black">
+                  {cartCount}
+                </span>
+              )}
             </div>
           </button>
         </div>
@@ -342,7 +330,6 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
 
       {/* Desktop Header */}
       <div className="hidden md:flex items-center gap-3 lg:gap-5 xl:gap-6 px-4 lg:px-8 xl:px-12 py-0">
-        {/* Logo Area */}
         <div className="flex items-center shrink-0">
           <Link to="/" className="flex items-center group" onClick={(e) => { e.preventDefault(); navigate('/'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
             {loadingLogo ? (
@@ -355,7 +342,6 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
           </Link>
         </div>
 
-        {/* Search Bar — flex-1 centered */}
         <div className="flex-1 max-w-xl lg:max-w-2xl xl:max-w-3xl mx-auto">
           <form onSubmit={handleSearch} className="w-full relative">
             <Input 
@@ -371,89 +357,86 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
           </form>
         </div>
 
-        {/* Icons Area (Right) */}
         <div className="flex items-center space-x-2 lg:space-x-4 xl:space-x-6 shrink-0">
-           
-           <Link to="/como-funciona" className="flex items-center gap-1.5 lg:gap-2 group">
-             <Trophy className="h-5 w-5 lg:h-6 lg:w-6 text-white group-hover:text-sky-500 transition-colors" />
-             <div className="hidden xl:flex flex-col leading-none">
-                 <span className="text-[9px] text-slate-400 font-black uppercase">Clube</span>
-                 <span className="text-[11px] text-white font-black uppercase tracking-tighter">Vantagens</span>
-             </div>
-           </Link>
+          <Link to="/como-funciona" className="flex items-center gap-1.5 lg:gap-2 group">
+            <Trophy className="h-5 w-5 lg:h-6 lg:w-6 text-white group-hover:text-sky-500 transition-colors" />
+            <div className="hidden xl:flex flex-col leading-none">
+              <span className="text-[9px] text-slate-400 font-black uppercase">Clube</span>
+              <span className="text-[11px] text-white font-black uppercase tracking-tighter">Vantagens</span>
+            </div>
+          </Link>
 
-           <Link to="/compras" className="flex items-center gap-1.5 lg:gap-2 group">
-             <Package className="h-5 w-5 lg:h-6 lg:w-6 text-white group-hover:text-sky-500 transition-colors" />
-             <div className="hidden xl:flex flex-col leading-none">
-                 <span className="text-[9px] text-slate-400 font-black uppercase">Meus</span>
-                 <span className="text-[11px] text-white font-black uppercase tracking-tighter">Pedidos</span>
-             </div>
-           </Link>
+          <Link to="/compras" className="flex items-center gap-1.5 lg:gap-2 group">
+            <Package className="h-5 w-5 lg:h-6 lg:w-6 text-white group-hover:text-sky-500 transition-colors" />
+            <div className="hidden xl:flex flex-col leading-none">
+              <span className="text-[9px] text-slate-400 font-black uppercase">Meus</span>
+              <span className="text-[11px] text-white font-black uppercase tracking-tighter">Pedidos</span>
+            </div>
+          </Link>
 
-           <Link to={session ? "/dashboard" : "/login"} className="flex items-center gap-1.5 lg:gap-2 group relative">
-             <User className="h-5 w-5 lg:h-6 lg:w-6 text-white group-hover:text-sky-500 transition-colors" />
-             <div className="hidden xl:flex flex-col leading-none">
-                 <span className="text-[9px] text-slate-400 font-black uppercase">
-                     {session ? 'Olá, Membro' : 'Acesse'}
-                 </span>
-                 <span className="text-[11px] text-white font-black uppercase tracking-tighter">
-                     {session ? 'Sua Conta' : 'Sua Conta'}
-                 </span>
-             </div>
-           </Link>
+          <Link to={session ? "/dashboard" : "/login"} className="flex items-center gap-1.5 lg:gap-2 group relative">
+            <User className="h-5 w-5 lg:h-6 lg:w-6 text-white group-hover:text-sky-500 transition-colors" />
+            <div className="hidden xl:flex flex-col leading-none">
+              <span className="text-[9px] text-slate-400 font-black uppercase">
+                {session ? 'Olá, Membro' : 'Acesse'}
+              </span>
+              <span className="text-[11px] text-white font-black uppercase tracking-tighter">
+                Sua Conta
+              </span>
+            </div>
+          </Link>
 
-           <button onClick={onCartClick} className="flex items-center gap-1.5 lg:gap-2 group relative">
-             <div className="relative">
-                 <ShoppingCart className="h-5 w-5 lg:h-6 lg:w-6 text-white group-hover:text-sky-500 transition-colors" />
-                 {cartCount > 0 && (
-                     <span className="absolute -top-2 -right-2 bg-sky-500 text-white text-[9px] font-black h-4.5 w-4.5 min-w-[18px] flex items-center justify-center rounded-full shadow-lg ring-2 ring-black">
-                     {cartCount}
-                     </span>
-                 )}
-             </div>
-             <div className="hidden xl:flex flex-col leading-none">
-                 <span className="text-[9px] text-slate-400 font-black uppercase">Meu</span>
-                 <span className="text-[11px] text-white font-black uppercase tracking-tighter">Carrinho</span>
-             </div>
-           </button>
-         </div>
-       </div>
+          <button onClick={onCartClick} className="flex items-center gap-1.5 lg:gap-2 group relative">
+            <div className="relative">
+              <ShoppingCart className="h-5 w-5 lg:h-6 lg:w-6 text-white group-hover:text-sky-500 transition-colors" />
+              {cartCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-sky-500 text-white text-[9px] font-black h-4.5 w-4.5 min-w-[18px] flex items-center justify-center rounded-full shadow-lg ring-2 ring-black">
+                  {cartCount}
+                </span>
+              )}
+            </div>
+            <div className="hidden xl:flex flex-col leading-none">
+              <span className="text-[9px] text-slate-400 font-black uppercase">Meu</span>
+              <span className="text-[11px] text-white font-black uppercase tracking-tighter">Carrinho</span>
+            </div>
+          </button>
+        </div>
+      </div>
 
       {/* CATEGORY BAR (DESKTOP) */}
       <div className="hidden md:block border-t border-white/10 bg-black">
         <div className="container mx-auto px-4 lg:px-8 xl:px-12 py-1 xl:py-2">
-          <DesktopNav categories={categories} categoryProductSubsMap={categoryProductSubsMap} />
+          <DesktopNav categories={safeCategories} categoryProductSubsMap={categoryProductSubsMap} />
         </div>
       </div>
       
       {/* Mobile Search Bar & Quick Categories */}
       <div className="md:hidden px-4 pb-4 space-y-3">
-         <form onSubmit={handleSearch} className="relative">
-            <Input 
-              type="text" 
-              placeholder="Pesquisar..." 
-              className="w-full h-10 pl-4 pr-10 rounded-lg border-white/10 bg-white/5 text-sm text-white placeholder:text-slate-600"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            <Button type="submit" size="icon" className="absolute right-0 top-0 h-10 w-10 bg-transparent text-slate-600 hover:text-sky-500">
-              <Search className="h-4 w-4" />
-            </Button>
-         </form>
+        <form onSubmit={handleSearch} className="relative">
+          <Input 
+            type="text" 
+            placeholder="Pesquisar..." 
+            className="w-full h-10 pl-4 pr-10 rounded-lg border-white/10 bg-white/5 text-sm text-white placeholder:text-slate-600"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <Button type="submit" size="icon" className="absolute right-0 top-0 h-10 w-10 bg-transparent text-slate-600 hover:text-sky-500">
+            <Search className="h-4 w-4" />
+          </Button>
+        </form>
 
-         {/* Navegação Rápida Horizontal (Mobile) */}
-         <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-            {(Array.isArray(categories) ? categories : []).map((cat) => (
-               <Link 
-                 key={cat.id} 
-                 to={`/produtos?category=${cat.name}`}
-                 className="whitespace-nowrap px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-[10px] font-black uppercase tracking-widest text-white hover:bg-sky-500 hover:text-white transition-colors"
-                 translate="no"
-               >
-                 {cat.name}
-               </Link>
-            ))}
-         </div>
+        <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+          {safeCategories.map((cat) => (
+            <Link 
+              key={cat.id} 
+              to={`/produtos?category=${cat.name}`}
+              className="whitespace-nowrap px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-[10px] font-black uppercase tracking-widest text-white hover:bg-sky-500 hover:text-white transition-colors"
+              translate="no"
+            >
+              {cat.name}
+            </Link>
+          ))}
+        </div>
       </div>
     </header>
   );

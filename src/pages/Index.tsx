@@ -199,12 +199,12 @@ const Index = () => {
                 <CarouselItem key={index}>
                   <Link 
                     to={slide.button_url || '#'} 
-                    className="block relative w-full h-auto"
+                    className="block relative w-full h-full"
                   >
                     <ProductImage 
                       src={slide.image_url} 
                       alt={slide.title || "Banner Principal"} 
-                      className="w-full h-auto block" 
+                      className="w-full h-full object-cover block" 
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-off-white/80 via-transparent to-transparent" />
                   </Link>

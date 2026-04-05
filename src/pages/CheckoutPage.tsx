@@ -72,6 +72,29 @@ const isSelectableBenefit = (benefit: string) => {
 
 const CheckoutPage = () => {
   const navigate = useNavigate();
+
+  // Safe navigation helper: on mobile browsers (Android/iOS) use full page navigation
+  // to avoid SPA routing issues after async redirects (payment flows, focus/visibility events).
+  const safeNavigate = (url: string, options?: { replace?: boolean; state?: any }) => {
+    try {
+      const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : '';
+      const isMobileBrowser = /Android|iPhone|iPad|iPod/i.test(ua);
+      if (isMobileBrowser) {
+        // Use full navigation to ensure proper page load and avoid history/state issues on some Android browsers
+        if (options?.replace) {
+          window.location.replace(url);
+        } else {
+          window.location.href = url;
+        }
+      } else {
+        navigate(url, { replace: !!options?.replace, state: options?.state });
+      }
+    } catch (e) {
+      // fallback
+      try { window.location.href = url; } catch (e) { /* ignore */ }
+    }
+  };
+
   const [items, setItems] = useState<DisplayItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -143,7 +166,7 @@ const CheckoutPage = () => {
 
   const fetchCartItems = useCallback(async () => {
     const localCart = getLocalCart();
-    if (localCart.length === 0) { if (isMountedRef.current) navigate('/', { replace: true }); return; }
+    if (localCart.length === 0) { if (isMountedRef.current) safeNavigate('/', { replace: true }); return; }
     const productIds = localCart.filter(i => i.itemType === 'product').map(i => i.itemId);
     const promotionIds = localCart.filter(i => i.itemType === 'promotion').map(i => i.itemId);
     const { data: products } = await supabase.from('products').select('id, name, price, pix_price, image_url').in('id', productIds);
@@ -377,7 +400,7 @@ const CheckoutPage = () => {
           }
         })();
 
-        if (isMountedRef.current) navigate(`/confirmacao-pedido/${createdOrderId}`);
+        if (isMountedRef.current) safeNavigate(`/confirmacao-pedido/${createdOrderId}`);
       } else {
         const { data: o, error: err } = await supabase.rpc('create_guest_order', {
           p_email: data.email,
@@ -418,7 +441,7 @@ const CheckoutPage = () => {
           }
         })();
 
-        if (isMountedRef.current) navigate(`/confirmacao-pedido/${createdOrderId}`);
+        if (isMountedRef.current) safeNavigate(`/confirmacao-pedido/${createdOrderId}`);
       }
     } catch (e: any) {
       if (isMountedRef.current) {
@@ -557,7 +580,7 @@ const CheckoutPage = () => {
       clearLocalCart();
       showSuccess('Pagamento aprovado! 🎉');
 
-      if (isMountedRef.current) navigate(`/confirmacao-pedido/${pendingOrderId}`);
+      if (isMountedRef.current) safeNavigate(`/confirmacao-pedido/${pendingOrderId}`);
 
     } catch (e: any) {
       dismissToast(toastId);

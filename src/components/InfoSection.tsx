@@ -125,19 +125,12 @@ const InfoSection = () => {
                 <CarouselItem key={index} className="pl-6 basis-full sm:basis-1/2 md:basis-1/3">
                   <Link to={card.link_url || '#'} className="block group w-full relative">
                     <div className="absolute -inset-1 bg-sky-500/10 rounded-[1.5rem] md:rounded-[2rem] blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <Card className="overflow-hidden rounded-[1.5rem] md:rounded-[2rem] shadow-lg border border-stone-100 relative bg-black flex items-center justify-center h-[120px] md:h-[200px] xl:h-[260px]">
-                      {/* Mobile: keep a fixed card height and scale the image down so all text inside the image remains visible.
-                          Desktop: allow full-bleed cover for a richer look. */}
+                    <Card className="overflow-hidden rounded-[1.5rem] md:rounded-[2rem] shadow-lg border border-stone-100 relative bg-black flex items-center justify-center">
+                      {/* Imagem responsiva: mostra tudo sem cortar em qualquer tamanho */}
                       <img
                         src={card.image_url}
                         alt={`Info card ${index + 1}`}
-                        className="max-h-full w-auto mx-auto block object-contain md:hidden"
-                      />
-
-                      <img
-                        src={card.image_url}
-                        alt={`Info card ${index + 1}`}
-                        className="hidden md:block w-full h-full object-cover object-center"
+                        className="w-full h-auto block object-contain"
                       />
                     </Card>
                   </Link>

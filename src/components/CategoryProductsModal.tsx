@@ -10,32 +10,32 @@ import { supabase } from '@/integrations/supabase/client';
 import ProductCard from './ProductCard';
 import { Skeleton } from './ui/skeleton';
 
-interface Product {
-  id: number;
-  name: number | string;
-  price: number;
-  pix_price: number | null;
-  image_url: string;
-  category: string | null;
-  sub_category: string | null;
-  stock_quantity: number;
-}
-
 interface CategoryProductsModalProps {
   categoryName: string | null;
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
 }
 
+interface DisplayProduct {
+  id: number;
+  name: string;
+  price: number;
+  pixPrice: number | null;
+  imageUrl: string;
+  stockQuantity: number;
+  hasMultipleVariants: boolean;
+  showAgeBadge: boolean;
+}
+
 const CategoryProductsModal = ({ categoryName, isOpen, onOpenChange }: CategoryProductsModalProps) => {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<DisplayProduct[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchProducts = useCallback(async () => {
     if (!categoryName || !isOpen) {
       setProducts([]);
       return;
-    };
+    }
     setLoading(true);
 
     try {
@@ -53,28 +53,76 @@ const CategoryProductsModal = ({ categoryName, isOpen, onOpenChange }: CategoryP
         });
       }
 
-      // Fetch products WITHOUT joining categories (the relation doesn't exist)
-      const { data, error } = await supabase
+      // Fetch products
+      const { data: rawProducts, error } = await supabase
         .from('products')
-        .select('id, name, price, pix_price, image_url, category, sub_category, stock_quantity')
+        .select('id, name, price, pix_price, image_url, category, stock_quantity')
         .eq('category', categoryName)
         .eq('is_visible', true);
 
       if (error) {
-        console.error("Error fetching products for category:", error);
+        console.error('[CategoryProductsModal] Error fetching products:', error);
         setProducts([]);
-      } else if (data) {
-        // Attach showAgeBadge flag to each product via category map
-        const processed = (data as Product[]).map(p => ({
-          ...p,
-          // if category undefined, default to true (show badge)
-          show_age_restriction: undefined, // keep shape minimal; ProductCard reads category map separately
-          _showAgeBadge: p.category ? (categoryMap[normalizeCategory(p.category)] ?? true) : true
-        })) as any[];
-        setProducts(processed);
+        return;
       }
+
+      const productIds = (rawProducts || []).map((p: any) => p.id);
+
+      // Fetch variants to get correct prices and stock
+      const { data: variants } = productIds.length > 0
+        ? await supabase
+            .from('product_variants')
+            .select('id, product_id, price, pix_price, stock_quantity')
+            .in('product_id', productIds)
+            .eq('is_active', true)
+        : { data: [] };
+
+      const displayList: DisplayProduct[] = (rawProducts || []).map((prod: any) => {
+        const prodVariants = (variants || []).filter((v: any) => v.product_id === prod.id);
+        const showAgeBadge = prod.category
+          ? (categoryMap[normalizeCategory(prod.category)] ?? true)
+          : true;
+
+        if (prodVariants.length > 0) {
+          const totalStock = prodVariants.reduce((s: number, v: any) => s + (v.stock_quantity || 0), 0);
+          const minPrice = Math.min(...prodVariants.map((v: any) => v.price ?? 0));
+          const minPixPrice = Math.min(...prodVariants.map((v: any) => v.pix_price ?? v.price ?? 0));
+          return {
+            id: prod.id,
+            name: prod.name,
+            price: minPrice,
+            pixPrice: minPixPrice,
+            imageUrl: prod.image_url || '',
+            stockQuantity: totalStock,
+            hasMultipleVariants: true,
+            showAgeBadge,
+          };
+        }
+
+        return {
+          id: prod.id,
+          name: prod.name,
+          price: prod.price ?? 0,
+          pixPrice: prod.pix_price ?? null,
+          imageUrl: prod.image_url || '',
+          stockQuantity: prod.stock_quantity ?? 0,
+          hasMultipleVariants: false,
+          showAgeBadge,
+        };
+      });
+
+      // Sort: in-stock first
+      displayList.sort((a, b) => {
+        const aIn = a.stockQuantity > 0;
+        const bIn = b.stockQuantity > 0;
+        if (aIn && !bIn) return -1;
+        if (!aIn && bIn) return 1;
+        return 0;
+      });
+
+      setProducts(displayList);
     } catch (err) {
-      console.error("Error fetching products for category:", err);
+      console.error('[CategoryProductsModal] Unexpected error:', err);
       setProducts([]);
     } finally {
       setLoading(false);
@@ -108,16 +156,16 @@ const CategoryProductsModal = ({ categoryName, isOpen, onOpenChange }: CategoryP
             </div>
           ) : products.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {products.map((product: any, idx: number) => (
+              {products.map((product, idx) => (
                 <ProductCard key={`${product.id}-${idx}`} product={{
                   id: product.id,
-                  name: product.name as unknown as string,
+                  name: product.name,
                   price: product.price,
-                  pixPrice: product.pix_price,
-                  imageUrl: product.image_url,
-                  stockQuantity: product.stock_quantity,
-                  // compute showAgeBadge from temporary _showAgeBadge property
-                  showAgeBadge: product._showAgeBadge !== false
+                  pixPrice: product.pixPrice,
+                  imageUrl: product.imageUrl,
+                  stockQuantity: product.stockQuantity,
+                  hasMultipleVariants: product.hasMultipleVariants,
+                  showAgeBadge: product.showAgeBadge,
                 }} />
               ))}
             </div>

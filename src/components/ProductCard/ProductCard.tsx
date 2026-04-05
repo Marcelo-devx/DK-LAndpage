@@ -34,9 +34,9 @@ const ProductCard = memo(({ product }: ProductCardProps) => {
   };
 
   const hasMultipleVariants = product.hasMultipleVariants;
-  const hasPixDiscount = product.pixPrice && product.pixPrice > 0 && product.pixPrice < product.price;
-  const pixPrice = hasPixDiscount ? product.pixPrice! : product.price;
-  const fullPrice = product.price;
+  const fullPrice = product.price ?? 0;
+  const hasPixDiscount = product.pixPrice && product.pixPrice > 0 && product.pixPrice < fullPrice;
+  const pixPrice = hasPixDiscount ? product.pixPrice! : fullPrice;
   
   const pricePrefix = hasMultipleVariants ? "A partir de " : "";
   const formattedFullPrice = fullPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });

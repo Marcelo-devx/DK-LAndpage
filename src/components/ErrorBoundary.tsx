@@ -22,7 +22,8 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("Uncaught error:", error, errorInfo);
+    console.error("[ErrorBoundary] Uncaught error:", error.message, error.stack);
+    console.error("[ErrorBoundary] Component stack:", errorInfo.componentStack);
   }
 
   private handleReset = () => {

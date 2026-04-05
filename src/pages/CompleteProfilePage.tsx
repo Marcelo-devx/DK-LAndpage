@@ -47,6 +47,7 @@ const CompleteProfilePage = () => {
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isFetchingCep, setIsFetchingCep] = useState(false);
+  const [cepSearched, setCepSearched] = useState(false);
   const [deliveryType, setDeliveryType] = useState<'local' | 'correios' | null>(null);
   const [isTermsOpen, setIsTermsOpen] = useState(false);
   const [cpfError, setCpfError] = useState<string | null>(null);
@@ -225,17 +226,21 @@ const CompleteProfilePage = () => {
       return;
     }
 
-    // Prevent concurrent lookups
     if (isFetchingCep) return;
 
     setIsFetchingCep(true);
     setDeliveryType(null);
+    setCepSearched(false);
 
-    // Timeout wrapper to avoid hanging in case the function invocation stalls
-    const TIMEOUT_MS = 10000; // 10 seconds
+    // Clear address fields before new search
+    setValue('street', '');
+    setValue('neighborhood', '');
+    setValue('city', '');
+    setValue('state', '');
+
+    const TIMEOUT_MS = 10000;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-    // Watchdog to ensure spinner cleared
     const watchdog = setTimeout(() => {
       console.warn('[CompleteProfilePage] handleCepLookup watchdog cleared');
       setIsFetchingCep(false);
@@ -250,39 +255,26 @@ const CompleteProfilePage = () => {
         timeoutId = setTimeout(() => reject(new Error('timeout')), TIMEOUT_MS);
       });
 
-      // Race the invoke against the timeout
       const result: any = await Promise.race([invokePromise, timeoutPromise]);
 
-      // Clear timeout if resolved
       if (timeoutId) clearTimeout(timeoutId);
 
       const { data, error } = result || {};
 
       if (error) {
-        // Try to safely extract a message
         let msg = 'Não foi possível buscar o endereço.';
         try {
           if (error?.context?.responseText) {
             const parsed = JSON.parse(error.context.responseText);
             msg = parsed.error || msg;
           } else if (error?.message) msg = error.message;
-        } catch (e) {
-          // ignore parse errors
-        }
+        } catch (e) {}
         showError(msg);
-        setValue('street', '');
-        setValue('neighborhood', '');
-        setValue('city', '');
-        setValue('state', '');
         return;
       }
 
       if (!data) {
         showError('Não foi possível buscar o endereço.');
-        setValue('street', '');
-        setValue('neighborhood', '');
-        setValue('city', '');
-        setValue('state', '');
         return;
       }
 
@@ -290,12 +282,14 @@ const CompleteProfilePage = () => {
       setValue('neighborhood', data.bairro || '');
       setValue('city', data.localidade || '');
       setValue('state', data.uf || '');
-      
+      setCepSearched(true);
+
       if (data.deliveryType === 'correios') {
         setDeliveryType('correios');
         showSuccess("Endereço localizado (Entrega via Correios)");
       } else {
         setDeliveryType('local');
+        showSuccess("Endereço localizado!");
       }
 
     } catch (e: any) {
@@ -547,10 +541,22 @@ const CompleteProfilePage = () => {
                           onChange={(e) => {
                             const masked = maskCep(e.target.value);
                             field.onChange(masked);
-                            if (masked.replace(/\D/g, '').length === 8) {
-                              setTimeout(() => handleCepLookup(), 100);
+                            // Reset address fields when CEP changes
+                            if (cepSearched) {
+                              setCepSearched(false);
+                              setValue('street', '');
+                              setValue('neighborhood', '');
+                              setValue('city', '');
+                              setValue('state', '');
                             }
                           }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleCepLookup();
+                            }
+                          }}
+                          placeholder="00000-000"
                           className="bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors"
                         />
                       )}
@@ -560,10 +566,20 @@ const CompleteProfilePage = () => {
                     </Button>
                   </div>
                   {errors.cep && <p className="text-xs text-red-500 font-bold">{errors.cep.message}</p>}
+                  {!cepSearched && (
+                    <p className="text-xs text-stone-400 font-medium">Digite o CEP e clique na lupa 🔍 para preencher o endereço automaticamente.</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="street" className="text-charcoal-gray">Rua {requiredStar('street') && <span className="text-red-500">*</span>}</Label>
-                  <Input id="street" {...register('street')} className="bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors" />
+                  <Input
+                    id="street"
+                    {...register('street')}
+                    readOnly
+                    tabIndex={-1}
+                    placeholder="Preenchido automaticamente pelo CEP"
+                    className="bg-stone-100 border-stone-200 h-12 rounded-xl text-stone-600 cursor-not-allowed select-none"
+                  />
                   {errors.street && <p className="text-xs text-red-500 font-bold">{errors.street.message}</p>}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -579,18 +595,39 @@ const CompleteProfilePage = () => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="neighborhood" className="text-charcoal-gray">Bairro {requiredStar('neighborhood') && <span className="text-red-500">*</span>}</Label>
-                  <Input id="neighborhood" {...register('neighborhood')} className="bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors" />
+                  <Input
+                    id="neighborhood"
+                    {...register('neighborhood')}
+                    readOnly
+                    tabIndex={-1}
+                    placeholder="Preenchido automaticamente pelo CEP"
+                    className="bg-stone-100 border-stone-200 h-12 rounded-xl text-stone-600 cursor-not-allowed select-none"
+                  />
                   {errors.neighborhood && <p className="text-xs text-red-500 font-bold">{errors.neighborhood.message}</p>}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                     <div className="md:col-span-2 space-y-2">
                       <Label htmlFor="city" className="text-charcoal-gray">Cidade {requiredStar('city') && <span className="text-red-500">*</span>}</Label>
-                      <Input id="city" {...register('city')} className="bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors" />
+                      <Input
+                        id="city"
+                        {...register('city')}
+                        readOnly
+                        tabIndex={-1}
+                        placeholder="Preenchido automaticamente pelo CEP"
+                        className="bg-stone-100 border-stone-200 h-12 rounded-xl text-stone-600 cursor-not-allowed select-none"
+                      />
                       {errors.city && <p className="text-xs text-red-500 font-bold">{errors.city.message}</p>}
                     </div>
                     <div className="md:col-span-1 space-y-2">
                       <Label htmlFor="state" className="text-charcoal-gray">Estado {requiredStar('state') && <span className="text-red-500">*</span>}</Label>
-                      <Input id="state" {...register('state')} className="bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors" />
+                      <Input
+                        id="state"
+                        {...register('state')}
+                        readOnly
+                        tabIndex={-1}
+                        placeholder="UF"
+                        className="bg-stone-100 border-stone-200 h-12 rounded-xl text-stone-600 cursor-not-allowed select-none"
+                      />
                       {errors.state && <p className="text-xs text-red-500 font-bold">{errors.state.message}</p>}
                     </div>
                 </div>

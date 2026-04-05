@@ -13,68 +13,67 @@ serve(async (req) => {
 
   try {
     const { cep } = await req.json()
-    const cleanedCep = cep.replace(/\D/g, '')
+    const cleanedCep = (cep || '').replace(/\D/g, '')
 
     if (cleanedCep.length !== 8) {
-      return new Response(JSON.stringify({ error: 'CEP inválido.' }), {
+      return new Response(JSON.stringify({ error: 'CEP inválido. Informe 8 dígitos.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
       })
     }
 
-    // Fetch details from ViaCEP first
-    const viaCepResponse = await fetch(`https://viacep.com.br/ws/${cleanedCep}/json/`);
-    if (!viaCepResponse.ok) {
-      throw new Error('Falha ao buscar dados do CEP no serviço externo.');
-    }
-    const addressData = await viaCepResponse.json();
+    console.log('[validate-cep] buscando CEP:', cleanedCep)
 
-    // Check errors
+    // Fetch from ViaCEP
+    const viaCepResponse = await fetch(`https://viacep.com.br/ws/${cleanedCep}/json/`)
+    if (!viaCepResponse.ok) {
+      console.error('[validate-cep] ViaCEP retornou status:', viaCepResponse.status)
+      return new Response(JSON.stringify({ error: 'Serviço de CEP indisponível. Tente novamente.' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 502,
+      })
+    }
+
+    const addressData = await viaCepResponse.json()
+
     if (addressData.erro) {
-      return new Response(JSON.stringify({ error: 'CEP não encontrado.' }), {
+      console.log('[validate-cep] CEP não encontrado:', cleanedCep)
+      return new Response(JSON.stringify({ error: 'CEP não encontrado. Verifique e tente novamente.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 404,
       })
     }
 
-    // Regra de Negócio: Apenas Paraná
-    if (addressData.uf !== 'PR') {
-      return new Response(JSON.stringify({ error: 'No momento, realizamos entregas apenas no estado do Paraná.' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
-      })
-    }
+    console.log('[validate-cep] endereço encontrado:', addressData.localidade, '/', addressData.uf)
 
     // Identificar tipo de entrega sugerido
-    const city = addressData.localidade?.trim().toLowerCase();
-    
-    // Lista básica de cidades da Região Metropolitana que poderiam ter entrega local (Motoboy)
-    // Você pode ajustar essa lista conforme sua logística real
-    const localDeliveryCities = [
-        'curitiba',
-        'pinhais',
-        'são josé dos pinhais',
-        'colombo',
-        'piraquara',
-        'araucária',
-        'almirante tamandaré',
-        'campo largo',
-        'fazenda rio grande'
-    ];
+    const city = addressData.localidade?.trim().toLowerCase()
 
-    const isLocal = localDeliveryCities.includes(city);
-    
-    // Retorna os dados com uma flag extra para o frontend saber o tipo de entrega
-    return new Response(JSON.stringify({ 
-        ...addressData, 
-        deliveryType: isLocal ? 'local' : 'correios' 
+    const localDeliveryCities = [
+      'curitiba',
+      'pinhais',
+      'são josé dos pinhais',
+      'colombo',
+      'piraquara',
+      'araucária',
+      'almirante tamandaré',
+      'campo largo',
+      'fazenda rio grande',
+    ]
+
+    const isLocal = localDeliveryCities.includes(city)
+
+    return new Response(JSON.stringify({
+      ...addressData,
+      deliveryType: isLocal ? 'local' : 'correios',
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     })
 
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('[validate-cep] erro inesperado:', error)
+    return new Response(JSON.stringify({ error: 'Erro inesperado ao buscar CEP.' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
     })

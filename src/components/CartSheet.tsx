@@ -49,10 +49,23 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
       const promotionIds = localCart.filter(i => i.itemType === 'promotion').map(i => i.itemId);
       const variantIds = localCart.filter(i => i.variantId).map(i => i.variantId!);
       
+      // Avoid calling .in with empty arrays which can be slow / problematic
+      const productsPromise = productIds.length > 0
+        ? supabase.from('products').select('id, name, price, image_url, stock_quantity').in('id', productIds)
+        : Promise.resolve({ data: [] });
+
+      const promotionsPromise = promotionIds.length > 0
+        ? supabase.from('promotions').select('id, name, price, image_url, stock_quantity').in('id', promotionIds)
+        : Promise.resolve({ data: [] });
+
+      const variantsPromise = variantIds.length > 0
+        ? supabase.from('product_variants').select('id, flavor_id, volume_ml, price, stock_quantity, color, ohms, size, sku').in('id', variantIds)
+        : Promise.resolve({ data: [] });
+
       const [productsRes, promotionsRes, variantsRes] = await Promise.all([
-        supabase.from('products').select('id, name, price, image_url, stock_quantity').in('id', productIds),
-        supabase.from('promotions').select('id, name, price, image_url, stock_quantity').in('id', promotionIds),
-        variantIds.length > 0 ? supabase.from('product_variants').select('id, flavor_id, volume_ml, price, stock_quantity, color, ohms, size, sku').in('id', variantIds) : Promise.resolve({ data: [] })
+        productsPromise,
+        promotionsPromise,
+        variantsPromise,
       ]);
 
       const flavorsIds = (variantsRes as any).data?.filter((v: any) => v.flavor_id).map((v: any) => v.flavor_id!) || [];
@@ -223,17 +236,17 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
             <p className="text-xl font-bold text-stone-400 uppercase italic">Carrinho Vazio</p>
           </div>
         ) : (
-          <div className="flex-grow overflow-y-auto pr-4 -mr-4 space-y-4 custom-scrollbar bg-slate-50/30">
+          <div className="flex-grow overflow-y-auto pr-4 -mr-4 space-y-3 custom-scrollbar bg-slate-50/30">
             {items.map(item => {
               const key = `${item.itemType}-${item.itemId}-${item.variantId || 'no-var'}`;
               return (
-                <div key={key} className="flex items-center justify-between gap-4 p-4 bg-white rounded-xl border border-stone-100 shadow-sm">
+                <div key={key} className="flex items-center justify-between gap-3 p-3 bg-white rounded-xl border border-stone-100 shadow-sm">
                   {/* Left: Image */}
                   <div className="flex-shrink-0">
                     <ProductImage 
                       src={item.image_url} 
                       alt={item.name} 
-                      className="h-18 w-18 md:h-20 md:w-20 object-cover rounded-lg border border-stone-200" 
+                      className="h-12 w-12 sm:h-14 sm:w-14 md:h-20 md:w-20 object-cover rounded-lg border border-stone-200" 
                     />
                   </div>
 
@@ -252,18 +265,18 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
                       <Button 
                         variant="ghost" 
                         onClick={() => updateQuantity(item, item.quantity - 1)}
-                        className="h-9 w-9 flex items-center justify-center p-0 hover:bg-stone-200"
+                        className="h-8 w-8 flex items-center justify-center p-0 hover:bg-stone-200"
                         disabled={updatingId === key}
                       >
                         <Minus className="h-4 w-4" />
                       </Button>
-                      <div className="w-8 text-center font-bold text-sm">
+                      <div className="w-6 text-center font-bold text-sm">
                         {updatingId === key ? <Loader2 className="h-4 w-4 animate-spin" /> : item.quantity}
                       </div>
                       <Button 
                         variant="ghost" 
                         onClick={() => updateQuantity(item, item.quantity + 1)}
-                        className="h-9 w-9 flex items-center justify-center p-0 hover:bg-stone-200"
+                        className="h-8 w-8 flex items-center justify-center p-0 hover:bg-stone-200"
                         disabled={updatingId === key}
                       >
                         <Plus className="h-4 w-4" />

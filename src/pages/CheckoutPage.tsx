@@ -134,6 +134,8 @@ const CheckoutPage = () => {
   const [pendingOrderId, setPendingOrderId] = useState<number | null>(null);
 
   const isMountedRef = useRef(true);
+  const showMpFormRef = useRef(false);
+  const pendingOrderIdRef = useRef<number | null>(null);
 
   const { register, handleSubmit, setValue, getValues, watch, trigger, formState: { errors } } = useForm<CheckoutFormData>({
     resolver: zodResolver(checkoutSchema),
@@ -148,6 +150,10 @@ const CheckoutPage = () => {
     isMountedRef.current = true;
     return () => { isMountedRef.current = false; };
   }, []);
+
+  // Manter refs sincronizados com os states para uso em closures de event listeners
+  useEffect(() => { showMpFormRef.current = showMpForm; }, [showMpForm]);
+  useEffect(() => { pendingOrderIdRef.current = pendingOrderId; }, [pendingOrderId]);
 
   useEffect(() => {
     const data = getValues();
@@ -178,6 +184,8 @@ const CheckoutPage = () => {
   const fetchCartItems = useCallback(async () => {
     const localCart = getLocalCart();
     if (localCart.length === 0) {
+      // Não redirecionar se já existe um pedido em andamento (pagamento com cartão)
+      if (pendingOrderIdRef.current) return;
       if (isMountedRef.current) safeNavigate('/', { replace: true });
       return;
     }
@@ -305,6 +313,8 @@ const CheckoutPage = () => {
     };
 
     const refetch = async () => {
+      // Não refazer fetch se o formulário de cartão do MP estiver aberto
+      if (showMpFormRef.current) return;
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) await fetchUserData(session.user);

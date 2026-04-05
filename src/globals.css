@@ -100,3 +100,22 @@
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background-color: rgba(148, 163, 184, 0.5);
 }
+
+/* ── Mercado Pago Brick — mobile fix ──────────────────────────
+   Garante que o iframe e os elementos do Brick não ultrapassem
+   a largura do container em telas pequenas, evitando scroll
+   horizontal e layout quebrado no celular.
+──────────────────────────────────────────────────────────────── */
+.mp-card-form-wrapper {
+  width: 100%;
+  overflow-x: hidden;
+}
+
+.mp-card-form-wrapper > div,
+.mp-card-form-wrapper iframe,
+.mp-card-form-wrapper form {
+  max-width: 100% !important;
+  width: 100% !important;
+  overflow-x: hidden !important;
+  box-sizing: border-box !important;
+}

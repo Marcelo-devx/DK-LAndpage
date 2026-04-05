@@ -13,7 +13,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { showError, showLoading, dismissToast, showSuccess } from '@/utils/toast';
-import { Loader2, Search, CreditCard, MessageSquare, MapPin, Gift, X, AlertTriangle, CheckCircle2, Sparkles } from 'lucide-react';
+import { Loader2, Search, CreditCard, MessageSquare, MapPin, Gift, X, AlertTriangle, CheckCircle2, Sparkles, ChevronRight, ChevronLeft } from 'lucide-react';
 import { getLocalCart, ItemType, clearLocalCart } from '@/utils/localCart';
 import { maskCep, maskPhone, maskCpfCnpj } from '@/utils/masks';
 import CouponsModal from '@/components/CouponsModal';
@@ -22,6 +22,7 @@ import { differenceInDays, endOfWeek, isSameWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import ProductImage from '@/components/ProductImage';
 import MercadoPagoCardForm from '@/components/MercadoPagoCardForm';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface DisplayItem {
   id: number;
@@ -79,17 +80,41 @@ const isMobileBrowser = (() => {
   }
 })();
 
+// ─── Barra de progresso mobile ───────────────────────────────────────────────
+const MobileStepBar = ({ step }: { step: 1 | 2 }) => (
+  <div className="flex items-center justify-center gap-0 mb-6 lg:hidden">
+    {/* Etapa 1 */}
+    <div className="flex flex-col items-center">
+      <div className={cn(
+        "w-8 h-8 rounded-full flex items-center justify-center text-xs font-black transition-colors",
+        step >= 1 ? "bg-sky-500 text-white" : "bg-stone-200 text-stone-400"
+      )}>1</div>
+      <span className={cn("text-[9px] font-black uppercase tracking-widest mt-1", step >= 1 ? "text-sky-600" : "text-stone-400")}>Entrega</span>
+    </div>
+
+    {/* Linha */}
+    <div className={cn("h-0.5 w-12 mb-4 transition-colors", step >= 2 ? "bg-sky-500" : "bg-stone-200")} />
+
+    {/* Etapa 2 */}
+    <div className="flex flex-col items-center">
+      <div className={cn(
+        "w-8 h-8 rounded-full flex items-center justify-center text-xs font-black transition-colors",
+        step >= 2 ? "bg-sky-500 text-white" : "bg-stone-200 text-stone-400"
+      )}>2</div>
+      <span className={cn("text-[9px] font-black uppercase tracking-widest mt-1", step >= 2 ? "text-sky-600" : "text-stone-400")}>Pagamento</span>
+    </div>
+  </div>
+);
+
 const CheckoutPage = () => {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
+
+  // Controla a etapa atual APENAS no mobile (1 = entrega, 2 = resumo+pagamento)
+  const [mobileStep, setMobileStep] = useState<1 | 2>(1);
 
   /**
    * safeNavigate — wraps React Router navigate with a full-page fallback for mobile browsers.
-   *
-   * On Android/iOS, SPA navigation via React Router can silently fail or produce blank screens
-   * when called after async operations (payment callbacks, visibility-change re-fetches, etc.).
-   * Using window.location guarantees the browser performs a real navigation and re-mounts the
-   * target page cleanly, at the cost of losing in-memory React state (which is fine here because
-   * we always want a fresh page after checkout).
    */
   const safeNavigate = useCallback((url: string, options?: { replace?: boolean }) => {
     try {
@@ -134,7 +159,7 @@ const CheckoutPage = () => {
 
   const isMountedRef = useRef(true);
 
-  const { register, handleSubmit, setValue, getValues, watch, formState: { errors } } = useForm<CheckoutFormData>({
+  const { register, handleSubmit, setValue, getValues, watch, trigger, formState: { errors } } = useForm<CheckoutFormData>({
     resolver: zodResolver(checkoutSchema),
   });
 
@@ -292,9 +317,6 @@ const CheckoutPage = () => {
 
     loadCheckout();
 
-    // On mobile, visibilitychange and focus events can fire unexpectedly after returning from
-    // a payment page or switching apps. We debounce re-fetches and only trigger after a meaningful
-    // absence (>5s) to avoid unnecessary Supabase calls and UI flickers.
     let hiddenAt = 0;
     const THRESHOLD_MS = 5000;
 
@@ -387,6 +409,24 @@ const CheckoutPage = () => {
     const timeoutId = setTimeout(calculateShipping, 500);
     return () => clearTimeout(timeoutId);
   }, [watchedNeighborhood, watchedCity, selectedBenefits, deliveryType]);
+
+  // ============================================================
+  // MOBILE: avançar da etapa 1 para a etapa 2
+  // ============================================================
+  const handleMobileNextStep = async () => {
+    // Valida apenas os campos da etapa 1 antes de avançar
+    const valid = await trigger([
+      'email', 'first_name', 'last_name', 'phone', 'cpf_cnpj',
+      'cep', 'street', 'number', 'neighborhood', 'city', 'state',
+    ]);
+    if (!valid) {
+      showError("Preencha todos os dados de entrega antes de continuar.");
+      return;
+    }
+    setMobileStep(2);
+    // Scroll suave para o topo
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // ============================================================
   // PIX WHATSAPP
@@ -628,7 +668,7 @@ const CheckoutPage = () => {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="p-8">
+          <CardContent className="p-4 md:p-8">
             <MercadoPagoCardForm
               amount={total}
               onSubmit={handleMpCardSubmit}
@@ -646,189 +686,409 @@ const CheckoutPage = () => {
   }
 
   // ============================================================
-  // TELA PRINCIPAL DO CHECKOUT
+  // BLOCOS REUTILIZÁVEIS (usados tanto no mobile quanto no desktop)
+  // ============================================================
+
+  // Bloco: formulário de endereço
+  const AddressFormBlock = () => (
+    <Card className="bg-white border-stone-200 shadow-xl rounded-[2rem] overflow-hidden">
+      <CardHeader className="bg-stone-50 border-b border-stone-100 p-6 md:p-8">
+        <div className="flex items-center space-x-4">
+          <div className="p-3 bg-sky-100 rounded-2xl"><MapPin className="h-6 w-6 text-sky-600" /></div>
+          <CardTitle className="font-black text-xl md:text-2xl uppercase tracking-tighter italic">Dados de Entrega.</CardTitle>
+        </div>
+      </CardHeader>
+      <CardContent className="p-5 md:p-8 space-y-4 md:space-y-6">
+        <div>
+          <Label className="text-[10px] uppercase text-slate-500">E-mail</Label>
+          <Input {...register('email')} type="email" inputMode="email" autoComplete="email" placeholder="seu@email.com" className="text-base md:text-sm" />
+          {errors.email && <p className="text-xs text-red-500 font-bold">{errors.email.message}</p>}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <Label className="text-[10px] uppercase text-slate-500">Nome</Label>
+            <Input {...register('first_name')} autoComplete="given-name" className="text-base md:text-sm" />
+            {errors.first_name && <p className="text-xs text-red-500 font-bold">{errors.first_name.message}</p>}
+          </div>
+          <div>
+            <Label className="text-[10px] uppercase text-slate-500">Sobrenome</Label>
+            <Input {...register('last_name')} autoComplete="family-name" className="text-base md:text-sm" />
+            {errors.last_name && <p className="text-xs text-red-500 font-bold">{errors.last_name.message}</p>}
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <Label className="text-[10px] uppercase text-slate-500">Telefone</Label>
+            <Input
+              {...register('phone')}
+              inputMode="tel"
+              autoComplete="tel"
+              className="text-base md:text-sm"
+              onChange={e => e.target.value = maskPhone(e.target.value)}
+            />
+            {errors.phone && <p className="text-xs text-red-500 font-bold">{errors.phone.message}</p>}
+          </div>
+          <div>
+            <Label className="text-[10px] uppercase text-slate-500">CPF/CNPJ</Label>
+            <Input
+              {...register('cpf_cnpj')}
+              inputMode="numeric"
+              className="text-base md:text-sm"
+              onChange={e => e.target.value = maskCpfCnpj(e.target.value)}
+            />
+            {errors.cpf_cnpj && <p className="text-xs text-red-500 font-bold">{errors.cpf_cnpj.message}</p>}
+          </div>
+        </div>
+        <div>
+          <Label className="text-[10px] uppercase text-slate-400">CEP</Label>
+          <div className="flex gap-2">
+            <Input
+              {...register('cep')}
+              inputMode="numeric"
+              autoComplete="postal-code"
+              className="text-base md:text-sm"
+              onChange={e => {
+                const masked = maskCep(e.target.value);
+                e.target.value = masked;
+                if (masked.replace(/\D/g, '').length === 8) {
+                  setTimeout(() => handleCepLookup(), 100);
+                }
+              }}
+            />
+            <Button type="button" size="icon" onClick={handleCepLookup} className="bg-sky-500 h-10 w-12 shrink-0">
+              {isFetchingCep ? <Loader2 className="animate-spin h-4 w-4" /> : <Search className="h-4 w-4" />}
+            </Button>
+          </div>
+          {errors.cep && <p className="text-xs text-red-500 font-bold">{errors.cep.message}</p>}
+        </div>
+        <div className="grid grid-cols-3 gap-3 md:gap-4">
+          <div className="col-span-2">
+            <Label className="text-[10px] uppercase text-slate-500">Rua</Label>
+            <Input {...register('street')} autoComplete="street-address" className="text-base md:text-sm" />
+            {errors.street && <p className="text-xs text-red-500 font-bold">{errors.street.message}</p>}
+          </div>
+          <div>
+            <Label className="text-[10px] uppercase text-slate-500">Número</Label>
+            <Input {...register('number')} inputMode="numeric" className="text-base md:text-sm" />
+            {errors.number && <p className="text-xs text-red-500 font-bold">{errors.number.message}</p>}
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <Label className="text-[10px] uppercase text-slate-500">Bairro</Label>
+            <Input {...register('neighborhood')} className="text-base md:text-sm" />
+            {errors.neighborhood && <p className="text-xs text-red-500 font-bold">{errors.neighborhood.message}</p>}
+          </div>
+          <div>
+            <Label className="text-[10px] uppercase text-slate-500">Cidade</Label>
+            <Input {...register('city')} autoComplete="address-level2" className="text-base md:text-sm" />
+            {errors.city && <p className="text-xs text-red-500 font-bold">{errors.city.message}</p>}
+          </div>
+        </div>
+        <div>
+          <Label className="text-[10px] uppercase text-slate-500">Estado (sigla)</Label>
+          <Input {...register('state')} placeholder="Ex: SC" maxLength={2} className="uppercase text-base md:text-sm" autoComplete="address-level1" />
+          {errors.state && <p className="text-xs text-red-500 font-bold">{errors.state.message}</p>}
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  // Bloco: benefícios do clube
+  const BenefitsBlock = () => (
+    <>
+      {tierBenefits.length > 0 && (
+        <Card className="bg-slate-950 border-white/10 shadow-2xl rounded-[2.5rem] overflow-hidden">
+          <CardHeader className="bg-white/5 border-b border-white/5 p-6 md:p-8">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="p-3 bg-sky-500/20 rounded-2xl border border-sky-500/30">
+                  <Gift className="h-6 w-6 text-sky-400" />
+                </div>
+                <div>
+                  <CardTitle className="font-black text-xl md:text-2xl uppercase tracking-tighter italic text-white">Privilégios {tierName}.</CardTitle>
+                  <p className="text-[10px] font-black text-sky-500 uppercase tracking-[0.2em] mt-1">Clube DK Exclusive</p>
+                </div>
+              </div>
+              <Sparkles className="h-6 w-6 text-sky-500/40" />
+            </div>
+          </CardHeader>
+          <CardContent className="p-6 md:p-8 space-y-6">
+            <div className="grid gap-4">
+              {tierBenefits.map(benefit => {
+                const selectable = isSelectableBenefit(benefit);
+                const info = getBenefitInfo(benefit);
+                const isUsed = info.status === 'used';
+
+                if (selectable) {
+                  return (
+                    <div key={benefit} className={cn(
+                      "group relative flex items-start space-x-5 p-5 rounded-2xl border transition-all duration-300",
+                      isUsed ? "bg-white/5 border-white/5 opacity-40" : "bg-white/5 border-white/10 hover:border-sky-500/50 hover:bg-white/[0.08] cursor-pointer"
+                    )}>
+                      <div className="pt-1">
+                        <Checkbox
+                          id={benefit}
+                          checked={selectedBenefits.includes(benefit)}
+                          disabled={isUsed}
+                          onCheckedChange={(checked) => {
+                            setSelectedBenefits(prev => checked ? [...prev, benefit] : prev.filter(b => b !== benefit));
+                          }}
+                          className="h-5 w-5 border-white/20 data-[state=checked]:bg-sky-500 data-[state=checked]:border-sky-500"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <Label htmlFor={benefit} className={cn("text-sm font-black uppercase tracking-tight cursor-pointer block mb-1.5 transition-colors", isUsed ? "text-slate-500" : "text-white group-hover:text-sky-400")}>
+                          {benefit}
+                        </Label>
+                        <div className="flex items-center gap-2">
+                          <div className={cn("px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border", info.color)}>{info.label}</div>
+                        </div>
+                      </div>
+                      {!isUsed && <div className="absolute top-4 right-4 w-2 h-2 bg-sky-500 rounded-full animate-pulse" />}
+                    </div>
+                  );
+                }
+
+                return (
+                  <div key={benefit} className="flex items-center space-x-4 bg-white/[0.03] p-4 rounded-2xl border border-white/5">
+                    <div className="p-2 bg-emerald-500/10 rounded-lg">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                    </div>
+                    <span className="text-xs font-bold text-slate-300 uppercase tracking-wide">{benefit}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="pt-4">
+              <p className="text-[9px] text-slate-500 font-medium uppercase tracking-widest text-center">
+                Benefícios aplicados automaticamente com base no seu nível de fidelidade.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </>
+  );
+
+  // Bloco: resumo + pagamento
+  const SummaryAndPaymentBlock = () => (
+    <Card className="bg-white border-stone-200 shadow-xl rounded-[2rem] overflow-hidden">
+      <CardHeader className="bg-stone-50 p-6 md:p-8">
+        <CardTitle className="font-black text-xl md:text-2xl uppercase tracking-tighter italic">Resumo do Pedido.</CardTitle>
+      </CardHeader>
+      <CardContent className="p-5 md:p-8 space-y-6">
+        <div className="space-y-3 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+          {items.map(i => (
+            <div key={i.id} className="flex items-center justify-between bg-stone-50 p-3 rounded-xl border border-stone-100">
+              <div className="flex items-center gap-3">
+                <ProductImage src={i.image_url} alt={i.name} className="h-12 w-12 object-cover rounded-lg" />
+                <div>
+                  <p className="font-black text-[10px] uppercase">{i.name}</p>
+                  <p className="text-[9px] text-slate-400 font-bold">QTD: {i.quantity}</p>
+                </div>
+              </div>
+              <p className="font-black text-sky-600 text-sm">R$ {(getItemPrice(i) * i.quantity).toFixed(2)}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-[10px] uppercase text-slate-400">Cupom</Label>
+          <Select onValueChange={handleCouponChange} value={selectedCoupon?.user_coupon_id.toString() || 'none'}>
+            <SelectTrigger className="rounded-xl h-12"><SelectValue placeholder="Aplicar cupom" /></SelectTrigger>
+            <SelectContent>
+              {coupons.map(c => <SelectItem key={c.user_coupon_id} value={c.user_coupon_id.toString()}>{c.name}</SelectItem>)}
+              <SelectItem value="none">Nenhum</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-3 bg-stone-50 p-5 md:p-6 rounded-2xl border border-stone-100">
+          <div className="flex justify-between text-[10px] font-bold uppercase text-slate-500"><span>Subtotal</span><span>R$ {subtotal.toFixed(2)}</span></div>
+          {selectedCoupon && <div className="flex justify-between text-[10px] font-bold uppercase text-green-600"><span>Desconto</span><span>- R$ {discount.toFixed(2)}</span></div>}
+          <div className="flex justify-between text-[10px] font-bold uppercase text-slate-500"><span>Frete</span><span className={isFreeShippingApplied ? "text-green-600" : ""}>{isFreeShippingApplied ? "GRÁTIS" : `R$ ${shippingCost.toFixed(2)}`}</span></div>
+          {donationAmount > 0 && <div className="flex justify-between text-[10px] font-bold uppercase text-rose-600"><span>Doação</span><span>+ R$ {donationAmount.toFixed(2)}</span></div>}
+          <Separator />
+          <div className="flex justify-between font-black text-2xl md:text-3xl italic uppercase tracking-tighter"><span>Total</span><span className="text-sky-600">R$ {total.toFixed(2).replace('.', ',')}</span></div>
+        </div>
+
+        <div className="space-y-3">
+          <Label className="text-[10px] uppercase text-slate-400">Doação Solidária</Label>
+          <div className="flex flex-wrap items-center gap-2">
+            {[2, 5, 10].map(val => (
+              <Button key={val} type="button" variant={donationAmount === val ? 'default' : 'outline'} onClick={() => setDonationAmount(prev => (prev === val ? 0 : val))} className={cn("rounded-lg h-10 text-xs font-bold", donationAmount === val && "bg-rose-500 hover:bg-rose-600")}>R$ {val.toFixed(2)}</Button>
+            ))}
+            {donationAmount > 0 && (<Button type="button" variant="ghost" size="icon" onClick={() => setDonationAmount(0)} className="text-rose-500 hover:text-rose-700"><X className="h-4 w-4" /></Button>)}
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <Label className="text-[10px] uppercase text-slate-400">Método de Pagamento</Label>
+          {!isAddressComplete && (
+            <Alert variant="destructive" className="bg-red-50 border-red-100 text-red-700">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle className="font-bold">Endereço Incompleto</AlertTitle>
+              <AlertDescription className="text-xs">Preencha todos os seus dados de entrega para liberar as opções de pagamento.</AlertDescription>
+            </Alert>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              type="button"
+              onClick={() => setValue('payment_method', 'mercadopago')}
+              disabled={!isCreditCardEnabled || !isAddressComplete}
+              className={cn("h-16 flex-col gap-1 rounded-xl border", paymentMethod === 'mercadopago' ? "bg-sky-500 text-white border-sky-400" : "bg-stone-50 text-slate-500")}
+            >
+              <CreditCard className="h-4 w-4" />
+              <span className="text-[9px] uppercase font-black">Cartão</span>
+            </Button>
+            <Button
+              type="button"
+              onClick={() => setValue('payment_method', 'pix')}
+              disabled={!isAddressComplete}
+              className={cn("h-16 flex-col gap-1 rounded-xl border", paymentMethod === 'pix' ? "bg-sky-500 text-white border-sky-400" : "bg-stone-50 text-slate-500")}
+            >
+              <MessageSquare className="h-4 w-4" />
+              <span className="text-[9px] uppercase font-black">PIX WhatsApp</span>
+            </Button>
+          </div>
+
+          {paymentMethod === 'mercadopago' && (
+            <div className="bg-sky-50 border border-sky-100 rounded-xl p-4 flex items-start gap-3">
+              <CreditCard className="h-4 w-4 text-sky-600 mt-0.5 shrink-0" />
+              <p className="text-xs text-sky-700 font-medium">
+                Você será direcionado para um formulário seguro do Mercado Pago para inserir os dados do cartão. Parcelamento em até 12x disponível.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Botões de submit — visíveis apenas no desktop (no mobile ficam no sticky footer) */}
+        <div className="hidden md:block space-y-3">
+          {paymentMethod === 'pix' && (
+            <Button type="submit" disabled={isSubmitting || !isAddressComplete} className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95">
+              {isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : "Finalizar com PIX"}
+            </Button>
+          )}
+          {paymentMethod === 'mercadopago' && (
+            <Button type="submit" disabled={isSubmitting || !isCreditCardEnabled || !isAddressComplete} className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95">
+              {isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : "Inserir Dados do Cartão →"}
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  // ============================================================
+  // LAYOUT MOBILE — Stepper em 2 etapas
+  // ============================================================
+  if (isMobile) {
+    return (
+      <div className="text-charcoal-gray pb-32">
+        {/* Barra de progresso */}
+        <div className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-stone-100 px-4 py-3">
+          <MobileStepBar step={mobileStep} />
+        </div>
+
+        <form onSubmit={handleSubmit(onSubmit)} className="px-4 pt-4 space-y-4">
+          {/* ── ETAPA 1: Dados de Entrega ── */}
+          {mobileStep === 1 && (
+            <>
+              <AddressFormBlock />
+              <BenefitsBlock />
+            </>
+          )}
+
+          {/* ── ETAPA 2: Resumo + Pagamento ── */}
+          {mobileStep === 2 && (
+            <>
+              {/* Mini-resumo do endereço (readonly) */}
+              {isAddressComplete && (
+                <div className="bg-sky-50 border border-sky-100 rounded-2xl p-4 flex items-start gap-3">
+                  <MapPin className="h-4 w-4 text-sky-600 mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-black uppercase text-sky-600 tracking-widest mb-1">Entregando em</p>
+                    <p className="text-xs font-bold text-slate-700 truncate">
+                      {getValues('street')}, {getValues('number')} — {getValues('neighborhood')}, {getValues('city')}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setMobileStep(1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                    className="text-[9px] font-black uppercase text-sky-500 hover:text-sky-700 shrink-0"
+                  >
+                    Editar
+                  </button>
+                </div>
+              )}
+
+              <SummaryAndPaymentBlock />
+            </>
+          )}
+
+          {/* ── STICKY FOOTER MOBILE ── */}
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-stone-200 px-4 py-3 shadow-2xl">
+            {mobileStep === 1 ? (
+              /* Etapa 1 → botão "Continuar" */
+              <Button
+                type="button"
+                onClick={handleMobileNextStep}
+                className="w-full h-14 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-base rounded-2xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                Continuar <ChevronRight className="h-5 w-5" />
+              </Button>
+            ) : (
+              /* Etapa 2 → botão de pagamento + voltar */
+              <div className="space-y-2">
+                {paymentMethod === 'pix' && (
+                  <Button
+                    type="submit"
+                    disabled={isSubmitting || !isAddressComplete}
+                    className="w-full h-14 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-base rounded-2xl shadow-lg transition-all active:scale-95"
+                  >
+                    {isSubmitting ? <Loader2 className="animate-spin h-5 w-5" /> : "Finalizar com PIX"}
+                  </Button>
+                )}
+                {paymentMethod === 'mercadopago' && (
+                  <Button
+                    type="submit"
+                    disabled={isSubmitting || !isCreditCardEnabled || !isAddressComplete}
+                    className="w-full h-14 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-base rounded-2xl shadow-lg transition-all active:scale-95"
+                  >
+                    {isSubmitting ? <Loader2 className="animate-spin h-5 w-5" /> : "Inserir Dados do Cartão →"}
+                  </Button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => { setMobileStep(1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  className="w-full flex items-center justify-center gap-1 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 py-1 transition-colors"
+                >
+                  <ChevronLeft className="h-3 w-3" /> Voltar para entrega
+                </button>
+              </div>
+            )}
+          </div>
+        </form>
+
+        <CouponsModal isOpen={isCouponsModalOpen} onOpenChange={setIsCouponsModalOpen} userPoints={userPoints} onRedemption={handleRedemption} />
+      </div>
+    );
+  }
+
+  // ============================================================
+  // LAYOUT DESKTOP — 2 colunas (sem nenhuma alteração)
   // ============================================================
   return (
     <div className="container mx-auto px-4 md:px-6 py-4 md:py-10 text-charcoal-gray">
       <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 lg:grid-cols-2 lg:gap-16">
         <div className="space-y-4 md:space-y-12">
-          <Card className="bg-white border-stone-200 shadow-xl rounded-[2rem] overflow-hidden">
-            <CardHeader className="bg-stone-50 border-b border-stone-100 p-6 md:p-8"><div className="flex items-center space-x-4"><div className="p-3 bg-sky-100 rounded-2xl"><MapPin className="h-6 w-6 text-sky-600" /></div><CardTitle className="font-black text-xl md:text-2xl uppercase tracking-tighter italic">Dados de Entrega.</CardTitle></div></CardHeader>
-            <CardContent className="p-5 md:p-8 space-y-4 md:space-y-6">
-              <div><Label className="text-[10px] uppercase text-slate-500">E-mail</Label><Input {...register('email')} type="email" placeholder="seu@email.com" />{errors.email && <p className="text-xs text-red-500 font-bold">{errors.email.message}</p>}</div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><Label className="text-[10px] uppercase text-slate-500">Nome</Label><Input {...register('first_name')} /></div><div><Label className="text-[10px] uppercase text-slate-500">Sobrenome</Label><Input {...register('last_name')} /></div></div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div><Label className="text-[10px] uppercase text-slate-500">Telefone</Label><Input {...register('phone')} onChange={e => e.target.value = maskPhone(e.target.value)} />{errors.phone && <p className="text-xs text-red-500 font-bold">{errors.phone.message}</p>}</div>
-                <div><Label className="text-[10px] uppercase text-slate-500">CPF/CNPJ</Label><Input {...register('cpf_cnpj')} onChange={e => e.target.value = maskCpfCnpj(e.target.value)} />{errors.cpf_cnpj && <p className="text-xs text-red-500 font-bold">{errors.cpf_cnpj.message}</p>}</div>
-              </div>
-              <div><Label className="text-[10px] uppercase text-slate-400">CEP</Label><div className="flex gap-2"><Input {...register('cep')} onChange={e => { const masked = maskCep(e.target.value); e.target.value = masked; if (masked.replace(/\D/g, '').length === 8) { setTimeout(() => handleCepLookup(), 100); } }} /><Button type="button" size="icon" onClick={handleCepLookup} className="bg-sky-500 h-10 w-12 shrink-0">{isFetchingCep ? <Loader2 className="animate-spin h-4 w-4" /> : <Search className="h-4 w-4" />}</Button></div></div>
-              <div className="grid grid-cols-3 gap-3 md:gap-4"><div className="col-span-2"><Label className="text-[10px] uppercase text-slate-500">Rua</Label><Input {...register('street')} /></div><div><Label className="text-[10px] uppercase text-slate-500">Número</Label><Input {...register('number')} /></div></div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><Label className="text-[10px] uppercase text-slate-500">Bairro</Label><Input {...register('neighborhood')} /></div><div><Label className="text-[10px] uppercase text-slate-500">Cidade</Label><Input {...register('city')} /></div></div>
-              <div><Label className="text-[10px] uppercase text-slate-500">Estado (sigla)</Label><Input {...register('state')} placeholder="Ex: SC" maxLength={2} className="uppercase" />{errors.state && <p className="text-xs text-red-500 font-bold">{errors.state.message}</p>}</div>
-            </CardContent>
-          </Card>
-
-          {tierBenefits.length > 0 && (
-            <Card className="bg-slate-950 border-white/10 shadow-2xl rounded-[2.5rem] overflow-hidden">
-              <CardHeader className="bg-white/5 border-b border-white/5 p-8">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="p-3 bg-sky-500/20 rounded-2xl border border-sky-500/30">
-                      <Gift className="h-6 w-6 text-sky-400" />
-                    </div>
-                    <div>
-                      <CardTitle className="font-black text-2xl uppercase tracking-tighter italic text-white">Privilégios {tierName}.</CardTitle>
-                      <p className="text-[10px] font-black text-sky-500 uppercase tracking-[0.2em] mt-1">Clube DK Exclusive</p>
-                    </div>
-                  </div>
-                  <Sparkles className="h-6 w-6 text-sky-500/40" />
-                </div>
-              </CardHeader>
-              <CardContent className="p-8 space-y-6">
-                <div className="grid gap-4">
-                  {tierBenefits.map(benefit => {
-                    const selectable = isSelectableBenefit(benefit);
-                    const info = getBenefitInfo(benefit);
-                    const isUsed = info.status === 'used';
-
-                    if (selectable) {
-                      return (
-                        <div key={benefit} className={cn(
-                          "group relative flex items-start space-x-5 p-5 rounded-2xl border transition-all duration-300",
-                          isUsed ? "bg-white/5 border-white/5 opacity-40" : "bg-white/5 border-white/10 hover:border-sky-500/50 hover:bg-white/[0.08] cursor-pointer"
-                        )}>
-                          <div className="pt-1">
-                            <Checkbox
-                              id={benefit}
-                              checked={selectedBenefits.includes(benefit)}
-                              disabled={isUsed}
-                              onCheckedChange={(checked) => {
-                                setSelectedBenefits(prev => checked ? [...prev, benefit] : prev.filter(b => b !== benefit));
-                              }}
-                              className="h-5 w-5 border-white/20 data-[state=checked]:bg-sky-500 data-[state=checked]:border-sky-500"
-                            />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <Label htmlFor={benefit} className={cn("text-sm font-black uppercase tracking-tight cursor-pointer block mb-1.5 transition-colors", isUsed ? "text-slate-500" : "text-white group-hover:text-sky-400")}>
-                              {benefit}
-                            </Label>
-                            <div className="flex items-center gap-2">
-                              <div className={cn("px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border", info.color)}>{info.label}</div>
-                            </div>
-                          </div>
-                          {!isUsed && <div className="absolute top-4 right-4 w-2 h-2 bg-sky-500 rounded-full animate-pulse" />}
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <div key={benefit} className="flex items-center space-x-4 bg-white/[0.03] p-4 rounded-2xl border border-white/5">
-                        <div className="p-2 bg-emerald-500/10 rounded-lg">
-                          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                        </div>
-                        <span className="text-xs font-bold text-slate-300 uppercase tracking-wide">{benefit}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="pt-4">
-                  <p className="text-[9px] text-slate-500 font-medium uppercase tracking-widest text-center">
-                    Benefícios aplicados automaticamente com base no seu nível de fidelidade.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <AddressFormBlock />
+          <BenefitsBlock />
         </div>
 
         <div className="space-y-6 md:space-y-8 mt-6 lg:mt-0">
-          <Card className="bg-white border-stone-200 shadow-xl rounded-[2rem] overflow-hidden">
-            <CardHeader className="bg-stone-50 p-8"><CardTitle className="font-black text-2xl uppercase tracking-tighter italic">Resumo do Pedido.</CardTitle></CardHeader>
-            <CardContent className="p-8 space-y-6">
-              <div className="space-y-3 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
-                {items.map(i => (
-                  <div key={i.id} className="flex items-center justify-between bg-stone-50 p-3 rounded-xl border border-stone-100">
-                    <div className="flex items-center gap-3">
-                      <ProductImage src={i.image_url} alt={i.name} className="h-12 w-12 object-cover rounded-lg" />
-                      <div><p className="font-black text-[10px] uppercase">{i.name}</p><p className="text-[9px] text-slate-400 font-bold">QTD: {i.quantity}</p></div>
-                    </div>
-                    <p className="font-black text-sky-600 text-sm">R$ {(getItemPrice(i) * i.quantity).toFixed(2)}</p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-[10px] uppercase text-slate-400">Cupom</Label>
-                <Select onValueChange={handleCouponChange} value={selectedCoupon?.user_coupon_id.toString() || 'none'}>
-                  <SelectTrigger className="rounded-xl h-12"><SelectValue placeholder="Aplicar cupom" /></SelectTrigger>
-                  <SelectContent>
-                    {coupons.map(c => <SelectItem key={c.user_coupon_id} value={c.user_coupon_id.toString()}>{c.name}</SelectItem>)}
-                    <SelectItem value="none">Nenhum</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-3 bg-stone-50 p-6 rounded-2xl border border-stone-100">
-                <div className="flex justify-between text-[10px] font-bold uppercase text-slate-500"><span>Subtotal</span><span>R$ {subtotal.toFixed(2)}</span></div>
-                {selectedCoupon && <div className="flex justify-between text-[10px] font-bold uppercase text-green-600"><span>Desconto</span><span>- R$ {discount.toFixed(2)}</span></div>}
-                <div className="flex justify-between text-[10px] font-bold uppercase text-slate-500"><span>Frete</span><span className={isFreeShippingApplied ? "text-green-600" : ""}>{isFreeShippingApplied ? "GRÁTIS" : `R$ ${shippingCost.toFixed(2)}`}</span></div>
-                {donationAmount > 0 && <div className="flex justify-between text-[10px] font-bold uppercase text-rose-600"><span>Doação</span><span>+ R$ {donationAmount.toFixed(2)}</span></div>}
-                <Separator />
-                <div className="flex justify-between font-black text-3xl italic uppercase tracking-tighter"><span>Total</span><span className="text-sky-600">R$ {total.toFixed(2).replace('.', ',')}</span></div>
-              </div>
-
-              <div className="space-y-3">
-                <Label className="text-[10px] uppercase text-slate-400">Doação Solidária</Label>
-                <div className="flex flex-wrap items-center gap-2">
-                  {[2, 5, 10].map(val => (
-                    <Button key={val} type="button" variant={donationAmount === val ? 'default' : 'outline'} onClick={() => setDonationAmount(prev => (prev === val ? 0 : val))} className={cn("rounded-lg h-10 text-xs font-bold", donationAmount === val && "bg-rose-500 hover:bg-rose-600")}>R$ {val.toFixed(2)}</Button>
-                  ))}
-                  {donationAmount > 0 && (<Button type="button" variant="ghost" size="icon" onClick={() => setDonationAmount(0)} className="text-rose-500 hover:text-rose-700"><X className="h-4 w-4" /></Button>)}
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <Label className="text-[10px] uppercase text-slate-400">Método de Pagamento</Label>
-                {!isAddressComplete && (
-                  <Alert variant="destructive" className="bg-red-50 border-red-100 text-red-700">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle className="font-bold">Endereço Incompleto</AlertTitle>
-                    <AlertDescription className="text-xs">Preencha todos os seus dados de entrega para liberar as opções de pagamento.</AlertDescription>
-                  </Alert>
-                )}
-                <div className="grid grid-cols-2 gap-3">
-                  <Button type="button" onClick={() => setValue('payment_method', 'mercadopago')} disabled={!isCreditCardEnabled || !isAddressComplete} className={cn("h-16 flex-col gap-1 rounded-xl border", paymentMethod === 'mercadopago' ? "bg-sky-500 text-white border-sky-400" : "bg-stone-50 text-slate-500")}>
-                    <CreditCard className="h-4 w-4" />
-                    <span className="text-[9px] uppercase font-black">Cartão</span>
-                  </Button>
-                  <Button type="button" onClick={() => setValue('payment_method', 'pix')} disabled={!isAddressComplete} className={cn("h-16 flex-col gap-1 rounded-xl border", paymentMethod === 'pix' ? "bg-sky-500 text-white border-sky-400" : "bg-stone-50 text-slate-500")}>
-                    <MessageSquare className="h-4 w-4" />
-                    <span className="text-[9px] uppercase font-black">PIX WhatsApp</span>
-                  </Button>
-                </div>
-
-                {paymentMethod === 'mercadopago' && (
-                  <div className="bg-sky-50 border border-sky-100 rounded-xl p-4 flex items-start gap-3">
-                    <CreditCard className="h-4 w-4 text-sky-600 mt-0.5 shrink-0" />
-                    <p className="text-xs text-sky-700 font-medium">
-                      Você será direcionado para um formulário seguro do Mercado Pago para inserir os dados do cartão. Parcelamento em até 12x disponível.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {paymentMethod === 'pix' && (
-                <Button type="submit" disabled={isSubmitting || !isAddressComplete} className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95">
-                  {isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : "Finalizar com PIX"}
-                </Button>
-              )}
-              {paymentMethod === 'mercadopago' && (
-                <Button type="submit" disabled={isSubmitting || !isCreditCardEnabled || !isAddressComplete} className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95">
-                  {isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : "Inserir Dados do Cartão →"}
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+          <SummaryAndPaymentBlock />
         </div>
       </form>
       <CouponsModal isOpen={isCouponsModalOpen} onOpenChange={setIsCouponsModalOpen} userPoints={userPoints} onRedemption={handleRedemption} />

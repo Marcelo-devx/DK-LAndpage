@@ -1,6 +1,6 @@
 import { useEffect, useState, memo, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { User, ShoppingCart, Menu, Search, Package, ChevronDown, ArrowRight, X, Trophy } from 'lucide-react';
+import { User, ShoppingCart, Menu, Search, Package, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -40,6 +40,63 @@ const normalizeKey = (s?: string) => {
   if (!s) return '';
   return s.trim().toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
 };
+
+// DesktopNav — movido para fora do Header para evitar re-criação a cada render
+interface DesktopNavProps {
+  categories: Category[];
+  categoryProductSubsMap: Record<number, string[]>;
+}
+
+const DesktopNav = memo(({ categories, categoryProductSubsMap }: DesktopNavProps) => (
+  <NavigationMenu className="max-w-full justify-center w-full">
+    <NavigationMenuList className="flex flex-wrap justify-center gap-y-0 gap-x-1">
+      {categories.map((category) => {
+        // product-derived subcategories for this category (exact strings)
+        const productSubs = categoryProductSubsMap[category.id] || [];
+        
+        return (
+          <NavigationMenuItem key={category.id} className="shrink-0">
+            <NavigationMenuTrigger 
+              className="bg-transparent text-white hover:text-sky-400 data-[state=open]:bg-white/10 data-[state=open]:text-sky-400 font-black uppercase text-[11px] tracking-[0.15em] h-14 px-4 transition-all" 
+              translate="no"
+            >
+              <Link
+                to={`/produtos?category=${encodeURIComponent(category.name)}`}
+                onClick={(e) => { e.stopPropagation(); }}
+                className="w-full block"
+              >
+                {category.name}
+              </Link>
+            </NavigationMenuTrigger>
+            <NavigationMenuContent>
+              <div className="w-[680px] max-w-[90vw] p-6 md:p-8 bg-black border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,1)] rounded-2xl">
+                <h4 className="text-[11px] font-black text-sky-500 uppercase tracking-[0.3em] border-b border-white/10 pb-3">Sub-Categorias</h4>
+                <div className="mt-4 grid grid-cols-1 gap-2 max-h-[60vh] overflow-y-auto pr-3 custom-scrollbar">
+                  {productSubs.length > 0 ? (
+                    productSubs.map((sub) => (
+                      <NavigationMenuLink key={sub} asChild>
+                        <Link
+                          to={`/produtos?category=${encodeURIComponent(category.name)}&sub_category=${encodeURIComponent(sub)}`}
+                          className="block p-3 rounded-xl hover:bg-white/5 transition-all"
+                        >
+                          <span className="text-[12px] font-bold text-slate-300 hover:text-white uppercase tracking-wider" translate="no">{sub}</span>
+                        </Link>
+                      </NavigationMenuLink>
+                    ))
+                  ) : (
+                    <div className="text-[11px] text-slate-700 italic">Nenhuma sub-categoria encontrada.</div>
+                  )}
+                </div>
+              </div>
+            </NavigationMenuContent>
+          </NavigationMenuItem>
+        );
+      })}
+    </NavigationMenuList>
+  </NavigationMenu>
+));
+
+DesktopNav.displayName = 'DesktopNav';
 
 const Header = memo(({ onCartClick }: HeaderProps) => {
   const isMobile = useIsMobile();
@@ -174,59 +231,6 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
       navigate(`/produtos?search=${encodeURIComponent(searchTerm)}`);
     }
   };
-
-  const DesktopNav = () => (
-    <NavigationMenu className="max-w-full justify-center w-full">
-      <NavigationMenuList className="flex flex-wrap justify-center gap-y-0 gap-x-1">
-        {categories.map((category) => {
-          // product-derived subcategories for this category (exact strings)
-          const productSubs = categoryProductSubsMap[category.id] || [];
-
-          // if productSubs exist, show them; otherwise show brands/flavors fallbacks
-          const fallbackBrands = categoryBrandsMap[category.id] || [];
-          const fallbackFlavors = categoryFlavorsMap[category.id] || [];
-          
-          return (
-            <NavigationMenuItem key={category.id} className="shrink-0">
-              <NavigationMenuTrigger 
-                className="bg-transparent text-white hover:text-sky-400 data-[state=open]:bg-white/10 data-[state=open]:text-sky-400 font-black uppercase text-[11px] tracking-[0.15em] h-14 px-4 transition-all" 
-                translate="no"
-              >
-                <Link
-                  to={`/produtos?category=${encodeURIComponent(category.name)}`}
-                  onClick={(e) => { e.stopPropagation(); }}
-                  className="w-full block"
-                >
-                  {category.name}
-                </Link>
-              </NavigationMenuTrigger>
-              <NavigationMenuContent>
-                <div className="w-[680px] max-w-[90vw] p-6 md:p-8 bg-black border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,1)] rounded-2xl">
-                  <h4 className="text-[11px] font-black text-sky-500 uppercase tracking-[0.3em] border-b border-white/10 pb-3">Sub-Categorias</h4>
-                  <div className="mt-4 grid grid-cols-1 gap-2 max-h-[60vh] overflow-y-auto pr-3 custom-scrollbar">
-                    {productSubs.length > 0 ? (
-                      productSubs.map((sub) => (
-                        <NavigationMenuLink key={sub} asChild>
-                          <Link
-                            to={`/produtos?category=${encodeURIComponent(category.name)}&sub_category=${encodeURIComponent(sub)}`}
-                            className="block p-3 rounded-xl hover:bg-white/5 transition-all"
-                          >
-                            <span className="text-[12px] font-bold text-slate-300 hover:text-white uppercase tracking-wider" translate="no">{sub}</span>
-                          </Link>
-                        </NavigationMenuLink>
-                      ))
-                    ) : (
-                      <div className="text-[11px] text-slate-700 italic">Nenhuma sub-categoria encontrada.</div>
-                    )}
-                  </div>
-                </div>
-              </NavigationMenuContent>
-            </NavigationMenuItem>
-          );
-        })}
-      </NavigationMenuList>
-    </NavigationMenu>
-  );
 
   return (
     <header className="bg-black border-b border-white/10 w-full">
@@ -393,7 +397,7 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
       {/* CATEGORY BAR (DESKTOP) */}
       <div className="hidden md:block border-t border-white/10 bg-black">
         <div className="container mx-auto px-4 lg:px-8 xl:px-12 py-1 xl:py-2">
-          <DesktopNav />
+          <DesktopNav categories={categories} categoryProductSubsMap={categoryProductSubsMap} />
         </div>
       </div>
       

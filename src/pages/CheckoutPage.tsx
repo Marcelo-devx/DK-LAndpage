@@ -132,6 +132,7 @@ const CheckoutPage = () => {
 
   const [showMpForm, setShowMpForm] = useState(false);
   const [pendingOrderId, setPendingOrderId] = useState<number | null>(null);
+  const [cardFormAmount, setCardFormAmount] = useState<number>(0);
 
   const isMountedRef = useRef(true);
   const showMpFormRef = useRef(false);
@@ -308,7 +309,7 @@ const CheckoutPage = () => {
               .eq('id', restoredId)
               .single();
             if (orderRow?.total_price) {
-              // total será calculado a partir do pedido salvo
+              setCardFormAmount(Number(orderRow.total_price));
             }
           } catch { /* ignore */ }
           setLoading(false);
@@ -555,7 +556,16 @@ const CheckoutPage = () => {
 
       if (!orderId || !Number.isFinite(Number(orderId))) throw new Error('Não foi possível criar o pedido.');
 
+      // Buscar o total_price real do banco como fonte da verdade para o Brick
+      const { data: orderRow } = await supabase
+        .from('orders')
+        .select('total_price')
+        .eq('id', orderId)
+        .single();
+      const realAmount = orderRow?.total_price ? Number(orderRow.total_price) : total;
+
       dismissToast(toastId);
+      setCardFormAmount(realAmount);
       setPendingOrderId(orderId);
       setShowMpForm(true);
       // Persistir para sobreviver a recarregamentos / redirect do MP
@@ -583,16 +593,16 @@ const CheckoutPage = () => {
   // ============================================================
   // CARTÃO — Passo 2: processar pagamento com token do Brick
   // ============================================================
-  const handleMpCardSubmit = async (cardBrickResult: any) => {
-    if (!pendingOrderId) { showError("Pedido não encontrado. Tente novamente."); return; }
-    setIsSubmitting(true);
-    const toastId = showLoading("Processando pagamento...");
+  const handleMpCardSubmit = useCallback(async (cardBrickResult: any) => {
+    if (!pendingOrderIdRef.current) { showError("Pedido não encontrado. Tente novamente."); return; }
+
+    const currentOrderId = pendingOrderIdRef.current;
 
     try {
       const { data: orderRow, error: orderRowError } = await supabase
         .from('orders')
         .select('total_price, shipping_address')
-        .eq('id', pendingOrderId)
+        .eq('id', currentOrderId)
         .single();
 
       if (orderRowError || !orderRow) throw new Error('Pedido não encontrado.');
@@ -609,7 +619,7 @@ const CheckoutPage = () => {
       const invokeOptions: any = {
         body: {
           ...cardBrickResult,
-          external_reference: String(pendingOrderId),
+          external_reference: String(currentOrderId),
           transaction_amount: finalTotal,
           payer: {
             email: formData.email,
@@ -629,18 +639,17 @@ const CheckoutPage = () => {
       if (payError) throw new Error(payError.message || 'Erro ao processar pagamento.');
       if (!result?.success) throw new Error(result?.error || 'Pagamento não aprovado.');
 
-      dismissToast(toastId);
       clearLocalCart();
       sessionStorage.removeItem('mp_pending_order_id');
       showSuccess('Pagamento aprovado! 🎉');
 
-      safeNavigate(`/confirmacao-pedido/${pendingOrderId}`);
+      safeNavigate(`/confirmacao-pedido/${currentOrderId}`);
     } catch (e: any) {
-      dismissToast(toastId);
       showError(e?.message || "Pagamento recusado. Verifique os dados do cartão e tente novamente.");
-      if (isMountedRef.current) setIsSubmitting(false);
+      // Re-throw para que o Brick saiba que houve erro e saia do estado de loading
+      throw e;
     }
-  };
+  }, [getValues, safeNavigate]);
 
   const onSubmit = async (data: CheckoutFormData) => {
     if (!isMountedRef.current) return;
@@ -670,7 +679,7 @@ const CheckoutPage = () => {
             ← Voltar ao checkout
           </button>
           <h1 className="text-3xl font-black italic uppercase tracking-tighter text-charcoal-gray">Pagamento com Cartão.</h1>
-          <p className="text-sm text-slate-500 mt-2 font-medium">Pedido <span className="font-black text-sky-600">#{pendingOrderId}</span> — Total: <span className="font-black text-sky-600">R$ {total.toFixed(2).replace('.', ',')}</span></p>
+          <p className="text-sm text-slate-500 mt-2 font-medium">Pedido <span className="font-black text-sky-600">#{pendingOrderId}</span> — Total: <span className="font-black text-sky-600">R$ {(cardFormAmount || total).toFixed(2).replace('.', ',')}</span></p>
         </div>
 
         <Card className="bg-white border-stone-200 shadow-xl rounded-[2rem] overflow-hidden">
@@ -687,9 +696,8 @@ const CheckoutPage = () => {
           </CardHeader>
           <CardContent className="p-4 md:p-8">
             <MercadoPagoCardForm
-              amount={total}
+              amount={cardFormAmount || total}
               onSubmit={handleMpCardSubmit}
-              isSubmitting={isSubmitting}
             />
           </CardContent>
         </Card>

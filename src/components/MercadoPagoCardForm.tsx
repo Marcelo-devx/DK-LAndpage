@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { initMercadoPago, CardPayment } from '@mercadopago/sdk-react';
 import { Loader2 } from 'lucide-react';
 
@@ -9,16 +9,24 @@ let mpInitialized = false;
 interface MercadoPagoCardFormProps {
   amount: number;
   onSubmit: (formData: any) => Promise<void>;
-  isSubmitting: boolean;
 }
 
-const MercadoPagoCardForm = ({ amount, onSubmit, isSubmitting }: MercadoPagoCardFormProps) => {
+// React.memo evita re-renders desnecessários que desmontariam o iframe do Brick
+const MercadoPagoCardForm = memo(({ amount, onSubmit }: MercadoPagoCardFormProps) => {
   const [mpReady, setMpReady] = useState(false);
   const [mpPublicKey, setMpPublicKey] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  // Manter referência estável do onSubmit para não recriar o Brick quando o callback muda
+  const onSubmitRef = useRef(onSubmit);
+  useEffect(() => { onSubmitRef.current = onSubmit; }, [onSubmit]);
+
+  // Wrapper estável que delega para a ref — o Brick nunca vê a função mudar
+  const stableOnSubmit = useRef(async (formData: any) => {
+    return onSubmitRef.current(formData);
+  }).current;
+
   useEffect(() => {
-    // Buscar a public key do banco via edge function ou app_settings
     const loadPublicKey = async () => {
       try {
         const { supabase } = await import('@/integrations/supabase/client');
@@ -33,7 +41,7 @@ const MercadoPagoCardForm = ({ amount, onSubmit, isSubmitting }: MercadoPagoCard
         } else {
           setLoadError('Public Key do Mercado Pago não configurada. Acesse o painel admin e configure a chave.');
         }
-      } catch (e) {
+      } catch {
         setLoadError('Erro ao carregar configurações de pagamento.');
       }
     };
@@ -49,7 +57,6 @@ const MercadoPagoCardForm = ({ amount, onSubmit, isSubmitting }: MercadoPagoCard
       mpInitialized = true;
     }
 
-    // Pequeno delay para garantir que o SDK inicializou
     const timer = setTimeout(() => setMpReady(true), 300);
     return () => clearTimeout(timer);
   }, [mpPublicKey]);
@@ -105,13 +112,15 @@ const MercadoPagoCardForm = ({ amount, onSubmit, isSubmitting }: MercadoPagoCard
             },
           },
         }}
-        onSubmit={onSubmit}
+        onSubmit={stableOnSubmit}
         onError={(error) => {
           console.error('[MercadoPagoCardForm] Brick error:', error);
         }}
       />
     </div>
   );
-};
+});
+
+MercadoPagoCardForm.displayName = 'MercadoPagoCardForm';
 
 export default MercadoPagoCardForm;

@@ -125,20 +125,12 @@ const InfoSection = () => {
                 <CarouselItem key={index} className="pl-6 basis-full sm:basis-1/2 md:basis-1/3">
                   <Link to={card.link_url || '#'} className="block group w-full relative">
                     <div className="absolute -inset-1 bg-sky-500/10 rounded-[1.5rem] md:rounded-[2rem] blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                    {/* Use flex center + object-cover so hero-like fill on mobile and portrait on desktop */}
-                    <Card className="overflow-hidden rounded-[1.5rem] md:rounded-[2rem] shadow-lg h-[120px] md:h-[200px] xl:h-[260px] border border-stone-100 relative bg-white flex items-center justify-center">
-                      {/* Mobile: use background-cover to avoid white bars when object-contain would letterbox
-                          Desktop: use regular img with object-cover for crisp fill */}
-                      <div
-                        className="w-full h-full bg-center bg-cover md:hidden"
-                        style={{ backgroundImage: `url(${card.image_url})` }}
-                        role="img"
-                        aria-label={card.link_url ? `Info card ${index + 1}` : `Info card ${index + 1}`}
-                      />
+                    <Card className="overflow-hidden rounded-[1.5rem] md:rounded-[2rem] shadow-lg border border-stone-100 relative bg-black flex items-center justify-center">
+                      {/* Imagem responsiva: mostra tudo sem cortar em qualquer tamanho */}
                       <img
                         src={card.image_url}
                         alt={`Info card ${index + 1}`}
-                        className="hidden md:block w-full h-full object-cover object-center"
+                        className="w-full h-auto block object-contain"
                       />
                     </Card>
                   </Link>

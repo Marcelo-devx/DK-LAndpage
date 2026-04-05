@@ -147,43 +147,16 @@ const UpdatePassword = () => {
         console.warn('[UpdatePassword] Erro ao limpar must_change_password:', err);
       }
 
-      // Verificar se o perfil está completo
-      let isProfileComplete = false;
-      try {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('first_name, last_name, phone, cpf_cnpj, gender, date_of_birth, cep, street, number, neighborhood, city, state')
-          .eq('id', userId)
-          .single();
-
-        isProfileComplete = !!(profile &&
-          profile.first_name && profile.last_name && profile.phone &&
-          profile.cpf_cnpj && profile.gender && profile.date_of_birth &&
-          profile.cep && profile.street && profile.number &&
-          profile.neighborhood && profile.city && profile.state);
-
-        console.log('[UpdatePassword] Perfil completo?', { isProfileComplete });
-      } catch (err) {
-        console.warn('[UpdatePassword] Erro ao verificar perfil:', err);
-      }
-
       clearTimeout(watchdog);
       dismissToast(toastId);
       setLoading(false);
-      showSuccess('Senha criada com sucesso! Bem-vindo(a)!');
+      showSuccess('Senha criada com sucesso! Faça login para continuar.');
 
-      // Nota: o e-mail de confirmação já é enviado automaticamente pela edge function update-password-admin
-
-      // Redirecionar com reload completo para evitar conflito de listeners
+      // Desloga e manda para o login — o Login detecta perfil incompleto e redireciona corretamente
+      await supabase.auth.signOut();
       setTimeout(() => {
-        if (!isProfileComplete) {
-          console.log('[UpdatePassword] Redirecionando para complete-profile');
-          window.location.href = '/complete-profile';
-        } else {
-          console.log('[UpdatePassword] Redirecionando para home');
-          window.location.href = '/';
-        }
-      }, 800);
+        window.location.href = '/login';
+      }, 1200);
 
     } catch (err: any) {
       clearTimeout(watchdog);

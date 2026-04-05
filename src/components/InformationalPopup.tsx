@@ -20,7 +20,7 @@ interface InformationalPopupProps {
   onAccept?: () => void;
 }
 
-// Parse limited safe HTML and convert to React nodes. Allows these tags: p, br, ul, ol, li, strong, b, em, i, u, a
+// Parse limited safe HTML and convert to React nodes. Allows these tags: p, br, ul, ol, li, strong, b, em, i, u, a, img
 const parseHtmlToReact = (html: string) => {
   if (!html) return null;
   try {
@@ -31,7 +31,24 @@ const parseHtmlToReact = (html: string) => {
     const isSafeHref = (href: string | null) => {
       if (!href) return false;
       const trimmed = href.trim().toLowerCase();
-      return trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('mailto:') || trimmed.startsWith('#');
+      return (
+        trimmed.startsWith('http://') ||
+        trimmed.startsWith('https://') ||
+        trimmed.startsWith('mailto:') ||
+        trimmed.startsWith('#')
+      );
+    };
+
+    const isSafeSrc = (src: string | null) => {
+      if (!src) return false;
+      const trimmed = src.trim().toLowerCase();
+      // allow http(s), data images, and protocol-relative urls
+      return (
+        trimmed.startsWith('http://') ||
+        trimmed.startsWith('https://') ||
+        trimmed.startsWith('data:image/') ||
+        trimmed.startsWith('//')
+      );
     };
 
     const getAlignmentClass = (el: Element) => {
@@ -42,6 +59,7 @@ const parseHtmlToReact = (html: string) => {
       if (alignAttr && alignAttr.trim().toLowerCase() === 'center') return 'text-center';
       if (/text-align\s*:\s*center/i.test(style)) return 'text-center';
 
+      // Detect common editor classes (Quill, etc.) and utility classes
       if (/ql-align-center|text-center|align-center/i.test(classAttr)) return 'text-center';
       if (/ql-align-right|text-right|align-right/i.test(classAttr)) return 'text-right';
       if (/ql-align-left|text-left|align-left/i.test(classAttr)) return 'text-left';
@@ -88,9 +106,30 @@ const parseHtmlToReact = (html: string) => {
                 </a>
               );
             }
+            // if not safe, render children only
             return <>{children}</>;
           }
+          case 'img': {
+            const src = el.getAttribute('src');
+            const alt = el.getAttribute('alt') || '';
+            if (isSafeSrc(src)) {
+              // Render responsive image that fits inside the modal on mobile
+              return (
+                <div key={idx} className={`w-full my-3 flex justify-center ${alignClass}`}>
+                  <img
+                    src={src || undefined}
+                    alt={alt}
+                    className="w-full max-w-full h-auto object-contain rounded-lg shadow-sm"
+                    // prevent very large images from overflowing the viewport height
+                    style={{ maxHeight: '60vh' }}
+                  />
+                </div>
+              );
+            }
+            return null;
+          }
           default:
+            // For unknown tags, preserve alignment by wrapping children in a div when needed
             if (alignClass) {
               return <div key={idx} className={alignClass}>{children}</div>;
             }
@@ -104,6 +143,7 @@ const parseHtmlToReact = (html: string) => {
     const nodes = Array.from(root.childNodes).map((n, i) => walk(n, i));
     return <div className="space-y-2">{nodes}</div>;
   } catch (e) {
+    // fallback: plain text with simple line breaks
     const plain = html.replace(/<[^>]*>/g, '');
     return plain.split(/\r?\n/).map((line, i) => (
       <p key={i} className="text-slate-300 text-xs md:text-base leading-relaxed mb-2 md:mb-3">{line}</p>

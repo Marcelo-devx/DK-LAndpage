@@ -104,6 +104,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (error) {
         console.error('[ThemeContext] refreshSettings supabase error', error);
+        // Não quebra a app se falhar o fetch de settings - usa valores default
         return;
       }
 
@@ -125,7 +126,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
             if (parsed.socialTwitter) newSettings.socialTwitter = parsed.socialTwitter;
             if (parsed.logoUrl) newSettings.logoUrl = parsed.logoUrl;
           } catch (e) {
-            console.warn('Invalid footer_config JSON', e);
+            console.warn('[ThemeContext] Invalid footer_config JSON', e);
           }
         }
 
@@ -158,46 +159,15 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
         setSettings(newSettings);
         applyColors(newSettings);
       }
-
-      // Additionally, prefer footer_settings table as single source of truth for footer data
-      try {
-        const footerFetch = supabase
-          .from('footer_settings')
-          .select('contact_email, contact_phone, contact_hours, social_facebook, social_instagram, social_twitter, logo_url')
-          .eq('id', '00000000-0000-0000-0000-000000000001')
-          .single();
-
-        const footerResult = await Promise.race([footerFetch, new Promise<null>((_, rej) => setTimeout(() => rej(new Error('timeout')), 3000))]) as any;
-        const { data: footerRow, error: footerError } = footerResult;
-
-        if (!footerError && footerRow) {
-          setSettings((prev) => {
-            const merged = {
-              ...prev,
-              contactEmail: footerRow.contact_email || prev.contactEmail,
-              contactPhone: footerRow.contact_phone || prev.contactPhone,
-              contactHours: footerRow.contact_hours || prev.contactHours,
-              socialFacebook: footerRow.social_facebook || prev.socialFacebook,
-              socialInstagram: footerRow.social_instagram || prev.socialInstagram,
-              socialTwitter: footerRow.social_twitter || prev.socialTwitter,
-              logoUrl: footerRow.logo_url || prev.logoUrl,
-            };
-            applyColors(merged);
-            return merged;
-          });
-        } else if (footerError) {
-          console.warn('[ThemeContext] footer_settings read error', footerError);
-        }
-      } catch (e) {
-        console.warn('[ThemeContext] failed to read footer_settings', e);
-      }
     } catch (e: any) {
       if (e?.message === 'timeout') {
         console.warn('[ThemeContext] refreshSettings timed out — using default/cached settings');
         // Aplica as cores dos defaults para garantir que o app renderize corretamente
         applyColors(defaultSettings);
       } else {
-        console.error('[ThemeContext] refreshSettings error', e);
+        console.error('[ThemeContext] refreshSettings error:', e);
+        // Não quebra a app se falhar o fetch de settings - usa valores default
+        applyColors(defaultSettings);
       }
     }
   };

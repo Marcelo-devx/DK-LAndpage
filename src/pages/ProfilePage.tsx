@@ -85,15 +85,24 @@ const ProfilePage = () => {
   const defaultTab = searchParams.get('tab') || 'profile';
 
   useEffect(() => {
+    let isMounted = true;
+    
     const fetchUserAndProfile = async () => {
-      const session = await getSessionWithRetry();
-      if (!session) { navigate('/login'); return; }
-      setUser(session.user);
+      const { session, user } = await getSessionOrUser();
+      if (!session && !user) { 
+        if (isMounted) navigate('/login'); 
+        return; 
+      }
+      
+      const userId = session?.user.id || user?.id;
+      if (isMounted && userId) setUser({ id: userId, email: session?.user.email || user?.email });
 
-      const { data: profileData, error } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+      if (!userId) return;
+
+      const { data: profileData, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
       if (error) {
         console.error("Erro ao buscar perfil:", error);
-      } else if (profileData) {
+      } else if (profileData && isMounted) {
         const initialFormValues = {
           first_name: profileData.first_name || '',
           last_name: profileData.last_name || '',
@@ -113,9 +122,12 @@ const ProfilePage = () => {
           setValue(key as keyof ProfileFormData, initialFormValues[key as keyof ProfileFormData]);
         });
       }
-      setLoading(false);
+      if (isMounted) setLoading(false);
     };
+    
     fetchUserAndProfile();
+    
+    return () => { isMounted = false; };
   }, [navigate, setValue]);
 
   const onAttemptSubmit = async (data: ProfileFormData) => {

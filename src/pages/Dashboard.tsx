@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { getSessionWithRetry } from '@/lib/auth';
+import { getSessionWithRetry, getSessionOrUser } from '@/lib/auth';
 import { useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -38,9 +38,18 @@ const Dashboard = () => {
     }, 3000);
 
     try {
-        const session = await getSessionWithRetry();
+        const { session, user } = await getSessionOrUser();
         
-        if (!session) {
+        if (!session && !user) {
+          clearTimeout(timeoutId);
+          if (!isBackground) setLoading(false);
+          navigate('/login');
+          return;
+        }
+
+        // Se tem user mas não session, usa o user.id
+        const userId = session?.user.id || user?.id;
+        if (!userId) {
           clearTimeout(timeoutId);
           if (!isBackground) setLoading(false);
           navigate('/login');
@@ -48,10 +57,10 @@ const Dashboard = () => {
         }
 
         const [profileRes, ordersRes] = await Promise.all([
-          supabase.from('profiles').select('*').eq('id', session.user.id).single(),
+          supabase.from('profiles').select('*').eq('id', userId).single(),
           supabase.from('orders')
             .select('id', { count: 'exact', head: true })
-            .eq('user_id', session.user.id)
+            .eq('user_id', userId)
             .or('status.ilike.%aguardando%,status.ilike.%pendente%,status.ilike.%preparação%')
         ]);
 
@@ -67,6 +76,10 @@ const Dashboard = () => {
         
     } catch (error: any) {
         console.error("Erro ao carregar dashboard:", error);
+        // Se for erro de auth, redireciona para login
+        if (error?.message?.includes('auth') || error?.code?.startsWith('auth')) {
+          navigate('/login');
+        }
     } finally {
         clearTimeout(timeoutId);
         if (!isBackground) setLoading(false);

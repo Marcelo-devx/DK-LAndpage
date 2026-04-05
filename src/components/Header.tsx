@@ -114,85 +114,90 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
   const [categoryFlavorsMap, setCategoryFlavorsMap] = useState<Record<number, string[]>>({});
 
   const fetchNavData = async () => {
-    const [{ data: cats }, { data: subs }, { data: productRows }] = await Promise.all([
-      supabase.from('categories').select('id, name').eq('is_visible', true).order('name'),
-      supabase.from('sub_categories').select('id, name, category_id').eq('is_visible', true).order('name'),
-      supabase.from('products').select('id, category, sub_category, brand, stock_quantity').neq('category', null).neq('category', '').eq('is_visible', true),
-    ]);
-
-    if (cats) setCategories(cats);
-    if (subs) setSubCategories(subs);
-
-    const catNameToId = new Map<string, number>();
-    (cats || []).forEach((c: any) => { if (c.name) catNameToId.set(normalizeKey(String(c.name)), c.id); });
-
-    const catProductIds: Record<number, number[]> = {};
-    const productInfo: Record<number, { id: number; category: string; brand?: string | null; sub_category?: string | null; stock_quantity?: number | null }> = {};
-
-    (productRows || []).forEach((p: any) => {
-      if (!p.category) return;
-      const catId = catNameToId.get(normalizeKey(String(p.category)));
-      if (!catId) return;
-      if (!catProductIds[catId]) catProductIds[catId] = [];
-      catProductIds[catId].push(p.id);
-      productInfo[p.id] = { id: p.id, category: String(p.category), brand: p.brand, sub_category: p.sub_category, stock_quantity: p.stock_quantity ?? 0 };
-    });
-
-    const allProductIds = Object.values(catProductIds).flat();
-    const productAvailable: Record<number, boolean> = {};
-
-    if (allProductIds.length > 0) {
-      // Fetch variant stocks AND product_sub_categories in parallel
-      const [variantStockRes, productSubCatsRes] = await Promise.all([
-        supabase.from('product_variants').select('product_id, stock_quantity').in('product_id', allProductIds).eq('is_active', true),
-        supabase.from('product_sub_categories').select('product_id, sub_category_id').in('product_id', allProductIds),
+    try {
+      const [cats, subs, productRows] = await Promise.all([
+        supabase.from('categories').select('id, name').eq('is_visible', true).order('name'),
+        supabase.from('sub_categories').select('id, name, category_id').eq('is_visible', true).order('name'),
+        supabase.from('products').select('id, category, sub_category, brand, stock_quantity').neq('category', null).neq('category', '').eq('is_visible', true),
       ]);
 
-      // Sum variant stock per product
-      const variantSumByProduct: Record<number, number> = {};
-      (variantStockRes.data || []).forEach((v: any) => {
-        if (typeof v.product_id !== 'number') return;
-        variantSumByProduct[v.product_id] = (variantSumByProduct[v.product_id] || 0) + (v.stock_quantity || 0);
+      if (cats) setCategories(cats);
+      if (subs) setSubCategories(subs);
+
+      const catNameToId = new Map<string, number>();
+      (cats || []).forEach((c: any) => { if (c.name) catNameToId.set(normalizeKey(String(c.name)), c.id); });
+
+      const catProductIds: Record<number, number[]> = {};
+      const productInfo: Record<number, { id: number; category: string; brand?: string | null; sub_category?: string | null; stock_quantity?: number | null }> = {};
+
+      (productRows || []).forEach((p: any) => {
+        if (!p.category) return;
+        const catId = catNameToId.get(normalizeKey(String(p.category)));
+        if (!catId) return;
+        if (!catProductIds[catId]) catProductIds[catId] = [];
+        catProductIds[catId].push(p.id);
+        productInfo[p.id] = { id: p.id, category: String(p.category), brand: p.brand, sub_category: p.sub_category, stock_quantity: p.stock_quantity ?? 0 };
       });
 
-      // Determine availability
-      allProductIds.forEach(pid => {
-        const prodStock = productInfo[pid]?.stock_quantity || 0;
-        const varStock = variantSumByProduct[pid] || 0;
-        productAvailable[pid] = (prodStock > 0) || (varStock > 0);
-      });
+      const allProductIds = Object.values(catProductIds).flat();
+      const productAvailable: Record<number, boolean> = {};
 
-      // Build sub_category_id -> sub_category name map from already-fetched subs
-      const subIdToName = new Map<number, string>();
-      const subIdToCatId = new Map<number, number>();
-      (subs || []).forEach((s: any) => {
-        subIdToName.set(s.id, s.name);
-        subIdToCatId.set(s.id, s.category_id);
-      });
+      if (allProductIds.length > 0) {
+        // Fetch variant stocks AND product_sub_categories in parallel
+        const [variantStockRes, productSubCatsRes] = await Promise.all([
+          supabase.from('product_variants').select('product_id, stock_quantity').in('product_id', allProductIds).eq('is_active', true),
+          supabase.from('product_sub_categories').select('product_id, sub_category_id').in('product_id', allProductIds),
+        ]);
 
-      // Build categoryId -> set of sub-category names (only from available products)
-      const catSubsMap: Record<number, Set<string>> = {};
-      (productSubCatsRes.data || []).forEach((psc: any) => {
-        const pid = psc.product_id;
-        const subId = psc.sub_category_id;
-        if (!productAvailable[pid]) return;
-        const subName = subIdToName.get(subId);
-        const catId = subIdToCatId.get(subId);
-        if (!subName || !catId) return;
-        if (!catSubsMap[catId]) catSubsMap[catId] = new Set();
-        catSubsMap[catId].add(subName);
-      });
+        // Sum variant stock per product
+        const variantSumByProduct: Record<number, number> = {};
+        (variantStockRes.data || []).forEach((v: any) => {
+          if (typeof v.product_id !== 'number') return;
+          variantSumByProduct[v.product_id] = (variantSumByProduct[v.product_id] || 0) + (v.stock_quantity || 0);
+        });
 
-      const catSubsFilteredObj: Record<number, string[]> = {};
-      Object.entries(catSubsMap).forEach(([catIdStr, subsSet]) => {
-        catSubsFilteredObj[Number(catIdStr)] = Array.from(subsSet).sort();
-      });
-      setCategoryProductSubsMap(catSubsFilteredObj);
+        // Determine availability
+        allProductIds.forEach(pid => {
+          const prodStock = productInfo[pid]?.stock_quantity || 0;
+          const varStock = variantSumByProduct[pid] || 0;
+          productAvailable[pid] = (prodStock > 0) || (varStock > 0);
+        });
+
+        // Build sub_category_id -> sub_category name map from already-fetched subs
+        const subIdToName = new Map<number, string>();
+        const subIdToCatId = new Map<number, number>();
+        (subs || []).forEach((s: any) => {
+          subIdToName.set(s.id, s.name);
+          subIdToCatId.set(s.id, s.category_id);
+        });
+
+        // Build categoryId -> set of sub-category names (only from available products)
+        const catSubsMap: Record<number, Set<string>> = {};
+        (productSubCatsRes.data || []).forEach((psc: any) => {
+          const pid = psc.product_id;
+          const subId = psc.sub_category_id;
+          if (!productAvailable[pid]) return;
+          const subName = subIdToName.get(subId);
+          const catId = subIdToCatId.get(subId);
+          if (!subName || !catId) return;
+          if (!catSubsMap[catId]) catSubsMap[catId] = new Set();
+          catSubsMap[catId].add(subName);
+        });
+
+        const catSubsFilteredObj: Record<number, string[]> = {};
+        Object.entries(catSubsMap).forEach(([catIdStr, subsSet]) => {
+          catSubsFilteredObj[Number(catIdStr)] = Array.from(subsSet).sort();
+        });
+        setCategoryProductSubsMap(catSubsFilteredObj);
+      }
+
+      // Clear brands/flavors maps — no longer used in nav
+      setCategoryBrandsMap({});
+      setCategoryFlavorsMap({});
+    } catch (error) {
+      console.error('[Header] Error fetching nav data:', error);
+      // Não quebra a app se falhar o fetch de navegação
     }
-
-    // Clear brands/flavors maps — no longer used in nav
-    setCategoryBrandsMap({});
-    setCategoryFlavorsMap({});
   };
 
   const updateCartCount = useCallback(() => {
@@ -200,16 +205,29 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
   }, []);
 
   useEffect(() => {
+    let isMounted = true;
+    
     const fetchInitialData = async () => {
+      if (!isMounted) return;
+      
       setLoadingLogo(true);
-      const { data: logoData } = await supabase.from('app_settings').select('value').eq('key', 'logo_url').single();
-      if (logoData) setLogoUrl(logoData.value);
-      setLoadingLogo(false);
+      try {
+        const { data: logoData } = await supabase.from('app_settings').select('value').eq('key', 'logo_url').single();
+        if (logoData && isMounted) setLogoUrl(logoData.value);
+      } catch (error) {
+        console.error('[Header] Error fetching logo:', error);
+      } finally {
+        if (isMounted) setLoadingLogo(false);
+      }
 
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      setSession(currentSession);
-      updateCartCount();
-      fetchNavData();
+      try {
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        if (isMounted) setSession(currentSession);
+        updateCartCount();
+        fetchNavData();
+      } catch (error) {
+        console.error('[Header] Error fetching session:', error);
+      }
     };
 
     fetchInitialData();
@@ -219,12 +237,13 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
       // Updating session state on that event causes a Header re-render that breaks the page.
       // Only update session on meaningful auth events.
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED' || event === 'INITIAL_SESSION') {
-        setSession(currentSession);
+        if (isMounted) setSession(currentSession);
       }
     });
 
     window.addEventListener('cartUpdated', updateCartCount);
     return () => {
+      isMounted = false;
       try { authListener?.subscription?.unsubscribe(); } catch (e) { /* ignore */ }
       window.removeEventListener('cartUpdated', updateCartCount);
     };

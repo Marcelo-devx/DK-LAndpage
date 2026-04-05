@@ -76,13 +76,20 @@ const AppContent = () => {
       }
     };
 
+    // Executa inicialmente
     checkAdmin();
 
     const listener = supabase.auth.onAuthStateChange((event) => {
       console.log('[App] Auth state event:', event);
-      // TOKEN_REFRESHED não requer re-verificação — evita re-render ao voltar de outra aba
-      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
-        checkAdmin();
+      
+      try {
+        // TOKEN_REFRESHED não requer re-verificação — evita re-render ao voltar de outra aba
+        // SIGNED_IN só precisa re-verificar se era diferente de logged antes
+        if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+          checkAdmin();
+        }
+      } catch (e) {
+        console.error('[App] Error handling auth state change:', e);
       }
     });
 

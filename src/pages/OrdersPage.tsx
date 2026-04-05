@@ -71,8 +71,18 @@ const OrdersPage = () => {
     }, 3000);
 
     try {
-      const session = await getSessionWithRetry();
-      if (!session) {
+      const { session, user } = await getSessionOrUser();
+      
+      if (!session && !user) {
+        clearTimeout(timeoutId);
+        navigate('/login');
+        if (!isBackground) setLoading(false);
+        return;
+      }
+
+      // Se tem user mas não session, usa o user.id
+      const userId = session?.user.id || user?.id;
+      if (!userId) {
         clearTimeout(timeoutId);
         navigate('/login');
         if (!isBackground) setLoading(false);
@@ -82,7 +92,7 @@ const OrdersPage = () => {
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
         .select('id, created_at, total_price, shipping_cost, donation_amount, status, delivery_status, payment_method, shipping_address')
-        .eq('user_id', session.user.id)
+        .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
       if (ordersError) { console.error(ordersError); clearTimeout(timeoutId); if (!isBackground) setLoading(false); return; }
@@ -90,7 +100,7 @@ const OrdersPage = () => {
 
       const orderIds = ordersData.map(o => o.id);
       const { data: itemsData } = await supabase.from('order_items').select('order_id, item_id, item_type, name_at_purchase, quantity, price_at_purchase').in('order_id', orderIds);
-      const { data: reviewsData } = await supabase.from('reviews').select('product_id, order_id').eq('user_id', session.user.id).in('order_id', orderIds);
+      const { data: reviewsData } = await supabase.from('reviews').select('product_id, order_id').eq('user_id', userId).in('order_id', orderIds);
 
       const reviewedItems = reviewsData ? reviewsData.map(r => `${r.order_id}-${r.product_id}`) : [];
       const ordersWithDetails = ordersData.map(order => ({
@@ -102,6 +112,10 @@ const OrdersPage = () => {
       setOrders(ordersWithDetails as Order[]);
     } catch (e: any) {
       console.error('[OrdersPage] fetchOrders error:', e);
+      // Se for erro de auth, redireciona para login
+      if (e?.message?.includes('auth') || e?.code?.startsWith('auth')) {
+        navigate('/login');
+      }
     } finally {
       clearTimeout(timeoutId);
       if (!isBackground) setLoading(false);

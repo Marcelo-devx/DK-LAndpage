@@ -5,10 +5,14 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 
 // detectSessionInUrl: false evita re-processamento de URL ao voltar de abas externas
 // autoRefreshToken: true mantém sessão ativa mas sem disparar re-renders desnecessários
+// storage: localStorage garante persistência da sessão
+// storageKey: customizado para evitar conflitos
 export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
+    storage: window.localStorage,
+    storageKey: 'dkcwb-supabase-auth',
   },
 });

@@ -26,13 +26,35 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   private handleReset = () => {
+    // Limpa tudo exceto a sessão do Supabase (preserva keys que começam com 'sb-' ou 'dkcwb-')
+    const keysToPreserve = Object.keys(localStorage).filter(key => 
+      key.startsWith('sb-') || key.startsWith('dkcwb-')
+    );
+    
+    // Armazena os valores preservados
+    const preserved: Record<string, string> = {};
+    keysToPreserve.forEach(key => {
+      preserved[key] = localStorage.getItem(key) || '';
+    });
+    
+    // Limpa o localStorage
     localStorage.clear();
     sessionStorage.clear();
+    
+    // Limpa cookies (exceto essenciais)
     document.cookie.split(";").forEach((c) => {
+      // Preserva cookies de sessão do Supabase
+      if (c.trim().startsWith('sb-')) return;
       document.cookie = c
         .replace(/^ +/, "")
         .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
     });
+    
+    // Restaura os valores preservados (sessão do Supabase)
+    Object.entries(preserved).forEach(([key, value]) => {
+      if (value) localStorage.setItem(key, value);
+    });
+    
     window.location.reload();
   };
 

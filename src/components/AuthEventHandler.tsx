@@ -9,13 +9,18 @@ const AuthEventHandler = () => {
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('[AuthEventHandler] Auth state changed:', event, session?.user?.id);
       
-      if (event === 'PASSWORD_RECOVERY') {
-        navigate('/update-password');
+      try {
+        if (event === 'PASSWORD_RECOVERY') {
+          navigate('/update-password');
+        }
+        // SIGNED_OUT removido - o componente que iniciou o logout cuida da navegação
+        // para evitar conflitos de navegação múltipla
+        // TOKEN_REFRESHED, INITIAL_SESSION, SIGNED_IN — não fazem nada aqui
+        // para evitar re-renders ou reloads desnecessários ao voltar de outra aba
+      } catch (error) {
+        // Captura erros que possam ocorrer durante a navegação
+        console.error('[AuthEventHandler] Error handling auth event:', error);
       }
-      // SIGNED_OUT removido - o componente que iniciou o logout cuida da navegação
-      // para evitar conflitos de navegação múltipla
-      // TOKEN_REFRESHED, INITIAL_SESSION, SIGNED_IN — não fazem nada aqui
-      // para evitar re-renders ou reloads desnecessários ao voltar de outra aba
     });
 
     const subscription = data?.subscription;

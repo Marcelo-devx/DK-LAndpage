@@ -491,7 +491,7 @@ const AllProductsPage = () => {
         {/* Active filters bar */}
         {totalActiveFilters > 0 && (
           <div className="mb-6 flex flex-wrap items-center gap-2">
-            <span className="text-[10px] font-black uppercase tracking-widest text-stone-400">Filtros ativos:</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-700">Filtros ativos:</span>
             {selectedCategories.map(c => (
               <span key={c} className="flex items-center gap-1 bg-sky-100 text-sky-700 text-[10px] font-black uppercase tracking-wide px-2.5 py-1 rounded-full border border-sky-200">
                 {c}
@@ -560,7 +560,7 @@ const AllProductsPage = () => {
             {/* Results count */}
             {!loading && (
               <div className="flex items-center justify-between mb-5">
-                <p className="text-xs font-bold text-stone-400 uppercase tracking-widest">
+                <p className="text-xs font-bold text-slate-700 uppercase tracking-widest">
                   {displayProducts.length > 0
                     ? <><span className="text-charcoal-gray font-black text-sm">{displayProducts.length}</span> produto{displayProducts.length !== 1 ? 's' : ''} encontrado{displayProducts.length !== 1 ? 's' : ''}</>
                     : 'Nenhum resultado'
@@ -607,7 +607,7 @@ const AllProductsPage = () => {
                 <h3 className="font-black text-2xl uppercase tracking-tighter italic text-charcoal-gray mb-2">
                   Nenhum produto encontrado
                 </h3>
-                <p className="text-stone-500 text-sm font-medium max-w-xs">
+                <p className="text-slate-700 text-sm font-medium max-w-xs">
                   Tente ajustar seus filtros ou limpar a busca para ver mais resultados.
                 </p>
                 {totalActiveFilters > 0 && (

@@ -78,7 +78,7 @@ const MaintenanceScreen = () => {
           </div>
 
           {/* Small help text with visible URL */}
-          <p className="mt-3 text-sm text-slate-500">
+          <p className="mt-3 text-sm text-slate-700">
             Caso precise comprar agora, use a loja oficial:
             <br />
             <a

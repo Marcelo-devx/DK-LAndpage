@@ -88,7 +88,7 @@ const ProductCard = memo(({ product }: ProductCardProps) => {
               <p className="text-[11px] md:text-[13px] xl:text-sm font-black text-slate-900 leading-none">
                 {pricePrefix}{formattedFullPrice}
               </p>
-              <p className="text-[9px] md:text-[10px] xl:text-[11px] text-slate-500 font-medium">
+              <p className="text-[9px] md:text-[10px] xl:text-[11px] text-slate-700 font-medium">
                 3x de <span className="font-black">{installmentValue}</span> <span className="text-sky-600 font-black uppercase">cartão</span>
               </p>
               

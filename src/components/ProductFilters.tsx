@@ -61,7 +61,9 @@ const FilterSection = ({
 
   return (
     <div className="space-y-2">
-      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">{title}</p>
+      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-700 flex items-center gap-1.5">
+        {title}
+      </p>
       <div className="flex flex-wrap gap-1.5">
         {visible.map((item) => {
           const active = selected.includes(item.name);
@@ -77,7 +79,7 @@ const FilterSection = ({
               )}
             >
               <span className="mr-2">{item.name}</span>
-              <span className="text-[10px] font-black text-stone-400">({item.count})</span>
+              <span className="text-[10px] font-black text-slate-600">({item.count})</span>
             </button>
           );
         })}
@@ -134,7 +136,7 @@ const ProductFilters = (props: ProductFiltersProps) => {
     <div className="space-y-6">
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
         <Input
           placeholder="Buscar produto..."
           value={searchValue}
@@ -144,7 +146,7 @@ const ProductFilters = (props: ProductFiltersProps) => {
         {searchValue && (
           <button
             onClick={() => handleSearchChange('')}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
           >
             <X className="h-3.5 w-3.5" />
           </button>

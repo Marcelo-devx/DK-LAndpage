@@ -117,7 +117,7 @@ const LoyaltyWidget = ({ onClose }: LoyaltyWidgetProps) => {
             </div>
             <span className="font-black text-xs uppercase tracking-tighter italic">DK Clube Points.</span>
         </div>
-        {onClose && <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors">×</button>}
+        {onClose && <button onClick={onClose} className="text-slate-700 hover:text-slate-900 transition-colors">×</button>}
       </div>
 
       {!session ? (
@@ -125,7 +125,7 @@ const LoyaltyWidget = ({ onClose }: LoyaltyWidgetProps) => {
           <div className="p-5 bg-slate-50 rounded-[2rem] border border-slate-100">
             <User className="h-10 w-10 text-slate-300 mx-auto mb-3" />
             <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight italic">Membro Exclusivo.</h3>
-            <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">Acesse sua conta para visualizar seus pontos e resgatar benefícios exclusivos.</p>
+            <p className="text-[11px] text-slate-700 mt-2 leading-relaxed">Acesse sua conta para visualizar seus pontos e resgatar benefícios exclusivos.</p>
           </div>
           <Button onClick={() => navigate('/login')} className="w-full bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest h-12 rounded-xl shadow-lg transition-all active:scale-95">
             Entrar no Clube
@@ -137,7 +137,7 @@ const LoyaltyWidget = ({ onClose }: LoyaltyWidgetProps) => {
             <div className="bg-slate-50/50 border-b border-slate-100 p-4 flex justify-between items-center shrink-0">
                 <div className="space-y-0.5">
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Saldo Acumulado</span>
-                    <p className="text-[10px] text-slate-500 font-bold">Resgate seus privilégios</p>
+                    <p className="text-[10px] text-slate-700 font-bold">Resgate seus privilégios</p>
                 </div>
                 <div className="text-right">
                     <span className="text-2xl font-black text-sky-600 tracking-tighter tabular-nums">{profile?.points || 0}</span>
@@ -189,7 +189,7 @@ const LoyaltyWidget = ({ onClose }: LoyaltyWidgetProps) => {
                                                         <Button size="sm" onClick={handleUpdateBirthDate} className="h-8 px-3 bg-slate-900 text-white rounded-lg font-bold text-[9px] uppercase">Salvar</Button>
                                                     </div>
                                                 ) : (
-                                                    <Button variant="outline" size="sm" onClick={() => setIsEditingBirth(true)} className="h-8 text-[9px] font-black uppercase tracking-widest border-slate-200 text-slate-600 hover:bg-slate-50 w-full rounded-lg">
+                                                    <Button variant="outline" size="sm" onClick={() => setIsEditingBirth(true)} className="h-8 text-[9px] font-black uppercase tracking-widest border-slate-300 text-slate-700 hover:bg-slate-50 w-full rounded-lg">
                                                         Definir Data
                                                     </Button>
                                                 )}
@@ -243,7 +243,7 @@ const LoyaltyWidget = ({ onClose }: LoyaltyWidgetProps) => {
                                             "w-full h-9 text-[9px] font-black uppercase tracking-[0.2em] mt-4 rounded-xl transition-all shadow-md",
                                             canAfford 
                                                 ? "bg-sky-500 hover:bg-sky-400 text-white active:scale-95" 
-                                                : "bg-slate-200 text-slate-500 cursor-not-allowed"
+                                                : "bg-slate-300 text-slate-700 cursor-not-allowed"
                                         )}
                                         disabled={!canAfford || redeemingId === coupon.id}
                                         onClick={() => handleRedeem(coupon)}

@@ -222,8 +222,8 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
               createdAt={cartStartTime} 
               className="bg-sky-50 border-sky-100"
             />
-            <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest mt-2 px-2">
-              Complete seu pedido para garantir esses itens no estoque.
+            <p className="text-[10px] text-slate-700 font-bold uppercase tracking-widest mt-2 px-2">
+              Subtotal: R$ {total.toFixed(2)}
             </p>
           </div>
         )}
@@ -232,8 +232,8 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
           <div className="space-y-4 flex-grow"><Skeleton className="h-20 w-full bg-stone-100" /><Skeleton className="h-20 w-full bg-stone-100" /></div>
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
-            <ShoppingCart className="h-16 w-16 text-stone-300 mb-4" />
-            <p className="text-xl font-bold text-stone-400 uppercase italic">Carrinho Vazio</p>
+            <ShoppingCart className="h-16 w-16 text-slate-400 mb-4" />
+            <p className="text-xl font-bold text-slate-700 uppercase italic">Carrinho Vazio</p>
           </div>
         ) : (
           <div className="flex-grow overflow-y-auto pr-4 -mr-4 space-y-3 custom-scrollbar bg-slate-50/30">
@@ -256,7 +256,7 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
                     {item.variant_label && (
                       <p className="text-[11px] text-sky-600 uppercase font-bold mt-1 truncate">{item.variant_label}</p>
                     )}
-                    <p className="text-stone-600 font-extrabold text-sm mt-2">R$ {item.price.toFixed(2).replace('.', ',')}</p>
+                    <p className="text-slate-900 font-extrabold text-sm mt-2">R$ {item.price.toFixed(2).replace('.', ',')}</p>
                   </div>
 
                   {/* Right: quantity controls and remove */}
@@ -301,7 +301,7 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
           <SheetFooter className="mt-auto pt-6 border-t border-stone-200 flex flex-col">
             <div className="w-full space-y-4">
               <div className="flex justify-between font-black text-xl italic uppercase">
-                <span className="text-stone-500">Total</span>
+                <span className="text-slate-800">Total</span>
                 <span className="text-sky-600">R$ {total.toFixed(2).replace('.', ',')}</span>
               </div>
               <Button className="w-full bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-[0.2em] h-14 rounded-xl shadow-lg transition-all active:scale-95" onClick={handleCheckout}>

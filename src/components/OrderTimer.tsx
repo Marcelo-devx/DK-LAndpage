@@ -53,8 +53,8 @@ const OrderTimer = ({ createdAt, onExpire, className }: OrderTimerProps) => {
       <div className="flex items-center space-x-3">
         <Clock className="h-5 w-5 text-sky-400" />
         <div>
-          <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest leading-none mb-1">Reserva de Estoque</p>
-          <p className="text-xs text-white font-medium">Seu pedido está garantido por:</p>
+          <p className="text-[10px] text-slate-700 font-black uppercase tracking-widest leading-none mb-1">Reserva de Estoque</p>
+          <p className="text-xs text-slate-900 font-medium">Seu pedido está garantido por:</p>
         </div>
       </div>
       <div className="text-2xl font-black text-sky-400 tracking-tighter tabular-nums">

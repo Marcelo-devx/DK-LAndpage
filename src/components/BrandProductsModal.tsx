@@ -127,7 +127,7 @@ const BrandProductsModal = ({ brandName, isOpen, onOpenChange }: BrandProductsMo
               ))}
             </div>
           ) : (
-            <p className="text-center text-stone-600 py-8">Nenhum produto encontrado ou disponível para esta marca.</p>
+            <p className="text-center text-slate-700 py-8">Nenhum produto encontrado ou disponível para esta marca.</p>
           )}
         </div>
       </DialogContent>

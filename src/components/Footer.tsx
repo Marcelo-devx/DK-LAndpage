@@ -70,12 +70,12 @@ const Footer = () => {
   const contactHours = settings.contactHours || 'Seg - Sex: 10:00 - 18:00 | Sábados: 10:00 - 17:00';
 
   return (
-    <footer className="bg-white text-slate-500 border-t border-slate-200">
+    <footer className="bg-white text-slate-700 border-t border-slate-200">
       <div className="container mx-auto px-4 py-10 md:px-6 md:py-16 xl:px-8 xl:py-20 2xl:px-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 md:gap-12 xl:gap-16">
           <div className="md:col-span-1">
             <h3 className="text-xl xl:text-2xl text-sky-500 mb-6 uppercase font-black italic tracking-tighter" translate="no">DKCWB.</h3>
-            <p className="text-sm xl:text-base leading-relaxed text-slate-600">
+            <p className="text-sm xl:text-base leading-relaxed text-slate-800">
               Curadoria exclusiva e inovação em cada detalhe. A sua fonte definitiva para a melhor experiência premium.
             </p>
           </div>

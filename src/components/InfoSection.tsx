@@ -107,7 +107,7 @@ const InfoSection = () => {
                       </div>
                       <div className="min-w-0">
                         <p className="font-black text-xs xl:text-sm uppercase tracking-widest text-charcoal-gray leading-tight">{item.title}</p>
-                        <p className="text-[11px] md:text-sm xl:text-base text-stone-500 font-medium mt-1 leading-tight">{item.subtitle}</p>
+                        <p className="text-[11px] md:text-sm xl:text-base text-slate-700 font-medium mt-1 leading-tight">{item.subtitle}</p>
                       </div>
                     </div>
                   </CarouselItem>

@@ -67,7 +67,7 @@ const MercadoPagoCardForm = ({ amount, onSubmit, isSubmitting }: MercadoPagoCard
     return (
       <div className="flex items-center justify-center py-12 bg-stone-50 rounded-2xl border border-stone-100">
         <Loader2 className="h-6 w-6 animate-spin text-sky-500 mr-3" />
-        <span className="text-sm text-stone-500 font-medium">Carregando formulário seguro...</span>
+        <span className="text-sm text-slate-700 font-medium">Carregando formulário seguro...</span>
       </div>
     );
   }

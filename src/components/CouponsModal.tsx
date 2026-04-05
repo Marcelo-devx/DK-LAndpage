@@ -135,22 +135,22 @@ const CouponsModal = ({ isOpen, onOpenChange, userPoints, onRedemption }: Coupon
       <DialogContent className="sm:max-w-2xl bg-white border-stone-200 text-charcoal-gray max-h-[90vh] overflow-hidden flex flex-col rounded-[2rem] shadow-2xl">
         <DialogHeader>
           <DialogTitle className="font-black text-3xl tracking-tighter italic uppercase text-charcoal-gray">Central de Cupons.</DialogTitle>
-          <DialogDescription className="text-stone-500 font-medium">
+          <DialogDescription className="text-slate-700 font-medium">
             Gerencie seus benefícios e acompanhe seu histórico de uso.
           </DialogDescription>
         </DialogHeader>
 
         <Tabs defaultValue="redeem" className="w-full mt-6 flex-grow flex flex-col overflow-hidden">
           <TabsList className="grid w-full grid-cols-3 bg-stone-100 border border-stone-200 h-12 rounded-xl p-1 shrink-0">
-            <TabsTrigger value="redeem" className="data-[state=active]:bg-sky-500 data-[state=active]:text-white text-stone-600 rounded-lg font-bold uppercase text-[10px] tracking-widest transition-all">Resgatar</TabsTrigger>
-            <TabsTrigger value="mine" className="data-[state=active]:bg-sky-500 data-[state=active]:text-white text-stone-600 rounded-lg font-bold uppercase text-[10px] tracking-widest transition-all">Disponíveis ({myCoupons.length})</TabsTrigger>
-            <TabsTrigger value="history" className="data-[state=active]:bg-sky-500 data-[state=active]:text-white text-stone-600 rounded-lg font-bold uppercase text-[10px] tracking-widest transition-all">Histórico</TabsTrigger>
+            <TabsTrigger value="redeem" className="data-[state=active]:bg-sky-500 data-[state=active]:text-white text-slate-700 rounded-lg font-bold uppercase text-[10px] tracking-widest transition-all">Resgatar</TabsTrigger>
+            <TabsTrigger value="mine" className="data-[state=active]:bg-sky-500 data-[state=active]:text-white text-slate-700 rounded-lg font-bold uppercase text-[10px] tracking-widest transition-all">Disponíveis ({myCoupons.length})</TabsTrigger>
+            <TabsTrigger value="history" className="data-[state=active]:bg-sky-500 data-[state=active]:text-white text-slate-700 rounded-lg font-bold uppercase text-[10px] tracking-widest transition-all">Histórico</TabsTrigger>
           </TabsList>
 
           <div className="flex-grow overflow-y-auto mt-8 pr-2 -mr-2 space-y-4">
             <TabsContent value="redeem" className="m-0 space-y-4">
               <div className="flex items-center justify-between bg-stone-50 border border-stone-200 p-6 rounded-2xl mb-4 shadow-sm">
-                <span className="text-xs font-black uppercase tracking-widest text-stone-400">Seu Saldo Atual</span>
+                <span className="text-xs font-black uppercase tracking-widest text-slate-700">Seu Saldo Atual</span>
                 <div className="flex items-center text-charcoal-gray font-black text-2xl tracking-tighter">
                   <Gem className="mr-2 h-6 w-6 text-sky-500" />
                   {userPoints ?? 0} <span className="text-sm text-sky-500 ml-1 italic">PTS</span>
@@ -175,7 +175,7 @@ const CouponsModal = ({ isOpen, onOpenChange, userPoints, onRedemption }: Coupon
                           </div>
                           <div>
                             <h4 className="font-black text-charcoal-gray uppercase tracking-tight text-base">{coupon.name}</h4>
-                            <p className="text-xs text-stone-500 font-medium line-clamp-1">{coupon.description}</p>
+                            <p className="text-xs text-slate-700 font-medium line-clamp-1">{coupon.description}</p>
                             <div className="flex items-center text-[10px] text-sky-600 font-black uppercase tracking-widest mt-2">
                               <Gem className="mr-1.5 h-3 w-3" />
                               <span>{coupon.points_cost} pontos</span>
@@ -189,7 +189,7 @@ const CouponsModal = ({ isOpen, onOpenChange, userPoints, onRedemption }: Coupon
                             "font-black uppercase tracking-widest px-6 h-10 rounded-xl transition-all shadow-md disabled:opacity-100",
                             canRedeem 
                               ? "bg-sky-500 hover:bg-sky-400 text-white" 
-                              : "bg-stone-200 text-stone-500 border border-stone-300" // Contraste aumentado
+                              : "bg-slate-300 text-slate-700 border border-slate-400 cursor-not-allowed" // Contraste aumentado
                           )}
                         >
                           {redeemingId === coupon.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Resgatar'}
@@ -200,8 +200,8 @@ const CouponsModal = ({ isOpen, onOpenChange, userPoints, onRedemption }: Coupon
                 })
               ) : (
                 <div className="text-center py-12">
-                  <Ticket className="mx-auto h-12 w-12 text-stone-300 mb-2" />
-                  <p className="text-stone-500 font-medium italic">Nenhum cupom disponível no momento.</p>
+                  <Ticket className="mx-auto h-12 w-12 text-slate-400 mb-2" />
+                  <p className="text-slate-700 font-medium italic">Nenhum cupom disponível no momento.</p>
                 </div>
               )}
             </TabsContent>
@@ -236,9 +236,8 @@ const CouponsModal = ({ isOpen, onOpenChange, userPoints, onRedemption }: Coupon
                 ))
               ) : (
                 <div className="text-center py-16">
-                  <Ticket className="mx-auto h-16 w-16 text-stone-200 mb-4" />
-                  <p className="text-charcoal-gray font-black italic text-xl tracking-tight uppercase">Sem cupons ativos.</p>
-                  <p className="text-stone-500 text-sm font-medium mt-1">Resgate seus pontos para ganhar descontos.</p>
+                  <Ticket className="mx-auto h-16 w-16 text-slate-300 mb-4" />
+                  <p className="text-slate-700 text-sm font-medium mt-1">Resgate seus pontos para ganhar descontos.</p>
                 </div>
               )}
             </TabsContent>
@@ -252,14 +251,14 @@ const CouponsModal = ({ isOpen, onOpenChange, userPoints, onRedemption }: Coupon
                     <CardContent className="p-6">
                       <div className="flex justify-between items-center">
                         <div className="space-y-1">
-                          <h4 className="font-black text-stone-400 uppercase tracking-tight text-base line-through">{userCoupon.coupons.name}</h4>
-                          <div className="flex items-center text-[10px] text-stone-400 font-bold uppercase tracking-widest">
+                          <h4 className="font-black text-slate-700 uppercase tracking-tight text-base line-through">{userCoupon.coupons.name}</h4>
+                          <div className="flex items-center text-[10px] text-slate-700 font-bold uppercase tracking-widest">
                             <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-green-500" />
                             Usado no Pedido #{userCoupon.order_id || 'N/A'}
                           </div>
                         </div>
                         <div className="text-right">
-                          <span className="text-lg font-black text-stone-400 tracking-tighter line-through">
+                          <span className="text-lg font-black text-slate-700 tracking-tighter line-through">
                             -R$ {userCoupon.coupons.discount_value.toFixed(2).replace('.', ',')}
                           </span>
                         </div>
@@ -269,8 +268,8 @@ const CouponsModal = ({ isOpen, onOpenChange, userPoints, onRedemption }: Coupon
                 ))
               ) : (
                 <div className="text-center py-16">
-                  <History className="mx-auto h-16 w-16 text-stone-200 mb-4" />
-                  <p className="text-stone-500 text-sm font-medium">Você ainda não utilizou nenhum cupom.</p>
+                  <History className="mx-auto h-16 w-16 text-slate-300 mb-4" />
+                  <p className="text-slate-700 text-sm font-medium">Você ainda não utilizou nenhum cupom.</p>
                 </div>
               )}
             </TabsContent>

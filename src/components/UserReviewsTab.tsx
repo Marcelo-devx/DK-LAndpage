@@ -95,7 +95,7 @@ const UserReviewsTab = () => {
     <>
       <div className="space-y-12">
         <div>
-          <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-500 mb-6">Aguardando seu veredito</h3>
+          <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-700 mb-6">Aguardando seu veredito</h3>
           {productsToReview.length > 0 ? (
             <div className="space-y-4">
               {productsToReview.map((product) => (
@@ -107,7 +107,7 @@ const UserReviewsTab = () => {
                     <Link to={`/produto/${product.product_id}`} className="hover:text-sky-400 transition-colors">
                       <h4 className="font-black text-white uppercase tracking-tight text-sm">{product.name}</h4>
                     </Link>
-                    <div className="flex items-center text-[10px] text-slate-500 font-bold mt-1 uppercase tracking-widest">
+                    <div className="flex items-center text-[10px] text-slate-700 font-bold mt-1 uppercase tracking-widest">
                         <ShoppingBag className="h-3 w-3 mr-1 text-sky-400" /> Pedido #{product.order_id}
                     </div>
                   </div>
@@ -119,13 +119,13 @@ const UserReviewsTab = () => {
             </div>
           ) : (
             <div className="text-center py-12 border border-dashed border-white/10 rounded-3xl">
-              <p className="text-slate-500 font-medium italic">Você não tem produtos pendentes de avaliação.</p>
+              <p className="text-slate-700 font-medium italic">Você não tem produtos pendentes de avaliação.</p>
             </div>
           )}
         </div>
 
         <div>
-          <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-500 mb-6">Histórico de Críticas</h3>
+          <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-700 mb-6">Histórico de Críticas</h3>
           {submittedReviews.length > 0 ? (
             <div className="space-y-4">
               {submittedReviews.map((review) => (
@@ -149,11 +149,11 @@ const UserReviewsTab = () => {
                         </div>
                         <div className="bg-slate-950/50 p-5 rounded-xl border border-white/5 relative">
                             <MessageSquareQuote className="absolute top-4 right-4 h-5 w-5 text-white/5" />
-                            <p className={cn("text-sm leading-relaxed", review.comment ? "text-slate-300 italic" : "text-slate-600 italic font-medium")}>
+                            <p className={cn("text-sm leading-relaxed", review.comment ? "text-slate-400 italic" : "text-slate-700 italic font-medium")}>
                                 {review.comment ? `"${review.comment}"` : "Nenhum comentário adicionado."}
                             </p>
                         </div>
-                        <p className="text-[10px] text-slate-600 font-bold uppercase tracking-[0.2em] mt-4 text-right">
+                        <p className="text-[10px] text-slate-700 font-bold uppercase tracking-[0.2em] mt-4 text-right">
                           Avaliado em {new Date(review.created_at).toLocaleDateString('pt-BR')}
                         </p>
                     </div>
@@ -164,7 +164,7 @@ const UserReviewsTab = () => {
           ) : (
             <div className="text-center py-12">
               <MessageSquareQuote className="mx-auto h-12 w-12 text-white/5 mb-4" />
-              <p className="text-slate-500 font-medium italic">Você ainda não fez nenhuma avaliação.</p>
+              <p className="text-slate-700 font-medium italic">Você ainda não fez nenhuma avaliação.</p>
             </div>
           )}
         </div>

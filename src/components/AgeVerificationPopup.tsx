@@ -124,7 +124,7 @@ const AgeVerificationPopup = () => {
                 <p className="text-slate-400 font-medium text-xs md:text-sm leading-relaxed px-2 md:px-0">
                 Este site contém produtos destinados apenas a maiores de <strong className="text-white">18 anos</strong>.
                 </p>
-                <p className="text-[10px] md:text-xs text-slate-500 font-bold uppercase tracking-widest px-2 md:px-0">
+                <p className="text-[10px] md:text-xs text-slate-700 font-bold uppercase tracking-widest px-2 md:px-0">
                     A venda e o consumo de tabaco são restritos por lei.
                 </p>
             </div>

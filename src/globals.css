@@ -41,6 +41,12 @@
     --color-gold-accent: #0ea5e9;    /* Sky 500 - Mantido */
     --color-tobacco-brown: #334155;  /* Slate 700 - Texto Secundário */
     --color-light-tan: #ffffff;      /* Branco para fundos de cards */
+    
+    /* Variáveis de Contraste Melhorado para Legibilidade */
+    --text-primary: #0f172a;      /* Slate 900 - Texto principal (quase preto) */
+    --text-secondary: #334155;    /* Slate 700 - Textos secundários mais escuros */
+    --text-tertiary: #475569;     /* Slate 600 - Textos terciários */
+    --text-muted: #64748b;        /* Slate 500 - Textos menos importantes */
   }
 }
 

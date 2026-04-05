@@ -216,7 +216,7 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
                         </NavigationMenuLink>
                       ))
                     ) : (
-                      <div className="text-[11px] text-slate-500 italic font-medium p-3">Nenhuma sub-categoria encontrada.</div>
+                      <div className="text-[11px] text-slate-700 italic">Nenhuma sub-categoria encontrada.</div>
                     )}
                   </div>
                 </div>
@@ -248,14 +248,14 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
               <div className="p-6 overflow-y-auto max-h-[calc(100vh-100px)] custom-scrollbar">
                 <nav className="flex flex-col gap-8">
                   <div className="space-y-4">
-                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Navegação Principal</h3>
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-700">Navegação Principal</h3>
                     <Link to="/produtos" className="block text-lg font-black uppercase tracking-widest hover:text-sky-400">Todos Produtos</Link>
                     <Link to="/compras" className="block text-lg font-black uppercase tracking-widest hover:text-sky-400">Meus Pedidos</Link>
                     <Link to="/como-funciona" className="block text-lg font-black uppercase tracking-widest hover:text-sky-400">Clube DK</Link>
                   </div>
 
                   <div className="space-y-4">
-                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Categorias</h3>
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-700">Categorias</h3>
                     <Accordion type="single" collapsible className="w-full">
                         {categories.map((cat) => (
                             <AccordionItem key={cat.id} value={`cat-${cat.id}`} className="border-white/5">
@@ -269,7 +269,7 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
                                         <Link key={sub} to={`/produtos?category=${cat.name}&sub_category=${encodeURIComponent(sub)}`} className="block text-xs font-medium text-slate-400 uppercase tracking-widest hover:text-white" translate="no">{sub}</Link>
                                       ))
                                     ) : (
-                                      <div className="text-[11px] text-slate-500 italic">Nenhuma sub-categoria encontrada.</div>
+                                      <div className="text-[11px] text-slate-700 italic">Nenhuma sub-categoria encontrada.</div>
                                     )}
                                 </AccordionContent>
                             </AccordionItem>
@@ -332,11 +332,11 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
             <Input 
               type="text" 
               placeholder="Pesquisar na DKCWB..." 
-              className="w-full h-11 lg:h-12 pl-5 pr-12 rounded-xl border-transparent bg-white/5 text-white placeholder:text-slate-500 focus:bg-white/10 transition-all border-white/5 focus:border-sky-500 shadow-inner text-sm"
+              className="w-full h-11 lg:h-12 pl-5 pr-12 rounded-xl border-transparent bg-white/5 text-white placeholder:text-slate-600 focus:bg-white/10 transition-all border-white/5 focus:border-sky-500 shadow-inner text-sm"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
-            <Button type="submit" size="icon" className="absolute right-1 top-1 h-9 lg:h-10 w-9 lg:w-10 bg-transparent hover:bg-white/5 text-slate-400 hover:text-sky-500 rounded-lg">
+            <Button type="submit" size="icon" className="absolute right-1 top-1 h-9 lg:h-10 w-9 lg:w-10 bg-transparent hover:bg-white/5 text-slate-600 hover:text-sky-500 rounded-lg">
               <Search className="h-4 w-4 lg:h-5 lg:w-5" />
             </Button>
           </form>
@@ -403,11 +403,11 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
             <Input 
               type="text" 
               placeholder="Pesquisar..." 
-              className="w-full h-10 pl-4 pr-10 rounded-lg border-white/10 bg-white/5 text-sm text-white placeholder:text-slate-500"
+              className="w-full h-10 pl-4 pr-10 rounded-lg border-white/10 bg-white/5 text-sm text-white placeholder:text-slate-600"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
-            <Button type="submit" size="icon" className="absolute right-0 top-0 h-10 w-10 bg-transparent text-slate-500">
+            <Button type="submit" size="icon" className="absolute right-0 top-0 h-10 w-10 bg-transparent text-slate-600 hover:text-sky-500">
               <Search className="h-4 w-4" />
             </Button>
          </form>

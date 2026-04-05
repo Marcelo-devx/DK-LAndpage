@@ -46,7 +46,7 @@ class ErrorBoundary extends Component<Props, State> {
           <h1 className="text-3xl font-black italic uppercase tracking-tighter mb-4">
             Ops! Algo deu errado.
           </h1>
-          <p className="text-stone-600 mb-8 max-w-md text-sm md:text-base leading-relaxed">
+          <p className="text-slate-800 mb-8 max-w-md text-sm md:text-base leading-relaxed">
             Parece que há um conflito com dados antigos salvos no seu navegador.
             Isso é comum após atualizações do sistema.
           </p>
@@ -58,7 +58,7 @@ class ErrorBoundary extends Component<Props, State> {
               <Trash2 className="mr-2 h-4 w-4" /> Limpar e Corrigir
             </Button>
           </div>
-          <p className="mt-8 text-[10px] text-stone-400 font-mono uppercase">
+          <p className="mt-8 text-[10px] text-slate-600 font-mono uppercase">
             Erro: {this.state.error?.message || 'Desconhecido'}
           </p>
         </div>

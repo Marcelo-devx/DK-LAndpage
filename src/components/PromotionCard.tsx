@@ -41,7 +41,7 @@ const PromotionCard = ({ promotion }: PromotionCardProps) => {
             <p className="text-xl text-tobacco-brown font-semibold my-2">{promotion.price}</p>
           </div>
           <Button 
-            className={`w-full ${isOutOfStock ? 'bg-stone-200 text-stone-500 cursor-not-allowed' : 'bg-gold-accent hover:bg-gold-accent/90 text-charcoal-gray font-bold'} mt-2`}
+            className={`w-full ${isOutOfStock ? 'bg-slate-300 text-slate-700 cursor-not-allowed' : 'bg-gold-accent hover:bg-gold-accent/90 text-charcoal-gray font-bold'} mt-2`}
             onClick={handleAddToCart}
             disabled={isOutOfStock}
           >

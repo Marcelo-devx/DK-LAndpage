@@ -76,26 +76,26 @@ const ReviewModal = ({ isOpen, onOpenChange, productId, orderId, productName, on
 
         <div className="py-8 space-y-8">
           <div className="space-y-4">
-            <Label className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Sua Nota</Label>
+            <Label className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">Sua Nota</Label>
             <div className="bg-white/5 p-6 rounded-2xl flex justify-center border border-white/5">
                 <StarRating rating={rating} onRatingChange={setRating} size={40} />
             </div>
           </div>
           
           <div className="space-y-3">
-            <Label htmlFor="comment" className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Seu Comentário (opcional)</Label>
+            <Label htmlFor="comment" className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">Seu Comentário (opcional)</Label>
             <Textarea
               id="comment"
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               placeholder="Conte-nos sua experiência com o produto..."
-              className="bg-slate-950 border-white/10 rounded-xl min-h-[120px] focus:border-sky-500 transition-colors placeholder:text-slate-700"
+              className="bg-slate-950 border-white/10 rounded-xl min-h-[120px] focus:border-sky-500 transition-colors placeholder:text-slate-600"
             />
           </div>
         </div>
 
         <DialogFooter className="gap-3 sm:gap-0">
-          <Button variant="ghost" onClick={() => onOpenChange(false)} className="text-slate-500 hover:text-white hover:bg-white/5 rounded-xl font-bold uppercase text-[10px] tracking-widest h-12">Cancelar</Button>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} className="text-slate-700 hover:text-slate-900 hover:bg-white/5 rounded-xl font-bold uppercase text-[10px] tracking-widest h-12">Cancelar</Button>
           <Button onClick={handleSubmit} disabled={isSubmitting || rating === 0} className="bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest h-12 px-8 rounded-xl shadow-lg transition-all">
             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Publicar Avaliação'}
           </Button>

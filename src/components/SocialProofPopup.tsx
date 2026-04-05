@@ -122,14 +122,14 @@ const SocialProofPopup = () => {
             <p className="text-[11px] text-slate-300 line-clamp-2 mt-0.5 leading-tight">
               {currentItem.product_name}
             </p>
-            <p className="text-[9px] text-slate-500 font-bold uppercase mt-1">
+            <p className="text-[9px] text-slate-600 font-bold uppercase mt-1">
               há {currentItem.time_ago}
             </p>
           </div>
 
           <button 
             onClick={() => setIsVisible(false)} 
-            className="text-slate-500 hover:text-white absolute top-2 right-2 p-1 transition-colors"
+            className="text-slate-600 hover:text-white absolute top-2 right-2 p-1 transition-colors"
           >
             <X size={14} />
           </button>

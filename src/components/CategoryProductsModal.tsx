@@ -122,7 +122,7 @@ const CategoryProductsModal = ({ categoryName, isOpen, onOpenChange }: CategoryP
               ))}
             </div>
           ) : (
-            <p className="text-center text-stone-600 py-8">Nenhum produto disponível nesta categoria.</p>
+            <p className="text-center text-slate-700 py-8">Nenhum produto disponível nesta categoria.</p>
           )}
         </div>
       </DialogContent>

@@ -50,7 +50,7 @@ interface DesktopNavProps {
 const DesktopNav = memo(({ categories, categoryProductSubsMap }: DesktopNavProps) => (
   <NavigationMenu className="max-w-full justify-center w-full">
     <NavigationMenuList className="flex flex-wrap justify-center gap-y-0 gap-x-1">
-      {categories.map((category) => {
+      {(Array.isArray(categories) ? categories : []).map((category) => {
         // product-derived subcategories for this category (exact strings)
         const productSubs = categoryProductSubsMap[category.id] || [];
         
@@ -121,16 +121,17 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
         supabase.from('products').select('id, category, sub_category, brand, stock_quantity').neq('category', null).neq('category', '').eq('is_visible', true),
       ]);
 
-      if (cats) setCategories(cats);
-      if (subs) setSubCategories(subs);
+      // Garante que sempre definimos arrays válidos, mesmo se a query falhar
+      setCategories(Array.isArray(cats) ? cats : []);
+      setSubCategories(Array.isArray(subs) ? subs : []);
 
       const catNameToId = new Map<string, number>();
-      (cats || []).forEach((c: any) => { if (c.name) catNameToId.set(normalizeKey(String(c.name)), c.id); });
+      (Array.isArray(cats) ? cats : []).forEach((c: any) => { if (c.name) catNameToId.set(normalizeKey(String(c.name)), c.id); });
 
       const catProductIds: Record<number, number[]> = {};
       const productInfo: Record<number, { id: number; category: string; brand?: string | null; sub_category?: string | null; stock_quantity?: number | null }> = {};
 
-      (productRows || []).forEach((p: any) => {
+      (Array.isArray(productRows) ? productRows : []).forEach((p: any) => {
         if (!p.category) return;
         const catId = catNameToId.get(normalizeKey(String(p.category)));
         if (!catId) return;
@@ -166,7 +167,7 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
         // Build sub_category_id -> sub_category name map from already-fetched subs
         const subIdToName = new Map<number, string>();
         const subIdToCatId = new Map<number, number>();
-        (subs || []).forEach((s: any) => {
+        (Array.isArray(subs) ? subs : []).forEach((s: any) => {
           subIdToName.set(s.id, s.name);
           subIdToCatId.set(s.id, s.category_id);
         });
@@ -285,7 +286,7 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
                   <div className="space-y-4">
                     <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-700">Categorias</h3>
                     <Accordion type="single" collapsible className="w-full">
-                        {categories.map((cat) => (
+                        {(Array.isArray(categories) ? categories : []).map((cat) => (
                             <AccordionItem key={cat.id} value={`cat-${cat.id}`} className="border-white/5">
                                 <AccordionTrigger className="text-sm font-black uppercase tracking-widest hover:no-underline py-4" translate="no">
                                     {cat.name}
@@ -442,7 +443,7 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
 
          {/* Navegação Rápida Horizontal (Mobile) */}
          <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-            {categories.map((cat) => (
+            {(Array.isArray(categories) ? categories : []).map((cat) => (
                <Link 
                  key={cat.id} 
                  to={`/produtos?category=${cat.name}`}

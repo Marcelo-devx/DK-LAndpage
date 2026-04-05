@@ -153,30 +153,68 @@ const AllProductsPage = () => {
         }
       }
 
-      // Build the base query for text/category/brand/subcategory matches
+      // If subcategory filter is active, resolve product IDs via product_sub_categories join table
+      let subCategoryProductIds: number[] | null = null;
+      if (selectedSubCategories.length > 0) {
+        // Find sub_category IDs matching the selected names
+        const { data: matchedSubs } = await supabase
+          .from('sub_categories')
+          .select('id')
+          .in('name', selectedSubCategories)
+          .eq('is_visible', true);
+        const subIds = (matchedSubs || []).map((s: any) => s.id);
+        if (subIds.length > 0) {
+          const { data: pscRows } = await supabase
+            .from('product_sub_categories')
+            .select('product_id')
+            .in('sub_category_id', subIds);
+          subCategoryProductIds = [...new Set((pscRows || []).map((r: any) => r.product_id as number))];
+        } else {
+          subCategoryProductIds = []; // no matches → empty result
+        }
+      }
+
+      // Build the base query
       let query = supabase
         .from('products')
-        .select('id, name, price, pix_price, image_url, category, sub_category, brand, stock_quantity, created_at')
+        .select('id, name, price, pix_price, image_url, category, brand, stock_quantity, created_at')
         .eq('is_visible', true);
 
       if (debouncedSearchTerm) {
         const term = `%${debouncedSearchTerm}%`;
-        query = query.or(`name.ilike.${term},category.ilike.${term},sub_category.ilike.${term},brand.ilike.${term}`);
+        query = query.or(`name.ilike.${term},category.ilike.${term},brand.ilike.${term}`);
       }
 
       if (selectedCategories.length > 0) query = query.in('category', selectedCategories);
-      if (selectedSubCategories.length > 0) query = query.in('sub_category', selectedSubCategories);
       if (selectedBrands.length > 0) query = query.in('brand', selectedBrands);
+
+      // Apply subcategory filter via product IDs (join table)
+      if (subCategoryProductIds !== null) {
+        if (subCategoryProductIds.length === 0) {
+          // No products match the subcategory filter
+          if (!background) {
+            setDisplayProducts([]);
+            setSubCategoryOptions([]);
+          }
+          if (!background) setLoading(false);
+          return;
+        }
+        query = query.in('id', subCategoryProductIds);
+      }
 
       const [qSortField, qSortOrder] = sortBy.split('-');
       query = query.order(qSortField, { ascending: qSortOrder === 'asc' });
 
       const { data: parentProducts, error } = await query;
 
-      // If we found product IDs by flavor, fetch those products and merge with parentProducts
+      // Merge flavor-matched products
       let mergedProducts = parentProducts || [];
       if (flavorMatchProductIds.length > 0) {
-        const { data: flavorProducts } = await supabase.from('products').select('id, name, price, pix_price, image_url, category, sub_category, brand, stock_quantity, created_at').in('id', flavorMatchProductIds).eq('is_visible', true);
+        const { data: flavorProducts } = await supabase
+          .from('products')
+          .select('id, name, price, pix_price, image_url, category, brand, stock_quantity, created_at')
+          .in('id', flavorMatchProductIds)
+          .eq('is_visible', true);
         const map = new Map<number, any>();
         (mergedProducts || []).forEach((p: any) => map.set(p.id, p));
         (flavorProducts || []).forEach((p: any) => map.set(p.id, p));
@@ -197,7 +235,7 @@ const AllProductsPage = () => {
         return;
       }
 
-      // Fast path for background updates: avoid fetching variants/flavors/counts to keep it snappy
+      // Fast path for background updates
       if (background) {
         const quickList: DisplayProduct[] = products.map((prod: any) => ({
           id: prod.id,
@@ -205,36 +243,28 @@ const AllProductsPage = () => {
           price: prod.price,
           pixPrice: prod.pix_price,
           imageUrl: prod.image_url || '',
-          // Use product-level stock as best-effort in quick path
           stockQuantity: prod.stock_quantity ?? 0,
           hasMultipleVariants: false,
           showAgeBadge: prod.category ? (categoriesMap[normalizeCategory(prod.category)] ?? true) : true,
           createdAt: prod.created_at || null,
         }));
-
-        // Keep ordering behavior consistent: prioritize available products
         quickList.sort((a, b) => {
           const aAvailable = (a.stockQuantity ?? 0) > 0;
           const bAvailable = (b.stockQuantity ?? 0) > 0;
           if (aAvailable && !bAvailable) return -1;
           if (!aAvailable && bAvailable) return 1;
-
           if (qSortField === 'price') {
-            const aPrice = a.price || 0;
-            const bPrice = b.price || 0;
-            return qSortOrder === 'asc' ? aPrice - bPrice : bPrice - aPrice;
+            return qSortOrder === 'asc' ? (a.price || 0) - (b.price || 0) : (b.price || 0) - (a.price || 0);
           }
-
           const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
           const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
           return qSortOrder === 'asc' ? aTime - bTime : bTime - aTime;
         });
-
         setDisplayProducts(quickList);
         return;
       }
 
-      // Full path (initial load or foreground): fetch variants, flavors and compute counts
+      // Full path: fetch variants and compute counts
       const productIds = products.map((p: any) => p.id);
 
       const { data: variants } = productIds.length > 0
@@ -242,64 +272,63 @@ const AllProductsPage = () => {
         : { data: [] };
 
       const finalDisplayList: DisplayProduct[] = [];
-      products.forEach(prod => {
+      products.forEach((prod: any) => {
         const prodVariants = variants?.filter((v: any) => v.product_id === prod.id) || [];
         const showAge = prod.category ? (categoriesMap[normalizeCategory(prod.category)] ?? true) : true;
 
         if (prodVariants.length > 0) {
           const minPrice = Math.min(...prodVariants.map((v: any) => v.price));
           const minPixPrice = Math.min(...prodVariants.map((v: any) => v.pix_price || v.price));
-          // Total stock should consider both product-level stock and variant-level stock
           const variantStock = prodVariants.reduce((acc: number, v: any) => acc + (v.stock_quantity || 0), 0);
           const totalStock = (prod.stock_quantity || 0) + variantStock;
-          finalDisplayList.push({
-            id: prod.id,
-            name: prod.name,
-            price: minPrice,
-            pixPrice: minPixPrice,
-            imageUrl: prod.image_url || '',
-            stockQuantity: totalStock,
-            hasMultipleVariants: true,
-            showAgeBadge: showAge,
-            createdAt: prod.created_at || null,
-          });
+          finalDisplayList.push({ id: prod.id, name: prod.name, price: minPrice, pixPrice: minPixPrice, imageUrl: prod.image_url || '', stockQuantity: totalStock, hasMultipleVariants: true, showAgeBadge: showAge, createdAt: prod.created_at || null });
         } else {
-          const totalStock = (prod.stock_quantity || 0);
-          finalDisplayList.push({
-            id: prod.id,
-            name: prod.name,
-            price: prod.price,
-            pixPrice: prod.pix_price,
-            imageUrl: prod.image_url || '',
-            stockQuantity: totalStock,
-            hasMultipleVariants: false,
-            showAgeBadge: showAge,
-            createdAt: prod.created_at || null,
-          });
+          finalDisplayList.push({ id: prod.id, name: prod.name, price: prod.price, pixPrice: prod.pix_price, imageUrl: prod.image_url || '', stockQuantity: prod.stock_quantity || 0, hasMultipleVariants: false, showAgeBadge: showAge, createdAt: prod.created_at || null });
         }
       });
 
-      // Compute counts for filters (categories, subcategories, brands, flavors)
+      // Compute category and brand counts from current result set
       const catCountMap = new Map<string, number>();
-      const subCatCountMap = new Map<string, number>();
       const brandCountMap = new Map<string, number>();
-
       products.forEach((p: any) => {
         if (p.category) catCountMap.set(p.category, (catCountMap.get(p.category) || 0) + 1);
-        if (p.sub_category) subCatCountMap.set(p.sub_category, (subCatCountMap.get(p.sub_category) || 0) + 1);
         if (p.brand) brandCountMap.set(p.brand, (brandCountMap.get(p.brand) || 0) + 1);
       });
 
-      // Flavor counts (may be expensive) - keep as before
+      // Compute subcategory counts via product_sub_categories join table
+      const subCatCountMap = new Map<string, number>();
+      if (productIds.length > 0) {
+        const { data: pscData } = await supabase
+          .from('product_sub_categories')
+          .select('product_id, sub_category_id')
+          .in('product_id', productIds);
+
+        const subIdsInResult = [...new Set((pscData || []).map((r: any) => r.sub_category_id as number))];
+        if (subIdsInResult.length > 0) {
+          const { data: subNames } = await supabase
+            .from('sub_categories')
+            .select('id, name')
+            .in('id', subIdsInResult)
+            .eq('is_visible', true);
+
+          const subIdToName = new Map<number, string>();
+          (subNames || []).forEach((s: any) => subIdToName.set(s.id, s.name));
+
+          (pscData || []).forEach((r: any) => {
+            const name = subIdToName.get(r.sub_category_id);
+            if (name) subCatCountMap.set(name, (subCatCountMap.get(name) || 0) + 1);
+          });
+        }
+      }
+
+      // Flavor counts
       let flavorCountMap = new Map<string, number>();
       if (productIds.length > 0) {
         const [variantFlavors, productFlavorRelations] = await Promise.all([
-          // include flavor_id and stock to determine availability on variants
           supabase.from('product_variants').select('flavor_id, product_id, stock_quantity').in('product_id', productIds).eq('is_active', true),
           supabase.from('product_flavors').select('flavor_id, product_id').in('product_id', productIds),
         ]);
 
-        // Determine availability per product: product.stock_quantity OR sum of variant stock > 0
         const variantSumByProduct: Record<number, number> = {};
         (variantFlavors.data || []).forEach((v: any) => {
           if (typeof v.product_id !== 'number') return;
@@ -308,13 +337,9 @@ const AllProductsPage = () => {
 
         const productAvailable = new Set<number>();
         (products || []).forEach((p: any) => {
-          const pid = p.id;
-          const prodStock = p.stock_quantity || 0;
-          const varStock = variantSumByProduct[pid] || 0;
-          if (prodStock > 0 || varStock > 0) productAvailable.add(pid);
+          if ((p.stock_quantity || 0) > 0 || (variantSumByProduct[p.id] || 0) > 0) productAvailable.add(p.id);
         });
 
-        // Build mapping flavorId -> set of productIds (prefer variant flavor_id, fallback to product_flavors)
         const flavorIdToProductIds = new Map<number, Set<number>>();
         (variantFlavors.data || []).forEach((v: any) => {
           if (!v.flavor_id) return;
@@ -327,7 +352,6 @@ const AllProductsPage = () => {
           flavorIdToProductIds.get(pf.flavor_id)!.add(pf.product_id);
         });
 
-        // Count only available products per flavor
         for (const [flId, prodSet] of flavorIdToProductIds.entries()) {
           let count = 0;
           for (const pid of Array.from(prodSet)) {
@@ -341,7 +365,6 @@ const AllProductsPage = () => {
           const { data: flavorNames } = await supabase.from('flavors').select('id, name').in('id', flavorIds).eq('is_visible', true);
           const idToName = new Map<number, string>();
           (flavorNames || []).forEach((f: any) => idToName.set(f.id, f.name));
-
           const flavorsArr: { name: string; count: number }[] = [];
           for (const [id, count] of flavorCountMap.entries()) {
             const name = idToName.get(Number(id)) || '';
@@ -356,50 +379,30 @@ const AllProductsPage = () => {
         setFlavorOptions([]);
       }
 
-      const categoriesArr = Array.from(catCountMap.entries()).map(([name, count]) => ({ name, count })).sort((a,b) => a.name.localeCompare(b.name));
-      const subCategoriesArr = Array.from(subCatCountMap.entries()).map(([name, count]) => ({ name, count })).sort((a,b) => a.name.localeCompare(b.name));
-      const brandsArr = Array.from(brandCountMap.entries()).map(([name, count]) => ({ name, count })).sort((a,b) => a.name.localeCompare(b.name));
+      const categoriesArr = Array.from(catCountMap.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => a.name.localeCompare(b.name));
+      const subCategoriesArr = Array.from(subCatCountMap.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => a.name.localeCompare(b.name));
+      const brandsArr = Array.from(brandCountMap.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => a.name.localeCompare(b.name));
 
       setCategoryOptions(categoriesArr);
       setSubCategoryOptions(subCategoriesArr);
       setBrandOptions(brandsArr);
 
-      // Prioritize available products before applying sort
+      // Sort: available first, then by selected sort
       const [sField, sOrder] = sortBy.split('-');
       finalDisplayList.sort((a, b) => {
         const aAvailable = (a.stockQuantity ?? 0) > 0;
         const bAvailable = (b.stockQuantity ?? 0) > 0;
         if (aAvailable && !bAvailable) return -1;
         if (!aAvailable && bAvailable) return 1;
-
         if (sField === 'price') {
-          const aPrice = a.price || 0;
-          const bPrice = b.price || 0;
-          return sOrder === 'asc' ? aPrice - bPrice : bPrice - aPrice;
+          return sOrder === 'asc' ? (a.price || 0) - (b.price || 0) : (b.price || 0) - (a.price || 0);
         }
-
         const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
         const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
         return sOrder === 'asc' ? aTime - bTime : bTime - aTime;
       });
 
       setDisplayProducts(finalDisplayList);
-
-      // Cleanup selected filters if they no longer exist
-      const validCats = categoriesArr.map(c => c.name);
-      const validSubCats = subCategoriesArr.map(s => s.name);
-      const validBrands = brandsArr.map(b => b.name);
-      const validFlavors = (flavorOptions || []).map(f => f.name);
-
-      const nextSelectedCategories = selectedCategories.filter(s => validCats.includes(s));
-      const nextSelectedSubCategories = selectedSubCategories.filter(s => validSubCats.includes(s));
-      const nextSelectedBrands = selectedBrands.filter(s => validBrands.includes(s));
-      const nextSelectedFlavors = selectedFlavors.filter(s => validFlavors.includes(s));
-
-      if (nextSelectedCategories.length !== selectedCategories.length) setSelectedCategories(nextSelectedCategories);
-      if (nextSelectedSubCategories.length !== selectedSubCategories.length) setSelectedSubCategories(nextSelectedSubCategories);
-      if (nextSelectedBrands.length !== selectedBrands.length) setSelectedBrands(nextSelectedBrands);
-      if (nextSelectedFlavors.length !== selectedFlavors.length) setSelectedFlavors(nextSelectedFlavors);
 
     } finally {
       if (!background) setLoading(false);

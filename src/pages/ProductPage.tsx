@@ -175,8 +175,8 @@ const ProductPage = () => {
   if (loading) return <div className="container mx-auto px-4 md:px-6 xl:px-8 py-4 md:py-10"><Skeleton className="w-full h-[500px] rounded-3xl bg-gray-200" /></div>;
   if (!product) return null;
 
-  const currentFullPrice = selectedVariant ? selectedVariant.price : product.price;
-  const currentPixPrice = (selectedVariant ? selectedVariant.pix_price : product.pix_price) || currentFullPrice;
+  const currentFullPrice = (selectedVariant ? selectedVariant.price : product.price) ?? 0;
+  const currentPixPrice = ((selectedVariant ? selectedVariant.pix_price : product.pix_price) || currentFullPrice) ?? 0;
   const installmentValue = (currentFullPrice / 3).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   
   const currentStock = selectedVariant ? selectedVariant.stock_quantity : product.stock_quantity;

@@ -103,8 +103,8 @@ const Index = () => {
                 acc.push({
                   id: prod.id,
                   name: prod.name,
-                  price: Math.min(...prodVariants.map((v: any) => v.price)),
-                  pixPrice: Math.min(...prodVariants.map((v: any) => v.pix_price || v.price)),
+                  price: Math.min(...prodVariants.map((v: any) => v.price ?? 0)),
+                  pixPrice: Math.min(...prodVariants.map((v: any) => v.pix_price ?? v.price ?? 0)),
                   imageUrl: prod.image_url || '',
                   stockQuantity: totalStock,
                   hasMultipleVariants: true,
@@ -115,8 +115,8 @@ const Index = () => {
               acc.push({
                 id: prod.id,
                 name: prod.name,
-                price: prod.price,
-                pixPrice: prod.pix_price,
+                price: prod.price ?? 0,
+                pixPrice: prod.pix_price ?? null,
                 imageUrl: prod.image_url || '',
                 stockQuantity: prod.stock_quantity,
                 hasMultipleVariants: false,

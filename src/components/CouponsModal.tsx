@@ -222,12 +222,12 @@ const CouponsModal = ({ isOpen, onOpenChange, userPoints, onRedemption }: Coupon
                           </div>
                           <div className="flex items-center text-[10px] text-stone-500 font-bold uppercase tracking-widest">
                             <ShoppingBag className="mr-1.5 h-3.5 w-3.5 text-sky-500" />
-                            Mínimo: R$ {userCoupon.coupons.minimum_order_value.toFixed(2).replace('.', ',')}
+                            Mínimo: R$ {(userCoupon.coupons.minimum_order_value ?? 0).toFixed(2).replace('.', ',')}
                           </div>
                         </div>
                         <div className="text-right">
                           <span className="text-2xl font-black text-sky-600 tracking-tighter">
-                            -R$ {userCoupon.coupons.discount_value.toFixed(2).replace('.', ',')}
+                            -R$ {(userCoupon.coupons.discount_value ?? 0).toFixed(2).replace('.', ',')}
                           </span>
                         </div>
                       </div>
@@ -259,7 +259,7 @@ const CouponsModal = ({ isOpen, onOpenChange, userPoints, onRedemption }: Coupon
                         </div>
                         <div className="text-right">
                           <span className="text-lg font-black text-slate-700 tracking-tighter line-through">
-                            -R$ {userCoupon.coupons.discount_value.toFixed(2).replace('.', ',')}
+                            -R$ {(userCoupon.coupons.discount_value ?? 0).toFixed(2).replace('.', ',')}
                           </span>
                         </div>
                       </div>

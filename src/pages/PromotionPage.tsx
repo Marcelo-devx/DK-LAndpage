@@ -139,7 +139,7 @@ const PromotionPage = () => {
             <div>
               <p className="text-sm uppercase tracking-widest text-stone-500">Promoção</p>
               <h1 className="font-serif text-4xl md:text-5xl font-medium text-charcoal-gray mt-2">{promotion.name}</h1>
-              <p className="text-3xl text-tobacco-brown font-semibold mt-4">R$ {promotion.price.toFixed(2).replace('.', ',')}</p>
+              <p className="text-3xl text-tobacco-brown font-semibold mt-4">R$ {(promotion.price ?? 0).toFixed(2).replace('.', ',')}</p>
             </div>
 
             <Separator />
@@ -201,7 +201,7 @@ const PromotionPage = () => {
                     <PromotionCard key={promo.id} promotion={{
                       id: promo.id,
                       name: promo.name,
-                      price: `R$ ${promo.price.toFixed(2).replace('.', ',')}`,
+                      price: `R$ ${(promo.price ?? 0).toFixed(2).replace('.', ',')}`,
                       imageUrl: promo.image_url || 'https://picsum.photos/600/800',
                       url: `/promocao/${promo.id}`,
                       stockQuantity: promo.stock_quantity ?? null,

@@ -78,15 +78,15 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
           const product = (productsRes as any).data?.find((p: any) => p.id === cartItem.itemId);
           if (!product) return null;
 
-          let price = product.price;
+          let price = product.price ?? 0;
           let label = '';
-          let stock = product.stock_quantity;
+          let stock = product.stock_quantity ?? 0;
 
           if (cartItem.variantId) {
             const variant = (variantsRes as any).data?.find((v: any) => v.id === cartItem.variantId);
             if (variant) {
-              price = variant.price;
-              stock = variant.stock_quantity;
+              price = variant.price ?? 0;
+              stock = variant.stock_quantity ?? 0;
 
               // Try to find flavor name if available
               const fName = variant.flavor_id ? flavorsData?.find(f => f.id === variant.flavor_id)?.name : '';
@@ -128,9 +128,9 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
             itemType: cartItem.itemType,
             quantity: cartItem.quantity,
             name: promo.name,
-            price: promo.price,
+            price: promo.price ?? 0,
             image_url: promo.image_url || '',
-            stock: promo.stock_quantity
+            stock: promo.stock_quantity ?? 0
           };
         }
       }).filter((i): i is DisplayItem => i !== null);

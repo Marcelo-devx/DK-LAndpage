@@ -241,8 +241,8 @@ const AllProductsPage = () => {
         const quickList: DisplayProduct[] = products.map((prod: any) => ({
           id: prod.id,
           name: prod.name,
-          price: prod.price,
-          pixPrice: prod.pix_price,
+          price: prod.price ?? 0,
+          pixPrice: prod.pix_price ?? null,
           imageUrl: prod.image_url || '',
           stockQuantity: prod.stock_quantity ?? 0,
           hasMultipleVariants: false,
@@ -278,13 +278,13 @@ const AllProductsPage = () => {
         const showAge = prod.category ? (categoriesMap[normalizeCategory(prod.category)] ?? true) : true;
 
         if (prodVariants.length > 0) {
-          const minPrice = Math.min(...prodVariants.map((v: any) => v.price));
-          const minPixPrice = Math.min(...prodVariants.map((v: any) => v.pix_price || v.price));
+          const minPrice = Math.min(...prodVariants.map((v: any) => v.price ?? 0));
+          const minPixPrice = Math.min(...prodVariants.map((v: any) => v.pix_price ?? v.price ?? 0));
           const variantStock = prodVariants.reduce((acc: number, v: any) => acc + (v.stock_quantity || 0), 0);
           const totalStock = (prod.stock_quantity || 0) + variantStock;
           finalDisplayList.push({ id: prod.id, name: prod.name, price: minPrice, pixPrice: minPixPrice, imageUrl: prod.image_url || '', stockQuantity: totalStock, hasMultipleVariants: true, showAgeBadge: showAge, createdAt: prod.created_at || null });
         } else {
-          finalDisplayList.push({ id: prod.id, name: prod.name, price: prod.price, pixPrice: prod.pix_price, imageUrl: prod.image_url || '', stockQuantity: prod.stock_quantity || 0, hasMultipleVariants: false, showAgeBadge: showAge, createdAt: prod.created_at || null });
+          finalDisplayList.push({ id: prod.id, name: prod.name, price: prod.price ?? 0, pixPrice: prod.pix_price ?? null, imageUrl: prod.image_url || '', stockQuantity: prod.stock_quantity || 0, hasMultipleVariants: false, showAgeBadge: showAge, createdAt: prod.created_at || null });
         }
       });
 

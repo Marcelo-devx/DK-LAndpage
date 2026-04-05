@@ -10,32 +10,32 @@ import { supabase } from '@/integrations/supabase/client';
 import ProductCard from './ProductCard';
 import { Skeleton } from './ui/skeleton';
 
-interface Product {
-  id: number;
-  name: string;
-  price: number;
-  pix_price: number | null;
-  image_url: string;
-  category: string | null;
-  sub_category: string | null;
-  stock_quantity: number;
-}
-
 interface BrandProductsModalProps {
   brandName: string | null;
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
 }
 
+interface DisplayProduct {
+  id: number;
+  name: string;
+  price: number;
+  pixPrice: number | null;
+  imageUrl: string;
+  stockQuantity: number;
+  hasMultipleVariants: boolean;
+  showAgeBadge: boolean;
+}
+
 const BrandProductsModal = ({ brandName, isOpen, onOpenChange }: BrandProductsModalProps) => {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<DisplayProduct[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchProducts = useCallback(async () => {
     if (!brandName || !isOpen) {
       setProducts([]);
       return;
-    };
+    }
     setLoading(true);
 
     try {
@@ -52,35 +52,77 @@ const BrandProductsModal = ({ brandName, isOpen, onOpenChange }: BrandProductsMo
           if (c.name) categoryMap[normalizeCategory(c.name)] = c.show_age_restriction !== false;
         });
       }
-      // DEBUG: inspect category map for brand modal
-      // eslint-disable-next-line no-console
-      console.debug("[BrandProductsModal] categoryMap:", categoryMap);
 
-      // Fetch products WITHOUT joining categories
-      const { data, error } = await supabase
+      // Fetch products
+      const { data: rawProducts, error } = await supabase
         .from('products')
-        .select('id, name, price, pix_price, image_url, category, sub_category, stock_quantity')
+        .select('id, name, price, pix_price, image_url, category, stock_quantity')
         .eq('brand', brandName)
         .eq('is_visible', true);
 
       if (error) {
-        console.error("Error fetching products for brand:", error);
+        console.error('[BrandProductsModal] Error fetching products:', error);
         setProducts([]);
-      } else if (data) {
-        const processed = (data as Product[]).map(p => {
-          const _showAge = p.category ? (categoryMap[normalizeCategory(p.category)] ?? true) : true;
-          try {
-            if (p.name && String(p.name).toLowerCase().includes('ginger')) {
-              // eslint-disable-next-line no-console
-              console.debug("[BrandProductsModal] suspected product:", { id: p.id, name: p.name, category: p.category, resolvedShowAge: _showAge });
-            }
-          } catch (e) { /* ignore */ }
-          return { ...p, _showAgeBadge: _showAge };
-        }) as any[];
-        setProducts(processed);
+        return;
       }
+
+      const productIds = (rawProducts || []).map((p: any) => p.id);
+
+      // Fetch variants to get correct prices and stock
+      const { data: variants } = productIds.length > 0
+        ? await supabase
+            .from('product_variants')
+            .select('id, product_id, price, pix_price, stock_quantity')
+            .in('product_id', productIds)
+            .eq('is_active', true)
+        : { data: [] };
+
+      const displayList: DisplayProduct[] = (rawProducts || []).map((prod: any) => {
+        const prodVariants = (variants || []).filter((v: any) => v.product_id === prod.id);
+        const showAgeBadge = prod.category
+          ? (categoryMap[normalizeCategory(prod.category)] ?? true)
+          : true;
+
+        if (prodVariants.length > 0) {
+          const totalStock = prodVariants.reduce((s: number, v: any) => s + (v.stock_quantity || 0), 0);
+          const minPrice = Math.min(...prodVariants.map((v: any) => v.price ?? 0));
+          const minPixPrice = Math.min(...prodVariants.map((v: any) => v.pix_price ?? v.price ?? 0));
+          return {
+            id: prod.id,
+            name: prod.name,
+            price: minPrice,
+            pixPrice: minPixPrice,
+            imageUrl: prod.image_url || '',
+            stockQuantity: totalStock,
+            hasMultipleVariants: true,
+            showAgeBadge,
+          };
+        }
+
+        return {
+          id: prod.id,
+          name: prod.name,
+          price: prod.price ?? 0,
+          pixPrice: prod.pix_price ?? null,
+          imageUrl: prod.image_url || '',
+          stockQuantity: prod.stock_quantity ?? 0,
+          hasMultipleVariants: false,
+          showAgeBadge,
+        };
+      });
+
+      // Sort: in-stock first
+      displayList.sort((a, b) => {
+        const aIn = a.stockQuantity > 0;
+        const bIn = b.stockQuantity > 0;
+        if (aIn && !bIn) return -1;
+        if (!aIn && bIn) return 1;
+        return 0;
+      });
+
+      setProducts(displayList);
     } catch (err) {
-      console.error("Error fetching products for brand:", err);
+      console.error('[BrandProductsModal] Unexpected error:', err);
       setProducts([]);
     } finally {
       setLoading(false);
@@ -114,15 +156,16 @@ const BrandProductsModal = ({ brandName, isOpen, onOpenChange }: BrandProductsMo
             </div>
           ) : products.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {products.map((product: any, idx: number) => (
+              {products.map((product, idx) => (
                 <ProductCard key={`${product.id}-${idx}`} product={{
                   id: product.id,
                   name: product.name,
                   price: product.price,
-                  pixPrice: product.pix_price,
-                  imageUrl: product.image_url,
-                  stockQuantity: product.stock_quantity,
-                  showAgeBadge: product._showAgeBadge !== false
+                  pixPrice: product.pixPrice,
+                  imageUrl: product.imageUrl,
+                  stockQuantity: product.stockQuantity,
+                  hasMultipleVariants: product.hasMultipleVariants,
+                  showAgeBadge: product.showAgeBadge,
                 }} />
               ))}
             </div>

@@ -60,55 +60,38 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
     const [{ data: cats }, { data: subs }, { data: productRows }] = await Promise.all([
       supabase.from('categories').select('id, name').eq('is_visible', true).order('name'),
       supabase.from('sub_categories').select('id, name, category_id').eq('is_visible', true).order('name'),
-      // fetch products minimal fields including sub_category and stock_quantity
       supabase.from('products').select('id, category, sub_category, brand, stock_quantity').neq('category', null).neq('category', '').eq('is_visible', true),
     ]);
 
     if (cats) setCategories(cats);
     if (subs) setSubCategories(subs);
 
-    // Build mapping categoryId -> set of product sub_category strings (exact values from products)
     const catNameToId = new Map<string, number>();
     (cats || []).forEach((c: any) => { if (c.name) catNameToId.set(normalizeKey(String(c.name)), c.id); });
 
-    const catSubsMap: Record<number, Set<string>> = {};
-    const catBrands: Record<number, Set<string>> = {};
     const catProductIds: Record<number, number[]> = {};
+    const productInfo: Record<number, { id: number; category: string; brand?: string | null; sub_category?: string | null; stock_quantity?: number | null }> = {};
 
-    // Keep productRows data for later availability checks
-    const productInfo: Record<number, { id:number; category:string; brand?:string | null; sub_category?:string | null; stock_quantity?: number | null }> = {};
     (productRows || []).forEach((p: any) => {
       if (!p.category) return;
       const catId = catNameToId.get(normalizeKey(String(p.category)));
       if (!catId) return;
-      // build sub-categories map (show sub-categories regardless of stock)
-      if (p.sub_category) {
-        if (!catSubsMap[catId]) catSubsMap[catId] = new Set();
-        catSubsMap[catId].add(String(p.sub_category).trim());
-      }
       if (!catProductIds[catId]) catProductIds[catId] = [];
       catProductIds[catId].push(p.id);
-
       productInfo[p.id] = { id: p.id, category: String(p.category), brand: p.brand, sub_category: p.sub_category, stock_quantity: p.stock_quantity ?? 0 };
     });
 
-    // DON'T set sub-categories yet: we will filter them by availability below
-
-    // Now compute availability per product (consider product stock_quantity OR sum of variant stock)
-    const categoryFlavorsResult: Record<number, Set<string>> = {};
     const allProductIds = Object.values(catProductIds).flat();
     const productAvailable: Record<number, boolean> = {};
 
     if (allProductIds.length > 0) {
-      // fetch variant stocks and flavor relations in parallel
-      const [variantStockRes, prodFlavorRes] = await Promise.all([
-        // include flavor_id on variants (many stores put flavor on variants)
-        supabase.from('product_variants').select('product_id, stock_quantity, flavor_id').in('product_id', allProductIds).eq('is_active', true),
-        // also fetch product_flavors table as fallback if some relations are stored there
-        supabase.from('product_flavors').select('flavor_id, product_id').in('product_id', allProductIds),
+      // Fetch variant stocks AND product_sub_categories in parallel
+      const [variantStockRes, productSubCatsRes] = await Promise.all([
+        supabase.from('product_variants').select('product_id, stock_quantity').in('product_id', allProductIds).eq('is_active', true),
+        supabase.from('product_sub_categories').select('product_id, sub_category_id').in('product_id', allProductIds),
       ]);
 
-      // sum variant stock per product
+      // Sum variant stock per product
       const variantSumByProduct: Record<number, number> = {};
       (variantStockRes.data || []).forEach((v: any) => {
         if (typeof v.product_id !== 'number') return;
@@ -117,83 +100,42 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
 
       // Determine availability
       allProductIds.forEach(pid => {
-        const pInfo = productInfo[pid];
-        const prodStock = pInfo?.stock_quantity || 0;
+        const prodStock = productInfo[pid]?.stock_quantity || 0;
         const varStock = variantSumByProduct[pid] || 0;
         productAvailable[pid] = (prodStock > 0) || (varStock > 0);
       });
 
-      // Build category sub-categories only from available products
+      // Build sub_category_id -> sub_category name map from already-fetched subs
+      const subIdToName = new Map<number, string>();
+      const subIdToCatId = new Map<number, number>();
+      (subs || []).forEach((s: any) => {
+        subIdToName.set(s.id, s.name);
+        subIdToCatId.set(s.id, s.category_id);
+      });
+
+      // Build categoryId -> set of sub-category names (only from available products)
+      const catSubsMap: Record<number, Set<string>> = {};
+      (productSubCatsRes.data || []).forEach((psc: any) => {
+        const pid = psc.product_id;
+        const subId = psc.sub_category_id;
+        if (!productAvailable[pid]) return;
+        const subName = subIdToName.get(subId);
+        const catId = subIdToCatId.get(subId);
+        if (!subName || !catId) return;
+        if (!catSubsMap[catId]) catSubsMap[catId] = new Set();
+        catSubsMap[catId].add(subName);
+      });
+
       const catSubsFilteredObj: Record<number, string[]> = {};
-      Object.entries(catProductIds).forEach(([catIdStr, prodIds]) => {
-        const catId = Number(catIdStr);
-        const subsSet = new Set<string>();
-        prodIds.forEach(pid => {
-          if (!productAvailable[pid]) return;
-          const sub = productInfo[pid]?.sub_category;
-          if (sub) subsSet.add(String(sub).trim());
-        });
-        if (subsSet.size > 0) catSubsFilteredObj[catId] = Array.from(subsSet).sort();
+      Object.entries(catSubsMap).forEach(([catIdStr, subsSet]) => {
+        catSubsFilteredObj[Number(catIdStr)] = Array.from(subsSet).sort();
       });
       setCategoryProductSubsMap(catSubsFilteredObj);
-
-      // Build categoryBrands only from available products
-      Object.entries(catProductIds).forEach(([catIdStr, prodIds]) => {
-        const catId = Number(catIdStr);
-        prodIds.forEach(pid => {
-          if (!productAvailable[pid]) return; // only include brands for available products
-          const pInfo = productInfo[pid];
-          const b = pInfo?.brand;
-          if (!b) return;
-          if (!catBrands[catId]) catBrands[catId] = new Set();
-          catBrands[catId].add(String(b).trim());
-        });
-      });
-
-      // Build flavorId -> productIds map using variant & product_flavor data
-      const flavorIdToProductIdsMap: Record<number, Set<number>> = {};
-      // Prefer flavor info from variants (if flavor_id is stored on variants)
-      (variantStockRes.data || []).forEach((v: any) => {
-        if (!v.flavor_id) return;
-        if (!flavorIdToProductIdsMap[v.flavor_id]) flavorIdToProductIdsMap[v.flavor_id] = new Set();
-        flavorIdToProductIdsMap[v.flavor_id].add(v.product_id);
-      });
-      // Also include mappings from product_flavors table (fallback)
-      (prodFlavorRes.data || []).forEach((pf: any) => {
-        if (!pf.flavor_id) return;
-        if (!flavorIdToProductIdsMap[pf.flavor_id]) flavorIdToProductIdsMap[pf.flavor_id] = new Set();
-        flavorIdToProductIdsMap[pf.flavor_id].add(pf.product_id);
-      });
-
-      const flavorIds = Object.keys(flavorIdToProductIdsMap).map(k => Number(k));
-      const { data: flavorNames } = flavorIds.length > 0 ? await supabase.from('flavors').select('id, name').in('id', flavorIds).eq('is_visible', true) : { data: [] };
-      const idToName = new Map<number, string>();
-      (flavorNames || []).forEach((f: any) => idToName.set(f.id, f.name));
-
-      for (const [flIdStr, prodSet] of Object.entries(flavorIdToProductIdsMap)) {
-        const flId = Number(flIdStr);
-        const fname = idToName.get(flId);
-        if (!fname) continue;
-        for (const [catIdStr, prodIds] of Object.entries(catProductIds)) {
-          const catId = Number(catIdStr);
-          // Only consider available products for this category
-          const availableProdIds = prodIds.filter(pid => productAvailable[pid]);
-          const intersects = [...prodSet].some(pid => availableProdIds.includes(pid));
-          if (intersects) {
-            if (!categoryFlavorsResult[catId]) categoryFlavorsResult[catId] = new Set();
-            categoryFlavorsResult[catId].add(fname);
-          }
-        }
-      }
     }
 
-    const catBrandsObj: Record<number, string[]> = {};
-    Object.entries(catBrands).forEach(([k, v]) => { catBrandsObj[Number(k)] = Array.from(v).sort(); });
-    setCategoryBrandsMap(catBrandsObj);
-
-    const catFlavorsObj: Record<number, string[]> = {};
-    Object.entries(categoryFlavorsResult).forEach(([k, v]) => { catFlavorsObj[Number(k)] = Array.from(v).sort(); });
-    setCategoryFlavorsMap(catFlavorsObj);
+    // Clear brands/flavors maps — no longer used in nav
+    setCategoryBrandsMap({});
+    setCategoryFlavorsMap({});
   };
 
   const updateCartCount = useCallback(() => {

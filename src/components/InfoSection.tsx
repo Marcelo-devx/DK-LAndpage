@@ -125,11 +125,12 @@ const InfoSection = () => {
                 <CarouselItem key={index} className="pl-6 basis-full sm:basis-1/2 md:basis-1/3">
                   <Link to={card.link_url || '#'} className="block group w-full relative">
                     <div className="absolute -inset-1 bg-sky-500/10 rounded-[1.5rem] md:rounded-[2rem] blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <Card className="overflow-hidden rounded-[1.5rem] md:rounded-[2rem] shadow-lg h-[180px] md:h-[240px] xl:h-[300px] border border-stone-100 relative bg-white">
+                    {/* Use flex center + object-contain so images with text are not cropped */}
+                    <Card className="overflow-hidden rounded-[1.5rem] md:rounded-[2rem] shadow-lg h-[180px] md:h-[240px] xl:h-[300px] border border-stone-100 relative bg-white flex items-center justify-center">
                       <img
                         src={card.image_url}
                         alt={`Info card ${index + 1}`}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain object-center bg-white"
                       />
                     </Card>
                   </Link>

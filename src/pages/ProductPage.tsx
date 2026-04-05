@@ -77,13 +77,16 @@ const ProductPage = () => {
       if (variantsData && variantsData.length > 0) {
         const flavorIds = variantsData.filter((v: any) => v.flavor_id).map((v: any) => v.flavor_id);
         let flavorsData: any[] = [];
-        if (!background && flavorIds.length > 0) {
+        if (flavorIds.length > 0) {
           const res = await supabase.from('flavors').select('id, name').in('id', flavorIds);
           flavorsData = res.data || [];
         }
 
         const mappedVariants = variantsData.map((v: any) => ({ 
-            ...v, 
+            ...v,
+            // Treat empty strings as null so getVariantLabel works correctly
+            ohms: v.ohms || null,
+            color: v.color || null,
             flavor_name: flavorsData.find(f => f.id === v.flavor_id)?.name
         }));
 
@@ -180,19 +183,19 @@ const ProductPage = () => {
 
   const getVariantLabel = (v: Variant) => {
     if (v.flavor_name) return v.flavor_name;
+    if (v.color) return v.color;
     if (v.ohms) {
       const cleanOhm = v.ohms.replace(/[^\d.,]/g, '');
-      return `${cleanOhm}Ω (Ohm)`;
+      return `${cleanOhm}Ω`;
     }
-    if (v.color) return v.color;
     if (v.volume_ml) return `${v.volume_ml}ml`;
     return 'Padrão';
   };
 
   const getVariantTypeInfo = (v: Variant) => {
     if (v.flavor_name) return { icon: Droplets, label: 'Sabor' };
-    if (v.ohms) return { icon: Zap, label: 'Resistência' };
     if (v.color) return { icon: Palette, label: 'Cor' };
+    if (v.ohms) return { icon: Zap, label: 'Resistência' };
     if (v.volume_ml) return { icon: FileText, label: 'Volume' };
     return null;
   };

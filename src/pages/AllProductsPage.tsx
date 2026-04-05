@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import ProductCard from '@/components/ProductCard';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -416,7 +416,8 @@ const AllProductsPage = () => {
     // Record when the document becomes hidden and only refetch if the user was away
     // longer than THRESHOLD_MS. Also respond to window focus for desktop app switches.
     let hiddenAt = 0;
-    const THRESHOLD_MS = 10 * 1000; // 10 seconds
+    const THRESHOLD_MS = 30_000; // 30 seconds
+    const isFetchingRef = { current: false };
 
     const handleVisibility = () => {
       try {
@@ -427,7 +428,7 @@ const AllProductsPage = () => {
           if (!hiddenAt) return; // wasn't previously hidden in this session
           const elapsed = Date.now() - hiddenAt;
           hiddenAt = 0;
-          if (elapsed > THRESHOLD_MS) {
+          if (elapsed > THRESHOLD_MS && !isFetchingRef.current) {
             // schedule a background fetch during idle time to avoid blocking UI
             const schedule = (cb: () => void) => {
               if ((window as any).requestIdleCallback) {
@@ -436,8 +437,11 @@ const AllProductsPage = () => {
                 setTimeout(cb, 500);
               }
             };
-            schedule(() => {
-              if (document.visibilityState === 'visible') fetchProducts(true);
+            schedule(async () => {
+              if (document.visibilityState === 'visible' && !isFetchingRef.current) {
+                isFetchingRef.current = true;
+                try { await fetchProducts(true); } finally { isFetchingRef.current = false; }
+              }
             });
           }
         }
@@ -449,7 +453,7 @@ const AllProductsPage = () => {
     const handleWindowFocus = () => {
       try {
         // If we have a recorded hiddenAt and enough time passed, trigger fetch
-        if (hiddenAt && (Date.now() - hiddenAt) > THRESHOLD_MS) {
+        if (hiddenAt && (Date.now() - hiddenAt) > THRESHOLD_MS && !isFetchingRef.current) {
           const schedule = (cb: () => void) => {
             if ((window as any).requestIdleCallback) {
               (window as any).requestIdleCallback(cb, { timeout: 2000 });
@@ -457,7 +461,12 @@ const AllProductsPage = () => {
               setTimeout(cb, 500);
             }
           };
-          schedule(() => { if (document.visibilityState === 'visible') fetchProducts(true); });
+          schedule(async () => {
+            if (document.visibilityState === 'visible' && !isFetchingRef.current) {
+              isFetchingRef.current = true;
+              try { await fetchProducts(true); } finally { isFetchingRef.current = false; }
+            }
+          });
           hiddenAt = 0;
         }
       } catch (e) {}

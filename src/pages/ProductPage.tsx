@@ -108,7 +108,8 @@ const ProductPage = () => {
     window.scrollTo(0, 0);
 
     let hiddenAt = 0;
-    const THRESHOLD_MS = 5000;
+    const THRESHOLD_MS = 30_000;
+    const isFetchingRefLocal = { current: false };
 
     const handleVisibility = () => {
       try {
@@ -117,12 +118,17 @@ const ProductPage = () => {
           if (!hiddenAt) return;
           const elapsed = Date.now() - hiddenAt;
           hiddenAt = 0;
-          if (elapsed > THRESHOLD_MS) {
+          if (elapsed > THRESHOLD_MS && !isFetchingRefLocal.current) {
             const schedule = (cb: () => void) => {
               if ((window as any).requestIdleCallback) (window as any).requestIdleCallback(cb, { timeout: 2000 });
               else setTimeout(cb, 500);
             };
-            schedule(() => { if (document.visibilityState === 'visible') fetchProductData(true); });
+            schedule(async () => {
+              if (document.visibilityState === 'visible' && !isFetchingRefLocal.current) {
+                isFetchingRefLocal.current = true;
+                try { await fetchProductData(true); } finally { isFetchingRefLocal.current = false; }
+              }
+            });
           }
         }
       } catch (e) {}
@@ -130,12 +136,17 @@ const ProductPage = () => {
 
     const handleFocus = () => {
       try {
-        if (hiddenAt && (Date.now() - hiddenAt) > THRESHOLD_MS) {
+        if (hiddenAt && (Date.now() - hiddenAt) > THRESHOLD_MS && !isFetchingRefLocal.current) {
           const schedule = (cb: () => void) => {
             if ((window as any).requestIdleCallback) (window as any).requestIdleCallback(cb, { timeout: 2000 });
             else setTimeout(cb, 500);
           };
-          schedule(() => { if (document.visibilityState === 'visible') fetchProductData(true); });
+          schedule(async () => {
+            if (document.visibilityState === 'visible' && !isFetchingRefLocal.current) {
+              isFetchingRefLocal.current = true;
+              try { await fetchProductData(true); } finally { isFetchingRefLocal.current = false; }
+            }
+          });
           hiddenAt = 0;
         }
       } catch (e) {}

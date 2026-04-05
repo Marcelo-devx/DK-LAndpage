@@ -58,25 +58,6 @@ const AgeVerificationPopup = () => {
 
     checkVerification();
 
-    const onVisibilityChange = () => {
-      try {
-        if (document.visibilityState === 'hidden') {
-          // mark when user left the tab/app
-          sessionStorage.setItem('left_at', String(Date.now()));
-        } else if (document.visibilityState === 'visible') {
-          // when coming back, re-run verification logic - but don't immediately re-show popup if recently left
-          checkVerification();
-        }
-      } catch (e) {
-        // noop
-      }
-    };
-
-    document.addEventListener('visibilitychange', onVisibilityChange);
-
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    };
   }, []);
 
   const handleConfirm = () => {

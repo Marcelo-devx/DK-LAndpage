@@ -329,7 +329,8 @@ const CheckoutPage = () => {
     loadCheckout();
 
     let hiddenAt = 0;
-    const THRESHOLD_MS = 5000;
+    const THRESHOLD_MS = 30_000;
+    const isFetchingRefLocal = { current: false };
 
     const schedule = (cb: () => void) => {
       if ((window as any).requestIdleCallback) {
@@ -342,11 +343,15 @@ const CheckoutPage = () => {
     const refetch = async () => {
       // Não refazer fetch se o formulário de cartão do MP estiver aberto
       if (showMpFormRef.current) return;
+      if (isFetchingRefLocal.current) return;
+      isFetchingRefLocal.current = true;
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) await fetchUserData(session.user);
         await fetchCartItems();
-      } catch { /* ignore */ }
+      } catch { /* ignore */ } finally {
+        isFetchingRefLocal.current = false;
+      }
     };
 
     const handleVisibility = () => {
@@ -357,14 +362,14 @@ const CheckoutPage = () => {
           if (!hiddenAt) return;
           const elapsed = Date.now() - hiddenAt;
           hiddenAt = 0;
-          if (elapsed > THRESHOLD_MS) schedule(refetch);
+          if (elapsed > THRESHOLD_MS && !isFetchingRefLocal.current) schedule(refetch);
         }
       } catch { /* ignore */ }
     };
 
     const handleFocus = () => {
       try {
-        if (hiddenAt && (Date.now() - hiddenAt) > THRESHOLD_MS) {
+        if (hiddenAt && (Date.now() - hiddenAt) > THRESHOLD_MS && !isFetchingRefLocal.current) {
           hiddenAt = 0;
           schedule(refetch);
         }

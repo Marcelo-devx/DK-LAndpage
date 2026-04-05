@@ -199,7 +199,8 @@ const ConfirmacaoPedido = () => {
 
     // Background refresh quando o usuário volta para a aba
     let hiddenAt = 0;
-    const THRESHOLD_MS = 5000;
+    const THRESHOLD_MS = 30_000;
+    const isFetchingRefLocal = { current: false };
 
     const handleVisibility = () => {
       try {
@@ -209,8 +210,13 @@ const ConfirmacaoPedido = () => {
           if (!hiddenAt) return;
           const elapsed = Date.now() - hiddenAt;
           hiddenAt = 0;
-          if (elapsed > THRESHOLD_MS) {
-            setTimeout(() => { if (document.visibilityState === 'visible') fetchOrderDetails(); }, 300);
+          if (elapsed > THRESHOLD_MS && !isFetchingRefLocal.current) {
+            setTimeout(async () => {
+              if (document.visibilityState === 'visible' && !isFetchingRefLocal.current) {
+                isFetchingRefLocal.current = true;
+                try { await fetchOrderDetails(); } finally { isFetchingRefLocal.current = false; }
+              }
+            }, 300);
           }
         }
       } catch (e) {}
@@ -218,8 +224,13 @@ const ConfirmacaoPedido = () => {
 
     const handleFocus = () => {
       try {
-        if (hiddenAt && (Date.now() - hiddenAt) > THRESHOLD_MS) {
-          setTimeout(() => { if (document.visibilityState === 'visible') fetchOrderDetails(); }, 300);
+        if (hiddenAt && (Date.now() - hiddenAt) > THRESHOLD_MS && !isFetchingRefLocal.current) {
+          setTimeout(async () => {
+            if (document.visibilityState === 'visible' && !isFetchingRefLocal.current) {
+              isFetchingRefLocal.current = true;
+              try { await fetchOrderDetails(); } finally { isFetchingRefLocal.current = false; }
+            }
+          }, 300);
           hiddenAt = 0;
         }
       } catch (e) {}

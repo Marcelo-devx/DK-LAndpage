@@ -34,6 +34,8 @@ const AgeVerificationPopup = () => {
         const path = window.location.pathname;
         if (
           path.startsWith('/auth/') ||
+          path.startsWith('/login') ||
+          path.startsWith('/update-password') ||
           path.startsWith('/complete-profile') ||
           path.startsWith('/confirmacao-pedido') ||
           path.startsWith('/compras')

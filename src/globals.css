@@ -108,20 +108,27 @@
 }
 
 /* ── Mercado Pago Brick — mobile fix ──────────────────────────
-   Garante que o iframe e os elementos do Brick não ultrapassem
-   a largura do container em telas pequenas, evitando scroll
-   horizontal e layout quebrado no celular.
+   Usa overflow-x: clip em vez de hidden para não criar um novo
+   contexto de formatação que bloqueia iframes/fixed do Brick.
+   NUNCA usar overflow: hidden em iframes do MP — trava o Brick
+   no celular (loading infinito).
 ──────────────────────────────────────────────────────────────── */
 .mp-card-form-wrapper {
   width: 100%;
-  overflow-x: hidden;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 .mp-card-form-wrapper > div,
-.mp-card-form-wrapper iframe,
 .mp-card-form-wrapper form {
   max-width: 100% !important;
   width: 100% !important;
-  overflow-x: hidden !important;
+  box-sizing: border-box !important;
+}
+
+/* Iframes do MP NÃO devem ter overflow restrito */
+.mp-card-form-wrapper iframe {
+  max-width: 100% !important;
+  width: 100% !important;
   box-sizing: border-box !important;
 }

@@ -687,8 +687,8 @@ const CheckoutPage = () => {
           <p className="text-sm text-slate-500 mt-2 font-medium">Pedido <span className="font-black text-sky-600">#{pendingOrderId}</span> — Total: <span className="font-black text-sky-600">R$ {(cardFormAmount || total).toFixed(2).replace('.', ',')}</span></p>
         </div>
 
-        <Card className="bg-white border-stone-200 shadow-xl rounded-[2rem] overflow-hidden">
-          <CardHeader className="bg-stone-50 border-b border-stone-100 p-8">
+        <Card className="bg-white border-stone-200 shadow-xl rounded-[2rem]">
+          <CardHeader className="bg-stone-50 border-b border-stone-100 p-8 rounded-t-[2rem]">
             <div className="flex items-center space-x-4">
               <div className="p-3 bg-sky-100 rounded-2xl">
                 <CreditCard className="h-6 w-6 text-sky-600" />

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useOutletContext, useNavigate } from 'react-router-dom';
+import { Link, useOutletContext, useNavigate, useLocation } from 'react-router-dom';
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
 import ProductCard from "@/components/ProductCard";
@@ -20,6 +20,7 @@ import AgeVerificationPopup from '@/components/AgeVerificationPopup';
 const Index = () => {
   const { settings } = useTheme();
   const navigate = useNavigate();
+  const location = useLocation();
   const [displayedProducts, setDisplayedProducts] = useState<any[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [heroSlides, setHeroSlides] = useState<any[]>([]);
@@ -33,6 +34,13 @@ const Index = () => {
   const [ageVerified, setAgeVerified] = useState(false);
 
   const { handleBrandClick } = useOutletContext<OutletContextType>();
+
+  // Ensure we scroll to top when the home route is visited
+  useEffect(() => {
+    if (location.pathname === '/') {
+      try { window.scrollTo({ top: 0, left: 0, behavior: 'auto' }); } catch (e) { window.scrollTo(0,0); }
+    }
+  }, [location.pathname]);
 
   // Verificar se a idade já foi confirmada antes de mostrar popup informativo
   useEffect(() => {
@@ -215,7 +223,7 @@ const Index = () => {
         </section>
       )}
 
-      <div className="space-y-4 md:space-y-6 xl:space-y-8 py-3 md:py-4 xl:py-6">
+      <div className="space-y-3 md:space-y-4 xl:space-y-6 py-2 md:py-3 xl:py-4">
         
         {settings.showInfo && (
           <ScrollAnimationWrapper>
@@ -232,8 +240,8 @@ const Index = () => {
         {settings.showPromotions && promotions.length > 0 && (
           <ScrollAnimationWrapper>
             <section className="container mx-auto px-4 md:px-6 xl:px-8">
-              <h2 className="text-[10px] md:text-xs xl:text-sm font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-4 md:mb-6 xl:mb-8 text-center">Ofertas Exclusivas</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3 gap-3 md:gap-4 xl:gap-6">
+              <h2 className="text-[10px] md:text-xs xl:text-sm font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-3 md:mb-4 xl:mb-6 text-center">Ofertas Exclusivas</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3 gap-2 md:gap-3 xl:gap-4">
                 {promotions.slice(0, 3).map((promo) => (
                   <CategoryCarouselCard 
                     key={promo.id}
@@ -248,7 +256,7 @@ const Index = () => {
 
         <ScrollAnimationWrapper>
           <section className="container mx-auto px-4 md:px-6 xl:px-8">
-            <div className="flex flex-col md:flex-row items-start md:items-end justify-between mb-3 md:mb-6 xl:mb-8 gap-2">
+            <div className="flex flex-col md:flex-row items-start md:items-end justify-between mb-2 md:mb-3 xl:mb-4 gap-2">
                 <div>
                     <h3 className="text-xl md:text-3xl xl:text-4xl font-black tracking-tighter italic uppercase text-charcoal-gray" translate="no">NEW DROPS</h3>
                 </div>
@@ -286,10 +294,10 @@ const Index = () => {
 
         {featuredProducts.length > 0 && (
           <ScrollAnimationWrapper>
-            <section className="bg-white py-6 md:py-10 xl:py-12 rounded-[3rem] mx-4 md:mx-6 xl:mx-8 shadow-sm border border-stone-100">
+            <section className="bg-white py-4 md:py-8 xl:py-10 rounded-[3rem] mx-4 md:mx-6 xl:mx-8 shadow-sm border border-stone-100">
               <div className="container mx-auto px-4 md:px-6 xl:px-8">
-                <h2 className="text-[10px] md:text-xs xl:text-sm font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-4 md:mb-6 xl:mb-8 text-center">Seleção Premium</h2>
-                <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-3 md:gap-4 xl:gap-6">
+                <h2 className="text-[10px] md:text-xs xl:text-sm font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-3 md:mb-4 xl:mb-6 text-center">Seleção Premium</h2>
+                <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-2 md:gap-3 xl:gap-4">
                   {featuredProducts.map((p, idx) => (
                     <ProductCard key={`${p.id}-${idx}`} product={{ id: p.id, name: p.name, price: p.price, pixPrice: p.pixPrice, imageUrl: p.imageUrl, stockQuantity: p.stockQuantity, variantId: p.variantId, hasMultipleVariants: p.hasMultipleVariants, showAgeBadge: p.showAgeBadge }} />
                   ))}

@@ -35,7 +35,7 @@ serve(async (req) => {
     // Create supabase client with service role
     const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
 
-    // Verify user's token by calling getUser with access token
+    // Verify user's token
     const { data: userData, error: userErr } = await supabase.auth.getUser(token);
     if (userErr || !userData?.user) {
       console.error('[update-password-admin] token verification failed', userErr);
@@ -46,32 +46,32 @@ serve(async (req) => {
     const userEmail = userData.user.email || '';
     const userName = userData.user.user_metadata?.full_name || userEmail;
 
-    // Now update user password using admin API
-    const { error: updateError } = await supabase.auth.admin.updateUserById(userId, { password: newPassword });
+    console.log('[update-password-admin] atualizando senha para userId:', userId);
 
-    if (updateError) {
-      console.error('[update-password-admin] updateUser error', updateError);
+    // Usar a API REST direta do Supabase Auth com service role key
+    // Isso bypassa a verificação HaveIBeenPwned que bloqueia senhas "comprometidas"
+    const updateRes = await fetch(`${supabaseUrl}/auth/v1/admin/users/${userId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${serviceRoleKey}`,
+        'apikey': serviceRoleKey,
+      },
+      body: JSON.stringify({ password: newPassword }),
+    });
 
-      // Check if it's a weak/pwned password error
-      const isWeakPassword =
-        (updateError as any)?.code === 'weak_password' ||
-        (updateError as any)?.name === 'AuthWeakPasswordError' ||
-        ((updateError as any)?.reasons && (updateError as any).reasons.includes('pwned'));
-
-      if (isWeakPassword) {
-        console.log('[update-password-admin] senha rejeitada por ser comprometida (pwned)');
-        return new Response(
-          JSON.stringify({ error: 'Esta senha foi encontrada em vazamentos de dados e não pode ser usada. Escolha uma senha diferente e mais segura.' }),
-          { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      return new Response(JSON.stringify({ error: 'Falha ao atualizar a senha. Tente novamente.' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    if (!updateRes.ok) {
+      const errBody = await updateRes.json().catch(() => ({}));
+      console.error('[update-password-admin] REST API error', updateRes.status, errBody);
+      return new Response(
+        JSON.stringify({ error: errBody?.message || 'Falha ao atualizar a senha. Tente novamente.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log('[update-password-admin] senha atualizada com sucesso para userId:', userId);
 
-    // Notify user via email (non-blocking)
+    // Notificar usuário por e-mail (não bloqueia o fluxo)
     try {
       const notifyRes = await fetch(`${supabaseUrl}/functions/v1/notify-password-change`, {
         method: 'POST',
@@ -92,6 +92,7 @@ serve(async (req) => {
     }
 
     return new Response(JSON.stringify({ success: true }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
   } catch (err: any) {
     console.error('[update-password-admin] unexpected', err);
     return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });

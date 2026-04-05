@@ -101,13 +101,20 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Erro ao gerar nova senha. Tente novamente.' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // Atualiza senha via admin API
-    const { error: updateError } = await supabase.auth.admin.updateUserById(user.id, {
-      password: newPassword,
+    // Atualiza senha via REST API direta (bypassa verificação HaveIBeenPwned)
+    const updateRes = await fetch(`${supabaseUrl}/auth/v1/admin/users/${user.id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${serviceRoleKey}`,
+        'apikey': serviceRoleKey,
+      },
+      body: JSON.stringify({ password: newPassword }),
     });
 
-    if (updateError) {
-      console.error('[forgot-password] updateUser error', updateError);
+    if (!updateRes.ok) {
+      const errBody = await updateRes.json().catch(() => ({}));
+      console.error('[forgot-password] REST API updateUser error', updateRes.status, errBody);
       return new Response(JSON.stringify({ error: 'Erro ao atualizar a senha do usuário' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 

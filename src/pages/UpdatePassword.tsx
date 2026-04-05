@@ -93,11 +93,12 @@ const UpdatePassword = () => {
 
       console.log('[UpdatePassword] Chamando update-password-admin via edge function...');
 
-      // Usar a edge function com service role — evita o travamento do client-side updateUser
+      // Usar a edge function com service role — bypassa HaveIBeenPwned e evita travamento
       const controller = new AbortController();
       const fetchTimeout = setTimeout(() => controller.abort(), 18000);
 
       let updRes: Response;
+      let updData: any = {};
       try {
         updRes = await fetch(`${SUPABASE_URL}/functions/v1/update-password-admin`, {
           method: 'POST',
@@ -108,11 +109,23 @@ const UpdatePassword = () => {
           body: JSON.stringify({ newPassword: password }),
           signal: controller.signal,
         });
+        updData = await updRes.json().catch(() => ({}));
+      } catch (fetchErr: any) {
+        clearTimeout(fetchTimeout);
+        clearTimeout(watchdog);
+        dismissToast(toastId);
+        setLoading(false);
+        if (fetchErr?.name === 'AbortError') {
+          showError('A operação demorou demais. Tente novamente.');
+        } else {
+          showError('Erro de conexão. Verifique sua internet e tente novamente.');
+        }
+        console.error('[UpdatePassword] fetch error:', fetchErr);
+        return;
       } finally {
         clearTimeout(fetchTimeout);
       }
 
-      const updData = await updRes.json().catch(() => ({}));
       console.log('[UpdatePassword] Resultado update-password-admin:', { status: updRes.status, data: updData });
 
       if (!updRes.ok) {

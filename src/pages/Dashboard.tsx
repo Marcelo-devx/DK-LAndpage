@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { showError } from '@/utils/toast';
+import { useVisibilityRefresh } from '@/hooks/use-visibility-refresh';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -72,57 +73,7 @@ const Dashboard = () => {
     fetchDashboardData();
   }, [fetchDashboardData, refreshTrigger]);
 
-  // Background refresh the dashboard when returning to the app to update counts.
-  useEffect(() => {
-    let hiddenAt = 0;
-    const THRESHOLD_MS = 30_000;
-    const isFetchingRefLocal = { current: false };
-
-    const handleVisibility = () => {
-      try {
-        if (document.hidden) hiddenAt = Date.now();
-        else {
-          if (!hiddenAt) return;
-          const elapsed = Date.now() - hiddenAt;
-          hiddenAt = 0;
-          if (elapsed > THRESHOLD_MS && !isFetchingRefLocal.current) {
-            const schedule = (cb: () => void) => {
-              if ((window as any).requestIdleCallback) (window as any).requestIdleCallback(cb, { timeout: 2000 });
-              else setTimeout(cb, 500);
-            };
-            schedule(async () => {
-              if (document.visibilityState === 'visible' && !isFetchingRefLocal.current) {
-                isFetchingRefLocal.current = true;
-                try { await fetchDashboardData(); } finally { isFetchingRefLocal.current = false; }
-              }
-            });
-          }
-        }
-      } catch (e) {}
-    };
-
-    const handleFocus = () => {
-      try {
-        if (hiddenAt && (Date.now() - hiddenAt) > THRESHOLD_MS && !isFetchingRefLocal.current) {
-          const schedule = (cb: () => void) => {
-            if ((window as any).requestIdleCallback) (window as any).requestIdleCallback(cb, { timeout: 2000 });
-            else setTimeout(cb, 500);
-          };
-          schedule(async () => {
-            if (document.visibilityState === 'visible' && !isFetchingRefLocal.current) {
-              isFetchingRefLocal.current = true;
-              try { await fetchDashboardData(); } finally { isFetchingRefLocal.current = false; }
-            }
-          });
-          hiddenAt = 0;
-        }
-      } catch (e) {}
-    };
-
-    document.addEventListener('visibilitychange', handleVisibility);
-    window.addEventListener('focus', handleFocus);
-    return () => { document.removeEventListener('visibilitychange', handleVisibility); window.removeEventListener('focus', handleFocus); };
-  }, [fetchDashboardData]);
+  useVisibilityRefresh(fetchDashboardData);
 
   const handleLogout = async () => {
     try {

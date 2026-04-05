@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -10,6 +10,7 @@ import { addToCart } from '@/utils/cart';
 import ScrollAnimationWrapper from '@/components/ScrollAnimationWrapper';
 import PromotionCard from '@/components/PromotionCard';
 import ProductImage from '@/components/ProductImage';
+import { useVisibilityRefresh } from '@/hooks/use-visibility-refresh';
 
 interface Promotion {
   id: number;
@@ -36,94 +37,47 @@ const PromotionPage = () => {
   const [relatedPromotions, setRelatedPromotions] = useState<RelatedPromotion[]>([]);
   const [loadingRelated, setLoadingRelated] = useState(true);
 
+  const fetchPromotionData = useCallback(async (background = false) => {
+    if (!id) return;
+    
+    if (!background) { setLoading(true); setLoadingRelated(true); setPromotion(null); setRelatedPromotions([]); }
+    
+    const { data, error } = await supabase
+      .from('promotions')
+      .select('id, name, description, price, image_url, stock_quantity')
+      .eq('id', id)
+      .single();
+
+    if (error) {
+      console.error("Error fetching promotion:", error);
+      if (!background) { setPromotion(null); setLoading(false); setLoadingRelated(false); }
+      return;
+    }
+    
+    setPromotion(data);
+    if (!background) setLoading(false);
+
+    const { data: relatedData, error: relatedError } = await supabase
+      .from('promotions')
+      .select('id, name, price, image_url, stock_quantity')
+      .eq('is_active', true)
+      .neq('id', id)
+      .limit(3);
+
+    if (relatedError) {
+      console.error("Error fetching related promotions:", relatedError);
+    } else if (relatedData) {
+      if (!background) setRelatedPromotions(relatedData);
+    }
+    if (!background) setLoadingRelated(false);
+  }, [id]);
+
   useEffect(() => {
-    const fetchPromotionData = async (background = false) => {
-      if (!id) return;
-      
-      if (!background) { setLoading(true); setLoadingRelated(true); setPromotion(null); setRelatedPromotions([]); }
-      
-      const { data, error } = await supabase
-        .from('promotions')
-        .select('id, name, description, price, image_url, stock_quantity')
-        .eq('id', id)
-        .single();
-
-      if (error) {
-        console.error("Error fetching promotion:", error);
-        if (!background) { setPromotion(null); setLoading(false); setLoadingRelated(false); }
-        return;
-      }
-      
-      setPromotion(data);
-      if (!background) setLoading(false);
-
-      const { data: relatedData, error: relatedError } = await supabase
-        .from('promotions')
-        .select('id, name, price, image_url, stock_quantity')
-        .eq('is_active', true)
-        .neq('id', id)
-        .limit(3);
-
-      if (relatedError) {
-        console.error("Error fetching related promotions:", relatedError);
-      } else if (relatedData) {
-        if (!background) setRelatedPromotions(relatedData);
-      }
-      if (!background) setLoadingRelated(false);
-    };
-
     fetchPromotionData();
     window.scrollTo(0, 0);
+  }, [fetchPromotionData]);
 
-    let hiddenAt = 0;
-    const THRESHOLD_MS = 30_000;
-    const isFetchingRefLocal = { current: false };
-
-    const handleVisibility = () => {
-      try {
-        if (document.hidden) hiddenAt = Date.now();
-        else {
-          if (!hiddenAt) return;
-          const elapsed = Date.now() - hiddenAt;
-          hiddenAt = 0;
-          if (elapsed > THRESHOLD_MS && !isFetchingRefLocal.current) {
-            const schedule = (cb: () => void) => {
-              if ((window as any).requestIdleCallback) (window as any).requestIdleCallback(cb, { timeout: 2000 });
-              else setTimeout(cb, 500);
-            };
-            schedule(async () => {
-              if (document.visibilityState === 'visible' && !isFetchingRefLocal.current) {
-                isFetchingRefLocal.current = true;
-                try { await fetchPromotionData(true); } finally { isFetchingRefLocal.current = false; }
-              }
-            });
-          }
-        }
-      } catch (e) {}
-    };
-
-    const handleFocus = () => {
-      try {
-        if (hiddenAt && (Date.now() - hiddenAt) > THRESHOLD_MS && !isFetchingRefLocal.current) {
-          const schedule = (cb: () => void) => {
-            if ((window as any).requestIdleCallback) (window as any).requestIdleCallback(cb, { timeout: 2000 });
-            else setTimeout(cb, 500);
-          };
-          schedule(async () => {
-            if (document.visibilityState === 'visible' && !isFetchingRefLocal.current) {
-              isFetchingRefLocal.current = true;
-              try { await fetchPromotionData(true); } finally { isFetchingRefLocal.current = false; }
-            }
-          });
-          hiddenAt = 0;
-        }
-      } catch (e) {}
-    };
-
-    document.addEventListener('visibilitychange', handleVisibility);
-    window.addEventListener('focus', handleFocus);
-    return () => { document.removeEventListener('visibilitychange', handleVisibility); window.removeEventListener('focus', handleFocus); };
-  }, [id]);
+  useVisibilityRefresh(fetchPromotionData);
 
   const handleIncrease = () => setQuantity(prev => prev + 1);
   const handleDecrease = () => setQuantity(prev => Math.max(1, prev - 1));

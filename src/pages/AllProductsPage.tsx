@@ -6,6 +6,7 @@ import ProductFilters from '@/components/ProductFilters';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useSearchParams } from 'react-router-dom';
 import { PackageSearch, X } from 'lucide-react';
+import { useVisibilityRefresh } from '@/hooks/use-visibility-refresh';
 
 interface DisplayProduct {
   id: number;
@@ -411,74 +412,7 @@ const AllProductsPage = () => {
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
-  useEffect(() => {
-    // Avoid refetching immediately on every small tab/app switch.
-    // Record when the document becomes hidden and only refetch if the user was away
-    // longer than THRESHOLD_MS. Also respond to window focus for desktop app switches.
-    let hiddenAt = 0;
-    const THRESHOLD_MS = 30_000; // 30 seconds
-    const isFetchingRef = { current: false };
-
-    const handleVisibility = () => {
-      try {
-        if (document.hidden) {
-          hiddenAt = Date.now();
-        } else {
-          // Came back to the page
-          if (!hiddenAt) return; // wasn't previously hidden in this session
-          const elapsed = Date.now() - hiddenAt;
-          hiddenAt = 0;
-          if (elapsed > THRESHOLD_MS && !isFetchingRef.current) {
-            // schedule a background fetch during idle time to avoid blocking UI
-            const schedule = (cb: () => void) => {
-              if ((window as any).requestIdleCallback) {
-                (window as any).requestIdleCallback(cb, { timeout: 2000 });
-              } else {
-                setTimeout(cb, 500);
-              }
-            };
-            schedule(async () => {
-              if (document.visibilityState === 'visible' && !isFetchingRef.current) {
-                isFetchingRef.current = true;
-                try { await fetchProducts(true); } finally { isFetchingRef.current = false; }
-              }
-            });
-          }
-        }
-      } catch (e) {
-        // noop
-      }
-    };
-
-    const handleWindowFocus = () => {
-      try {
-        // If we have a recorded hiddenAt and enough time passed, trigger fetch
-        if (hiddenAt && (Date.now() - hiddenAt) > THRESHOLD_MS && !isFetchingRef.current) {
-          const schedule = (cb: () => void) => {
-            if ((window as any).requestIdleCallback) {
-              (window as any).requestIdleCallback(cb, { timeout: 2000 });
-            } else {
-              setTimeout(cb, 500);
-            }
-          };
-          schedule(async () => {
-            if (document.visibilityState === 'visible' && !isFetchingRef.current) {
-              isFetchingRef.current = true;
-              try { await fetchProducts(true); } finally { isFetchingRef.current = false; }
-            }
-          });
-          hiddenAt = 0;
-        }
-      } catch (e) {}
-    };
-
-    document.addEventListener('visibilitychange', handleVisibility);
-    window.addEventListener('focus', handleWindowFocus);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibility);
-      window.removeEventListener('focus', handleWindowFocus);
-    };
-  }, [fetchProducts]);
+  useVisibilityRefresh(useCallback(() => fetchProducts(true), [fetchProducts]));
 
   const handleClearFilters = () => {
     setSearchTerm('');

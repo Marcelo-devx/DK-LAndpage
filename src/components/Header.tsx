@@ -214,8 +214,13 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
 
     fetchInitialData();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, currentSession) => {
-      setSession(currentSession);
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, currentSession) => {
+      // TOKEN_REFRESHED happens every time the user returns from another app on mobile.
+      // Updating session state on that event causes a Header re-render that breaks the page.
+      // Only update session on meaningful auth events.
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED' || event === 'INITIAL_SESSION') {
+        setSession(currentSession);
+      }
     });
 
     window.addEventListener('cartUpdated', updateCartCount);

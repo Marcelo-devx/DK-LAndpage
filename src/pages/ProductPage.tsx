@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { supabase } from '@/integrations/supabase/client';
@@ -10,6 +10,7 @@ import { showError } from '@/utils/toast';
 import { Card, CardContent } from "@/components/ui/card";
 import ProductImage from '@/components/ProductImage';
 import DOMPurify from 'dompurify';
+import { useVisibilityRefresh } from '@/hooks/use-visibility-refresh';
 
 interface Product {
   id: number;
@@ -54,8 +55,7 @@ const ProductPage = () => {
   const [isAdding, setIsAdding] = useState(false);
   const [quantity, setQuantity] = useState(1);
 
-  useEffect(() => {
-    const fetchProductData = async (background = false) => {
+  const fetchProductData = useCallback(async (background = false) => {
       if (!id) return;
       if (!background) setLoading(true);
 
@@ -85,7 +85,6 @@ const ProductPage = () => {
 
         const mappedVariants = variantsData.map((v: any) => ({ 
             ...v,
-            // Treat empty strings as null so getVariantLabel works correctly
             ohms: v.ohms || null,
             color: v.color || null,
             size: v.size || null,
@@ -102,63 +101,14 @@ const ProductPage = () => {
       }
 
       if (!background) setLoading(false);
-    };
+  }, [id]);
 
+  useEffect(() => {
     fetchProductData();
     window.scrollTo(0, 0);
+  }, [fetchProductData]);
 
-    let hiddenAt = 0;
-    const THRESHOLD_MS = 30_000;
-    const isFetchingRefLocal = { current: false };
-
-    const handleVisibility = () => {
-      try {
-        if (document.hidden) hiddenAt = Date.now();
-        else {
-          if (!hiddenAt) return;
-          const elapsed = Date.now() - hiddenAt;
-          hiddenAt = 0;
-          if (elapsed > THRESHOLD_MS && !isFetchingRefLocal.current) {
-            const schedule = (cb: () => void) => {
-              if ((window as any).requestIdleCallback) (window as any).requestIdleCallback(cb, { timeout: 2000 });
-              else setTimeout(cb, 500);
-            };
-            schedule(async () => {
-              if (document.visibilityState === 'visible' && !isFetchingRefLocal.current) {
-                isFetchingRefLocal.current = true;
-                try { await fetchProductData(true); } finally { isFetchingRefLocal.current = false; }
-              }
-            });
-          }
-        }
-      } catch (e) {}
-    };
-
-    const handleFocus = () => {
-      try {
-        if (hiddenAt && (Date.now() - hiddenAt) > THRESHOLD_MS && !isFetchingRefLocal.current) {
-          const schedule = (cb: () => void) => {
-            if ((window as any).requestIdleCallback) (window as any).requestIdleCallback(cb, { timeout: 2000 });
-            else setTimeout(cb, 500);
-          };
-          schedule(async () => {
-            if (document.visibilityState === 'visible' && !isFetchingRefLocal.current) {
-              isFetchingRefLocal.current = true;
-              try { await fetchProductData(true); } finally { isFetchingRefLocal.current = false; }
-            }
-          });
-          hiddenAt = 0;
-        }
-      } catch (e) {}
-    };
-
-    document.addEventListener('visibilitychange', handleVisibility);
-    window.addEventListener('focus', handleFocus);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibility);
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, [id]);
+  useVisibilityRefresh(fetchProductData);
 
   useEffect(() => {
     if (variants.length > 0) {

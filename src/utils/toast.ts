@@ -1,11 +1,11 @@
 import { toast } from "sonner";
 
 export const showSuccess = (message: string) => {
-  toast.success(message);
+  toast.success(message, { duration: 1500 });
 };
 
 export const showError = (message: string) => {
-  toast.error(message);
+  toast.error(message, { duration: 3000 });
 };
 
 export const showLoading = (message: string) => {

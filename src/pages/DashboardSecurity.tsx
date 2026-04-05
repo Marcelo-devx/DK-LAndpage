@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { getSessionWithRetry } from '@/lib/auth';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -50,7 +51,7 @@ const DashboardSecurity = () => {
     setLoading(true);
     const toastId = showLoading('Gerando nova senha...');
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = await getSessionWithRetry();
       if (!session?.user?.email) {
         dismissToast(toastId);
         showError('Sessão expirada. Por favor, faça login novamente.');
@@ -115,7 +116,7 @@ const DashboardSecurity = () => {
     }, 20000);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = await getSessionWithRetry();
       if (!session?.user?.email) {
         dismissToast(toastId);
         showError('Sessão expirada. Por favor, faça login novamente.');

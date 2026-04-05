@@ -53,7 +53,10 @@ export function useVisibilityRefresh(
           const elapsed = Date.now() - hiddenAtRef.current;
           hiddenAtRef.current = 0;
           if (elapsed > thresholdMs && !isFetchingRef.current) {
-            runRefresh();
+            // Aguarda 800ms para o Supabase renovar o token antes de buscar dados.
+            // No mobile, ao voltar de outra aba/app, o token refresh é assíncrono
+            // e getSession() pode retornar null durante esse intervalo.
+            setTimeout(() => runRefresh(), 800);
           }
         }
       } catch {

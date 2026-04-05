@@ -3,6 +3,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
+import { getSessionWithRetry } from '@/lib/auth';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -85,7 +86,7 @@ const ProfilePage = () => {
 
   useEffect(() => {
     const fetchUserAndProfile = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = await getSessionWithRetry();
       if (!session) { navigate('/login'); return; }
       setUser(session.user);
 

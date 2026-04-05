@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { getSessionWithRetry } from '@/lib/auth';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -48,7 +49,7 @@ const ReferralsPage = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const session = await getSessionWithRetry();
         if (!session) { navigate('/login'); return; }
 
         const { data: siteUrlSetting } = await supabase

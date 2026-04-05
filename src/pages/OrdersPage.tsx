@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { getSessionWithRetry } from '@/lib/auth';
 import { useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, Package, ChevronRight, CreditCard, MessageSquare, Clock, CheckCircle2, Truck, AlertCircle, Calendar, Heart } from 'lucide-react';
@@ -70,7 +71,7 @@ const OrdersPage = () => {
     }, 3000);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = await getSessionWithRetry();
       if (!session) {
         clearTimeout(timeoutId);
         navigate('/login');

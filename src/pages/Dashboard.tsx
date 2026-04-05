@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { getSessionWithRetry } from '@/lib/auth';
 import { useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,9 +38,7 @@ const Dashboard = () => {
     }, 3000);
 
     try {
-        const { data: { session }, error: authError } = await supabase.auth.getSession();
-        
-        if (authError) throw authError;
+        const session = await getSessionWithRetry();
         
         if (!session) {
           clearTimeout(timeoutId);

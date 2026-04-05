@@ -99,69 +99,59 @@ const CompleteProfilePage = () => {
   }, [searchParams, navigate, setValue]);
 
   useEffect(() => {
-    // Aguarda o Supabase restaurar a sessão do localStorage após reload
-    // getSession() pode retornar null antes da sessão ser restaurada
-    let resolved = false;
+    let cancelled = false;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // Só processa INITIAL_SESSION ou SIGNED_IN — ignora eventos subsequentes
-      if (resolved) return;
-      if (event !== 'INITIAL_SESSION' && event !== 'SIGNED_IN') return;
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
 
-      resolved = true;
+        if (cancelled) return;
 
-      if (!session) {
-        // Sem sessão e sem token na URL → vai para login
-        const hasToken = searchParams.get('token');
-        if (!hasToken) {
-          setLoading(false);
+        if (!session) {
+          const hasToken = searchParams.get('token');
+          if (!hasToken) setLoading(false);
+          return;
         }
-        return;
-      }
 
-      setUser(session.user);
+        setUser(session.user);
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', session.user.id)
-        .single();
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
 
-      const isProfileComplete = profile &&
-        profile.first_name &&
-        profile.last_name &&
-        profile.date_of_birth &&
-        profile.phone &&
-        profile.cpf_cnpj &&
-        profile.gender &&
-        profile.cep &&
-        profile.street &&
-        profile.number &&
-        profile.neighborhood &&
-        profile.city &&
-        profile.state;
+        if (cancelled) return;
 
-      if (isProfileComplete) {
-        navigate('/');
-        return;
-      }
+        const isProfileComplete = profile &&
+          profile.first_name &&
+          profile.last_name &&
+          profile.date_of_birth &&
+          profile.phone &&
+          profile.cpf_cnpj &&
+          profile.gender &&
+          profile.cep &&
+          profile.street &&
+          profile.number &&
+          profile.neighborhood &&
+          profile.city &&
+          profile.state;
 
-      setLoading(false);
-    });
+        if (isProfileComplete) {
+          navigate('/', { replace: true });
+          return;
+        }
 
-    // Timeout de segurança: se o evento demorar mais de 5s, libera a tela
-    const safetyTimeout = setTimeout(() => {
-      if (!resolved) {
-        resolved = true;
-        console.warn('[CompleteProfilePage] onAuthStateChange timeout — liberando tela');
         setLoading(false);
+      } catch (err) {
+        console.error('[CompleteProfilePage] checkSession error:', err);
+        if (!cancelled) setLoading(false);
       }
-    }, 5000);
-
-    return () => {
-      subscription.unsubscribe();
-      clearTimeout(safetyTimeout);
     };
+
+    checkSession();
+
+    return () => { cancelled = true; };
   }, [navigate, searchParams]);
 
   // watch required fields to determine whether to enable submit and to show '*' markers

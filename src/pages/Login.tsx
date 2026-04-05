@@ -157,50 +157,60 @@ const Login = () => {
   const [forgotError, setForgotError] = useState<{ message: string; hint?: string } | null>(null);
 
   useEffect(() => {
-    const listener = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        const storedRefCode = sessionStorage.getItem('referral_code');
-        if (storedRefCode) {
-          try {
-            await supabase.rpc('link_referral', { referral_code_input: storedRefCode });
-            sessionStorage.removeItem('referral_code');
-          } catch (error) {}
-        }
+    // Guarda se já processamos um evento para não reagir duas vezes
+    let handled = false;
+
+    const redirectAfterLogin = async (session: any) => {
+      if (handled) return;
+      handled = true;
+
+      const storedRefCode = sessionStorage.getItem('referral_code');
+      if (storedRefCode) {
         try {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('first_name, last_name, phone, cpf_cnpj, gender, date_of_birth, cep, street, number, neighborhood, city, state, must_change_password')
-            .eq('id', session.user.id)
-            .single();
+          await supabase.rpc('link_referral', { referral_code_input: storedRefCode });
+          sessionStorage.removeItem('referral_code');
+        } catch (error) {}
+      }
 
-          // Prioridade 1: Usuário precisa trocar a senha temporária
-          if (profile?.must_change_password) {
-            navigate('/update-password', { replace: true, state: { mandatory: true } });
-            return;
-          }
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('first_name, last_name, phone, cpf_cnpj, gender, date_of_birth, cep, street, number, neighborhood, city, state, must_change_password')
+          .eq('id', session.user.id)
+          .single();
 
-          const isProfileComplete = profile &&
-            profile.first_name && profile.last_name && profile.phone &&
-            profile.cpf_cnpj && profile.gender && profile.date_of_birth &&
-            profile.cep && profile.street && profile.number &&
-            profile.neighborhood && profile.city && profile.state;
+        // Prioridade 1: Usuário precisa trocar a senha temporária
+        if (profile?.must_change_password) {
+          navigate('/update-password', { replace: true, state: { mandatory: true } });
+          return;
+        }
 
-          if (!isProfileComplete && window.location.pathname !== '/complete-profile') {
-            navigate('/complete-profile', { replace: true });
-          } else {
-            navigate(from, { replace: true });
-          }
-        } catch (err) {
+        const isProfileComplete = profile &&
+          profile.first_name && profile.last_name && profile.phone &&
+          profile.cpf_cnpj && profile.gender && profile.date_of_birth &&
+          profile.cep && profile.street && profile.number &&
+          profile.neighborhood && profile.city && profile.state;
+
+        if (!isProfileComplete) {
+          navigate('/complete-profile', { replace: true });
+        } else {
           navigate(from, { replace: true });
         }
+      } catch (err) {
+        navigate(from, { replace: true });
+      }
+    };
+
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      // Só age em SIGNED_IN — ignora INITIAL_SESSION para não redirecionar usuários
+      // que já estavam logados e voltaram para a página de login
+      if (event === 'SIGNED_IN' && session) {
+        redirectAfterLogin(session);
       }
     });
 
-    const subscription = (listener as any)?.data?.subscription ?? (listener as any)?.subscription ?? null;
     return () => {
-      try {
-        if (subscription && typeof subscription.unsubscribe === 'function') subscription.unsubscribe();
-      } catch (e) {}
+      try { data.subscription.unsubscribe(); } catch (e) {}
     };
   }, [navigate, from]);
 

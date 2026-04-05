@@ -150,13 +150,12 @@ const UpdatePassword = () => {
       clearTimeout(watchdog);
       dismissToast(toastId);
       setLoading(false);
-      showSuccess('Senha criada com sucesso! Faça login para continuar.');
+      showSuccess('Senha criada com sucesso! Faça login com sua nova senha.');
 
-      // Desloga e manda para o login — o Login detecta perfil incompleto e redireciona corretamente
-      await supabase.auth.signOut();
+      // Hard reload para /login — limpa todos os listeners e estado sem precisar de signOut
       setTimeout(() => {
         window.location.href = '/login';
-      }, 1200);
+      }, 1500);
 
     } catch (err: any) {
       clearTimeout(watchdog);

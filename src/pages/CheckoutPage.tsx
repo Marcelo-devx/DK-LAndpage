@@ -498,7 +498,90 @@ const CheckoutPage = () => {
   };
 
   // ============================================================
-  // CARTÃO — Passo 1: criar pedido e mostrar form do MP
+  // CARTÃO MOBILE — Checkout Pro (redirect, sem iframe)
+  // Evita os problemas do Brick no Safari/iOS com iframes cross-origin
+  // ============================================================
+  const handleMobileCardPayment = async (data: CheckoutFormData) => {
+    if (!isAddressComplete) { showError("Preencha todos os dados de entrega."); return; }
+    setIsSubmitting(true);
+    const toastId = showLoading("Preparando pagamento...");
+
+    try {
+      // 1. Criar o pedido normalmente
+      let orderId: number;
+
+      if (user) {
+        const bStrings = [...tierBenefits.filter(isPassiveBenefit), ...selectedBenefits];
+        const { data: orderData, error: orderError } = await supabase.rpc('create_pending_order_from_local_cart', {
+          shipping_cost_input: shippingCost,
+          shipping_address_input: data,
+          cart_items_input: getLocalCart(),
+          user_coupon_id_input: selectedCoupon?.user_coupon_id,
+          benefits_input: bStrings.length ? `Nível ${tierName}: ${bStrings.join(', ')}` : null,
+          payment_method_input: 'Cartão de Crédito',
+          donation_amount_input: donationAmount,
+        });
+        if (orderError) throw new Error(orderError.message || "Erro ao criar pedido.");
+        const raw: any = (orderData as any)?.new_order_id ?? (orderData as any)?.order_id ?? (orderData as any)?.id ?? orderData;
+        orderId = typeof raw === 'string' ? Number(raw) : raw;
+      } else {
+        const { data: orderData, error: orderError } = await supabase.rpc('create_guest_order', {
+          p_email: data.email,
+          p_first_name: data.first_name,
+          p_last_name: data.last_name,
+          p_phone: data.phone.replace(/\D/g, ''),
+          p_cpf_cnpj: data.cpf_cnpj.replace(/\D/g, ''),
+          p_shipping_cost: shippingCost,
+          p_shipping_address: data,
+          p_cart_items: getLocalCart(),
+          p_payment_method: 'Cartão de Crédito',
+          p_donation_amount: donationAmount,
+        });
+        if (orderError) throw new Error(orderError.message || "Erro ao criar pedido.");
+        const raw: any = (orderData as any)?.new_order_id ?? (orderData as any)?.order_id ?? (orderData as any)?.id ?? orderData;
+        orderId = typeof raw === 'string' ? Number(raw) : raw;
+      }
+
+      if (!orderId || !Number.isFinite(Number(orderId))) throw new Error('Não foi possível criar o pedido.');
+
+      // 2. Criar a preference do Checkout Pro
+      const appOrigin = window.location.origin;
+      const { data: prefData, error: prefError } = await supabase.functions.invoke('create-mp-preference', {
+        body: { order_id: orderId, back_url: appOrigin },
+      });
+
+      if (prefError || !prefData?.success) {
+        throw new Error(prefData?.error || prefError?.message || 'Erro ao criar preferência de pagamento.');
+      }
+
+      dismissToast(toastId);
+      clearLocalCart();
+
+      // Fire-and-forget webhook
+      (async () => {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const authToken = session?.access_token;
+          const invokeOpts: any = { body: { order_id: orderId, event_type: 'order_created', guest_email: data.email } };
+          if (authToken) invokeOpts.headers = { Authorization: `Bearer ${authToken}` };
+          await supabase.functions.invoke('trigger-integration', invokeOpts);
+        } catch (e) { console.warn('[CheckoutPage] trigger-integration warning (mobile card):', e); }
+      })();
+
+      // 3. Redirecionar para o Checkout Pro do Mercado Pago
+      // init_point = produção | sandbox_init_point = sandbox
+      const redirectUrl = prefData.init_point;
+      window.location.href = redirectUrl;
+
+    } catch (e: any) {
+      dismissToast(toastId);
+      showError(e?.message || "Erro ao preparar pagamento.");
+      if (isMountedRef.current) setIsSubmitting(false);
+    }
+  };
+
+  // ============================================================
+  // CARTÃO DESKTOP — Passo 1: criar pedido e mostrar form do MP
   // ============================================================
   const handlePrepareCardPayment = async (data: CheckoutFormData) => {
     if (!isAddressComplete) { showError("Preencha todos os dados de entrega."); return; }
@@ -632,7 +715,11 @@ const CheckoutPage = () => {
       setIsSubmitting(true);
       await handlePixPayment(data);
       if (isMountedRef.current) setIsSubmitting(false);
+    } else if (isMobileBrowser) {
+      // Mobile: usa Checkout Pro (redirect) — sem iframe, funciona no iOS Safari
+      await handleMobileCardPayment(data);
     } else {
+      // Desktop: usa Brick transparente
       await handlePrepareCardPayment(data);
     }
   };

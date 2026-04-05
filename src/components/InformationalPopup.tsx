@@ -42,7 +42,6 @@ const parseHtmlToReact = (html: string) => {
       if (alignAttr && alignAttr.trim().toLowerCase() === 'center') return 'text-center';
       if (/text-align\s*:\s*center/i.test(style)) return 'text-center';
 
-      // Detect common editor classes (Quill, etc.) and utility classes
       if (/ql-align-center|text-center|align-center/i.test(classAttr)) return 'text-center';
       if (/ql-align-right|text-right|align-right/i.test(classAttr)) return 'text-right';
       if (/ql-align-left|text-left|align-left/i.test(classAttr)) return 'text-left';
@@ -89,11 +88,9 @@ const parseHtmlToReact = (html: string) => {
                 </a>
               );
             }
-            // if not safe, render children only
             return <>{children}</>;
           }
           default:
-            // For unknown tags, preserve alignment by wrapping children in a div when needed
             if (alignClass) {
               return <div key={idx} className={alignClass}>{children}</div>;
             }
@@ -107,7 +104,6 @@ const parseHtmlToReact = (html: string) => {
     const nodes = Array.from(root.childNodes).map((n, i) => walk(n, i));
     return <div className="space-y-2">{nodes}</div>;
   } catch (e) {
-    // fallback: plain text with simple line breaks
     const plain = html.replace(/<[^>]*>/g, '');
     return plain.split(/\r?\n/).map((line, i) => (
       <p key={i} className="text-slate-300 text-xs md:text-base leading-relaxed mb-2 md:mb-3">{line}</p>
@@ -124,42 +120,41 @@ const InformationalPopup = ({ isOpen, onClose, title, content, onAccept }: Infor
   return (
     <Dialog open={isOpen} onOpenChange={() => {}}>
       <DialogContent
-        className="w-[95vw] sm:max-w-2xl bg-slate-900 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] p-0 rounded-[1.5rem] md:rounded-[2rem] max-h-[90vh] flex flex-col outline-none [&>button]:hidden z-[10000] relative overflow-visible"
+        className="w-[95vw] sm:max-w-2xl bg-slate-900 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] p-0 overflow-hidden rounded-[1.5rem] md:rounded-[2rem] max-h-[90vh] flex flex-col outline-none [&>button]:hidden z-[10000]"
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
         aria-describedby="info-popup-desc"
       >
         <DialogDescription className="sr-only">
-            Popup com informações importantes sobre a loja.
+          Popup com informações importantes sobre a loja.
         </DialogDescription>
 
         {/* Barra superior de destaque */}
-        <div className="h-1 md:h-1.5 bg-gradient-to-r from-sky-500 to-indigo-500 w-full shrink-0 rounded-t-[1.5rem] md:rounded-t-[2rem]" />
+        <div className="h-1 md:h-1.5 bg-gradient-to-r from-sky-500 to-indigo-500 w-full shrink-0" />
 
-        {/* Botão fechar no canto superior direito */}
-        <button
-          onClick={onClose}
-          className="absolute top-3 right-3 md:top-4 md:right-4 z-[100] p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white/60 hover:text-white transition-all"
-          aria-label="Fechar"
-        >
-          <X className="h-4 w-4 md:h-5 md:w-5" />
-        </button>
+        {/* Botão fechar no canto superior direito — posicionado dentro do header */}
+        <div className="relative shrink-0">
+          <button
+            onClick={onClose}
+            className="absolute top-2 right-3 md:top-3 md:right-4 z-50 p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white/60 hover:text-white transition-all"
+            aria-label="Fechar"
+          >
+            <X className="h-4 w-4 md:h-5 md:w-5" />
+          </button>
 
-        {/* Wrapper com overflow-hidden para conteúdo interno */}
-        <div className="flex flex-col flex-1 min-h-0 overflow-hidden rounded-b-[1.5rem] md:rounded-b-[2rem]">
-
-        {/* Header — fixo, não rola */}
-        <div className="px-4 pt-4 pb-2 md:px-10 md:pt-6 md:pb-3 shrink-0">
-          <DialogHeader className="items-center text-center">
-            <div className="flex items-center justify-center mb-2 md:mb-4">
-              <div className="p-1.5 md:p-2.5 bg-sky-500/20 rounded-xl md:rounded-2xl">
-                <Info className="h-4 w-4 md:h-7 md:w-7 text-sky-400 shrink-0" />
+          {/* Header */}
+          <div className="px-4 pt-4 pb-2 md:px-10 md:pt-6 md:pb-3">
+            <DialogHeader className="items-center text-center">
+              <div className="flex items-center justify-center mb-2 md:mb-4">
+                <div className="p-1.5 md:p-2.5 bg-sky-500/20 rounded-xl md:rounded-2xl">
+                  <Info className="h-4 w-4 md:h-7 md:w-7 text-sky-400 shrink-0" />
+                </div>
               </div>
-            </div>
-            <DialogTitle className="font-black text-lg md:text-4xl text-white tracking-tighter italic uppercase leading-tight text-center break-words px-2 md:px-0">
-              {title}.
-            </DialogTitle>
-          </DialogHeader>
+              <DialogTitle className="font-black text-lg md:text-4xl text-white tracking-tighter italic uppercase leading-tight text-center break-words px-2 md:px-0">
+                {title}.
+              </DialogTitle>
+            </DialogHeader>
+          </div>
         </div>
 
         {/* Conteúdo — única parte que rola */}
@@ -199,7 +194,6 @@ const InformationalPopup = ({ isOpen, onClose, title, content, onAccept }: Infor
             </Button>
           )}
         </DialogFooter>
-        </div>
       </DialogContent>
     </Dialog>
   );

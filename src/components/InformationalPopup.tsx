@@ -124,7 +124,7 @@ const InformationalPopup = ({ isOpen, onClose, title, content, onAccept }: Infor
   return (
     <Dialog open={isOpen} onOpenChange={() => {}}>
       <DialogContent
-        className="w-[95vw] sm:max-w-2xl bg-slate-900 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] p-0 overflow-hidden rounded-[1.5rem] md:rounded-[2rem] max-h-[90vh] flex flex-col outline-none [&>button]:hidden z-[10000]"
+        className="w-[95vw] sm:max-w-2xl bg-slate-900 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] p-0 rounded-[1.5rem] md:rounded-[2rem] max-h-[90vh] flex flex-col outline-none [&>button]:hidden z-[10000] relative overflow-visible"
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
         aria-describedby="info-popup-desc"
@@ -134,16 +134,19 @@ const InformationalPopup = ({ isOpen, onClose, title, content, onAccept }: Infor
         </DialogDescription>
 
         {/* Barra superior de destaque */}
-        <div className="h-1 md:h-1.5 bg-gradient-to-r from-sky-500 to-indigo-500 w-full shrink-0" />
+        <div className="h-1 md:h-1.5 bg-gradient-to-r from-sky-500 to-indigo-500 w-full shrink-0 rounded-t-[1.5rem] md:rounded-t-[2rem]" />
 
         {/* Botão fechar no canto superior direito */}
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 md:top-4 md:right-4 z-10 p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white/60 hover:text-white transition-all"
+          className="absolute top-3 right-3 md:top-4 md:right-4 z-[100] p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white/60 hover:text-white transition-all"
           aria-label="Fechar"
         >
           <X className="h-4 w-4 md:h-5 md:w-5" />
         </button>
+
+        {/* Wrapper com overflow-hidden para conteúdo interno */}
+        <div className="flex flex-col flex-1 min-h-0 overflow-hidden rounded-b-[1.5rem] md:rounded-b-[2rem]">
 
         {/* Header — fixo, não rola */}
         <div className="px-4 pt-4 pb-2 md:px-10 md:pt-6 md:pb-3 shrink-0">
@@ -196,6 +199,7 @@ const InformationalPopup = ({ isOpen, onClose, title, content, onAccept }: Infor
             </Button>
           )}
         </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );

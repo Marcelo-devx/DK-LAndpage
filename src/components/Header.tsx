@@ -281,7 +281,7 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
             </SheetContent>
           </Sheet>
           
-          <Link to="/" className="flex items-center group ml-1 md:ml-0">
+          <Link to="/" className="flex items-center group ml-1 md:ml-0" onClick={(e) => { e.preventDefault(); navigate('/'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
             {loadingLogo ? (
               <Skeleton className="h-10 w-24 bg-white/10" />
             ) : logoUrl ? (
@@ -315,7 +315,7 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
       <div className="hidden md:flex items-center gap-3 lg:gap-5 xl:gap-6 px-4 lg:px-8 xl:px-12 py-0">
         {/* Logo Area */}
         <div className="flex items-center shrink-0">
-          <Link to="/" className="flex items-center group">
+          <Link to="/" className="flex items-center group" onClick={(e) => { e.preventDefault(); navigate('/'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
             {loadingLogo ? (
               <Skeleton className="h-12 lg:h-14 xl:h-16 w-28 bg-white/10" />
             ) : logoUrl ? (

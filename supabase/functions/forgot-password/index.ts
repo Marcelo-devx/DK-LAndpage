@@ -10,6 +10,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Gera senha forte
 const generatePassword = (): string => {
   const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
   const lower = 'abcdefghjkmnpqrstuvwxyz';
@@ -25,6 +26,37 @@ const generatePassword = (): string => {
     pwd += all[Math.floor(Math.random() * all.length)];
   }
   return pwd.split('').sort(() => Math.random() - 0.5).join('');
+}
+
+// Verifica se a senha apareceu em vazamentos usando o serviço HaveIBeenPwned k-anonymity
+async function isPwned(password: string): Promise<boolean> {
+  try {
+    const enc = new TextEncoder().encode(password);
+    const hashBuffer = await crypto.subtle.digest('SHA-1', enc);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const sha1 = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+    const prefix = sha1.slice(0, 5);
+    const suffix = sha1.slice(5);
+
+    const res = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`);
+    if (!res.ok) {
+      console.warn('[forgot-password] HIBP lookup failed, assuming not pwned', { status: res.status });
+      return false; // em caso de falha externa, não bloquear
+    }
+
+    const text = await res.text();
+    const lines = text.split('\n');
+    for (const line of lines) {
+      const [hashSuffix] = line.split(':');
+      if (hashSuffix && hashSuffix.trim().toUpperCase() === suffix) {
+        return true;
+      }
+    }
+    return false;
+  } catch (e) {
+    console.warn('[forgot-password] HIBP check error, assuming not pwned', e);
+    return false; // não bloquear por falha de verificação
+  }
 }
 
 serve(async (req) => {
@@ -62,13 +94,19 @@ serve(async (req) => {
     const user = { id: userId };
     console.log('[forgot-password] usuário encontrado, id:', user.id);
 
-    // Gera nova senha
+    // Gera nova senha que NÃO esteja em vazamentos
     let newPassword = '';
-    const MAX_ATTEMPTS = 6;
+    const MAX_ATTEMPTS = 8;
 
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       const candidate = generatePassword();
+      const breached = await isPwned(candidate);
+      if (breached) {
+        console.log('[forgot-password] candidate pwned, regenerating (attempt', attempt + 1, ')');
+        continue;
+      }
 
+      // Check if candidate matches current password (unlikely but safe)
       if (anonKey) {
         try {
           const authResp = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
@@ -83,12 +121,11 @@ serve(async (req) => {
 
           if (authResp.ok) {
             console.log('[forgot-password] generated password collides with current password, regenerating (attempt', attempt + 1, ')');
-            continue;
+            continue; // collision
           }
         } catch (e) {
           console.warn('[forgot-password] auth check failed, proceeding assuming no collision', e);
-          newPassword = candidate;
-          break;
+          // fallback: accept candidate
         }
       }
 
@@ -97,11 +134,11 @@ serve(async (req) => {
     }
 
     if (!newPassword) {
-      console.error('[forgot-password] failed to generate non-colliding password after attempts');
+      console.error('[forgot-password] failed to generate non-pwned password after attempts');
       return new Response(JSON.stringify({ error: 'Erro ao gerar nova senha. Tente novamente.' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // Atualiza senha via REST API direta (bypassa verificação HaveIBeenPwned)
+    // Atualiza senha via REST API direta (bypassa verificação HaveIBeenPwned no servidor)
     const updateRes = await fetch(`${supabaseUrl}/auth/v1/admin/users/${user.id}`, {
       method: 'PUT',
       headers: {

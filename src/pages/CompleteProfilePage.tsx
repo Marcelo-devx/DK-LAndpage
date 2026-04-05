@@ -161,19 +161,18 @@ const CompleteProfilePage = () => {
   const checkCpfDuplicate = async () => {
     const raw = getValues('cpf_cnpj') || '';
     const clean = raw.replace(/\D/g, '');
-    if (clean.length < 11) return; // not enough digits yet, skip
+    if (clean.length < 11) return;
 
-    // Prevent concurrent checks
     if (isCheckingCpf) return;
 
     setIsCheckingCpf(true);
     setCpfError(null);
     setCpfValidated(false);
 
-    // Watchdog to ensure spinner cleared
     const watchdog = setTimeout(() => {
       console.warn('[CompleteProfilePage] checkCpfDuplicate watchdog cleared');
       setIsCheckingCpf(false);
+      setCpfValidated(true); // don't block user on timeout
     }, 20000);
 
     try {
@@ -191,7 +190,8 @@ const CompleteProfilePage = () => {
       }
     } catch (e) {
       console.error('[CompleteProfilePage] checkCpfDuplicate error', e);
-      // don't block user; leave cpfValidated false
+      // Don't block user on network error — allow submit without duplicate check
+      setCpfValidated(true);
     } finally {
       clearTimeout(watchdog);
       setIsCheckingCpf(false);
@@ -216,7 +216,7 @@ const CompleteProfilePage = () => {
 
   const accepted = Boolean(watched.accepted_terms);
 
-  const isReadyToSubmit = requiredFieldsFilled && accepted && !cpfError && !isCheckingCpf && cpfValidated;
+  const isReadyToSubmit = requiredFieldsFilled && accepted && !cpfError && !isCheckingCpf;
 
   const handleCepLookup = async () => {
     const cep = (getValues('cep') || '').toString();
@@ -343,7 +343,7 @@ const CompleteProfilePage = () => {
       dismissToast(toastId);
       showSuccess("Cadastro completo!");
       window.dispatchEvent(new CustomEvent('profileUpdated'));
-      navigate('/dashboard');
+      navigate('/');
     } catch (err: any) {
       dismissToast(toastId);
       showError(err.message || "Erro ao salvar. Tente novamente.");

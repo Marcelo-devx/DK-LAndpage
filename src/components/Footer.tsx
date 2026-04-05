@@ -1,35 +1,48 @@
 import { Link } from 'react-router-dom';
 import { Instagram } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 const Footer = () => {
   const { settings, updateSetting } = useTheme();
   const [session, setSession] = useState<any>(null);
+  const hasAttemptedFix = useRef(false);
 
-  // Link EXATO fornecido - será salvo automaticamente no banco
+  // Link EXATO fornecido
   const CORRECT_INSTAGRAM_URL = 'https://www.instagram.com/dondk_cwb?igsh=MW9mOWZxdGdvaGJtZA%3D%3D';
 
+  // Corrige o link do Instagram no banco UMA ÚNICA VEZ na montagem, apenas se admin
   useEffect(() => {
-    // Verifica se o link no banco está incorreto e corrige automaticamente
-    const correctAndSaveInstagram = async () => {
-      const currentUrl = settings.socialInstagram?.trim();
+    if (hasAttemptedFix.current) return;
+    hasAttemptedFix.current = true;
 
-      // Se estiver vazio, for '#' ou não for o link correto, atualiza
-      if (!currentUrl || currentUrl === '#' || currentUrl !== CORRECT_INSTAGRAM_URL) {
-        console.log('[Footer] Corrigindo link do Instagram no banco...');
-        try {
+    const tryFix = async () => {
+      try {
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        if (!currentSession) return; // só tenta salvar se estiver logado
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', currentSession.user.id)
+          .single();
+
+        if (profile?.role !== 'adm') return; // só admin pode salvar
+
+        const currentUrl = settings.socialInstagram?.trim();
+        if (!currentUrl || currentUrl === '#' || currentUrl !== CORRECT_INSTAGRAM_URL) {
+          console.log('[Footer] Corrigindo link do Instagram no banco...');
           await updateSetting('social_instagram', CORRECT_INSTAGRAM_URL);
           console.log('[Footer] Link do Instagram atualizado com sucesso!');
-        } catch (error) {
-          console.error('[Footer] Erro ao atualizar link do Instagram:', error);
         }
+      } catch (error) {
+        console.error('[Footer] Erro ao verificar/atualizar link do Instagram:', error);
       }
     };
 
-    correctAndSaveInstagram();
-  }, [settings.socialInstagram, updateSetting]);
+    tryFix();
+  }, []); // array vazio — roda apenas uma vez na montagem
 
   useEffect(() => {
     let mounted = true;
@@ -66,7 +79,7 @@ const Footer = () => {
   }, []);
 
   const contactEmail = settings.contactEmail || 'dondkcwb@protonmail.com';
-  const contactPhone = settings.contactPhone || '+595 985 981 046'; // Número do Paraguai (+595)
+  const contactPhone = settings.contactPhone || '+595 985 981 046';
   const contactHours = settings.contactHours || 'Seg - Sex: 10:00 - 18:00 | Sábados: 10:00 - 17:00';
 
   return (

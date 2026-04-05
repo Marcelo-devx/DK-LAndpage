@@ -9,7 +9,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Info } from "lucide-react";
+import { Info, X } from "lucide-react";
 
 interface InformationalPopupProps {
   isOpen: boolean;
@@ -135,6 +135,15 @@ const InformationalPopup = ({ isOpen, onClose, title, content, onAccept }: Infor
 
         {/* Barra superior de destaque */}
         <div className="h-1 md:h-1.5 bg-gradient-to-r from-sky-500 to-indigo-500 w-full shrink-0" />
+
+        {/* Botão fechar no canto superior direito */}
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 md:top-4 md:right-4 z-10 p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white/60 hover:text-white transition-all"
+          aria-label="Fechar"
+        >
+          <X className="h-4 w-4 md:h-5 md:w-5" />
+        </button>
 
         {/* Header — fixo, não rola */}
         <div className="px-4 pt-4 pb-2 md:px-10 md:pt-6 md:pb-3 shrink-0">

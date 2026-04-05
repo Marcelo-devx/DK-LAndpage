@@ -10,6 +10,7 @@ import ReviewModal from '@/components/ReviewModal';
 import { showLoading, dismissToast, showError } from '@/utils/toast';
 import { cn } from '@/lib/utils';
 import OrderTimer from '@/components/OrderTimer';
+import { useVisibilityRefresh } from '@/hooks/use-visibility-refresh';
 
 interface OrderItem {
   item_id: number;
@@ -62,18 +63,18 @@ const OrdersPage = () => {
   // REMOVIDO: A verificação de MP params agora é feita no App.tsx
   // O OrdersPage sempre buscará os pedidos normalmente
 
-  const fetchOrders = useCallback(async () => {
-    // Timeout de 5s para evitar loading infinito ao voltar de outra aba
+  const fetchOrders = useCallback(async (isBackground = false) => {
+    // Timeout de 3s para evitar loading infinito ao voltar de outra aba
     const timeoutId = setTimeout(() => {
-      setLoading(false);
-    }, 5000);
+      if (!isBackground) setLoading(false);
+    }, 3000);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         clearTimeout(timeoutId);
         navigate('/login');
-        setLoading(false);
+        if (!isBackground) setLoading(false);
         return;
       }
 
@@ -83,8 +84,8 @@ const OrdersPage = () => {
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: false });
 
-      if (ordersError) { console.error(ordersError); clearTimeout(timeoutId); setLoading(false); return; }
-      if (!ordersData || ordersData.length === 0) { setOrders([]); clearTimeout(timeoutId); setLoading(false); return; }
+      if (ordersError) { console.error(ordersError); clearTimeout(timeoutId); if (!isBackground) setLoading(false); return; }
+      if (!ordersData || ordersData.length === 0) { setOrders([]); clearTimeout(timeoutId); if (!isBackground) setLoading(false); return; }
 
       const orderIds = ordersData.map(o => o.id);
       const { data: itemsData } = await supabase.from('order_items').select('order_id, item_id, item_type, name_at_purchase, quantity, price_at_purchase').in('order_id', orderIds);
@@ -102,7 +103,7 @@ const OrdersPage = () => {
       console.error('[OrdersPage] fetchOrders error:', e);
     } finally {
       clearTimeout(timeoutId);
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   }, [navigate]);
 
@@ -110,6 +111,8 @@ const OrdersPage = () => {
     setLoading(true);
     fetchOrders();
   }, [fetchOrders]);
+
+  useVisibilityRefresh(() => fetchOrders(true));
 
   const handlePayWithMP = async (order: Order) => {
     const toastId = showLoading("Iniciando pagamento...");

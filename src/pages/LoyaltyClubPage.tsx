@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { differenceInDays, addMonths, endOfWeek, isSameWeek, startOfWeek, addWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useVisibilityRefresh } from '@/hooks/use-visibility-refresh';
 
 interface Tier {
   id: number;
@@ -54,54 +55,57 @@ const LoyaltyClubPage = () => {
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [sessionUser, setSessionUser] = useState<any | null>(null);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      // Timeout de 6s para evitar loading infinito ao voltar de outra aba
-      const timeoutId = setTimeout(() => {
-        setLoading(false);
-      }, 6000);
+  const fetchData = useCallback(async (isBackground = false) => {
+    // Timeout de 3s para evitar loading infinito ao voltar de outra aba
+    const timeoutId = setTimeout(() => {
+      if (!isBackground) setLoading(false);
+    }, 3000);
 
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        setSessionUser(session?.user ?? null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      setSessionUser(session?.user ?? null);
 
-        if (!session) {
-          // Public view: fetch tiers and coupons but don't require auth
-          const [tiersRes, couponsRes] = await Promise.all([
-            supabase.from('loyalty_tiers').select('*').order('min_spend', { ascending: true }),
-            supabase.from('coupons').select('*').eq('is_active', true).gt('stock_quantity', 0).order('points_cost')
-          ]);
-
-          if (tiersRes.data) setTiers(tiersRes.data);
-          if (couponsRes.data) setCoupons(couponsRes.data);
-          clearTimeout(timeoutId);
-          setLoading(false);
-          return;
-        }
-
-        // Authenticated: fetch full data
-        const [tiersRes, profileRes, historyRes, couponsRes, ordersRes] = await Promise.all([
+      if (!session) {
+        // Public view: fetch tiers and coupons but don't require auth
+        const [tiersRes, couponsRes] = await Promise.all([
           supabase.from('loyalty_tiers').select('*').order('min_spend', { ascending: true }),
-          supabase.from('profiles').select('points, spend_last_6_months, tier_id, current_tier_name, last_tier_update').eq('id', session.user.id).single(),
-          supabase.from('loyalty_history').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false }).limit(100),
-          supabase.from('coupons').select('*').eq('is_active', true).gt('stock_quantity', 0).order('points_cost'),
-          supabase.from('orders').select('created_at, benefits_used').eq('user_id', session.user.id).order('created_at', { ascending: false }).limit(10)
+          supabase.from('coupons').select('*').eq('is_active', true).gt('stock_quantity', 0).order('points_cost')
         ]);
 
         if (tiersRes.data) setTiers(tiersRes.data);
-        if (profileRes.data) setProfile(profileRes.data);
-        if (historyRes.data) setHistory(historyRes.data);
         if (couponsRes.data) setCoupons(couponsRes.data);
-        if (ordersRes.data) setRecentOrders(ordersRes.data);
-      } catch (e: any) {
-        console.error('[LoyaltyClubPage] fetchData error:', e);
-      } finally {
         clearTimeout(timeoutId);
-        setLoading(false);
+        if (!isBackground) setLoading(false);
+        return;
       }
-    };
+
+      // Authenticated: fetch full data
+      const [tiersRes, profileRes, historyRes, couponsRes, ordersRes] = await Promise.all([
+        supabase.from('loyalty_tiers').select('*').order('min_spend', { ascending: true }),
+        supabase.from('profiles').select('points, spend_last_6_months, tier_id, current_tier_name, last_tier_update').eq('id', session.user.id).single(),
+        supabase.from('loyalty_history').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false }).limit(100),
+        supabase.from('coupons').select('*').eq('is_active', true).gt('stock_quantity', 0).order('points_cost'),
+        supabase.from('orders').select('created_at, benefits_used').eq('user_id', session.user.id).order('created_at', { ascending: false }).limit(10)
+      ]);
+
+      if (tiersRes.data) setTiers(tiersRes.data);
+      if (profileRes.data) setProfile(profileRes.data);
+      if (historyRes.data) setHistory(historyRes.data);
+      if (couponsRes.data) setCoupons(couponsRes.data);
+      if (ordersRes.data) setRecentOrders(ordersRes.data);
+    } catch (e: any) {
+      console.error('[LoyaltyClubPage] fetchData error:', e);
+    } finally {
+      clearTimeout(timeoutId);
+      if (!isBackground) setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
     fetchData();
-  }, [navigate]);
+  }, [fetchData]);
+
+  useVisibilityRefresh(() => fetchData(true));
 
   const onRedeemCoupon = async (coupon: any) => {
     if (!sessionUser) { showError('Faça login para resgatar cupons.'); return; }

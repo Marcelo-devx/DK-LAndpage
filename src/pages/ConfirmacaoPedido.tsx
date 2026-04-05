@@ -72,23 +72,29 @@ const ConfirmacaoPedido = () => {
     }));
   };
 
-  const fetchOrderDetails = async () => {
+  const fetchOrderDetails = async (isBackground = false) => {
     if (!id) return;
-    setLoading(true);
-    setErrorMessage(null);
+    if (!isBackground) {
+      setLoading(true);
+      setErrorMessage(null);
+    }
 
     const cleanId = id.replace(/\D/g, '');
     if (!cleanId) {
-      setErrorMessage('ID do pedido inválido.');
-      setLoading(false);
+      if (!isBackground) {
+        setErrorMessage('ID do pedido inválido.');
+        setLoading(false);
+      }
       return;
     }
 
-    // Timeout de 8s para evitar loading infinito ao voltar de outra aba
+    // Timeout de 3s para evitar loading infinito ao voltar de outra aba
     const timeoutId = setTimeout(() => {
-      setLoading(false);
-      setErrorMessage('Tempo limite excedido. Tente novamente.');
-    }, 8000);
+      if (!isBackground) {
+        setLoading(false);
+        setErrorMessage('Tempo limite excedido. Tente novamente.');
+      }
+    }, 3000);
 
     try {
       // Strategy 1: Try edge function first (uses service role, bypasses RLS)
@@ -101,7 +107,7 @@ const ConfirmacaoPedido = () => {
           setOrder(safeOrder(payload.order));
           setItems(safeItems(payload.items || []));
           clearTimeout(timeoutId);
-          setLoading(false);
+          if (!isBackground) setLoading(false);
           return;
         }
       } catch (fnErr) {
@@ -125,22 +131,26 @@ const ConfirmacaoPedido = () => {
 
         setItems(safeItems(itemsData || []));
         clearTimeout(timeoutId);
-        setLoading(false);
+        if (!isBackground) setLoading(false);
         return;
       }
 
       // Both strategies failed
       clearTimeout(timeoutId);
-      setErrorMessage('Pedido não encontrado. Verifique o número do pedido.');
-      setLoading(false);
+      if (!isBackground) {
+        setErrorMessage('Pedido não encontrado. Verifique o número do pedido.');
+        setLoading(false);
+      }
 
     } catch (e: any) {
       console.error('Unexpected error fetching order details:', e);
       clearTimeout(timeoutId);
-      setErrorMessage('Ocorreu um erro ao carregar o pedido.');
-      setOrder(null);
-      setItems([]);
-      setLoading(false);
+      if (!isBackground) {
+        setErrorMessage('Ocorreu um erro ao carregar o pedido.');
+        setOrder(null);
+        setItems([]);
+        setLoading(false);
+      }
     }
   };
 
@@ -224,7 +234,7 @@ const ConfirmacaoPedido = () => {
             setTimeout(async () => {
               if (document.visibilityState === 'visible' && !isFetchingRefLocal.current) {
                 isFetchingRefLocal.current = true;
-                try { await fetchOrderDetails(); } finally { isFetchingRefLocal.current = false; }
+                try { await fetchOrderDetails(true); } finally { isFetchingRefLocal.current = false; }
               }
             }, 300);
           }
@@ -238,7 +248,7 @@ const ConfirmacaoPedido = () => {
           setTimeout(async () => {
             if (document.visibilityState === 'visible' && !isFetchingRefLocal.current) {
               isFetchingRefLocal.current = true;
-              try { await fetchOrderDetails(); } finally { isFetchingRefLocal.current = false; }
+              try { await fetchOrderDetails(true); } finally { isFetchingRefLocal.current = false; }
             }
           }, 300);
           hiddenAt = 0;
@@ -289,7 +299,7 @@ const ConfirmacaoPedido = () => {
         <h1 className="font-serif text-2xl text-charcoal-gray mb-4">Não foi possível carregar o pedido</h1>
         <p className="text-sm text-stone-500 mb-6">{errorMessage}</p>
         <div className="flex items-center justify-center gap-3">
-          <Button onClick={fetchOrderDetails} className="bg-sky-500 hover:bg-sky-400 text-white">Tentar novamente</Button>
+          <Button onClick={() => fetchOrderDetails()} className="bg-sky-500 hover:bg-sky-400 text-white">Tentar novamente</Button>
           <Button onClick={handleForceCheckPayment} variant="outline" disabled={isCheckingPayment}>{isCheckingPayment ? 'Verificando...' : 'Verificar pagamento agora'}</Button>
         </div>
       </div>

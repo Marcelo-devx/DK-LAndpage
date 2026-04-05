@@ -28,13 +28,13 @@ const Dashboard = () => {
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  const fetchDashboardData = useCallback(async () => {
-    setLoading(true);
+  const fetchDashboardData = useCallback(async (isBackground = false) => {
+    if (!isBackground) setLoading(true);
 
-    // Timeout de 5s para evitar loading infinito ao voltar de outra aba
+    // Timeout de 3s para evitar loading infinito ao voltar de outra aba
     const timeoutId = setTimeout(() => {
-      setLoading(false);
-    }, 5000);
+      if (!isBackground) setLoading(false);
+    }, 3000);
 
     try {
         const { data: { session }, error: authError } = await supabase.auth.getSession();
@@ -43,7 +43,7 @@ const Dashboard = () => {
         
         if (!session) {
           clearTimeout(timeoutId);
-          setLoading(false);
+          if (!isBackground) setLoading(false);
           navigate('/login');
           return;
         }
@@ -70,7 +70,7 @@ const Dashboard = () => {
         console.error("Erro ao carregar dashboard:", error);
     } finally {
         clearTimeout(timeoutId);
-        setLoading(false);
+        if (!isBackground) setLoading(false);
     }
   }, [navigate]);
 
@@ -78,7 +78,7 @@ const Dashboard = () => {
     fetchDashboardData();
   }, [fetchDashboardData, refreshTrigger]);
 
-  useVisibilityRefresh(fetchDashboardData);
+  useVisibilityRefresh(() => fetchDashboardData(true));
 
   const handleLogout = async () => {
     try {

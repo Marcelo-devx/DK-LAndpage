@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
@@ -156,64 +156,60 @@ const Login = () => {
   const [forgotSent, setForgotSent] = useState(false);
   const [forgotError, setForgotError] = useState<{ message: string; hint?: string } | null>(null);
 
-  useEffect(() => {
-    // Guarda se já processamos um evento para não reagir duas vezes
-    let handled = false;
+  // ── redirectAfterLogin — extracted as useCallback so it can be called directly ──
+  const redirectAfterLogin = useCallback(async (session: any) => {
+    console.log('[Login] redirectAfterLogin iniciado para user:', session.user.id);
 
-    const redirectAfterLogin = async (session: any) => {
-      if (handled) return;
-      handled = true;
+    const storedRefCode = sessionStorage.getItem('referral_code');
+    if (storedRefCode) {
+      try {
+        await supabase.rpc('link_referral', { referral_code_input: storedRefCode });
+        sessionStorage.removeItem('referral_code');
+      } catch (error) {}
+    }
 
-      console.log('[Login] redirectAfterLogin iniciado para user:', session.user.id);
+    try {
+      console.log('[Login] buscando perfil...');
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('first_name, last_name, phone, cpf_cnpj, gender, date_of_birth, cep, street, number, neighborhood, city, state, must_change_password')
+        .eq('id', session.user.id)
+        .single();
 
-      const storedRefCode = sessionStorage.getItem('referral_code');
-      if (storedRefCode) {
-        try {
-          await supabase.rpc('link_referral', { referral_code_input: storedRefCode });
-          sessionStorage.removeItem('referral_code');
-        } catch (error) {}
+      console.log('[Login] perfil recebido:', { profile, profileError });
+
+      // Prioridade 1: Usuário precisa trocar a senha temporária
+      if (profile?.must_change_password) {
+        console.log('[Login] must_change_password=true → /update-password');
+        navigate('/update-password', { replace: true, state: { mandatory: true } });
+        return;
       }
 
-      try {
-        console.log('[Login] buscando perfil...');
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('first_name, last_name, phone, cpf_cnpj, gender, date_of_birth, cep, street, number, neighborhood, city, state, must_change_password')
-          .eq('id', session.user.id)
-          .single();
+      const isProfileComplete = profile &&
+        profile.first_name && profile.last_name && profile.phone &&
+        profile.cpf_cnpj && profile.gender && profile.date_of_birth &&
+        profile.cep && profile.street && profile.number &&
+        profile.neighborhood && profile.city && profile.state;
 
-        console.log('[Login] perfil recebido:', { profile, profileError });
+      console.log('[Login] isProfileComplete:', isProfileComplete, '→ redirecionando para:', !isProfileComplete ? '/complete-profile' : from);
 
-        // Prioridade 1: Usuário precisa trocar a senha temporária
-        if (profile?.must_change_password) {
-          console.log('[Login] must_change_password=true → /update-password');
-          navigate('/update-password', { replace: true, state: { mandatory: true } });
-          return;
-        }
-
-        const isProfileComplete = profile &&
-          profile.first_name && profile.last_name && profile.phone &&
-          profile.cpf_cnpj && profile.gender && profile.date_of_birth &&
-          profile.cep && profile.street && profile.number &&
-          profile.neighborhood && profile.city && profile.state;
-
-        console.log('[Login] isProfileComplete:', isProfileComplete, '→ redirecionando para:', !isProfileComplete ? '/complete-profile' : from);
-
-        if (!isProfileComplete) {
-          navigate('/complete-profile', { replace: true });
-        } else {
-          navigate(from, { replace: true });
-        }
-      } catch (err) {
-        console.error('[Login] erro ao buscar perfil:', err);
+      if (!isProfileComplete) {
+        navigate('/complete-profile', { replace: true });
+      } else {
         navigate(from, { replace: true });
       }
-    };
+    } catch (err) {
+      console.error('[Login] erro ao buscar perfil:', err);
+      navigate(from, { replace: true });
+    }
+  }, [navigate, from]);
 
+  useEffect(() => {
+    // Fallback listener for OAuth, magic link, OTP sign-in flows
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('[Login] onAuthStateChange:', event, 'handled:', handled);
-      // Só age em SIGNED_IN — ignora INITIAL_SESSION para não redirecionar usuários
-      // que já estavam logados e voltaram para a página de login
+      console.log('[Login] onAuthStateChange:', event);
+      // Only act on SIGNED_IN — ignore INITIAL_SESSION to avoid redirecting users
+      // who were already logged in and navigated back to the login page
       if (event === 'SIGNED_IN' && session) {
         redirectAfterLogin(session);
       }
@@ -222,7 +218,7 @@ const Login = () => {
     return () => {
       try { data.subscription.unsubscribe(); } catch (e) {}
     };
-  }, [navigate, from]);
+  }, [redirectAfterLogin]);
 
   // Cooldown timer
   useEffect(() => {
@@ -259,9 +255,12 @@ const Login = () => {
 
     setIsSigningIn(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
         setSignInError(translateAuthError(error.message));
+      } else if (data.session) {
+        // Call directly — don't depend on onAuthStateChange to avoid race conditions
+        await redirectAfterLogin(data.session);
       }
     } catch (err: any) {
       setSignInError(translateAuthError(err?.message || 'Erro desconhecido'));
@@ -782,7 +781,7 @@ const Login = () => {
                         <button
                           type="button"
                           onClick={() => { setView('forgot_password'); setSignInError(null); }}
-                          className="text-[10px] font-bold uppercase tracking-widest text-sky-500 hover:text-sky-600 transition-colors"
+                          className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-sky-500 transition-colors"
                         >
                           Esqueci minha senha
                         </button>

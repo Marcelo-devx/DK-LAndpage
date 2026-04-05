@@ -142,9 +142,10 @@ const UpdatePassword = () => {
       setLoading(false);
       showSuccess('Senha criada com sucesso! Faça login com sua nova senha.');
 
-      // Hard reload para /login — limpa todos os listeners e estado sem precisar de signOut
+      // Fazer signOut para limpar tokens antigos antes de redirecionar
+      await supabase.auth.signOut();
       setTimeout(() => {
-        window.location.href = '/login';
+        navigate('/login', { replace: true, state: { passwordChanged: true } });
       }, 1500);
 
     } catch (err: any) {

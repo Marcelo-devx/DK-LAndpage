@@ -237,11 +237,11 @@ const ProductPage = () => {
           {/* Imagem */}
           <div className="relative group lg:sticky lg:top-32">
             <div className="absolute -inset-4 bg-sky-500/5 rounded-[3rem] blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
-            <ProductImage 
-              src={product.image_url || ''} 
-              alt={product.name} 
+            <ProductImage
+              src={product.image_url || ''}
+              alt={product.name}
               className={cn(
-                "w-full object-cover rounded-[2rem] md:rounded-[2.5rem] xl:rounded-[3rem] border border-stone-100 shadow-xl md:shadow-2xl relative bg-white transition-all max-h-[55vw] md:max-h-[500px] xl:max-h-[600px]",
+                "w-full object-contain md:object-cover rounded-[2rem] md:rounded-[2.5rem] xl:rounded-[3rem] border border-stone-100 shadow-xl md:shadow-2xl relative bg-white transition-all md:max-h-[500px] xl:max-h-[600px]",
                 isOutOfStock && "grayscale opacity-80"
               )}
             />

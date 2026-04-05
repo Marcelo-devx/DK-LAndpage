@@ -28,7 +28,6 @@ const UpdatePassword = () => {
   const [loading, setLoading] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
 
-  // Verifica se há sessão ativa; se não houver e for obrigatório, redireciona para login
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) {
@@ -78,9 +77,9 @@ const UpdatePassword = () => {
           .from('profiles')
           .update({ must_change_password: false })
           .eq('id', data.user.id);
-        
+
         console.log('[UpdatePassword] Resultado atualização perfil:', { profileError });
-        
+
         if (profileError) {
           console.warn('[UpdatePassword] Erro ao atualizar must_change_password:', profileError);
         }
@@ -93,7 +92,10 @@ const UpdatePassword = () => {
     setLoading(false);
     showSuccess('Senha criada com sucesso! Bem-vindo(a)!');
 
-    // Verificar se o perfil está completo para decidir redirecionamento
+    // Verificar perfil e buscar nome para o e-mail
+    let isProfileComplete = false;
+    let firstName = '';
+
     if (data?.user?.id) {
       const { data: profile } = await supabase
         .from('profiles')
@@ -101,24 +103,37 @@ const UpdatePassword = () => {
         .eq('id', data.user.id)
         .single();
 
-      const isProfileComplete = profile &&
+      firstName = profile?.first_name || '';
+
+      isProfileComplete = !!(profile &&
         profile.first_name && profile.last_name && profile.phone &&
         profile.cpf_cnpj && profile.gender && profile.date_of_birth &&
         profile.cep && profile.street && profile.number &&
-        profile.neighborhood && profile.city && profile.state;
+        profile.neighborhood && profile.city && profile.state);
 
-      console.log('[UpdatePassword] Perfil completo?', { isProfileComplete, hasProfile: !!profile });
+      console.log('[UpdatePassword] Perfil completo?', { isProfileComplete });
+    }
 
-      if (!isProfileComplete) {
-        console.log('[UpdatePassword] Redirecionando para complete-profile');
-        navigate('/complete-profile', { replace: true });
-      } else {
-        console.log('[UpdatePassword] Redirecionando para home');
-        navigate('/', { replace: true });
-      }
+    // Enviar e-mail de confirmação de senha alterada (não bloqueia o fluxo)
+    supabase.functions.invoke('notify-password-change', {
+      body: {
+        email: data?.user?.email || '',
+        name: firstName,
+      },
+    }).then(() => {
+      console.log('[UpdatePassword] E-mail de confirmação enviado com sucesso');
+    }).catch(err => {
+      console.warn('[UpdatePassword] Erro ao enviar e-mail de confirmação:', err);
+    });
+
+    // Usar window.location.href para forçar reload completo e evitar
+    // conflito com listeners do Login.tsx que ainda estão em memória
+    if (!isProfileComplete) {
+      console.log('[UpdatePassword] Redirecionando para complete-profile');
+      window.location.href = '/complete-profile';
     } else {
-      console.log('[UpdatePassword] Redirecionando para home (sem user.id)');
-      navigate('/', { replace: true });
+      console.log('[UpdatePassword] Redirecionando para home');
+      window.location.href = '/';
     }
   };
 

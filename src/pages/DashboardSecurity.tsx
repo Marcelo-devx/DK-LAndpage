@@ -50,7 +50,6 @@ const DashboardSecurity = () => {
     setLoading(true);
     const toastId = showLoading('Gerando nova senha...');
     try {
-      // 1) Pegar email do usuário logado
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user?.email) {
         dismissToast(toastId);
@@ -61,7 +60,6 @@ const DashboardSecurity = () => {
 
       const email = session.user.email;
 
-      // 2) Delegar para a edge function forgot-password (usa service role, sem conflito de sessão)
       const res = await fetchWithTimeout(`${SUPABASE_URL}/functions/v1/forgot-password`, {
         method: 'POST',
         headers: {
@@ -108,7 +106,6 @@ const DashboardSecurity = () => {
     setChanging(true);
     const toastId = showLoading('Atualizando senha...');
 
-    // watchdog to avoid infinite loading
     let timedOut = false;
     const watchdog = setTimeout(() => {
       timedOut = true;
@@ -118,7 +115,6 @@ const DashboardSecurity = () => {
     }, 20000);
 
     try {
-      // get user email
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user?.email) {
         dismissToast(toastId);
@@ -129,8 +125,9 @@ const DashboardSecurity = () => {
         return;
       }
       const email = session.user.email;
+      const userId = session.user.id;
 
-      // Re-authenticate using current password
+      // Re-autenticar com a senha atual
       const signRes = await supabase.auth.signInWithPassword({ email, password: currentPassword });
       if (signRes.error) {
         dismissToast(toastId);
@@ -140,15 +137,14 @@ const DashboardSecurity = () => {
         return;
       }
 
-      // Now update password
-      // Use edge function to update password with service role to avoid client-side strength rejection
+      // Atualizar senha via edge function com service role
       let updateError: any = null;
       try {
         const { data: sessionData } = await supabase.auth.getSession();
         const accessToken = sessionData?.session?.access_token;
         if (!accessToken) throw new Error('session_missing');
 
-        const updRes = await fetch('https://jrlozhhvwqfmjtkmvukf.supabase.co/functions/v1/update-password-admin', {
+        const updRes = await fetch(`${SUPABASE_URL}/functions/v1/update-password-admin`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
           body: JSON.stringify({ newPassword }),
@@ -167,14 +163,49 @@ const DashboardSecurity = () => {
       if (updateError) {
         showError(typeof updateError === 'string' ? updateError : 'Erro ao atualizar senha.');
         console.error('[DashboardSecurity] updateUser (admin) error', updateError);
-      } else {
-        showSuccess('Senha atualizada com sucesso! Um e-mail de confirmação foi enviado.');
-        // clear fields
-        setCurrentPassword('');
-        setNewPassword('');
-        setConfirmNewPassword('');
-        setManualMode(false);
+        clearTimeout(watchdog);
+        setChanging(false);
+        return;
       }
+
+      showSuccess('Senha atualizada! Verificando seu cadastro...');
+
+      // Enviar e-mail de confirmação (não bloqueia o fluxo)
+      supabase.functions.invoke('notify-password-change', {
+        body: { email, name: '' },
+      }).then(() => {
+        console.log('[DashboardSecurity] E-mail de confirmação enviado com sucesso');
+      }).catch(err => {
+        console.warn('[DashboardSecurity] Erro ao enviar e-mail de confirmação:', err);
+      });
+
+      // Verificar se o perfil está completo
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('first_name, last_name, phone, cpf_cnpj, gender, date_of_birth, cep, street, number, neighborhood, city, state')
+        .eq('id', userId)
+        .single();
+
+      const isProfileComplete = !!(profile &&
+        profile.first_name && profile.last_name && profile.phone &&
+        profile.cpf_cnpj && profile.gender && profile.date_of_birth &&
+        profile.cep && profile.street && profile.number &&
+        profile.neighborhood && profile.city && profile.state);
+
+      console.log('[DashboardSecurity] Perfil completo?', { isProfileComplete });
+
+      // Limpar campos
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+      setManualMode(false);
+
+      if (!isProfileComplete) {
+        // Perfil incompleto → redirecionar para completar cadastro
+        console.log('[DashboardSecurity] Redirecionando para complete-profile');
+        navigate('/complete-profile');
+      }
+      // Se perfil completo, apenas mostra sucesso e fica no dashboard
 
     } catch (err: any) {
       dismissToast(toastId);
@@ -249,7 +280,7 @@ const DashboardSecurity = () => {
                         type="password"
                         value={currentPassword}
                         onChange={(e) => setCurrentPassword(e.target.value)}
-                        className="pl-10 h-11 w-full rounded-xl border border-white/5 px-3"
+                        className="pl-10 h-11 w-full rounded-xl border border-stone-200 px-3 focus:outline-none focus:ring-2 focus:ring-sky-200"
                         required
                       />
                     </div>
@@ -263,7 +294,7 @@ const DashboardSecurity = () => {
                         type="password"
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
-                        className="pl-10 h-11 w-full rounded-xl border border-white/5 px-3"
+                        className="pl-10 h-11 w-full rounded-xl border border-stone-200 px-3 focus:outline-none focus:ring-2 focus:ring-sky-200"
                         placeholder="••••••••"
                         required
                       />
@@ -271,12 +302,12 @@ const DashboardSecurity = () => {
                   </div>
 
                   {newPassword.length > 0 && (
-                    <div className="grid grid-cols-2 gap-2 p-3 rounded-xl border border-white/5">
+                    <div className="grid grid-cols-2 gap-2 p-3 rounded-xl border border-stone-100 bg-stone-50">
                       <Requirement met={checks.length} label="8+ caracteres" />
                       <Requirement met={checks.upper} label="Letra maiúscula" />
                       <Requirement met={checks.number} label="Número" />
                       <Requirement met={checks.special} label="Caractere especial" />
-                      <Requirement met={checks.notSameAsCurrent} label="Diferente da senha atual" />
+                      <Requirement met={checks.notSameAsCurrent} label="Diferente da atual" />
                     </div>
                   )}
 
@@ -288,17 +319,27 @@ const DashboardSecurity = () => {
                         type="password"
                         value={confirmNewPassword}
                         onChange={(e) => setConfirmNewPassword(e.target.value)}
-                        className="pl-10 h-11 w-full rounded-xl border border-white/5 px-3"
+                        className="pl-10 h-11 w-full rounded-xl border border-stone-200 px-3 focus:outline-none focus:ring-2 focus:ring-sky-200"
                         required
                       />
                     </div>
+                    {confirmNewPassword.length > 0 && !checks.match && (
+                      <p className="text-xs text-red-500 font-medium flex items-center gap-1.5">
+                        <X className="h-3.5 w-3.5" /> As senhas não coincidem
+                      </p>
+                    )}
+                    {checks.match && (
+                      <p className="text-xs text-emerald-600 font-medium flex items-center gap-1.5">
+                        <Check className="h-3.5 w-3.5" /> Senhas coincidem
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex gap-2">
-                    <Button type="submit" disabled={changing} className="flex-1 h-11 uppercase font-black">
+                    <Button type="submit" disabled={changing || !allValid} className="flex-1 h-11 uppercase font-black">
                       {changing ? <><Loader2 className="h-4 w-4 animate-spin" /> Atualizando...</> : 'Atualizar senha agora'}
                     </Button>
-                    <Button variant="outline" onClick={() => setManualMode(false)} className="h-11">Cancelar</Button>
+                    <Button variant="outline" type="button" onClick={() => setManualMode(false)} className="h-11">Cancelar</Button>
                   </div>
                 </form>
               )}

@@ -34,6 +34,7 @@ interface SubCategory {
 
 const AllProductsPage = () => {
   const [searchParams] = useSearchParams();
+  const isMountedRef = useRef(true);
 
   const [displayProducts, setDisplayProducts] = useState<DisplayProduct[]>([]);
   const [loading, setLoading] = useState(false);
@@ -62,6 +63,11 @@ const AllProductsPage = () => {
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
+
   // Função para normalizar strings (trim e lowercase)
   const normalizeString = useCallback((s?: string) => {
     if (!s) return '';
@@ -85,17 +91,15 @@ const AllProductsPage = () => {
 
   // Sync filters when URL params change
   useEffect(() => {
-    setSearchTerm(searchParams.get('search') ?? '');
     const categoryParam = searchParams.get('category');
     const subCategoryParam = searchParams.get('sub_category');
     const brandParam = searchParams.get('brand');
-    
+    const searchParam = searchParams.get('search') ?? '';
+
+    setSearchTerm(searchParam);
     setSelectedCategories(categoryParam ? [categoryParam] : []);
     setSelectedSubCategories(subCategoryParam ? [subCategoryParam] : []);
     setSelectedBrands(brandParam ? [brandParam] : []);
-    
-    // Debug: log dos filtros sincronizados
-    console.log('[AllProductsPage] Filtros da URL:', { categoryParam, subCategoryParam, brandParam });
   }, [searchParams]);
 
   // Limpa subcategorias selecionadas quando a categoria muda
@@ -117,15 +121,23 @@ const AllProductsPage = () => {
       supabase.from('categories').select('id, name').eq('is_visible', true).order('name'),
       supabase.from('sub_categories').select('id, name, category_id').eq('is_visible', true).order('name'),
     ]);
-
-    setAllCategories(catRes.data || []);
-    setAllSubCategories(subCatRes.data || []);
+    if (isMountedRef.current) {
+      setAllCategories(catRes.data || []);
+      setAllSubCategories(subCatRes.data || []);
+    }
   }, []);
 
   useEffect(() => { fetchFilterOptions(); }, [fetchFilterOptions]);
 
   const fetchProducts = useCallback(async (background = false) => {
+    if (!isMountedRef.current) return;
     if (!background) setLoading(true);
+
+    // Timeout de segurança — garante que loading nunca fica preso
+    const safetyTimer = !background ? setTimeout(() => {
+      if (isMountedRef.current) setLoading(false);
+    }, 10000) : null;
+
     try {
       const normalizeCategory = (s?: string) => (typeof s === 'string' ? s.trim().toLowerCase() : '');
 
@@ -192,13 +204,11 @@ const AllProductsPage = () => {
       // Apply subcategory filter via product IDs (join table)
       if (subCategoryProductIds !== null) {
         if (subCategoryProductIds.length === 0) {
-          // No products match the subcategory filter
-          if (!background) {
+          if (isMountedRef.current && !background) {
             setDisplayProducts([]);
             setSubCategoryOptions([]);
           }
-          if (!background) setLoading(false);
-          return;
+          return; // finally will handle setLoading(false)
         }
         query = query.in('id', subCategoryProductIds);
       }
@@ -226,14 +236,14 @@ const AllProductsPage = () => {
 
       if (error) {
         console.error('[AllProductsPage] Error fetching products:', error);
-        if (!background) {
+        if (isMountedRef.current && !background) {
           setDisplayProducts([]);
           setCategoryOptions([]);
           setSubCategoryOptions([]);
           setBrandOptions([]);
           setFlavorOptions([]);
         }
-        return;
+        return; // finally will handle setLoading(false)
       }
 
       // Fast path for background updates
@@ -261,7 +271,7 @@ const AllProductsPage = () => {
           const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
           return qSortOrder === 'asc' ? aTime - bTime : bTime - aTime;
         });
-        setDisplayProducts(quickList);
+        if (isMountedRef.current) setDisplayProducts(quickList);
         return;
       }
 
@@ -281,8 +291,7 @@ const AllProductsPage = () => {
           const minPrice = Math.min(...prodVariants.map((v: any) => v.price ?? 0));
           const minPixPrice = Math.min(...prodVariants.map((v: any) => v.pix_price ?? v.price ?? 0));
           const variantStock = prodVariants.reduce((acc: number, v: any) => acc + (v.stock_quantity || 0), 0);
-          const totalStock = (prod.stock_quantity || 0) + variantStock;
-          finalDisplayList.push({ id: prod.id, name: prod.name, price: minPrice, pixPrice: minPixPrice, imageUrl: prod.image_url || '', stockQuantity: totalStock, hasMultipleVariants: true, showAgeBadge: showAge, createdAt: prod.created_at || null });
+          finalDisplayList.push({ id: prod.id, name: prod.name, price: minPrice, pixPrice: minPixPrice, imageUrl: prod.image_url || '', stockQuantity: (prod.stock_quantity || 0) + variantStock, hasMultipleVariants: true, showAgeBadge: showAge, createdAt: prod.created_at || null });
         } else {
           finalDisplayList.push({ id: prod.id, name: prod.name, price: prod.price ?? 0, pixPrice: prod.pix_price ?? null, imageUrl: prod.image_url || '', stockQuantity: prod.stock_quantity || 0, hasMultipleVariants: false, showAgeBadge: showAge, createdAt: prod.created_at || null });
         }
@@ -372,21 +381,23 @@ const AllProductsPage = () => {
             if (name) flavorsArr.push({ name, count });
           }
           flavorsArr.sort((a, b) => a.name.localeCompare(b.name));
-          setFlavorOptions(flavorsArr);
+          if (isMountedRef.current) setFlavorOptions(flavorsArr);
         } else {
-          setFlavorOptions([]);
+          if (isMountedRef.current) setFlavorOptions([]);
         }
       } else {
-        setFlavorOptions([]);
+        if (isMountedRef.current) setFlavorOptions([]);
       }
 
       const categoriesArr = Array.from(catCountMap.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => a.name.localeCompare(b.name));
       const subCategoriesArr = Array.from(subCatCountMap.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => a.name.localeCompare(b.name));
       const brandsArr = Array.from(brandCountMap.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => a.name.localeCompare(b.name));
 
-      setCategoryOptions(categoriesArr);
-      setSubCategoryOptions(subCategoriesArr);
-      setBrandOptions(brandsArr);
+      if (isMountedRef.current) {
+        setCategoryOptions(categoriesArr);
+        setSubCategoryOptions(subCategoriesArr);
+        setBrandOptions(brandsArr);
+      }
 
       // Sort: available first, then by selected sort
       const [sField, sOrder] = sortBy.split('-');
@@ -403,10 +414,15 @@ const AllProductsPage = () => {
         return sOrder === 'asc' ? aTime - bTime : bTime - aTime;
       });
 
-      setDisplayProducts(finalDisplayList);
+      if (isMountedRef.current) {
+        setDisplayProducts(finalDisplayList);
+      }
 
+    } catch (err) {
+      console.error('[AllProductsPage] fetchProducts error:', err);
     } finally {
-      if (!background) setLoading(false);
+      if (safetyTimer) clearTimeout(safetyTimer);
+      if (!background && isMountedRef.current) setLoading(false);
     }
   }, [debouncedSearchTerm, selectedCategories, selectedSubCategories, selectedBrands, selectedFlavors, sortBy]);
 

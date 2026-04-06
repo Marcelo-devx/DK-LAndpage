@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ShieldAlert } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/context/AuthContext';
 
 const THRESHOLD_MS = 10 * 60 * 1000; // 10 minutos
 
@@ -50,6 +50,7 @@ const isExemptRoute = (): boolean => {
 };
 
 const AgeVerificationPopup = () => {
+  const { loading: authLoading, user } = useAuth();
   // null = aguardando resolução do auth, false = não mostrar, true = mostrar
   const [showState, setShowState] = useState<null | boolean>(null);
 
@@ -68,53 +69,37 @@ const AgeVerificationPopup = () => {
       return;
     }
 
-    // ── Verificação assíncrona via onAuthStateChange ─────────────────────────
-    // Usamos onAuthStateChange em vez de getSession() para evitar race condition
-    // quando o Supabase está renovando o token em background (ao voltar de outra aba).
-    // O evento INITIAL_SESSION é disparado assim que o estado de auth é resolvido.
-    let resolved = false;
-
+    // ── Verificação via AuthContext (useAuth) ────────────────────────────────
+    // O AuthContext gerencia o estado de autenticação de forma centralizada.
+    // Usamos user e loading do useAuth() para evitar race conditions.
+    
     // Fallback: se o auth demorar mais de 4s, mostra o popup para não travar a UI
     const fallbackTimer = setTimeout(() => {
-      if (!resolved) {
-        resolved = true;
-        setShowState(true);
-      }
+      setShowState(true);
     }, 4000);
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
-        if (resolved) return;
-        resolved = true;
-        clearTimeout(fallbackTimer);
-
-        if (session?.user) {
-          // Usuário logado — já confirmou +18 ao criar a conta
-          markVerified();
-          setShowState(false);
-        } else {
-          // Visitante anônimo — mostrar popup
-          setShowState(true);
-        }
-      }
-    });
-
-    // Registrar quando o usuário sai da aba
-    const handleVisibilityChange = () => {
-      try {
-        if (document.hidden) {
-          sessionStorage.setItem('left_at', String(Date.now()));
-        }
-      } catch { /* noop */ }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       clearTimeout(fallbackTimer);
-      subscription.unsubscribe();
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, []);
+  }, [user, authLoading]);
+
+  // Atualiza showState quando authLoading muda
+  useEffect(() => {
+    if (showState === null) return;
+
+    if (!authLoading) {
+      // Auth foi resolvido
+      if (user) {
+        // Usuário logado — já confirmou +18 ao criar a conta
+        markVerified();
+        setShowState(false);
+        try { window.dispatchEvent(new Event('ageVerified')); } catch { /* noop */ }
+      } else {
+        // Visitante anônimo — mostrar popup
+        setShowState(true);
+      }
+    }
+  }, [authLoading, user, showState]);
 
   const handleConfirm = () => {
     markVerified();

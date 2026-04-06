@@ -1,12 +1,13 @@
 import { Link } from 'react-router-dom';
 import { Instagram } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
+import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
 const Footer = () => {
   const { settings, updateSetting } = useTheme();
-  const [session, setSession] = useState<any>(null);
+  const { user, isAdmin } = useAuth();
   const hasAttemptedFix = useRef(false);
 
   // Link EXATO fornecido
@@ -19,16 +20,8 @@ const Footer = () => {
 
     const tryFix = async () => {
       try {
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
-        if (!currentSession) return; // só tenta salvar se estiver logado
-
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', currentSession.user.id)
-          .single();
-
-        if (profile?.role !== 'adm') return; // só admin pode salvar
+        // Verifica se é admin usando useAuth()
+        if (!user || !isAdmin) return;
 
         const currentUrl = settings.socialInstagram?.trim();
         if (!currentUrl || currentUrl === '#' || currentUrl !== CORRECT_INSTAGRAM_URL) {
@@ -42,41 +35,7 @@ const Footer = () => {
     };
 
     tryFix();
-  }, []); // array vazio — roda apenas uma vez na montagem
-
-  useEffect(() => {
-    let mounted = true;
-    const getSession = async () => {
-      try {
-        const res = await supabase.auth.getSession();
-        const s = res?.data?.session ?? null;
-        if (!mounted) return;
-        setSession(s);
-      } catch (e) {
-        console.error('[Footer] getSession error', e);
-        if (mounted) setSession(null);
-      }
-    };
-
-    getSession();
-
-    const listener = supabase.auth.onAuthStateChange((_event, currentSession) => {
-      setSession(currentSession ?? null);
-    });
-
-    return () => {
-      mounted = false;
-      try {
-        if (listener && (listener as any).data && (listener as any).data.subscription) {
-          (listener as any).data.subscription.unsubscribe();
-        } else if (listener && (listener as any).unsubscribe) {
-          (listener as any).unsubscribe();
-        }
-      } catch (e) {
-        console.warn('[Footer] failed to unsubscribe auth listener', e);
-      }
-    };
-  }, []);
+  }, [user, isAdmin, settings.socialInstagram, updateSetting]);
 
   const contactEmail = settings.contactEmail || 'dondkcwb@protonmail.com';
   const contactPhone = settings.contactPhone || '+595 985 981 046';
@@ -99,7 +58,7 @@ const Footer = () => {
               <li><Link to="/produtos" className="hover:text-sky-500 transition-colors">Produtos</Link></li>
               <li><Link to="/como-funciona" className="hover:text-sky-500 transition-colors">Como Funciona o Clube</Link></li>
               <li>
-                {session ? (
+                {user ? (
                   <Link to="/dashboard" className="hover:text-sky-500 transition-colors">Minha Conta</Link>
                 ) : (
                   <Link to="/login" className="hover:text-sky-500 transition-colors">Entrar / Minha Conta</Link>

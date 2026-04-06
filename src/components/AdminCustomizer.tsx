@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContext';
 import { 
   Settings, 
   Save, 
@@ -89,7 +90,7 @@ const MpPublicKeyField = () => {
 };
 
 const AdminCustomizer = () => {
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { isAdmin } = useAuth();
   const { settings, updateSetting, refreshSettings, saveAllSettings } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
@@ -175,77 +176,58 @@ const AdminCustomizer = () => {
   const [loadingTimer, setLoadingTimer] = useState(false);
   const [savingTimer, setSavingTimer] = useState(false);
 
-  useEffect(() => {
-    const checkAdmin = async () => {
-      const { data: userData } = await supabase.auth.getUser();
-      const user = (userData as any)?.user ?? null;
-      if (!user) { setIsAdmin(false); return; }
+  const fetchCategories = async () => {
+    setLoadingCategories(true);
+    const { data } = await supabase
+      .from('categories')
+      .select('*')
+      .order('name');
+    if (data) {
+      setCategories(data);
+    }
+    setLoadingCategories(false);
+  };
 
-      const { data } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-      if (data?.role === 'adm') {
-        setIsAdmin(true);
+  const fetchTimerMessages = async () => {
+    setLoadingTimer(true);
+    const { data } = await supabase
+      .from('app_settings')
+      .select('key, value')
+      .in('key', [
+        'timer_weekday_before',
+        'timer_weekday_after',
+        'timer_saturday_before',
+        'timer_saturday_after',
+        'timer_sunday',
+      ]);
+
+    if (data && data.length > 0) {
+      const map: Record<string, string> = {};
+      data.forEach((row: any) => { map[row.key] = row.value; });
+      const obj = {
+        weekday_before: map['timer_weekday_before'] || '',
+        weekday_after: map['timer_weekday_after'] || '',
+        saturday_before: map['timer_saturday_before'] || '',
+        saturday_after: map['timer_saturday_after'] || '',
+        sunday: map['timer_sunday'] || '',
+      };
+      setTimerJson(JSON.stringify(obj, null, 2));
+    }
+    setLoadingTimer(false);
+  };
+
+  useEffect(() => {
+    const loadAdminData = async () => {
+      // O isAdmin já vem do useAuth(), não precisamos verificar novamente
+      if (isAdmin) {
         fetchWebhooks();
         fetchCategories();
-        fetchTimerMessages(); // NOVO
-      } else {
-        setIsAdmin(false);
+        fetchTimerMessages();
       }
     };
 
-    const fetchCategories = async () => {
-      setLoadingCategories(true);
-      const { data } = await supabase
-        .from('categories')
-        .select('*')
-        .order('name');
-      if (data) {
-        setCategories(data);
-      }
-      setLoadingCategories(false);
-    };
-
-    // Buscar mensagens do timer
-    const fetchTimerMessages = async () => {
-      setLoadingTimer(true);
-      const { data } = await supabase
-        .from('app_settings')
-        .select('key, value')
-        .in('key', [
-          'timer_weekday_before',
-          'timer_weekday_after',
-          'timer_saturday_before',
-          'timer_saturday_after',
-          'timer_sunday',
-        ]);
-
-      if (data && data.length > 0) {
-        const map: Record<string, string> = {};
-        data.forEach((row: any) => { map[row.key] = row.value; });
-        const obj = {
-          weekday_before: map['timer_weekday_before'] || '',
-          weekday_after: map['timer_weekday_after'] || '',
-          saturday_before: map['timer_saturday_before'] || '',
-          saturday_after: map['timer_saturday_after'] || '',
-          sunday: map['timer_sunday'] || '',
-        };
-        setTimerJson(JSON.stringify(obj, null, 2));
-      }
-      setLoadingTimer(false);
-    };
-
-    checkAdmin();
-    const listener = supabase.auth.onAuthStateChange(() => checkAdmin());
-    const subscription = (listener as any)?.data?.subscription ?? (listener as any)?.subscription ?? null;
-
-    return () => {
-      try {
-        if (subscription && typeof subscription.unsubscribe === 'function') subscription.unsubscribe();
-        else if ((listener as any)?.unsubscribe) (listener as any).unsubscribe();
-      } catch (e) {
-        console.warn('[AdminCustomizer] failed to unsubscribe auth listener', e);
-      }
-    };
-  }, []);
+    loadAdminData();
+  }, [isAdmin]);
 
   const updateWebhook = (event: string, url: string) => {
     setWebhooks(prev => ({ ...prev, [event]: url }));

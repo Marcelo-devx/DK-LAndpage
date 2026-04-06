@@ -201,7 +201,7 @@ const Index = () => {
       )}
 
       {/* Compact spacing under hero */}
-      <div className="-mt-6 md:-mt-8 lg:-mt-10 xl:-mt-12">
+      <div className="-mt-6 md:mt-0 lg:mt-0 xl:mt-0">
         
         {settings.showInfo && (
           <InfoSection compactTop />

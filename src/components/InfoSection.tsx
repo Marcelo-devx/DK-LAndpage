@@ -79,9 +79,9 @@ const InfoSection = ({ compactTop = false }: { compactTop?: boolean }) => {
     fetchData();
   }, []);
 
-  // Section class: when compactTop is true we use a larger negative top margin so the section rises more
-  // Doubling previous values as requested by the user, but keep conservative to avoid touching header
-  const sectionClass = compactTop ? '-mt-8 md:-mt-12 lg:-mt-16' : 'py-4 md:py-10 xl:py-14';
+  // Section class: keep mobile unchanged but reduce negative margins for md/lg/xl to avoid overlap on larger screens
+  // mobile value preserved as requested
+  const sectionClass = compactTop ? '-mt-8 md:-mt-2 lg:-mt-3 xl:-mt-4' : 'py-4 md:py-10 xl:py-14';
 
   if (loading) {
     return (

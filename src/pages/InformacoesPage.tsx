@@ -123,7 +123,7 @@ const InformacoesPage = () => {
           </AccordionItem>
 
           {/* ACORDEÃO 2: GARANTIA E POLÍTICA DE TROCAS */}
-          <AccordionItem value="garantia" className="border border-emerald-500/20 bg-gradient-to-br from-slate-900 to-black rounded-2xl overflow-hidden">
+          <AccordionItem value="garantia" className="border border-emerald-500/20 bg-slate-900 rounded-2xl overflow-hidden">
             <AccordionTrigger className="px-6 md:px-8 py-6 hover:no-underline hover:bg-white/5 transition-all group">
               <div className="flex items-center gap-4">
                 <div className="bg-emerald-500/10 p-3 rounded-xl border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-colors">
@@ -139,264 +139,110 @@ const InformacoesPage = () => {
                 </div>
               </div>
             </AccordionTrigger>
+
             <AccordionContent className="px-6 md:px-8 pb-8">
-              <div className="space-y-8 mt-4">
-                
-                {/* Introdução */}
-                <div className="bg-slate-800/50 p-6 rounded-xl border border-white/5">
-                  <p className="text-slate-300 leading-relaxed">
-                    Prezado Cliente, leia com atenção os tópicos abaixo, <strong className="text-white">antes de realizar a compra</strong>.
+              <div className="max-w-4xl mx-auto mt-4 space-y-8 text-left">
+
+                {/* Introdução em bloco sólido */}
+                <div className="bg-slate-900 border border-white/6 p-6 rounded-lg">
+                  <p className="text-white text-lg leading-8">
+                    Prezado Cliente, leia com atenção os tópicos abaixo, <strong>antes de realizar a compra</strong>.
                   </p>
-                  <p className="text-slate-300 leading-relaxed mt-4">
-                    Todos os produtos que comercializamos são originais, entregues nas respectivas caixas lacradas e com código de verificação de autenticidade do fabricante. O fabricante, reserva-se ao direito de fazer alterações nas embalagens e produtos a qualquer tempo, sem prévio aviso e sem que comprometa o funcionamento do mesmo.
+
+                  <p className="text-slate-200 mt-4 text-lg leading-8">
+                    Todos os produtos que comercializamos são originais, entregues nas respectivas caixas lacradas e com código de verificação de autenticidade do fabricante. O fabricante pode alterar embalagens e detalhes sem aviso, sem que isso comprometa o funcionamento.
                   </p>
-                  <p className="text-slate-300 leading-relaxed mt-4">
-                    Dispomos de uma equipe comprometida em proporcionar a melhor entrega, buscamos sempre garantir que o seu produto chegue sempre em perfeitas condições.
+
+                  <p className="text-slate-200 mt-4 text-lg leading-8">
+                    Nossa equipe trabalha para garantir que o produto chegue em perfeitas condições. Caso identifique qualquer problema, siga as orientações abaixo.
                   </p>
                 </div>
 
-                {/* Ao Receber a Encomenda */}
+                {/* Ao Receber a Encomenda - lista simples */}
                 <div>
-                  <h3 className="text-lg font-black uppercase tracking-widest text-white mb-4 flex items-center gap-3">
-                    <div className="bg-sky-500/10 p-2 rounded-lg border border-sky-500/20">
-                      <CheckCircle className="h-5 w-5 text-sky-400" />
-                    </div>
-                    Ao Receber sua Encomenda
-                  </h3>
-                  <div className="space-y-3 ml-10">
-                    <div className="flex items-start gap-3">
-                      <div className="w-2 h-2 rounded-full bg-sky-500 mt-2 shrink-0" />
-                      <p className="text-slate-300">
-                        Observe se a embalagem encontra-se fechada e em perfeitas condições, caso não esteja de acordo, <strong className="text-white">recuse o recebimento</strong> e assinale no verso do comprovante de entrega os motivos da recusa.
-                      </p>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <div className="w-2 h-2 rounded-full bg-sky-500 mt-2 shrink-0" />
-                      <p className="text-slate-300">
-                        Desembale a compra e verifique se está em conformidade com o pedido realizado, caso não esteja de acordo, <strong className="text-white">entre em contato conosco informando o ocorrido</strong>.
-                      </p>
-                    </div>
+                  <h3 className="text-xl font-bold text-white mb-3">Ao receber sua encomenda</h3>
+                  <ul className="list-disc list-inside text-slate-300 space-y-3 pl-4 text-lg leading-7">
+                    <li>Verifique se a embalagem está lacrada e em perfeitas condições. Se houver dano, recuse o recebimento e registre o motivo no comprovante.</li>
+                    <li>Desembale e confira o produto. Se houver divergência com o pedido, entre em contato conosco informando o ocorrido.</li>
+                  </ul>
+                </div>
+
+                {/* Termos de Garantia */}
+                <div>
+                  <h3 className="text-xl font-bold text-white mb-3">Termos de garantia</h3>
+                  <p className="text-lg text-slate-200 leading-8">
+                    A garantia oferecida pela loja <strong className="text-white">DK CWB</strong> é de <span className="inline-block bg-emerald-600 text-black font-black px-3 py-1 rounded-full">30 dias</span> para defeitos de fabricação, contados a partir da data de entrega do pedido.
+                  </p>
+
+                  <div className="mt-4 rounded-lg p-4 bg-white/5 border-l-4 border-red-500">
+                    <p className="text-red-100 font-semibold">Não há garantia contra mau uso</p>
+                    <p className="text-red-100 text-sm mt-2 leading-6">Exemplos: quedas, exposição a líquidos, uso de líquidos ou acessórios não recomendados pelo fabricante, ou qualquer dano causado por manuseio indevido.</p>
                   </div>
+
+                  <p className="text-slate-300 mt-4 text-lg leading-8">
+                    A DK CWB avaliará individualmente cada solicitação. A análise da equipe técnica determinará se o procedimento de troca será aprovado.
+                  </p>
                 </div>
 
-                {/* Termos da Garantia */}
+                {/* O que não é coberto - grid com itens claros */}
                 <div>
-                  <h3 className="text-lg font-black uppercase tracking-widest text-emerald-400 mb-4 flex items-center gap-3">
-                    <div className="bg-emerald-500/10 p-2 rounded-lg border border-emerald-500/20">
-                      <Shield className="h-5 w-5 text-emerald-400" />
-                    </div>
-                    Termos de Garantia
-                  </h3>
-                  <Card className="bg-gradient-to-br from-emerald-900/20 to-slate-900 border-emerald-500/20 ml-10">
-                    <CardContent className="p-6 space-y-4">
-                      <p className="text-slate-300">
-                        A garantia oferecida pela loja <strong className="text-white">DK CWB</strong> nos produtos anunciados é de <span className="text-emerald-400 font-black">30 dias</span> para defeitos de fabricação, que serão contados a partir da data de entrega do pedido.
-                      </p>
-                      <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl">
-                        <div className="flex items-start gap-3">
-                          <AlertCircle className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />
-                          <div>
-                            <p className="text-red-300 font-bold mb-2">Não há garantia contra mau uso:</p>
-                            <p className="text-slate-400 text-sm">
-                              Quedas, deixar ligado intermitentemente, uso de líquido de má qualidade, utilização de produtos paralelos e não recomendados pela fabricante, falta de conhecimento ou informação.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <p className="text-slate-300">
-                        A DK CWB se reserva ao direito de avaliar individualmente cada solicitação, passando por análise da equipe técnica, aprovando ou não a realização do procedimento de troca dos produtos.
-                      </p>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* O Que NÃO é Coberto */}
-                <div>
-                  <h3 className="text-lg font-black uppercase tracking-widest text-red-400 mb-4 flex items-center gap-3">
-                    <div className="bg-red-500/10 p-2 rounded-lg border border-red-500/20">
-                      <XCircle className="h-5 w-5 text-red-400" />
-                    </div>
-                    O Que NÃO Será Aprovado
-                  </h3>
-                  <p className="text-slate-400 mb-4 ml-10">Produtos que contenham sinais de má utilização como:</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 ml-10">
+                  <h3 className="text-xl font-bold text-white mb-3">O que não será aprovado</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {[
-                      "Botões afundados por pressão excessiva",
-                      "Conexões Micro USB ou USB C danificadas por conexão inversa ou forçados",
-                      "Sinais de umidade (água/líquidos) nas conexões",
-                      "Sinais de quedas",
-                      "Derrubamento de qualquer tipo de líquido que danifique o aparelho",
-                      "Deixar vazamento excessivo de juice sem a devida manutenção diária"
+                      'Botões afundados por pressão excessiva',
+                      'Conexões Micro USB/USB-C danificadas por uso indevido',
+                      'Sinais de umidade (água/líquidos) nas conexões',
+                      'Sinais visíveis de queda',
+                      'Derramamento de líquidos que danifiquem o aparelho',
+                      'Vazamento excessivo de juice sem manutenção apropriada'
                     ].map((item, idx) => (
-                      <div key={idx} className="bg-red-500/5 border border-red-500/10 p-3 rounded-lg flex items-start gap-2">
-                        <XCircle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
-                        <span className="text-slate-300 text-sm">{item}</span>
+                      <div key={idx} className="flex items-start gap-3 bg-white/3 border border-white/6 p-4 rounded-md">
+                        <div className="flex-shrink-0 mt-1 text-red-400">
+                          <XCircle className="h-5 w-5" />
+                        </div>
+                        <p className="text-slate-200 text-base leading-7">{item}</p>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {/* Produtos com Defeito de Fabricação */}
+                {/* Produtos com defeito de fabricação */}
                 <div>
-                  <h3 className="text-lg font-black uppercase tracking-widest text-white mb-4 flex items-center gap-3">
-                    <div className="bg-purple-500/10 p-2 rounded-lg border border-purple-500/20">
-                      <CheckCircle className="h-5 w-5 text-purple-400" />
-                    </div>
-                    Produtos com Defeito de Fabricação
-                  </h3>
-                  <Card className="bg-gradient-to-br from-purple-900/20 to-slate-900 border-purple-500/20 ml-10">
-                    <CardContent className="p-6 space-y-4">
-                      <p className="text-slate-300">
-                        Trabalhamos com as melhores marcas proporcionando produtos com a melhor qualidade disponível no mercado.
-                      </p>
-                      <div className="bg-yellow-500/10 border border-yellow-500/20 p-4 rounded-xl">
-                        <p className="text-yellow-300 font-bold mb-2">⚠️ Atenção Importante</p>
-                        <p className="text-slate-400 text-sm">
-                          Diversos aparelhos contém resistências que contém malha de algodão. A não realização dos passos iniciais contidos nos manuais dos aparelhos poderá danificar e/ou queimar o algodão inutilizando o aparelho. A garantia da loja não cobre resistências que forem mal utilizadas.
-                        </p>
-                      </div>
-                      <p className="text-slate-300">
-                        Após a leitura do manual e realização dos procedimentos necessários, caso tenha algum problema na utilização do produto recebido, entre em contato conosco e solicite auxílio.
-                      </p>
-                      <p className="text-slate-300">
-                        Se for identificado através do nosso atendimento pela equipe técnica que o produto está em desconformidade, providenciaremos a substituição no menor tempo possível. Neste caso a loja arcará com os custos de transporte dos produtos.
-                      </p>
-                    </CardContent>
-                  </Card>
+                  <h3 className="text-xl font-bold text-white mb-3">Produtos com defeito de fabricação</h3>
+                  <p className="text-slate-200 text-lg leading-8">Trabalhamos com marcas de qualidade, porém alguns aparelhos exigem procedimentos iniciais descritos nos manuais (por exemplo, preparo de resistências com malha de algodão). A não execução desses passos pode danificar componentes consumíveis, que não são cobertos pela garantia.</p>
+
+                  <div className="mt-4 rounded-lg p-4 bg-white/5 border-l-4 border-yellow-500">
+                    <p className="text-yellow-100 font-semibold">Atenção importante</p>
+                    <p className="text-yellow-100 text-sm mt-2 leading-6">Se o manual indicar procedimentos iniciais, siga-os. A garantia não cobre resistências danificadas por uso incorreto.</p>
+                  </div>
+
+                  <p className="text-slate-300 mt-4 text-lg leading-8">Se, após seguir o manual, houver problema no uso do produto, entre em contato para suporte. Se constatado defeito de fabricação pela equipe técnica, providenciaremos a substituição e a loja cobrirá os custos de transporte.</p>
                 </div>
 
-                {/* Regras de Troca e Devolução */}
+                {/* Regras de Troca e Devolução - listas claras */}
                 <div>
-                  <h3 className="text-lg font-black uppercase tracking-widest text-sky-400 mb-4 flex items-center gap-3">
-                    <div className="bg-sky-500/10 p-2 rounded-lg border border-sky-500/20">
-                      <ArrowRight className="h-5 w-5 text-sky-400" />
-                    </div>
-                    Regras de Troca e Devolução
-                  </h3>
-                  <div className="ml-10 space-y-4">
-                    <div className="space-y-3">
-                      <div className="flex items-start gap-3">
-                        <div className="bg-sky-500/10 p-1.5 rounded-lg border border-sky-500/20 shrink-0 mt-0.5">
-                          <CheckCircle className="h-3 w-3 text-sky-400" />
-                        </div>
-                        <p className="text-slate-300 text-sm">
-                          O cancelamento da compra e a realização de troca de produtos somente será realizada mediante <strong className="text-white">prévio contato com atendimento da loja</strong>. Será avaliado o prazo legal, conforme o Código de Defesa do Consumidor.
-                        </p>
-                      </div>
-                      <div className="flex items-start gap-3">
-                        <div className="bg-sky-500/10 p-1.5 rounded-lg border border-sky-500/20 shrink-0 mt-0.5">
-                          <CheckCircle className="h-3 w-3 text-sky-400" />
-                        </div>
-                        <p className="text-slate-300 text-sm">
-                          Toda troca será realizada no local de origem, e o <strong className="text-white">cliente arcará com os custos de transporte</strong> dos produtos. A mesma regra valerá para cancelamento de compras que já tiverem sido remetidas.
-                        </p>
-                      </div>
-                      <div className="flex items-start gap-3">
-                        <div className="bg-sky-500/10 p-1.5 rounded-lg border border-sky-500/20 shrink-0 mt-0.5">
-                          <CheckCircle className="h-3 w-3 text-sky-400" />
-                        </div>
-                        <p className="text-slate-300 text-sm">
-                          Para realizar a solicitação de troca é importante que você forneça os dados do produto adquirido, número de compra, e-mail cadastrado e telefone para contato.
-                        </p>
-                      </div>
-                      <div className="flex items-start gap-3">
-                        <div className="bg-sky-500/10 p-1.5 rounded-lg border border-sky-500/20 shrink-0 mt-0.5">
-                          <CheckCircle className="h-3 w-3 text-sky-400" />
-                        </div>
-                        <p className="text-slate-300 text-sm">
-                          Ao devolver a mercadoria, deverá ser entregue em sua <strong className="text-white">embalagem original e lacrada</strong>, com todos os manuais e acessórios.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl">
-                      <p className="text-red-300 font-bold mb-3 flex items-center gap-2">
-                        <XCircle className="h-4 w-4" />
-                        Não será aprovada troca ou cancelamento se constatado:
-                      </p>
-                      <ul className="space-y-2">
-                        {["Sinais de utilização do produto", "Falta de algum acessório ou componente", "Sinais de quedas e/ou líquidos"].map((item, idx) => (
-                          <li key={idx} className="flex items-start gap-2 text-slate-400 text-sm">
-                            <XCircle className="h-3 w-3 text-red-400 shrink-0 mt-0.5" />
-                            {item}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
+                  <h3 className="text-xl font-bold text-white mb-3">Regras para Troca e Devolução</h3>
+                  <ul className="list-disc list-inside text-slate-300 space-y-3 pl-4 text-lg leading-7">
+                    <li>Trocas/cancelamentos só mediante contato prévio com o atendimento da loja.</li>
+                    <li>Toda troca será realizada no local de origem; o cliente arca com o frete, salvo quando a troca for por defeito aprovado pela equipe técnica.</li>
+                    <li>Ao devolver, entregue o produto na embalagem original, lacrada, com manuais e acessórios.</li>
+                    <li>Trocas não serão aprovadas se houver sinais de uso, falta de componentes ou danos por queda/liquido.</li>
+                    <li>Prazo para desistir ou trocar: <strong className="text-white">7 dias corridos</strong> a partir do recebimento.</li>
+                  </ul>
                 </div>
 
-                {/* Prazos */}
-                <div className="bg-gradient-to-r from-sky-500/10 to-emerald-500/10 border border-sky-500/20 p-6 rounded-xl ml-10">
-                  <h4 className="text-lg font-black uppercase tracking-widest text-white mb-4 flex items-center gap-3">
-                    <Clock className="h-5 w-5 text-sky-400" />
-                    Prazos Importantes
-                  </h4>
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-sky-400 font-bold uppercase text-xs tracking-widest mb-2">Prazo para desistir ou trocar</p>
-                      <p className="text-white font-black text-2xl">7 dias corridos</p>
-                      <p className="text-slate-400 text-sm mt-1">A contar da data do recebimento do produto</p>
-                    </div>
-                    <div className="h-px bg-white/10" />
-                    <div>
-                      <p className="text-sky-400 font-bold uppercase text-xs tracking-widest mb-2">Ressarcimento do valor</p>
-                      <p className="text-white font-black text-2xl">Até 7 dias úteis</p>
-                      <p className="text-slate-400 text-sm mt-1">Após a chegada do item em nosso endereço e avaliação técnica</p>
-                    </div>
-                  </div>
+                {/* Trocas de PODs descartáveis */}
+                <div>
+                  <h3 className="text-xl font-bold text-white mb-3">Trocas de PODs Descartáveis</h3>
+                  <p className="text-slate-200 text-lg leading-8">Não efetuamos trocas/estornos de pods descartáveis após serem abertos e usados. A quantidade de puffs é estimada e varia conforme o uso.</p>
+                  <p className="text-slate-300 mt-2 text-lg leading-8">Trocas só em caso de bateria descarregada (o aparelho não funcionou sequer uma vez). Todos os pods devem ser testados no ato da entrega; se não funcionarem, contate via WhatsApp e envie vídeos que comprovem o defeito.</p>
                 </div>
 
-                {/* Trocas de Pods Descartáveis */}
-                <div className="bg-purple-500/5 border border-purple-500/20 p-6 rounded-xl ml-10">
-                  <h4 className="text-lg font-black uppercase tracking-widest text-purple-400 mb-4 flex items-center gap-3">
-                    <Shield className="h-5 w-5" />
-                    Trocas de PODs Descartáveis
-                  </h4>
-                  <div className="space-y-3">
-                    <p className="text-slate-300">
-                      Não efetuamos trocas/estornos de pods descartáveis após serem abertos e usados.
-                    </p>
-                    <div className="bg-yellow-500/10 border border-yellow-500/20 p-4 rounded-lg">
-                      <p className="text-yellow-300 font-bold text-sm mb-2">⚠️ Importante</p>
-                      <p className="text-slate-400 text-sm">
-                        A quantidade de puffs é apenas exemplar e variam de acordo com a intensidade da puxada. Trocas só poderão ser solicitadas em caso de bateria descarregada (quando o aparelho não funciona nem uma vez).
-                      </p>
-                    </div>
-                    <p className="text-slate-300">
-                      Para isso, todos os pods recebidos no pedido devem ser testados no ato da entrega e, caso não funcione, o cliente deverá entrar em contato via WhatsApp imediatamente, informando o não funcionamento do produto, fazendo o envio de vídeos que mostrem o defeito do produto.
-                    </p>
-                    <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-lg">
-                      <p className="text-red-300 font-bold text-sm">
-                        Reclamações posteriores a data de entrega não serão válidas.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Detalhes do Ressarcimento */}
-                <div className="bg-slate-800/50 p-6 rounded-xl border border-white/5 ml-10">
-                  <h4 className="text-lg font-black uppercase tracking-widest text-white mb-4">Detalhes do Ressarcimento</h4>
-                  <div className="space-y-4">
-                    <div className="flex items-start gap-3">
-                      <CheckCircle className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
-                      <p className="text-slate-300">
-                        Só serão realizados estornos ao titular da compra. O crédito não será concedido a terceiros em nenhuma hipótese.
-                      </p>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <CheckCircle className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
-                      <p className="text-slate-300">
-                        Em caso de compras no cartão de crédito o estorno será realizado pelo sistema e poderá ocorrer apenas na próxima fatura do cartão de crédito. Este procedimento é de responsabilidade exclusiva do sistema de pagamento e da sua administradora do cartão de crédito.
-                      </p>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <CheckCircle className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
-                      <p className="text-slate-300">
-                        Esta política de trocas e devoluções restringe-se aos produtos adquiridos através do site: <strong className="text-sky-400">www.dkcwb.com</strong>
-                      </p>
-                    </div>
-                  </div>
+                {/* Prazos e Ressarcimento */}
+                <div>
+                  <h3 className="text-xl font-bold text-white mb-3">Prazos e Ressarcimento</h3>
+                  <p className="text-slate-200 text-lg leading-8">Ressarcimento: prazo de até <strong className="text-white">7 dias úteis</strong> após a chegada do item ao nosso endereço e avaliação técnica. Estornos serão feitos ao titular da compra; em cartão de crédito, o estorno pode aparecer na próxima fatura.</p>
+                  <p className="text-slate-300 mt-3 text-sm">Esta política aplica-se a compras realizadas em nosso site: <strong className="text-sky-400">www.dkcwb.com</strong></p>
                 </div>
 
               </div>

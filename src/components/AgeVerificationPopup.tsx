@@ -5,13 +5,22 @@ import { ShieldAlert } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 const THRESHOLD_MS = 10 * 60 * 1000; // 10 minutos
+const PERSIST_DAYS = 365; // considerar verificação válida por 1 ano
 
 const isAlreadyVerified = (): boolean => {
   try {
-    return (
-      localStorage.getItem('ageVerified') === 'true' ||
-      sessionStorage.getItem('age-verified-v2') === 'true'
-    );
+    const at = localStorage.getItem('ageVerifiedAt');
+    if (at) {
+      const ts = Number(at);
+      if (!Number.isNaN(ts)) {
+        const age = Date.now() - ts;
+        if (age >= 0 && age < PERSIST_DAYS * 24 * 60 * 60 * 1000) return true;
+      }
+    }
+    // backward-compat flag
+    if (localStorage.getItem('ageVerified') === 'true') return true;
+    if (sessionStorage.getItem('age-verified-v2') === 'true') return true;
+    return false;
   } catch {
     return false;
   }
@@ -20,11 +29,13 @@ const isAlreadyVerified = (): boolean => {
 const markVerified = () => {
   try { localStorage.setItem('ageVerified', 'true'); } catch { /* noop */ }
   try { sessionStorage.setItem('age-verified-v2', 'true'); } catch { /* noop */ }
+  try { localStorage.setItem('ageVerifiedAt', String(Date.now())); } catch { /* noop */ }
 };
 
 const dispatchAgeVerifiedOnce = () => {
   try {
     const KEY = 'ageVerifiedDispatched';
+    // keep this per-session to avoid duplicate dispatch across page loads
     if (sessionStorage.getItem(KEY) === 'true') return;
     sessionStorage.setItem(KEY, 'true');
     try { window.dispatchEvent(new Event('ageVerified')); } catch { /* noop */ }
@@ -81,7 +92,9 @@ const AgeVerificationPopup = () => {
 
     // Fallback: se o auth demorar mais de 4s, mostra o popup para não travar a UI
     const fallbackTimer = setTimeout(() => {
-      setShowState(true);
+      // Before showing, re-check persisted flag to avoid race where markVerified was just set
+      if (!isAlreadyVerified()) setShowState(true);
+      else setShowState(false);
     }, 4000);
 
     return () => {
@@ -102,8 +115,9 @@ const AgeVerificationPopup = () => {
         dispatchAgeVerifiedOnce();
       }, 200);
     } else {
-      // Visitante anônimo — mostrar popup
-      setShowState(true);
+      // Visitante anônimo — mostrar popup somente se não houver persistência
+      if (!isAlreadyVerified()) setShowState(true);
+      else setShowState(false);
     }
   }, [authLoading, user]);
 

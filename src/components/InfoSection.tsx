@@ -80,7 +80,7 @@ const InfoSection = ({ compactTop = false }: { compactTop?: boolean }) => {
   }, []);
 
   if (loading) {
-    const sectionClass = compactTop ? 'py-0 md:py-4' : 'py-4 md:py-12';
+    const sectionClass = compactTop ? 'pt-3 pb-0 md:pt-4 md:pb-0' : 'py-4 md:py-12';
     return (
       <section className={sectionClass}>
         <div className="container mx-auto px-4 md:px-6">
@@ -92,7 +92,7 @@ const InfoSection = ({ compactTop = false }: { compactTop?: boolean }) => {
     );
   }
 
-  const sectionClass = compactTop ? 'py-0 md:py-4 xl:py-6' : 'py-4 md:py-10 xl:py-14';
+  const sectionClass = compactTop ? 'pt-3 pb-0 md:pt-4 md:pb-0' : 'py-4 md:py-10 xl:py-14';
 
   return (
     <section className={sectionClass}>

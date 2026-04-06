@@ -9,7 +9,7 @@ interface ScrollAnimationWrapperProps {
 
 const ScrollAnimationWrapper = ({ children, delay = 0, className }: ScrollAnimationWrapperProps) => {
   const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, amount: 0.2 });
+  const isInView = useInView(ref, { once: true, amount: 0 });
   const mainControls = useAnimation();
 
   useEffect(() => {
@@ -22,7 +22,7 @@ const ScrollAnimationWrapper = ({ children, delay = 0, className }: ScrollAnimat
     <div ref={ref} className={className}>
       <motion.div
         variants={{
-          hidden: { opacity: 0, y: 50 },
+          hidden: { opacity: 0, y: 20 },
           visible: { opacity: 1, y: 0 },
         }}
         initial="hidden"

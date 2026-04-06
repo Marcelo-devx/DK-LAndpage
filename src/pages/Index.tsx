@@ -201,12 +201,10 @@ const Index = () => {
       )}
 
       {/* Tight spacing under hero to match the small gap used between cards */}
-      <div className="space-y-3 md:space-y-4 xl:space-y-6 py-0 md:py-0 xl:py-0 -mt-3">
+      <div className="space-y-2 md:space-y-3 xl:space-y-4 py-0 md:py-0 xl:py-0">
         
         {settings.showInfo && (
-          <ScrollAnimationWrapper>
-            <InfoSection compactTop />
-          </ScrollAnimationWrapper>
+          <InfoSection compactTop />
         )}
 
         {settings.showBrands && brands.length > 0 && (

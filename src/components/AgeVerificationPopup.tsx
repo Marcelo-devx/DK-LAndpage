@@ -83,28 +83,33 @@ const AgeVerificationPopup = () => {
     };
   }, [user, authLoading]);
 
-  // Atualiza showState quando authLoading muda
+  // Atualiza showState quando a resolução do auth muda (sem depender de showState)
   useEffect(() => {
-    if (showState === null) return;
+    if (authLoading) return; // ainda resolvendo
 
-    if (!authLoading) {
-      // Auth foi resolvido
-      if (user) {
-        // Usuário logado — já confirmou +18 ao criar a conta
-        markVerified();
-        setShowState(false);
+    if (user) {
+      // Usuário logado — já confirmou +18 ao criar a conta
+      markVerified();
+      setShowState(false);
+      // Dispara o evento somente após o modal ter fechado (pequeno delay)
+      setTimeout(() => {
         try { window.dispatchEvent(new Event('ageVerified')); } catch { /* noop */ }
-      } else {
-        // Visitante anônimo — mostrar popup
-        setShowState(true);
-      }
+      }, 200);
+    } else {
+      // Visitante anônimo — mostrar popup
+      setShowState(true);
     }
-  }, [authLoading, user, showState]);
+  }, [authLoading, user]);
 
   const handleConfirm = () => {
-    markVerified();
-    try { window.dispatchEvent(new Event('ageVerified')); } catch { /* noop */ }
+    // Fecha o modal imediatamente
     setShowState(false);
+
+    // Marcar verificado e notificar após um pequeno delay para evitar sobreposição
+    setTimeout(() => {
+      markVerified();
+      try { window.dispatchEvent(new Event('ageVerified')); } catch { /* noop */ }
+    }, 200);
   };
 
   const handleExit = () => {

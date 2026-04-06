@@ -30,6 +30,7 @@ const Footer = () => {
               <li><Link to="/" className="hover:text-sky-500 transition-colors">Início</Link></li>
               <li><Link to="/produtos" className="hover:text-sky-500 transition-colors">Produtos</Link></li>
               <li><Link to="/como-funciona" className="hover:text-sky-500 transition-colors">Como Funciona o Clube</Link></li>
+              <li><Link to="/informacoes" className="hover:text-sky-500 transition-colors">Informações da Loja</Link></li>
               <li>
                 {user ? (
                   <Link to="/dashboard" className="hover:text-sky-500 transition-colors">Minha Conta</Link>

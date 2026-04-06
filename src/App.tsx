@@ -20,6 +20,7 @@ import ReferralsPage from "./pages/ReferralsPage";
 import Dashboard from "./pages/Dashboard";
 import LoyaltyClubPage from "./pages/LoyaltyClubPage";
 import HowItWorksPage from "./pages/HowItWorksPage";
+import InformacoesPage from "./pages/InformacoesPage";
 import AdminLogistics from "./pages/AdminLogistics";
 import UpdatePassword from "./pages/UpdatePassword";
 import AuthEventHandler from "./components/AuthEventHandler";
@@ -89,6 +90,7 @@ const AppContent = () => {
           <Route path="/dashboard/security" element={<DashboardSecurity />} />
           <Route path="/clube-dk" element={<LoyaltyClubPage />} />
           <Route path="/como-funciona" element={<HowItWorksPage />} />
+          <Route path="/informacoes" element={<InformacoesPage />} />
         </Route>
         <Route path="/login" element={<Login />} />
         <Route path="/complete-profile" element={<CompleteProfilePage />} />

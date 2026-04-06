@@ -1,6 +1,6 @@
 import { useEffect, useState, memo, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { User, ShoppingCart, Menu, Search, Package, Trophy } from 'lucide-react';
+import { User, ShoppingCart, Menu, Search, Package, Trophy, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -264,6 +264,7 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
                     <Link to="/produtos" className="block text-lg font-black uppercase tracking-widest hover:text-sky-400">Todos Produtos</Link>
                     <Link to="/compras" className="block text-lg font-black uppercase tracking-widest hover:text-sky-400">Meus Pedidos</Link>
                     <Link to="/como-funciona" className="block text-lg font-black uppercase tracking-widest hover:text-sky-400">Clube DK</Link>
+                    <Link to="/informacoes" className="block text-lg font-black uppercase tracking-widest hover:text-sky-400">Informações</Link>
                   </div>
 
                   <div className="space-y-4">
@@ -357,6 +358,14 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
             <div className="hidden xl:flex flex-col leading-none">
               <span className="text-[9px] text-slate-400 font-black uppercase">Clube</span>
               <span className="text-[11px] text-white font-black uppercase tracking-tighter">Vantagens</span>
+            </div>
+          </Link>
+
+          <Link to="/informacoes" className="flex items-center gap-1.5 lg:gap-2 group">
+            <Info className="h-5 w-5 lg:h-6 lg:w-6 text-white group-hover:text-sky-500 transition-colors" />
+            <div className="hidden xl:flex flex-col leading-none">
+              <span className="text-[9px] text-slate-400 font-black uppercase">Sobre</span>
+              <span className="text-[11px] text-white font-black uppercase tracking-tighter">a Loja</span>
             </div>
           </Link>
 

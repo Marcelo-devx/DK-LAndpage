@@ -173,7 +173,7 @@ const Index = () => {
 
       {settings.showHero && heroSlides.length > 0 && (
         // Hero banner com altura reduzida
-        <section className="relative w-full overflow-hidden h-[280px] md:h-[340px] lg:h-[420px] xl:h-[500px] 2xl:h-[600px]">
+        <section className="relative w-full overflow-hidden h-[180px] md:h-[260px] lg:h-[420px] xl:h-[500px] 2xl:h-[600px]">
           <Carousel plugins={[Autoplay({ delay: 5000 })]} className="w-full h-full">
             <CarouselContent>
               {heroSlides.map((slide, index) => (
@@ -201,7 +201,7 @@ const Index = () => {
       )}
 
       {/* Compact spacing under hero */}
-      <div className="-mt-8 md:-mt-12 lg:-mt-14 xl:-mt-16">
+      <div className="-mt-6 md:-mt-8 lg:-mt-10 xl:-mt-12">
         
         {settings.showInfo && (
           <InfoSection compactTop />

@@ -79,8 +79,11 @@ const InfoSection = ({ compactTop = false }: { compactTop?: boolean }) => {
     fetchData();
   }, []);
 
+  // Section class: when compactTop is true we use a small negative top margin so the section rises slightly toward the hero
+  // This is kept conservative so it never touches the hero or header.
+  const sectionClass = compactTop ? '-mt-3 md:-mt-4 lg:-mt-6' : 'py-4 md:py-10 xl:py-14';
+
   if (loading) {
-    const sectionClass = compactTop ? 'pt-3 pb-0 md:pt-4 md:pb-0' : 'py-4 md:py-12';
     return (
       <section className={sectionClass}>
         <div className="container mx-auto px-4 md:px-6">
@@ -92,34 +95,34 @@ const InfoSection = ({ compactTop = false }: { compactTop?: boolean }) => {
     );
   }
 
-  const sectionClass = compactTop ? 'pt-0 pb-0 md:pt-0 md:pb-0' : 'py-4 md:py-10 xl:py-14';
-
   return (
     <section className={sectionClass}>
       <div className="container mx-auto px-4 md:px-6 xl:px-8">
-        {/* Info Bar Carousel */}
-        <div className="mb-6 md:mb-10 xl:mb-12 bg-white p-3 md:p-5 xl:p-6 rounded-3xl md:rounded-[2.5rem] border border-stone-200 shadow-sm relative">
-          <Carousel opts={{ align: "start", loop: true }} className="w-full">
-            <CarouselContent className="-ml-4">
-              {infoBarItems.map((item, index) => {
-                const Icon = icons[item.icon_name];
-                return (
-                  <CarouselItem key={index} className="pl-4 basis-full sm:basis-1/2 md:basis-1/4">
-                    <div className="flex flex-col md:flex-row items-center text-center md:text-left md:space-x-4 group h-full px-6 md:px-0">
-                      <div className="p-2.5 xl:p-3 bg-sky-50 rounded-xl md:rounded-2xl group-hover:bg-sky-100 transition-colors shrink-0 mb-3 md:mb-0">
-                        {Icon && <Icon className="h-6 w-6 md:h-7 md:w-7 xl:h-8 xl:w-8 text-sky-600" />}
+        {/* Info Bar Carousel (render only when we have items) */}
+        {infoBarItems.length > 0 && (
+          <div className="mb-6 md:mb-10 xl:mb-12 bg-white p-3 md:p-5 xl:p-6 rounded-3xl md:rounded-[2.5rem] border border-stone-200 shadow-sm relative">
+            <Carousel opts={{ align: "start", loop: true }} className="w-full">
+              <CarouselContent className="-ml-4">
+                {infoBarItems.map((item, index) => {
+                  const Icon = icons[item.icon_name];
+                  return (
+                    <CarouselItem key={index} className="pl-4 basis-full sm:basis-1/2 md:basis-1/4">
+                      <div className="flex flex-col md:flex-row items-center text-center md:text-left md:space-x-4 group h-full px-6 md:px-0">
+                        <div className="p-2.5 xl:p-3 bg-sky-50 rounded-xl md:rounded-2xl group-hover:bg-sky-100 transition-colors shrink-0 mb-3 md:mb-0">
+                          {Icon && <Icon className="h-6 w-6 md:h-7 md:w-7 xl:h-8 xl:w-8 text-sky-600" />}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-black text-xs xl:text-sm uppercase tracking-widest text-charcoal-gray leading-tight">{item.title}</p>
+                          <p className="text-[11px] md:text-sm xl:text-base text-slate-700 font-medium mt-1 leading-tight">{item.subtitle}</p>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="font-black text-xs xl:text-sm uppercase tracking-widest text-charcoal-gray leading-tight">{item.title}</p>
-                        <p className="text-[11px] md:text-sm xl:text-base text-slate-700 font-medium mt-1 leading-tight">{item.subtitle}</p>
-                      </div>
-                    </div>
-                  </CarouselItem>
-                );
-              })}
-            </CarouselContent>
-          </Carousel>
-        </div>
+                    </CarouselItem>
+                  );
+                })}
+              </CarouselContent>
+            </Carousel>
+          </div>
+        )}
 
         {/* Info Cards Carousel com Pontinhos */}
         <div className="relative">

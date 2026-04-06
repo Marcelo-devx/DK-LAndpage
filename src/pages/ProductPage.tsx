@@ -346,6 +346,9 @@ const ProductPage = () => {
                 "w-full rounded-[2rem] md:rounded-[2.5rem] xl:rounded-[3rem] border border-stone-100 shadow-xl md:shadow-2xl relative bg-white transition-all max-h-[800px]",
                 isOutOfStock && "grayscale opacity-80"
               )}
+              priority={true}
+              quality={90}
+              maxWidth={1920}
             />
             {isOutOfStock && (
                 <div className="absolute top-4 left-4 md:top-6 md:left-6 bg-slate-900 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs font-black uppercase tracking-widest z-10 shadow-lg">

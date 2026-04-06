@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link, useOutletContext, useNavigate } from 'react-router-dom';
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
@@ -20,6 +20,7 @@ import AgeVerificationPopup from '@/components/AgeVerificationPopup';
 const Index = () => {
   const { settings } = useTheme();
   const navigate = useNavigate();
+  const isMountedRef = useRef(true);
   const [displayedProducts, setDisplayedProducts] = useState<any[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [heroSlides, setHeroSlides] = useState<any[]>([]);
@@ -56,11 +57,41 @@ const Index = () => {
     return () => window.removeEventListener('ageVerified', handleAgeVerified);
   }, []);
 
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
+
   const fetchData = useCallback(async (background = false) => {
     try {
-      if (!background) setLoadingProducts(true);
+      if (!background && isMountedRef.current) setLoadingProducts(true);
 
       const normalizeCategory = (s?: string) => (typeof s === 'string' ? s.trim().toLowerCase() : '');
+
+      // Use Promise.race with a timeout so the UI never stays stuck if Supabase hangs briefly
+      const fetchAll = Promise.all([
+        supabase.from('products').select('*').eq('is_visible', true).order('created_at', { ascending: false }).limit(12),
+        supabase.from('product_variants').select('id, product_id, price, pix_price, stock_quantity').eq('is_active', true),
+        supabase.from('hero_slides').select('*').eq('is_active', true).order('sort_order'),
+        supabase.from('promotions').select('*').eq('is_active', true).order('created_at', { ascending: false }),
+        supabase.from('brands').select('*').eq('is_visible', true).order('name'),
+        supabase.from('categories').select('name, show_age_restriction').eq('is_visible', true).order('name'),
+        supabase.from('products').select('*').eq('is_featured', true).eq('is_visible', true).limit(8),
+        supabase.from('informational_popups').select('title, content').eq('is_active', true).limit(1).maybeSingle(),
+      ]);
+
+      const timeoutMs = 8000;
+      const raceResult: any = await Promise.race([
+        fetchAll,
+        new Promise(resolve => setTimeout(() => resolve({ __timed_out: true }), timeoutMs)),
+      ]);
+
+      if (raceResult && raceResult.__timed_out) {
+        console.warn('[Index] fetchData timed out after', timeoutMs, 'ms');
+        // Fallback: clear loading and keep previous data (or empty)
+        if (isMountedRef.current && !background) setLoadingProducts(false);
+        return;
+      }
 
       const [
         productsRes,
@@ -71,16 +102,7 @@ const Index = () => {
         categoriesRes,
         featuredRes,
         popupRes,
-      ] = await Promise.all([
-        supabase.from('products').select('*').eq('is_visible', true).order('created_at', { ascending: false }).limit(12),
-        supabase.from('product_variants').select('id, product_id, price, pix_price, stock_quantity').eq('is_active', true),
-        supabase.from('hero_slides').select('*').eq('is_active', true).order('sort_order'),
-        supabase.from('promotions').select('*').eq('is_active', true).order('created_at', { ascending: false }),
-        supabase.from('brands').select('*').eq('is_visible', true).order('name'),
-        supabase.from('categories').select('name, show_age_restriction').eq('is_visible', true).order('name'),
-        supabase.from('products').select('*').eq('is_featured', true).eq('is_visible', true).limit(8),
-        supabase.from('informational_popups').select('title, content').eq('is_active', true).limit(1).maybeSingle(),
-      ]);
+      ] = raceResult;
 
       const categoryMap = new Map(
         (categoriesRes.data || []).map((c: any) => [normalizeCategory(c.name), c.show_age_restriction !== false])
@@ -120,14 +142,16 @@ const Index = () => {
         }, []);
       };
 
-      setDisplayedProducts(buildProductList(productsRes.data || []));
-      setFeaturedProducts(buildProductList(featuredRes.data || []));
-      setHeroSlides(heroRes.data || []);
-      setPromotions(promosRes.data || []);
-      setBrands(brandsRes.data || []);
-      setCategories(categoriesRes.data || []);
+      if (isMountedRef.current) {
+        setDisplayedProducts(buildProductList(productsRes.data || []));
+        setFeaturedProducts(buildProductList(featuredRes.data || []));
+        setHeroSlides(heroRes.data || []);
+        setPromotions(promosRes.data || []);
+        setBrands(brandsRes.data || []);
+        setCategories(categoriesRes.data || []);
+      }
 
-      if (!background) {
+      if (!background && isMountedRef.current) {
         if (popupRes.data && !sessionStorage.getItem('info_popup_seen')) {
           setInfoPopup(popupRes.data);
           setIsPopupOpen(false);
@@ -153,7 +177,7 @@ const Index = () => {
     } catch (error) {
       console.error("Erro ao carregar dados da Home:", error);
     } finally {
-      if (!background) setLoadingProducts(false);
+      if (!background && isMountedRef.current) setLoadingProducts(false);
     }
   }, []);
 

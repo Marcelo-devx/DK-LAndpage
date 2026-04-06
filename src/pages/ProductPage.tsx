@@ -58,6 +58,11 @@ const ProductPage = () => {
       if (!id) return;
       if (!background) setLoading(true);
 
+      // Safety timeout so loading never remains true indefinitely
+      const safetyTimer = !background ? setTimeout(() => {
+        try { setLoading(false); } catch { /* noop */ }
+      }, 10000) : null;
+
       const { data: productData, error } = await supabase
         .from('products')
         .select('*')
@@ -65,7 +70,7 @@ const ProductPage = () => {
         .eq('is_visible', true)
         .single();
 
-      if (error) { if (!background) setLoading(false); return; }
+      if (error) { if (!background) setLoading(false); if (safetyTimer) clearTimeout(safetyTimer); return; }
       setProduct(productData);
 
       const { data: variantsData } = await supabase
@@ -100,6 +105,7 @@ const ProductPage = () => {
       }
 
       if (!background) setLoading(false);
+      if (safetyTimer) clearTimeout(safetyTimer);
   }, [id]);
 
   useEffect(() => {

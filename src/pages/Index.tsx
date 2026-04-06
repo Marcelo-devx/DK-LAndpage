@@ -172,8 +172,8 @@ const Index = () => {
       )}
 
       {settings.showHero && heroSlides.length > 0 && (
-        // For very wide monitors, increase hero height significantly so the banners aren't visually small
-        <section className="relative w-full overflow-hidden h-[360px] md:h-[440px] lg:h-[560px] xl:h-[680px] 2xl:h-[820px] 2xl:min-h-[60vh]">
+        // Hero banner com altura reduzida
+        <section className="relative w-full overflow-hidden h-[280px] md:h-[340px] lg:h-[420px] xl:h-[500px] 2xl:h-[600px]">
           <Carousel plugins={[Autoplay({ delay: 5000 })]} className="w-full h-full">
             <CarouselContent>
               {heroSlides.map((slide, index) => (

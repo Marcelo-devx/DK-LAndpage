@@ -47,53 +47,52 @@ interface DesktopNavProps {
   categoryProductSubsMap: Record<number, string[]>;
 }
 
-const DesktopNav = memo(({ categories, categoryProductSubsMap }: DesktopNavProps) => (
-  <NavigationMenu className="max-w-full justify-center w-full">
-    <NavigationMenuList className="flex flex-wrap justify-center gap-y-0 gap-x-1">
-      {(categories ?? []).map((category) => {
-        const productSubs = categoryProductSubsMap[category.id] || [];
-        
-        return (
-          <NavigationMenuItem key={category.id} className="shrink-0">
-            <NavigationMenuTrigger 
-              className="bg-transparent text-white hover:text-sky-400 data-[state=open]:bg-white/10 data-[state=open]:text-sky-400 font-black uppercase text-[11px] tracking-[0.15em] h-14 px-4 transition-all" 
-              translate="no"
-            >
-              <Link
-                to={`/produtos?category=${encodeURIComponent(category.name)}`}
-                onClick={(e) => { e.stopPropagation(); }}
-                className="w-full block"
+const DesktopNav = memo(({ categories, categoryProductSubsMap }: DesktopNavProps) => {
+  const navigate = useNavigate();
+
+  return (
+    <NavigationMenu className="max-w-full justify-center w-full">
+      <NavigationMenuList className="flex flex-wrap justify-center gap-y-0 gap-x-1">
+        {(categories ?? []).map((category) => {
+          const productSubs = categoryProductSubsMap[category.id] || [];
+          
+          return (
+            <NavigationMenuItem key={category.id} className="shrink-0">
+              <NavigationMenuTrigger 
+                className="bg-transparent text-white hover:text-sky-400 data-[state=open]:bg-white/10 data-[state=open]:text-sky-400 font-black uppercase text-[11px] tracking-[0.15em] h-14 px-4 transition-all" 
+                translate="no"
+                onClick={() => navigate(`/produtos?category=${encodeURIComponent(category.name)}`)}
               >
                 {category.name}
-              </Link>
-            </NavigationMenuTrigger>
-            <NavigationMenuContent>
-              <div className="w-[680px] max-w-[90vw] p-6 md:p-8 bg-black border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,1)] rounded-2xl">
-                <h4 className="text-[11px] font-black text-sky-500 uppercase tracking-[0.3em] border-b border-white/10 pb-3">Sub-Categorias</h4>
-                <div className="mt-4 grid grid-cols-1 gap-2 max-h-[60vh] overflow-y-auto pr-3 custom-scrollbar">
-                  {productSubs.length > 0 ? (
-                    productSubs.map((sub) => (
-                      <NavigationMenuLink key={sub} asChild>
-                        <Link
-                          to={`/produtos?category=${encodeURIComponent(category.name)}&sub_category=${encodeURIComponent(sub)}`}
-                          className="block p-3 rounded-xl hover:bg-white/5 transition-all"
-                        >
-                          <span className="text-[12px] font-bold text-slate-300 hover:text-white uppercase tracking-wider" translate="no">{sub}</span>
-                        </Link>
-                      </NavigationMenuLink>
-                    ))
-                  ) : (
-                    <div className="text-[11px] text-slate-700 italic">Nenhuma sub-categoria encontrada.</div>
-                  )}
+              </NavigationMenuTrigger>
+              <NavigationMenuContent>
+                <div className="w-[680px] max-w-[90vw] p-6 md:p-8 bg-black border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,1)] rounded-2xl">
+                  <h4 className="text-[11px] font-black text-sky-500 uppercase tracking-[0.3em] border-b border-white/10 pb-3">Sub-Categorias</h4>
+                  <div className="mt-4 grid grid-cols-1 gap-2 max-h-[60vh] overflow-y-auto pr-3 custom-scrollbar">
+                    {productSubs.length > 0 ? (
+                      productSubs.map((sub) => (
+                        <NavigationMenuLink key={sub} asChild>
+                          <Link
+                            to={`/produtos?category=${encodeURIComponent(category.name)}&sub_category=${encodeURIComponent(sub)}`}
+                            className="block p-3 rounded-xl hover:bg-white/5 transition-all"
+                          >
+                            <span className="text-[12px] font-bold text-slate-300 hover:text-white uppercase tracking-wider" translate="no">{sub}</span>
+                          </Link>
+                        </NavigationMenuLink>
+                      ))
+                    ) : (
+                      <div className="text-[11px] text-slate-700 italic">Nenhuma sub-categoria encontrada.</div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </NavigationMenuContent>
-          </NavigationMenuItem>
-        );
-      })}
-    </NavigationMenuList>
-  </NavigationMenu>
-));
+              </NavigationMenuContent>
+            </NavigationMenuItem>
+          );
+        })}
+      </NavigationMenuList>
+    </NavigationMenu>
+  );
+});
 
 DesktopNav.displayName = 'DesktopNav';
 
@@ -111,7 +110,6 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
 
   const fetchNavData = async () => {
     try {
-      // Destructure .data de cada query corretamente
       const [catsRes, subsRes, productsRes] = await Promise.all([
         supabase.from('categories').select('id, name').eq('is_visible', true).order('name'),
         supabase.from('sub_categories').select('id, name, category_id').eq('is_visible', true).order('name'),
@@ -122,7 +120,6 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
       const subs: SubCategory[] = subsRes.data ?? [];
       const productRows = productsRes.data ?? [];
 
-      // Sempre define arrays válidos
       setCategories(cats);
 
       const catNameToId = new Map<string, number>();
@@ -186,7 +183,6 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
       }
     } catch (error) {
       console.error('[Header] Error fetching nav data:', error);
-      // Garante que categories nunca fica undefined/null
       setCategories(prev => Array.isArray(prev) ? prev : []);
     }
   };
@@ -244,6 +240,12 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
     }
   };
 
+  const handleLogoClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    navigate('/');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   // Garante que categories é sempre um array antes de renderizar
   const safeCategories = Array.isArray(categories) ? categories : [];
 
@@ -281,10 +283,10 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
                             {cat.name}
                           </AccordionTrigger>
                           <AccordionContent className="pl-4 pb-4 space-y-3">
-                            <Link to={`/produtos?category=${cat.name}`} className="block text-xs font-bold text-sky-500 uppercase tracking-widest border-b border-white/5 pb-2">Explorar Tudo</Link>
+                            <Link to={`/produtos?category=${encodeURIComponent(cat.name)}`} className="block text-xs font-bold text-sky-500 uppercase tracking-widest border-b border-white/5 pb-2">Explorar Tudo</Link>
                             {(categoryProductSubsMap[cat.id] || []).length > 0 ? (
                               (categoryProductSubsMap[cat.id] || []).map(sub => (
-                                <Link key={sub} to={`/produtos?category=${cat.name}&sub_category=${encodeURIComponent(sub)}`} className="block text-xs font-medium text-slate-400 uppercase tracking-widest hover:text-white" translate="no">{sub}</Link>
+                                <Link key={sub} to={`/produtos?category=${encodeURIComponent(cat.name)}&sub_category=${encodeURIComponent(sub)}`} className="block text-xs font-medium text-slate-400 uppercase tracking-widest hover:text-white" translate="no">{sub}</Link>
                               ))
                             ) : (
                               <div className="text-[11px] text-slate-700 italic">Nenhuma sub-categoria encontrada.</div>
@@ -299,7 +301,7 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
             </SheetContent>
           </Sheet>
           
-          <Link to="/" className="flex items-center group ml-1 md:ml-0" onClick={(e) => { e.preventDefault(); navigate('/'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
+          <a href="/" onClick={handleLogoClick} className="flex items-center group ml-1 md:ml-0">
             {loadingLogo ? (
               <Skeleton className="h-10 w-24 bg-white/10" />
             ) : logoUrl ? (
@@ -307,7 +309,7 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
             ) : (
               <h1 className="text-2xl md:text-4xl font-black italic tracking-tighter text-sky-500 group-hover:scale-105 transition-transform uppercase" translate="no">DKCWB.</h1>
             )}
-          </Link>
+          </a>
         </div>
 
         <div className="flex items-center space-x-4 shrink-0 ml-auto">
@@ -331,7 +333,7 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
       {/* Desktop Header */}
       <div className="hidden md:flex items-center gap-3 lg:gap-5 xl:gap-6 px-4 lg:px-8 xl:px-12 py-0">
         <div className="flex items-center shrink-0">
-          <Link to="/" className="flex items-center group" onClick={(e) => { e.preventDefault(); navigate('/'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
+          <a href="/" onClick={handleLogoClick} className="flex items-center group">
             {loadingLogo ? (
               <Skeleton className="h-12 lg:h-14 xl:h-16 w-28 bg-white/10" />
             ) : logoUrl ? (
@@ -339,7 +341,7 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
             ) : (
               <h1 className="text-3xl lg:text-4xl xl:text-5xl font-black italic tracking-tighter text-sky-500 group-hover:scale-105 transition-transform uppercase" translate="no">DKCWB.</h1>
             )}
-          </Link>
+          </a>
         </div>
 
         <div className="flex-1 max-w-xl lg:max-w-2xl xl:max-w-3xl mx-auto">
@@ -429,7 +431,7 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
           {safeCategories.map((cat) => (
             <Link 
               key={cat.id} 
-              to={`/produtos?category=${cat.name}`}
+              to={`/produtos?category=${encodeURIComponent(cat.name)}`}
               className="whitespace-nowrap px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-[10px] font-black uppercase tracking-widest text-white hover:bg-sky-500 hover:text-white transition-colors"
               translate="no"
             >

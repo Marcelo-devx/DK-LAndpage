@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Link, useOutletContext, useNavigate } from 'react-router-dom';
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
@@ -16,6 +16,7 @@ import InformationalPopup from '@/components/InformationalPopup';
 import { useTheme } from '@/context/ThemeContext';
 import ProductImage from '@/components/ProductImage';
 import AgeVerificationPopup from '@/components/AgeVerificationPopup';
+import { useVisibilityRefresh } from '@/hooks/use-visibility-refresh';
 
 const Index = () => {
   const { settings } = useTheme();
@@ -56,107 +57,90 @@ const Index = () => {
     return () => window.removeEventListener('ageVerified', handleAgeVerified);
   }, []);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoadingProducts(true);
+  const fetchData = useCallback(async (background = false) => {
+    try {
+      if (!background) setLoadingProducts(true);
 
-        // REMOVIDO: A verificação de MP params agora é feita no App.tsx
-        // O componente Index sempre buscará os dados normalmente
+      const normalizeCategory = (s?: string) => (typeof s === 'string' ? s.trim().toLowerCase() : '');
 
-        const normalizeCategory = (s?: string) => (typeof s === 'string' ? s.trim().toLowerCase() : '');
+      const [
+        productsRes,
+        variantsRes,
+        heroRes,
+        promosRes,
+        brandsRes,
+        categoriesRes,
+        featuredRes,
+        popupRes,
+      ] = await Promise.all([
+        supabase.from('products').select('*').eq('is_visible', true).order('created_at', { ascending: false }).limit(12),
+        supabase.from('product_variants').select('id, product_id, price, pix_price, stock_quantity').eq('is_active', true),
+        supabase.from('hero_slides').select('*').eq('is_active', true).order('sort_order'),
+        supabase.from('promotions').select('*').eq('is_active', true).order('created_at', { ascending: false }),
+        supabase.from('brands').select('*').eq('is_visible', true).order('name'),
+        supabase.from('categories').select('name, show_age_restriction').eq('is_visible', true).order('name'),
+        supabase.from('products').select('*').eq('is_featured', true).eq('is_visible', true).limit(8),
+        supabase.from('informational_popups').select('title, content').eq('is_active', true).limit(1).maybeSingle(),
+      ]);
 
-        // Busca tudo em paralelo — UMA única vez
-        const [
-          productsRes,
-          variantsRes,
-          heroRes,
-          promosRes,
-          brandsRes,
-          categoriesRes,
-          featuredRes,
-          popupRes,
-        ] = await Promise.all([
-          supabase.from('products').select('*').eq('is_visible', true).order('created_at', { ascending: false }).limit(12),
-          supabase.from('product_variants').select('id, product_id, price, pix_price, stock_quantity').eq('is_active', true),
-          supabase.from('hero_slides').select('*').eq('is_active', true).order('sort_order'),
-          supabase.from('promotions').select('*').eq('is_active', true).order('created_at', { ascending: false }),
-          supabase.from('brands').select('*').eq('is_visible', true).order('name'),
-          supabase.from('categories').select('name, show_age_restriction').eq('is_visible', true).order('name'),
-          supabase.from('products').select('*').eq('is_featured', true).eq('is_visible', true).limit(8),
-          supabase.from('informational_popups').select('title, content').eq('is_active', true).limit(1).maybeSingle(),
-        ]);
+      const categoryMap = new Map(
+        (categoriesRes.data || []).map((c: any) => [normalizeCategory(c.name), c.show_age_restriction !== false])
+      );
 
-        // Monta o mapa de categorias
-        const categoryMap = new Map(
-          (categoriesRes.data || []).map((c: any) => [normalizeCategory(c.name), c.show_age_restriction !== false])
-        );
-
-        // Helper para montar lista de produtos com variantes (usa dados já buscados)
-        const buildProductList = (products: any[]) => {
-          const allVariants = variantsRes.data || [];
-          return products.reduce((acc: any[], prod: any) => {
-            const prodVariants = allVariants.filter((v: any) => v.product_id === prod.id);
-            if (prodVariants.length > 0) {
-              const totalStock = prodVariants.reduce((s: number, v: any) => s + (v.stock_quantity || 0), 0);
-              if (totalStock > 0) {
-                acc.push({
-                  id: prod.id,
-                  name: prod.name,
-                  price: Math.min(...prodVariants.map((v: any) => v.price ?? 0)),
-                  pixPrice: Math.min(...prodVariants.map((v: any) => v.pix_price ?? v.price ?? 0)),
-                  imageUrl: prod.image_url || '',
-                  stockQuantity: totalStock,
-                  hasMultipleVariants: true,
-                  showAgeBadge: prod.category ? (categoryMap.get(normalizeCategory(prod.category)) ?? true) : true,
-                });
-              }
-            } else if (prod.stock_quantity > 0) {
+      const buildProductList = (products: any[]) => {
+        const allVariants = variantsRes.data || [];
+        return products.reduce((acc: any[], prod: any) => {
+          const prodVariants = allVariants.filter((v: any) => v.product_id === prod.id);
+          if (prodVariants.length > 0) {
+            const totalStock = prodVariants.reduce((s: number, v: any) => s + (v.stock_quantity || 0), 0);
+            if (totalStock > 0) {
               acc.push({
                 id: prod.id,
                 name: prod.name,
-                price: prod.price ?? 0,
-                pixPrice: prod.pix_price ?? null,
+                price: Math.min(...prodVariants.map((v: any) => v.price ?? 0)),
+                pixPrice: Math.min(...prodVariants.map((v: any) => v.pix_price ?? v.price ?? 0)),
                 imageUrl: prod.image_url || '',
-                stockQuantity: prod.stock_quantity,
-                hasMultipleVariants: false,
+                stockQuantity: totalStock,
+                hasMultipleVariants: true,
                 showAgeBadge: prod.category ? (categoryMap.get(normalizeCategory(prod.category)) ?? true) : true,
               });
             }
-            return acc;
-          }, []);
-        };
-
-        setDisplayedProducts(buildProductList(productsRes.data || []));
-        setFeaturedProducts(buildProductList(featuredRes.data || []));
-        setHeroSlides(heroRes.data || []);
-        setPromotions(promosRes.data || []);
-        setBrands(brandsRes.data || []);
-        setCategories(categoriesRes.data || []);
-
-        const triggerInfoPopup = () => {
-          // Mount the informational popup when there's active data, but keep it closed
-          // until the user confirms age. Also respect if the popup was already seen.
-          if (popupRes.data && !sessionStorage.getItem('info_popup_seen')) {
-            setInfoPopup(popupRes.data);
-            setIsPopupOpen(false); // keep closed until age is confirmed
+          } else if (prod.stock_quantity > 0) {
+            acc.push({
+              id: prod.id,
+              name: prod.name,
+              price: prod.price ?? 0,
+              pixPrice: prod.pix_price ?? null,
+              imageUrl: prod.image_url || '',
+              stockQuantity: prod.stock_quantity,
+              hasMultipleVariants: false,
+              showAgeBadge: prod.category ? (categoryMap.get(normalizeCategory(prod.category)) ?? true) : true,
+            });
           }
-        };
+          return acc;
+        }, []);
+      };
 
-        // Mount the informational popup (hidden) if available
-        triggerInfoPopup();
+      setDisplayedProducts(buildProductList(productsRes.data || []));
+      setFeaturedProducts(buildProductList(featuredRes.data || []));
+      setHeroSlides(heroRes.data || []);
+      setPromotions(promosRes.data || []);
+      setBrands(brandsRes.data || []);
+      setCategories(categoriesRes.data || []);
 
-        // Determine if age already verified (localStorage or sessionStorage)
+      if (!background) {
+        if (popupRes.data && !sessionStorage.getItem('info_popup_seen')) {
+          setInfoPopup(popupRes.data);
+          setIsPopupOpen(false);
+        }
+
         const isAgeVerifiedNow = (localStorage.getItem('ageVerified') === 'true') || (sessionStorage.getItem('age-verified-v2') === 'true');
-
         if (isAgeVerifiedNow) {
           setAgeVerified(true);
-          // If age already verified, open the informational popup if present
           if (popupRes.data && !sessionStorage.getItem('info_popup_seen')) {
             setIsPopupOpen(true);
           }
         } else {
-          // Wait for age verification event, then open the informational popup
           const handleVerification = () => {
             setAgeVerified(true);
             if (popupRes.data && !sessionStorage.getItem('info_popup_seen')) {
@@ -166,15 +150,20 @@ const Index = () => {
           };
           window.addEventListener('ageVerified', handleVerification);
         }
-      } catch (error) {
-        console.error("Erro ao carregar dados da Home:", error);
-      } finally {
-        setLoadingProducts(false);
       }
-    };
-
-    fetchData();
+    } catch (error) {
+      console.error("Erro ao carregar dados da Home:", error);
+    } finally {
+      if (!background) setLoadingProducts(false);
+    }
   }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Recarrega dados ao voltar de outra aba (após 30s ausente)
+  useVisibilityRefresh(useCallback(() => fetchData(true), [fetchData]));
+
+  // REMOVED: old useEffect with inline fetchData
 
   const handleClosePopup = () => {
     setIsPopupOpen(false);

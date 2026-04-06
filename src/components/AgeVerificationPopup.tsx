@@ -4,97 +4,132 @@ import { Button } from "@/components/ui/button";
 import { ShieldAlert } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
+const THRESHOLD_MS = 10 * 60 * 1000; // 10 minutos
+
+const isAlreadyVerified = (): boolean => {
+  try {
+    return (
+      localStorage.getItem('ageVerified') === 'true' ||
+      sessionStorage.getItem('age-verified-v2') === 'true'
+    );
+  } catch {
+    return false;
+  }
+};
+
+const markVerified = () => {
+  try { localStorage.setItem('ageVerified', 'true'); } catch { /* noop */ }
+  try { sessionStorage.setItem('age-verified-v2', 'true'); } catch { /* noop */ }
+};
+
+const checkReturnedFromTab = (): boolean => {
+  try {
+    const leftAt = sessionStorage.getItem('left_at');
+    if (!leftAt) return false;
+    const leftTs = Number(leftAt);
+    if (Number.isNaN(leftTs)) return false;
+    if (Date.now() - leftTs < THRESHOLD_MS) {
+      markVerified();
+      try { sessionStorage.removeItem('left_at'); } catch { /* noop */ }
+      return true;
+    }
+  } catch { /* noop */ }
+  return false;
+};
+
+const isExemptRoute = (): boolean => {
+  const path = window.location.pathname;
+  return (
+    path.startsWith('/auth/') ||
+    path.startsWith('/login') ||
+    path.startsWith('/update-password') ||
+    path.startsWith('/complete-profile') ||
+    path.startsWith('/confirmacao-pedido') ||
+    path.startsWith('/compras')
+  );
+};
+
 const AgeVerificationPopup = () => {
-  const [shouldShow, setShouldShow] = useState(false);
+  // null = aguardando resolução do auth, false = não mostrar, true = mostrar
+  const [showState, setShowState] = useState<null | boolean>(null);
 
   useEffect(() => {
-    const THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
+    // ── Verificações síncronas rápidas ──────────────────────────────────────
+    if (isAlreadyVerified()) { setShowState(false); return; }
+    if (checkReturnedFromTab()) {
+      try { window.dispatchEvent(new Event('ageVerified')); } catch { /* noop */ }
+      setShowState(false);
+      return;
+    }
+    if (isExemptRoute()) {
+      markVerified();
+      try { window.dispatchEvent(new Event('ageVerified')); } catch { /* noop */ }
+      setShowState(false);
+      return;
+    }
 
-    const checkVerification = async () => {
-      try {
-        // 1. Se o usuário está logado, ele já confirmou +18 ao criar a conta — bypass automático
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          try { localStorage.setItem('ageVerified', 'true'); } catch (e) { /* noop */ }
-          try { sessionStorage.setItem('age-verified-v2', 'true'); } catch (e) { /* noop */ }
-          setShouldShow(false);
-          return;
-        }
+    // ── Verificação assíncrona via onAuthStateChange ─────────────────────────
+    // Usamos onAuthStateChange em vez de getSession() para evitar race condition
+    // quando o Supabase está renovando o token em background (ao voltar de outra aba).
+    // O evento INITIAL_SESSION é disparado assim que o estado de auth é resolvido.
+    let resolved = false;
 
-        // 2. Verifica localStorage (persistente) ou sessão
-        if (localStorage.getItem('ageVerified') === 'true' || sessionStorage.getItem('age-verified-v2') === 'true') {
-          setShouldShow(false);
-          return;
-        }
-
-        // 3. Se o usuário voltou recentemente de outra aba, tratar como verificado
-        const leftAt = sessionStorage.getItem('left_at');
-        if (leftAt) {
-          const leftTs = Number(leftAt);
-          if (!Number.isNaN(leftTs) && Date.now() - leftTs < THRESHOLD_MS) {
-            try { sessionStorage.setItem('age-verified-v2', 'true'); } catch (e) { /* noop */ }
-            try { window.dispatchEvent(new Event('ageVerified')); } catch (e) { /* noop */ }
-            setShouldShow(false);
-            sessionStorage.removeItem('left_at');
-            return;
-          }
-        }
-
-        // 4. Verifica se vem de redirect externo (bypass automático)
-        const path = window.location.pathname;
-        if (
-          path.startsWith('/auth/') ||
-          path.startsWith('/login') ||
-          path.startsWith('/update-password') ||
-          path.startsWith('/complete-profile') ||
-          path.startsWith('/confirmacao-pedido') ||
-          path.startsWith('/compras')
-        ) {
-          try { localStorage.setItem('ageVerified', 'true'); } catch (e) { /* noop */ }
-          try { sessionStorage.setItem('age-verified-v2', 'true'); } catch (e) { /* noop */ }
-          try { window.dispatchEvent(new Event('ageVerified')); } catch (e) { /* noop */ }
-          setShouldShow(false);
-          return;
-        }
-
-        // 5. Mostrar popup — primeira visita de visitante anônimo
-        setShouldShow(true);
-      } catch (error) {
-        // Em caso de erro (ex: localStorage desabilitado), mostra o popup
-        setShouldShow(true);
+    // Fallback: se o auth demorar mais de 4s, mostra o popup para não travar a UI
+    const fallbackTimer = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        setShowState(true);
       }
-    };
+    }, 4000);
 
-    checkVerification();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(fallbackTimer);
 
-    // Registrar quando o usuário sai da aba para que ao voltar o popup não reapareça
+        if (session?.user) {
+          // Usuário logado — já confirmou +18 ao criar a conta
+          markVerified();
+          setShowState(false);
+        } else {
+          // Visitante anônimo — mostrar popup
+          setShowState(true);
+        }
+      }
+    });
+
+    // Registrar quando o usuário sai da aba
     const handleVisibilityChange = () => {
       try {
         if (document.hidden) {
           sessionStorage.setItem('left_at', String(Date.now()));
         }
-      } catch (e) { /* noop */ }
+      } catch { /* noop */ }
     };
-
     document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
+      clearTimeout(fallbackTimer);
+      subscription.unsubscribe();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 
   const handleConfirm = () => {
-    try { localStorage.setItem('ageVerified', 'true'); } catch (e) { /* noop */ }
-    try { sessionStorage.setItem('age-verified-v2', 'true'); } catch (e) { /* noop */ }
-    try { window.dispatchEvent(new Event('ageVerified')); } catch (e) { /* noop */ }
-    setShouldShow(false);
+    markVerified();
+    try { window.dispatchEvent(new Event('ageVerified')); } catch { /* noop */ }
+    setShowState(false);
   };
 
   const handleExit = () => {
-    // Redireciona para fora do site
     window.location.href = 'https://www.google.com';
   };
 
-  if (!shouldShow) return null;
+  // null = aguardando auth (não renderiza nada, não bloqueia a UI)
+  // false = verificado, não mostrar
+  // true = mostrar popup
+  if (showState !== true) return null;
 
   return (
     <Dialog open={true} onOpenChange={() => {}}>
@@ -104,7 +139,6 @@ const AgeVerificationPopup = () => {
         onEscapeKeyDown={(e) => e.preventDefault()}
         aria-describedby="age-verification-desc"
       >
-        {/* Título e Descrição obrigatórios para acessibilidade, ocultos visualmente */}
         <DialogTitle className="sr-only">Verificação de Idade</DialogTitle>
         <DialogDescription className="sr-only">
           Confirme se você tem mais de 18 anos para acessar o site.
@@ -124,12 +158,12 @@ const AgeVerificationPopup = () => {
               VERIFICAÇÃO DE <span className="text-sky-500">IDADE.</span>
             </h2>
             <div className="space-y-1.5 md:space-y-2" id="age-verification-desc">
-                <p className="text-slate-400 font-medium text-xs md:text-sm leading-relaxed px-2 md:px-0">
+              <p className="text-slate-400 font-medium text-xs md:text-sm leading-relaxed px-2 md:px-0">
                 Este site contém produtos destinados apenas a maiores de <strong className="text-white">18 anos</strong>.
-                </p>
-                <p className="text-[10px] md:text-xs text-slate-700 font-bold uppercase tracking-widest px-2 md:px-0">
-                    A venda e o consumo de tabaco são restritos por lei.
-                </p>
+              </p>
+              <p className="text-[10px] md:text-xs text-slate-700 font-bold uppercase tracking-widest px-2 md:px-0">
+                A venda e o consumo de tabaco são restritos por lei.
+              </p>
             </div>
           </div>
 

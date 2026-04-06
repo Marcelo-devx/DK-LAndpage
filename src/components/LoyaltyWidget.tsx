@@ -27,6 +27,11 @@ const LoyaltyWidget = ({ onClose }: LoyaltyWidgetProps) => {
     let mounted = true;
     
     const fetchData = async () => {
+      // Timeout de segurança para evitar loading infinito ao voltar de outra aba
+      const timeoutId = setTimeout(() => {
+        if (mounted) setLoading(false);
+      }, 4000);
+
       try {
         const { data: { session } } = await supabase.auth.getSession();
         
@@ -58,6 +63,7 @@ const LoyaltyWidget = ({ onClose }: LoyaltyWidgetProps) => {
       } catch (error) {
         console.error("Error fetching loyalty data:", error);
       } finally {
+        clearTimeout(timeoutId);
         if (mounted) {
           setLoading(false);
         }

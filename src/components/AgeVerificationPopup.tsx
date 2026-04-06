@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ShieldAlert } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 const AgeVerificationPopup = () => {
   const [shouldShow, setShouldShow] = useState(false);
@@ -9,15 +10,24 @@ const AgeVerificationPopup = () => {
   useEffect(() => {
     const THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
 
-    const checkVerification = () => {
+    const checkVerification = async () => {
       try {
-        // Verifica localStorage (persistente) ou sessão
+        // 1. Se o usuário está logado, ele já confirmou +18 ao criar a conta — bypass automático
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          try { localStorage.setItem('ageVerified', 'true'); } catch (e) { /* noop */ }
+          try { sessionStorage.setItem('age-verified-v2', 'true'); } catch (e) { /* noop */ }
+          setShouldShow(false);
+          return;
+        }
+
+        // 2. Verifica localStorage (persistente) ou sessão
         if (localStorage.getItem('ageVerified') === 'true' || sessionStorage.getItem('age-verified-v2') === 'true') {
           setShouldShow(false);
           return;
         }
 
-        // If the user returned recently from leaving the tab/app, treat as verified for session
+        // 3. Se o usuário voltou recentemente de outra aba, tratar como verificado
         const leftAt = sessionStorage.getItem('left_at');
         if (leftAt) {
           const leftTs = Number(leftAt);
@@ -30,7 +40,7 @@ const AgeVerificationPopup = () => {
           }
         }
 
-        // Verifica se vem de redirect externo (bypass automático)
+        // 4. Verifica se vem de redirect externo (bypass automático)
         const path = window.location.pathname;
         if (
           path.startsWith('/auth/') ||
@@ -40,7 +50,6 @@ const AgeVerificationPopup = () => {
           path.startsWith('/confirmacao-pedido') ||
           path.startsWith('/compras')
         ) {
-          // marcar como verificado (persistente e por sessão) e disparar evento
           try { localStorage.setItem('ageVerified', 'true'); } catch (e) { /* noop */ }
           try { sessionStorage.setItem('age-verified-v2', 'true'); } catch (e) { /* noop */ }
           try { window.dispatchEvent(new Event('ageVerified')); } catch (e) { /* noop */ }
@@ -48,7 +57,7 @@ const AgeVerificationPopup = () => {
           return;
         }
 
-        // Mostrar popup - primeira visita
+        // 5. Mostrar popup — primeira visita de visitante anônimo
         setShouldShow(true);
       } catch (error) {
         // Em caso de erro (ex: localStorage desabilitado), mostra o popup
@@ -58,6 +67,19 @@ const AgeVerificationPopup = () => {
 
     checkVerification();
 
+    // Registrar quando o usuário sai da aba para que ao voltar o popup não reapareça
+    const handleVisibilityChange = () => {
+      try {
+        if (document.hidden) {
+          sessionStorage.setItem('left_at', String(Date.now()));
+        }
+      } catch (e) { /* noop */ }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   const handleConfirm = () => {

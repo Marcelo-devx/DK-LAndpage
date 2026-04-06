@@ -86,48 +86,62 @@ const ProfilePage = () => {
 
   useEffect(() => {
     let isMounted = true;
+
+    // Timeout de segurança para evitar loading infinito ao voltar de outra aba
+    const timeoutId = setTimeout(() => {
+      if (isMounted) setLoading(false);
+    }, 5000);
     
     const fetchUserAndProfile = async () => {
-      const { session, user } = await getSessionOrUser();
-      if (!session && !user) { 
-        if (isMounted) navigate('/login'); 
-        return; 
-      }
-      
-      const userId = session?.user.id || user?.id;
-      if (isMounted && userId) setUser({ id: userId, email: session?.user.email || user?.email });
+      try {
+        const { session, user } = await getSessionOrUser();
+        if (!session && !user) {
+          if (isMounted) navigate('/login');
+          return;
+        }
+        
+        const userId = session?.user.id || user?.id;
+        if (isMounted && userId) setUser({ id: userId, email: session?.user.email || user?.email });
 
-      if (!userId) return;
+        if (!userId) return;
 
-      const { data: profileData, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
-      if (error) {
-        console.error("Erro ao buscar perfil:", error);
-      } else if (profileData && isMounted) {
-        const initialFormValues = {
-          first_name: profileData.first_name || '',
-          last_name: profileData.last_name || '',
-          date_of_birth: profileData.date_of_birth ? new Date(`${profileData.date_of_birth}T00:00:00`) : new Date(),
-          phone: profileData.phone ? maskPhone(profileData.phone) : '',
-          cpf_cnpj: profileData.cpf_cnpj ? maskCpfCnpj(profileData.cpf_cnpj) : '',
-          gender: profileData.gender || '',
-          cep: profileData.cep ? maskCep(profileData.cep) : '',
-          street: profileData.street || '',
-          number: profileData.number || '',
-          neighborhood: profileData.neighborhood || '',
-          city: profileData.city || '',
-          state: profileData.state || '',
-          complement: profileData.complement || '',
-        };
-        Object.keys(initialFormValues).forEach((key) => {
-          setValue(key as keyof ProfileFormData, initialFormValues[key as keyof ProfileFormData]);
-        });
+        const { data: profileData, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
+        if (error) {
+          console.error("Erro ao buscar perfil:", error);
+        } else if (profileData && isMounted) {
+          const initialFormValues = {
+            first_name: profileData.first_name || '',
+            last_name: profileData.last_name || '',
+            date_of_birth: profileData.date_of_birth ? new Date(`${profileData.date_of_birth}T00:00:00`) : new Date(),
+            phone: profileData.phone ? maskPhone(profileData.phone) : '',
+            cpf_cnpj: profileData.cpf_cnpj ? maskCpfCnpj(profileData.cpf_cnpj) : '',
+            gender: profileData.gender || '',
+            cep: profileData.cep ? maskCep(profileData.cep) : '',
+            street: profileData.street || '',
+            number: profileData.number || '',
+            neighborhood: profileData.neighborhood || '',
+            city: profileData.city || '',
+            state: profileData.state || '',
+            complement: profileData.complement || '',
+          };
+          Object.keys(initialFormValues).forEach((key) => {
+            setValue(key as keyof ProfileFormData, initialFormValues[key as keyof ProfileFormData]);
+          });
+        }
+      } catch (e) {
+        console.error('[ProfilePage] fetchUserAndProfile error:', e);
+      } finally {
+        clearTimeout(timeoutId);
+        if (isMounted) setLoading(false);
       }
-      if (isMounted) setLoading(false);
     };
     
     fetchUserAndProfile();
     
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+      clearTimeout(timeoutId);
+    };
   }, [navigate, setValue]);
 
   const onAttemptSubmit = async (data: ProfileFormData) => {

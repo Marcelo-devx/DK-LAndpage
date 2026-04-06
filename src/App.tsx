@@ -50,6 +50,20 @@ const AppContent = () => {
   const [checkingRole, setCheckingRole] = useState(false);
   const adminCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Registra quando o usuário sai da aba para que o AgeVerificationPopup
+  // saiba que ele voltou recentemente e não exiba o popup novamente
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      try {
+        if (document.hidden) {
+          sessionStorage.setItem('left_at', String(Date.now()));
+        }
+      } catch (e) { /* noop */ }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
   useEffect(() => {
     const checkAdmin = async () => {
       if (adminCheckTimeoutRef.current) {

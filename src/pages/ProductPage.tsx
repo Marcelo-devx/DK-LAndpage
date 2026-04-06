@@ -125,125 +125,110 @@ const ProductPage = () => {
 
   const fetchRecommendedProducts = useCallback(async () => {
     if (!id || !product) return;
-    
+
     setLoadingRecommended(true);
-    
+
     try {
       // Buscar todos os produtos disponíveis (exceto o atual)
-      const { data: productsData, error } = await supabase
+      const { data: productsData } = await supabase
         .from('products')
         .select('id, name, price, pix_price, image_url, category, stock_quantity, brand, is_featured, created_at')
         .eq('is_visible', true)
         .neq('id', Number(id))
         .order('stock_quantity', { ascending: false }); // Prioriza produtos com estoque
-      
-      if (error || !productsData) {
-        // Se der erro, tenta buscar produtos em destaque como fallback
-        const { data: featuredData } = await supabase
-          .from('products')
-          .select('id, name, price, pix_price, image_url, category, stock_quantity, brand, is_featured, created_at')
-          .eq('is_visible', true)
-          .eq('is_featured', true)
-          .neq('id', Number(id))
-          .limit(3);
-        
-        if (!featuredData) {
-          setRecommendedProducts([]);
-          setLoadingRecommended(false);
-          return;
-        }
-        
-        processAndSetProducts(featuredData);
-        return;
-      }
-      
-      processAndSetProducts(productsData);
-    } catch (error) {
-      console.error('Error fetching recommended products:', error);
-      
-      // Fallback: tenta produtos em destaque
-      try {
-        const { data: featuredData } = await supabase
-          .from('products')
-          .select('id, name, price, pix_price, image_url, category, stock_quantity, brand, is_featured, created_at')
-          .eq('is_visible', true)
-          .eq('is_featured', true)
-          .neq('id', Number(id))
-          .limit(3);
-        
-        if (featuredData) {
-          processAndSetProducts(featuredData);
-        } else {
-          setRecommendedProducts([]);
-        }
-      } catch (fallbackError) {
-        console.error('Error in fallback fetch:', fallbackError);
-        setRecommendedProducts([]);
-      }
-    } finally {
-      setLoadingRecommended(false);
-    }
-    
-    async function processAndSetProducts(products: any[]) {
-      if (products.length === 0) {
-        setRecommendedProducts([]);
-        return;
-      }
-      
-      // Aplicar lógica de fallback
-      let selectedProducts: any[];
-      
-      if (products.length >= 3) {
-        // Randomiza e pega 3
-        const shuffled = [...products].sort(() => Math.random() - 0.5);
-        selectedProducts = shuffled.slice(0, 3);
-      } else {
-        // Se tem menos de 3, usa todos disponíveis
-        selectedProducts = products;
-      }
-      
-      // Buscar variantes para cada produto
-      const productIds = selectedProducts.map(p => p.id);
-      const { data: variants } = await supabase
-        .from('product_variants')
-        .select('id, product_id, price, pix_price, stock_quantity')
-        .in('product_id', productIds)
-        .eq('is_active', true);
-      
-      // Mapear para DisplayProduct
-      const finalProducts: DisplayProduct[] = selectedProducts.map(prod => {
-        const prodVariants = variants?.filter(v => v.product_id === prod.id) || [];
-        
-        if (prodVariants.length > 0) {
-          const minPrice = Math.min(...prodVariants.map(v => v.price ?? 0));
-          const minPixPrice = Math.min(...prodVariants.map(v => v.pix_price ?? v.price ?? 0));
-          const variantStock = prodVariants.reduce((acc, v) => acc + (v.stock_quantity || 0), 0);
-          
+
+      const allProducts = productsData || [];
+
+      // Helper to fetch variants and map to DisplayProduct
+      const mapWithVariants = async (candidates: any[]) => {
+        if (candidates.length === 0) return [] as DisplayProduct[];
+        const productIds = candidates.map(p => p.id);
+        const { data: variants } = await supabase
+          .from('product_variants')
+          .select('id, product_id, price, pix_price, stock_quantity')
+          .in('product_id', productIds)
+          .eq('is_active', true);
+
+        const finalProducts: DisplayProduct[] = candidates.map(prod => {
+          const prodVariants = variants?.filter((v: any) => v.product_id === prod.id) || [];
+
+          if (prodVariants.length > 0) {
+            const minPrice = Math.min(...prodVariants.map((v: any) => v.price ?? 0));
+            const minPixPrice = Math.min(...prodVariants.map((v: any) => v.pix_price ?? v.price ?? 0));
+            const variantStock = prodVariants.reduce((acc: number, v: any) => acc + (v.stock_quantity || 0), 0);
+
+            return {
+              id: prod.id,
+              name: prod.name,
+              price: minPrice,
+              pixPrice: minPixPrice,
+              imageUrl: prod.image_url || '',
+              stockQuantity: (prod.stock_quantity || 0) + variantStock,
+              hasMultipleVariants: true,
+              showAgeBadge: true,
+            } as DisplayProduct;
+          }
+
           return {
             id: prod.id,
             name: prod.name,
-            price: minPrice,
-            pixPrice: minPixPrice,
+            price: prod.price ?? 0,
+            pixPrice: prod.pix_price ?? null,
             imageUrl: prod.image_url || '',
-            stockQuantity: (prod.stock_quantity || 0) + variantStock,
-            hasMultipleVariants: true,
-            showAgeBadge: true
-          };
+            stockQuantity: prod.stock_quantity || 0,
+            hasMultipleVariants: false,
+            showAgeBadge: true,
+          } as DisplayProduct;
+        });
+
+        return finalProducts;
+      };
+
+      // Map all fetched products
+      let finalCandidates = await mapWithVariants(allProducts);
+
+      // Prefer in-stock products
+      let available = finalCandidates.filter(p => (p.stockQuantity || 0) > 0);
+
+      // If not enough available, try fetching featured in-stock products to fill
+      if (available.length < 3) {
+        const { data: featured } = await supabase
+          .from('products')
+          .select('id, name, price, pix_price, image_url, category, stock_quantity, brand, is_featured, created_at')
+          .eq('is_visible', true)
+          .eq('is_featured', true)
+          .neq('id', Number(id))
+          .order('stock_quantity', { ascending: false })
+          .limit(6);
+
+        const featuredMapped = await mapWithVariants(featured || []);
+        const featuredAvailable = featuredMapped.filter(p => (p.stockQuantity || 0) > 0);
+
+        // Merge featured in-stock without duplicates
+        const byId = new Map<number, DisplayProduct>();
+        available.forEach(p => byId.set(p.id, p));
+        for (const p of featuredAvailable) {
+          if (!byId.has(p.id)) byId.set(p.id, p);
         }
-        
-        return {
-          id: prod.id,
-          name: prod.name,
-          price: prod.price ?? 0,
-          pixPrice: prod.pix_price ?? null,
-          imageUrl: prod.image_url || '',
-          stockQuantity: prod.stock_quantity || 0,
-          hasMultipleVariants: false,
-          showAgeBadge: true
-        };
-      });
-      
-      setRecommendedProducts(finalProducts);
+        available = Array.from(byId.values());
+      }
+
+      // Final selection: up to 3 random available products
+      let selected: DisplayProduct[] = [];
+      if (available.length >= 3) {
+        const shuffled = [...available].sort(() => Math.random() - 0.5);
+        selected = shuffled.slice(0, 3);
+      } else if (available.length > 0) {
+        selected = available; // less than 3 but at least one in stock
+      }
+
+      setRecommendedProducts(selected);
+    } catch (err) {
+      console.error('Error fetching recommended products:', err);
+      // On error, fallback to empty list (do not show out-of-stock)
+      setRecommendedProducts([]);
+    } finally {
+      setLoadingRecommended(false);
     }
   }, [id, product]);
 
@@ -552,52 +537,52 @@ const ProductPage = () => {
           </Card>
         </div>
         
-        {/* Produtos Recomendados - SEMPRE MOSTRAR */}
-        <div className="w-full mt-8 md:mt-12 xl:mt-16">
-          <Card className="bg-white border-none shadow-[0_30px_60px_-20px_rgba(0,0,0,0.05)] rounded-[2rem] md:rounded-[3rem] overflow-hidden">
-            <CardContent className="p-6 md:p-12 xl:p-16">
-              <div className="flex items-center space-x-4 mb-8 md:mb-10 xl:mb-12 border-b border-stone-50 pb-6 md:pb-8">
-                <div className="p-3 md:p-4 bg-emerald-50 rounded-xl md:rounded-2xl text-emerald-600">
-                  <ShoppingBag className="h-6 w-6 md:h-8 md:w-8" />
+        {/* Produtos Recomendados - SEMPRE MOSTRAR (compact) */}
+        <div className="w-full mt-6 md:mt-8 xl:mt-10">
+          <Card className="bg-white border-none shadow-[0_10px_30px_-18px_rgba(0,0,0,0.06)] rounded-[1.25rem] overflow-hidden">
+            <CardContent className="p-4 md:p-6 xl:p-8">
+              <div className="flex items-center space-x-3 mb-4 md:mb-6 border-b border-stone-50 pb-4">
+                <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600">
+                  <ShoppingBag className="h-5 w-5" />
                 </div>
-                <h2 className="font-black text-2xl md:text-3xl xl:text-4xl tracking-tighter italic uppercase text-charcoal-gray">
+                <h3 className="font-black text-lg md:text-xl tracking-tighter italic uppercase text-charcoal-gray">
                   Quem comprou este produto também comprou
-                </h2>
+                </h3>
               </div>
-              
+
               {loadingRecommended ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 xl:gap-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                   {Array.from({ length: 3 }).map((_, index) => (
-                    <div key={index} className="flex flex-col space-y-3">
+                    <div key={index} className="flex flex-col space-y-2">
                       <Skeleton className="w-full rounded-2xl aspect-[4/5] bg-stone-200" />
-                      <Skeleton className="h-4 w-3/4 rounded-lg bg-stone-200" />
-                      <Skeleton className="h-4 w-1/2 rounded-lg bg-stone-200" />
-                      <Skeleton className="h-10 w-full rounded-xl bg-stone-200" />
+                      <Skeleton className="h-3 w-3/4 rounded-lg bg-stone-200" />
+                      <Skeleton className="h-3 w-1/2 rounded-lg bg-stone-200" />
                     </div>
                   ))}
                 </div>
               ) : recommendedProducts.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 xl:gap-8">
-                  {recommendedProducts.map((product) => (
-                    <ProductCard
-                      key={product.id}
-                      product={{
-                        id: product.id,
-                        name: product.name,
-                        price: product.price,
-                        pixPrice: product.pixPrice,
-                        imageUrl: product.imageUrl,
-                        stockQuantity: product.stockQuantity,
-                        hasMultipleVariants: product.hasMultipleVariants,
-                        showAgeBadge: product.showAgeBadge,
-                      }}
-                    />
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                  {recommendedProducts.map((p) => (
+                    <div key={p.id} className="transform-gpu scale-95 origin-top">
+                      <ProductCard
+                        product={{
+                          id: p.id,
+                          name: p.name,
+                          price: p.price,
+                          pixPrice: p.pixPrice,
+                          imageUrl: p.imageUrl,
+                          stockQuantity: p.stockQuantity,
+                          hasMultipleVariants: p.hasMultipleVariants,
+                          showAgeBadge: p.showAgeBadge,
+                        }}
+                      />
+                    </div>
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-12">
+                <div className="text-center py-6">
                   <p className="text-slate-500 text-sm font-medium">
-                    Nenhum produto recomendado disponível no momento.
+                    No momento não há recomendações disponíveis.
                   </p>
                 </div>
               )}

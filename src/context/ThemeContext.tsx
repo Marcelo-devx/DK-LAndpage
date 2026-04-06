@@ -115,18 +115,55 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
           if (!(row.key in latest)) latest[row.key] = row.value;
         }
 
-        if (latest['footer_config']) {
-          try {
-            const parsed = JSON.parse(latest['footer_config']);
-            if (parsed.contactEmail) newSettings.contactEmail = parsed.contactEmail;
-            if (parsed.contactPhone) newSettings.contactPhone = parsed.contactPhone;
-            if (parsed.contactHours) newSettings.contactHours = parsed.contactHours;
-            if (parsed.socialFacebook) newSettings.socialFacebook = parsed.socialFacebook;
-            if (parsed.socialInstagram) newSettings.socialInstagram = parsed.socialInstagram;
-            if (parsed.socialTwitter) newSettings.socialTwitter = parsed.socialTwitter;
-            if (parsed.logoUrl) newSettings.logoUrl = parsed.logoUrl;
-          } catch (e) {
-            console.warn('[ThemeContext] Invalid footer_config JSON', e);
+        // First prefer footer_settings table if present (canonical source)
+        try {
+          // Try to fetch the canonical footer_settings row — prefer the latest entry instead of hardcoded id
+          const { data: footerRow } = await supabase
+            .from('footer_settings')
+            .select('contact_email, contact_phone, contact_hours, social_facebook, social_instagram, social_twitter, logo_url')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (footerRow) {
+            if (footerRow.contact_email) newSettings.contactEmail = footerRow.contact_email;
+            if (footerRow.contact_phone) newSettings.contactPhone = footerRow.contact_phone;
+            if (footerRow.contact_hours) newSettings.contactHours = footerRow.contact_hours;
+            if (footerRow.social_facebook) newSettings.socialFacebook = footerRow.social_facebook;
+            if (footerRow.social_instagram) newSettings.socialInstagram = footerRow.social_instagram;
+            if (footerRow.social_twitter) newSettings.socialTwitter = footerRow.social_twitter;
+            if (footerRow.logo_url) newSettings.logoUrl = footerRow.logo_url;
+          } else if (latest['footer_config']) {
+            // fallback to footer_config JSON if footer_settings missing
+            try {
+              const parsed = JSON.parse(latest['footer_config']);
+              if (parsed.contactEmail) newSettings.contactEmail = parsed.contactEmail;
+              if (parsed.contactPhone) newSettings.contactPhone = parsed.contactPhone;
+              if (parsed.contactHours) newSettings.contactHours = parsed.contactHours;
+              if (parsed.socialFacebook) newSettings.socialFacebook = parsed.socialFacebook;
+              if (parsed.socialInstagram) newSettings.socialInstagram = parsed.socialInstagram;
+              if (parsed.socialTwitter) newSettings.socialTwitter = parsed.socialTwitter;
+              if (parsed.logoUrl) newSettings.logoUrl = parsed.logoUrl;
+            } catch (e) {
+              console.warn('[ThemeContext] Invalid footer_config JSON', e);
+            }
+          }
+        } catch (e) {
+          // ignore footer_settings read errors and fallback to app_settings
+          console.warn('[ThemeContext] Could not read footer_settings, falling back to app_settings', e);
+          if (latest['footer_config']) {
+            try {
+              const parsed = JSON.parse(latest['footer_config']);
+              if (parsed.contactEmail) newSettings.contactEmail = parsed.contactEmail;
+              if (parsed.contactPhone) newSettings.contactPhone = parsed.contactPhone;
+              if (parsed.contactHours) newSettings.contactHours = parsed.contactHours;
+              if (parsed.socialFacebook) newSettings.socialFacebook = parsed.socialFacebook;
+              if (parsed.socialInstagram) newSettings.socialInstagram = parsed.socialInstagram;
+              if (parsed.socialTwitter) newSettings.socialTwitter = parsed.socialTwitter;
+              if (parsed.logoUrl) newSettings.logoUrl = parsed.logoUrl;
+            } catch (e2) {
+              console.warn('[ThemeContext] Invalid footer_config JSON', e2);
+            }
           }
         }
 

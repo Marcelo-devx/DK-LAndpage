@@ -33,7 +33,7 @@ const CategoryProductCarousel = memo(({ categoryName, showAgeBadge = true }: Cat
           return;
         }
 
-        // Fetch products and their variants in parallel — more robust matching using ILIKE
+        // Fetch more products to compensate for later filtering by stock
         const [productsRes] = await Promise.all([
           supabase
             .from('products')
@@ -42,7 +42,7 @@ const CategoryProductCarousel = memo(({ categoryName, showAgeBadge = true }: Cat
             .ilike('category', `%${cat}%`)
             .eq('is_visible', true)
             .order('created_at', { ascending: false })
-            .limit(12),
+            .limit(48),
         ]);
 
         if (!mounted) return;
@@ -96,7 +96,9 @@ const CategoryProductCarousel = memo(({ categoryName, showAgeBadge = true }: Cat
         });
 
         if (mounted) {
-          setProducts(finalList);
+          // Always show up to 6 products on the landing carousel
+          const visible = finalList.slice(0, 6);
+          setProducts(visible);
         }
       } catch (err) {
         console.error('[CategoryProductCarousel] error:', err);
@@ -125,11 +127,10 @@ const CategoryProductCarousel = memo(({ categoryName, showAgeBadge = true }: Cat
             {categoryName}
           </h3>
         </div>
-        {products.length > 0 && (
-          <Link to={`/produtos?category=${encodeURIComponent(categoryName)}`} className="text-[10px] xl:text-xs font-bold uppercase tracking-widest hover:text-sky-400 transition-colors hidden md:block">
-            Ver tudo →
-          </Link>
-        )}
+        {/* Always show "Ver tudo" and make it visible on mobile as well */}
+        <Link to={`/produtos?category=${encodeURIComponent(categoryName)}`} className="text-[10px] xl:text-xs font-bold uppercase tracking-widest hover:text-sky-400 transition-colors">
+          Ver tudo →
+        </Link>
       </div>
 
       <div className="min-h-[250px] md:min-h-[300px] xl:min-h-[340px]">
@@ -158,7 +159,7 @@ const CategoryProductCarousel = memo(({ categoryName, showAgeBadge = true }: Cat
                     variantId: p.variantId,
                     hasMultipleVariants: p.hasMultipleVariants,
                     showAgeBadge: p.showAgeBadge
-                  }} />
+                  }} imagePriority={idx < 2} />
                 </CarouselItem>
               ))}
             </CarouselContent>

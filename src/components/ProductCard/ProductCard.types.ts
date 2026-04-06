@@ -11,4 +11,5 @@ export interface ProductCardProps {
     showAgeBadge?: boolean; // Controla exibição da faixa +18
   };
   className?: string;
+  imagePriority?: boolean;
 }

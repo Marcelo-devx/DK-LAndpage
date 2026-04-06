@@ -15,7 +15,7 @@ const PixIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const ProductCard = memo(({ product }: ProductCardProps) => {
+const ProductCard = memo(({ product, imagePriority }: ProductCardProps & { imagePriority?: boolean }) => {
   const [isAdding, setIsAdding] = useState(false);
   const navigate = useNavigate();
 
@@ -62,6 +62,7 @@ const ProductCard = memo(({ product }: ProductCardProps) => {
             src={product.imageUrl} 
             alt={product.name} 
             className={cn("w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 ease-out", isOutOfStock && "grayscale")} 
+            priority={Boolean(imagePriority)}
           />
           {product.showAgeBadge !== false && !isOutOfStock && (
             <div className="absolute inset-x-0 bottom-0 bg-black/80 backdrop-blur-sm py-1 px-2 text-[7px] font-black text-white uppercase text-center tracking-[0.15em] z-10">

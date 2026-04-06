@@ -58,94 +58,125 @@ const Index = () => {
 
       const normalizeCategory = (s?: string) => (typeof s === 'string' ? s.trim().toLowerCase() : '');
 
-      // Run fetches in parallel but with per-request timing to identify slow queries
-      const productsP = timed('fetch_products', Promise.resolve(supabase.from('products').select('*').eq('is_visible', true).order('created_at', { ascending: false }).limit(12)));
-      const variantsP = timed('fetch_variants', Promise.resolve(supabase.from('product_variants').select('id, product_id, price, pix_price, stock_quantity').eq('is_active', true)));
-      const heroP = timed('fetch_hero', Promise.resolve(supabase.from('hero_slides').select('*').eq('is_active', true).order('sort_order')));
-      const promosP = timed('fetch_promos', Promise.resolve(supabase.from('promotions').select('*').eq('is_active', true).order('created_at', { ascending: false })));
-      const brandsP = timed('fetch_brands', Promise.resolve(supabase.from('brands').select('*').eq('is_visible', true).order('name')));
-      const categoriesP = timed('fetch_categories', Promise.resolve(supabase.from('categories').select('name, show_age_restriction').eq('is_visible', true).order('name')));
-      const featuredP = timed('fetch_featured', Promise.resolve(supabase.from('products').select('*').eq('is_featured', true).eq('is_visible', true).limit(8)));
-
-      const timeoutMs = 15000; // increased to reduce false timeouts
-
-      const fetchAllPromise = Promise.all([
-        productsP,
-        variantsP,
-        heroP,
-        promosP,
-        brandsP,
-        categoriesP,
-        featuredP,
-      ]).then(res => res);
-
-      const raceResult: any = await Promise.race([
-        fetchAllPromise,
-        new Promise(resolve => setTimeout(() => resolve({ __timed_out: true }), timeoutMs)),
+      // PHASE 1: Fetch hero slides and first carousel data immediately (critical for above-the-fold)
+      const [heroRes, featuredRes] = await Promise.all([
+        timed('fetch_hero', Promise.resolve(supabase.from('hero_slides').select('*').eq('is_active', true).order('sort_order'))),
+        timed('fetch_featured', Promise.resolve(supabase.from('products').select('*').eq('is_featured', true).eq('is_visible', true).limit(8))),
       ]);
 
-      if (raceResult && raceResult.__timed_out) {
-        console.warn('[Index] fetchData timed out after', timeoutMs, 'ms');
-        if (isMountedRef.current && !background) setLoadingProducts(false);
-        return;
-      }
-
-      const [
-        productsRes,
-        variantsRes,
-        heroRes,
-        promosRes,
-        brandsRes,
-        categoriesRes,
-        featuredRes,
-      ] = raceResult;
-
-      const categoryMap = new Map(
-        (categoriesRes.data || []).map((c: any) => [normalizeCategory(c.name), c.show_age_restriction !== false])
-      );
-
-      const buildProductList = (products: any[]) => {
-        const allVariants = variantsRes.data || [];
-        return products.reduce((acc: any[], prod: any) => {
-          const prodVariants = allVariants.filter((v: any) => v.product_id === prod.id);
-          if (prodVariants.length > 0) {
-            const totalStock = prodVariants.reduce((s: number, v: any) => s + (v.stock_quantity || 0), 0);
-            if (totalStock > 0) {
+      if (isMountedRef.current) {
+        setHeroSlides(heroRes.data || []);
+        const categoryMap = new Map(
+          (heroRes.data || []).map((c: any) => [normalizeCategory(c.name), c.show_age_restriction !== false])
+        );
+        
+        // Need variants for featured products
+        const featuredIds = (featuredRes.data || []).map((p: any) => p.id);
+        let variantsForFeatured: any[] = [];
+        
+        if (featuredIds.length > 0) {
+          const { data: featuredVariants } = await supabase
+            .from('product_variants')
+            .select('id, product_id, price, pix_price, stock_quantity')
+            .in('product_id', featuredIds)
+            .eq('is_active', true);
+          variantsForFeatured = featuredVariants || [];
+        }
+        
+        const buildProductList = (products: any[], variants: any[]) => {
+          return products.reduce((acc: any[], prod: any) => {
+            const prodVariants = variants.filter((v: any) => v.product_id === prod.id);
+            if (prodVariants.length > 0) {
+              const totalStock = prodVariants.reduce((s: number, v: any) => s + (v.stock_quantity || 0), 0);
+              if (totalStock > 0) {
+                acc.push({
+                  id: prod.id,
+                  name: prod.name,
+                  price: Math.min(...prodVariants.map((v: any) => v.price ?? 0)),
+                  pixPrice: Math.min(...prodVariants.map((v: any) => v.pix_price ?? v.price ?? 0)),
+                  imageUrl: prod.image_url || '',
+                  stockQuantity: totalStock,
+                  hasMultipleVariants: true,
+                  showAgeBadge: prod.category ? (categoryMap.get(normalizeCategory(prod.category)) ?? true) : true,
+                });
+              }
+            } else if (prod.stock_quantity > 0) {
               acc.push({
                 id: prod.id,
                 name: prod.name,
-                price: Math.min(...prodVariants.map((v: any) => v.price ?? 0)),
-                pixPrice: Math.min(...prodVariants.map((v: any) => v.pix_price ?? v.price ?? 0)),
+                price: prod.price ?? 0,
+                pixPrice: prod.pix_price ?? null,
                 imageUrl: prod.image_url || '',
-                stockQuantity: totalStock,
-                hasMultipleVariants: true,
+                stockQuantity: prod.stock_quantity,
+                hasMultipleVariants: false,
                 showAgeBadge: prod.category ? (categoryMap.get(normalizeCategory(prod.category)) ?? true) : true,
               });
             }
-          } else if (prod.stock_quantity > 0) {
-            acc.push({
-              id: prod.id,
-              name: prod.name,
-              price: prod.price ?? 0,
-              pixPrice: prod.pix_price ?? null,
-              imageUrl: prod.image_url || '',
-              stockQuantity: prod.stock_quantity,
-              hasMultipleVariants: false,
-              showAgeBadge: prod.category ? (categoryMap.get(normalizeCategory(prod.category)) ?? true) : true,
-            });
-          }
-          return acc;
-        }, []);
-      };
-
-      if (isMountedRef.current) {
-        setDisplayedProducts(buildProductList(productsRes.data || []));
-        setFeaturedProducts(buildProductList(featuredRes.data || []));
-        setHeroSlides(heroRes.data || []);
-        setPromotions(promosRes.data || []);
-        setBrands(brandsRes.data || []);
-        setCategories(categoriesRes.data || []);
+            return acc;
+          }, []);
+        };
+        
+        setFeaturedProducts(buildProductList(featuredRes.data || [], variantsForFeatured));
       }
+
+      // PHASE 2: Fetch remaining data after a small delay (non-critical for initial render)
+      setTimeout(async () => {
+        if (!isMountedRef.current) return;
+        
+        const [productsRes, variantsRes, promosRes, brandsRes, categoriesRes] = await Promise.all([
+          timed('fetch_products', Promise.resolve(supabase.from('products').select('*').eq('is_visible', true).order('created_at', { ascending: false }).limit(12))),
+          timed('fetch_variants', Promise.resolve(supabase.from('product_variants').select('id, product_id, price, pix_price, stock_quantity').eq('is_active', true))),
+          timed('fetch_promos', Promise.resolve(supabase.from('promotions').select('*').eq('is_active', true).order('created_at', { ascending: false }))),
+          timed('fetch_brands', Promise.resolve(supabase.from('brands').select('*').eq('is_visible', true).order('name'))),
+          timed('fetch_categories', Promise.resolve(supabase.from('categories').select('name, show_age_restriction').eq('is_visible', true).order('name'))),
+        ]);
+
+        const categoryMap = new Map(
+          (categoriesRes.data || []).map((c: any) => [normalizeCategory(c.name), c.show_age_restriction !== false])
+        );
+
+        const buildProductList = (products: any[]) => {
+          const allVariants = variantsRes.data || [];
+          return products.reduce((acc: any[], prod: any) => {
+            const prodVariants = allVariants.filter((v: any) => v.product_id === prod.id);
+            if (prodVariants.length > 0) {
+              const totalStock = prodVariants.reduce((s: number, v: any) => s + (v.stock_quantity || 0), 0);
+              if (totalStock > 0) {
+                acc.push({
+                  id: prod.id,
+                  name: prod.name,
+                  price: Math.min(...prodVariants.map((v: any) => v.price ?? 0)),
+                  pixPrice: Math.min(...prodVariants.map((v: any) => v.pix_price ?? v.price ?? 0)),
+                  imageUrl: prod.image_url || '',
+                  stockQuantity: totalStock,
+                  hasMultipleVariants: true,
+                  showAgeBadge: prod.category ? (categoryMap.get(normalizeCategory(prod.category)) ?? true) : true,
+                });
+              }
+            } else if (prod.stock_quantity > 0) {
+              acc.push({
+                id: prod.id,
+                name: prod.name,
+                price: prod.price ?? 0,
+                pixPrice: prod.pix_price ?? null,
+                imageUrl: prod.image_url || '',
+                stockQuantity: prod.stock_quantity,
+                hasMultipleVariants: false,
+                showAgeBadge: prod.category ? (categoryMap.get(normalizeCategory(prod.category)) ?? true) : true,
+              });
+            }
+            return acc;
+          }, []);
+        };
+
+        if (isMountedRef.current) {
+          setDisplayedProducts(buildProductList(productsRes.data || []));
+          setPromotions(promosRes.data || []);
+          setBrands(brandsRes.data || []);
+          setCategories(categoriesRes.data || []);
+        }
+      }, 200); // 200ms delay for non-critical data
+
     } catch (error) {
       console.error("Erro ao carregar dados da Home:", error);
     } finally {
@@ -179,7 +210,7 @@ const Index = () => {
               {heroSlides.map((slide, index) => (
                 <CarouselItem key={index}>
                   <Link
-                    to={slide.button_url || '#'}
+                    to={slide.button_url || '#' }
                     className="block relative w-full h-full"
                   >
                     {/* Use cover so the image fills the hero area and doesn't leave letterbox gaps */}
@@ -245,7 +276,7 @@ const Index = () => {
                   <CarouselItem key={i} className="pl-1 md:pl-2 basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/5">
                     <Skeleton className="aspect-square bg-slate-200 rounded-2xl md:rounded-3xl" />
                   </CarouselItem>
-                )) : displayedProducts.length > 0 ?
+                )) : displayedProducts.length > 0 ? 
                   displayedProducts.map((p, idx) => (
                     <CarouselItem key={`${p.id}-${idx}`} className="pl-1 md:pl-2 basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/5">
                       <ProductCard product={{ id: p.id, name: p.name, price: p.price, pixPrice: p.pixPrice, imageUrl: p.imageUrl, stockQuantity: p.stockQuantity, variantId: p.variantId, hasMultipleVariants: p.hasMultipleVariants, showAgeBadge: p.showAgeBadge }} />

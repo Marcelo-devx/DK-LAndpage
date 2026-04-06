@@ -42,7 +42,7 @@ const CategoryProductCarousel = memo(({ categoryName, showAgeBadge = true }: Cat
             .ilike('category', `%${cat}%`)
             .eq('is_visible', true)
             .order('created_at', { ascending: false })
-            .limit(48),
+            .limit(24), // Reduced from 48 to 24 for better performance
         ]);
 
         if (!mounted) return;

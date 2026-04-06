@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils';
 import { useState, useEffect, useRef } from 'react';
+import { getOptimizedImageUrl, getResponsiveSrcset, getBlurPlaceholder } from '@/utils/imageOptimizer';
 
 interface ProductImageProps {
   src: string;
@@ -9,14 +10,20 @@ interface ProductImageProps {
   priority?: boolean;
   // object-fit mode: 'cover' (default) or 'contain'
   fit?: 'cover' | 'contain';
+  // Maximum container width for responsive sizing
+  maxWidth?: number;
 }
 
 const Placeholder = ({ className }: { className?: string }) => (
   <div
     className={cn(
-      'w-full h-full bg-stone-100 rounded-lg animate-pulse',
+      'w-full h-full bg-stone-100',
       className
     )}
+    style={{
+      backgroundImage: `url(${getBlurPlaceholder()})`,
+      backgroundSize: 'cover',
+    }}
   />
 );
 
@@ -33,7 +40,14 @@ const FallbackImage = ({ className }: { className?: string }) => (
   </div>
 );
 
-const ProductImage = ({ src, alt, className, priority = false, fit = 'cover' }: ProductImageProps) => {
+const ProductImage = ({ 
+  src, 
+  alt, 
+  className, 
+  priority = false, 
+  fit = 'cover',
+  maxWidth = 1200 
+}: ProductImageProps) => {
   const [loaded, setLoaded] = useState(false);
   const [errored, setErrored] = useState(false);
   const [shouldLoad, setShouldLoad] = useState<boolean>(priority);
@@ -47,7 +61,7 @@ const ProductImage = ({ src, alt, className, priority = false, fit = 'cover' }: 
     setShouldLoad(priority);
   }, [src, priority]);
 
-  // IntersectionObserver to start loading images slightly before they enter viewport
+  // IntersectionObserver to start loading images before they enter viewport
   useEffect(() => {
     if (priority) return; // already should load
     if (!containerRef.current) return;
@@ -66,7 +80,7 @@ const ProductImage = ({ src, alt, className, priority = false, fit = 'cover' }: 
             }
           });
         },
-        { rootMargin: '400px 0px' }
+        { rootMargin: '300px 0px' } // Reduced from 400px for faster loading
       );
       obs.observe(containerRef.current);
     } catch (e) {
@@ -82,8 +96,13 @@ const ProductImage = ({ src, alt, className, priority = false, fit = 'cover' }: 
   // Preload image only when allowed to load (shouldLoad)
   useEffect(() => {
     if (!src || !shouldLoad) return;
+    
+    // Get optimized URL for preloading (use a mid-size for preloading)
+    const preloadUrl = getOptimizedImageUrl(src, 600, 80);
+    if (!preloadUrl) return;
+    
     const img = new Image();
-    img.src = src;
+    img.src = preloadUrl;
     img.decoding = 'async';
     img.onload = () => {
       // preloaded, actual <img> will setLoaded on its onLoad
@@ -93,7 +112,7 @@ const ProductImage = ({ src, alt, className, priority = false, fit = 'cover' }: 
     };
   }, [src, shouldLoad]);
 
-  // Set fetchpriority attribute directly on the DOM node to avoid React warning
+  // Set fetchpriority attribute directly on the DOM node
   useEffect(() => {
     const el = imgRef.current;
     if (!el) return;
@@ -108,13 +127,18 @@ const ProductImage = ({ src, alt, className, priority = false, fit = 'cover' }: 
     }
   }, [priority, shouldLoad]);
 
-  // If src is missing, show a clear fallback (instead of an empty animating box)
+  // If src is missing, show a clear fallback
   if (!src) {
     return <FallbackImage className={className} />;
   }
 
   // For contain we also center the image so focal point appears centered
   const imgFitClass = fit === 'contain' ? 'object-contain object-center' : 'object-cover object-center';
+
+  // Get optimized image URLs
+  const optimizedSrc = getOptimizedImageUrl(src, maxWidth, 85);
+  const srcset = getResponsiveSrcset(src, [300, 600, 900, 1200], 85);
+  const sizes = `(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw`;
 
   return (
     <div ref={containerRef} className={cn('relative overflow-hidden rounded-lg flex items-center justify-center bg-white', className)}>
@@ -123,7 +147,9 @@ const ProductImage = ({ src, alt, className, priority = false, fit = 'cover' }: 
       {shouldLoad ? (
         <img
           ref={imgRef}
-          src={src}
+          src={optimizedSrc || undefined}
+          srcSet={srcset || undefined}
+          sizes={sizes}
           alt={alt}
           loading={priority ? 'eager' : 'lazy'}
           decoding="async"
@@ -133,13 +159,13 @@ const ProductImage = ({ src, alt, className, priority = false, fit = 'cover' }: 
             setErrored(true);
           }}
           className={cn(
-            'w-full h-full block transition-opacity duration-500 ease-out',
+            'w-full h-full block transition-opacity duration-300 ease-out',
             imgFitClass,
             loaded ? 'opacity-100' : 'opacity-0',
           )}
         />
       ) : (
-        // Render an empty img-less container until shouldLoad becomes true to avoid browser fetching
+        // Render an empty div until shouldLoad becomes true to avoid browser fetching
         <div aria-hidden className="w-full h-full" />
       )}
 

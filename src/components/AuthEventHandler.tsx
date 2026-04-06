@@ -4,30 +4,23 @@ import { supabase } from '@/integrations/supabase/client';
 
 /**
  * AuthEventHandler - Gerencia eventos específicos de autenticação
- * 
- * O AuthContext centralizado gerencia o estado de autenticação principal (session, user, profile).
- * Este componente gerencia apenas eventos específicos que não são cobertos pelo AuthContext:
- * - PASSWORD_RECOVERY: redireciona para a página de atualização de senha
- * 
- * Eventos gerenciados pelo AuthContext:
- * - SIGNED_IN, SIGNED_OUT, USER_UPDATED, TOKEN_REFRESHED, INITIAL_SESSION
+ *
+ * Mantemos este componente apenas para tratar PASSWORD_RECOVERY. Evitamos logs
+ * e ignoramos eventos como INITIAL_SESSION/TOKEN_REFRESHED para não poluir
+ * e nem provocar efeitos colaterais desnecessários ao reconectar a sessão.
  */
 const AuthEventHandler = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('[AuthEventHandler] Auth state changed:', event, session?.user?.id);
-      
-      try {
-        // Apenas PASSWORD_RECOVERY precisa de tratamento específico aqui
-        // Todos os outros eventos são gerenciados pelo AuthContext
-        if (event === 'PASSWORD_RECOVERY') {
+      // Só reagir a eventos úteis — não logar tudo para evitar ruído
+      if (event === 'PASSWORD_RECOVERY') {
+        try {
           navigate('/update-password');
+        } catch (error) {
+          console.error('[AuthEventHandler] Error handling PASSWORD_RECOVERY:', error);
         }
-      } catch (error) {
-        // Captura erros que possam ocorrer durante a navegação
-        console.error('[AuthEventHandler] Error handling auth event:', error);
       }
     });
 

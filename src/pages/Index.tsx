@@ -62,33 +62,54 @@ const Index = () => {
     return () => { isMountedRef.current = false; };
   }, []);
 
+  const timed = async (label: string, promise: Promise<any>) => {
+    try {
+      console.time(label);
+      const res = await promise;
+      console.timeEnd(label);
+      return res;
+    } catch (e) {
+      console.timeEnd(label);
+      throw e;
+    }
+  };
+
   const fetchData = useCallback(async (background = false) => {
     try {
       if (!background && isMountedRef.current) setLoadingProducts(true);
 
       const normalizeCategory = (s?: string) => (typeof s === 'string' ? s.trim().toLowerCase() : '');
 
-      // Use Promise.race with a timeout so the UI never stays stuck if Supabase hangs briefly
-      const fetchAll = Promise.all([
-        supabase.from('products').select('*').eq('is_visible', true).order('created_at', { ascending: false }).limit(12),
-        supabase.from('product_variants').select('id, product_id, price, pix_price, stock_quantity').eq('is_active', true),
-        supabase.from('hero_slides').select('*').eq('is_active', true).order('sort_order'),
-        supabase.from('promotions').select('*').eq('is_active', true).order('created_at', { ascending: false }),
-        supabase.from('brands').select('*').eq('is_visible', true).order('name'),
-        supabase.from('categories').select('name, show_age_restriction').eq('is_visible', true).order('name'),
-        supabase.from('products').select('*').eq('is_featured', true).eq('is_visible', true).limit(8),
-        supabase.from('informational_popups').select('title, content').eq('is_active', true).limit(1).maybeSingle(),
-      ]);
+      // Run fetches in parallel but with per-request timing to identify slow queries
+      const productsP = timed('fetch_products', Promise.resolve(supabase.from('products').select('*').eq('is_visible', true).order('created_at', { ascending: false }).limit(12)));
+      const variantsP = timed('fetch_variants', Promise.resolve(supabase.from('product_variants').select('id, product_id, price, pix_price, stock_quantity').eq('is_active', true)));
+      const heroP = timed('fetch_hero', Promise.resolve(supabase.from('hero_slides').select('*').eq('is_active', true).order('sort_order')));
+      const promosP = timed('fetch_promos', Promise.resolve(supabase.from('promotions').select('*').eq('is_active', true).order('created_at', { ascending: false })));
+      const brandsP = timed('fetch_brands', Promise.resolve(supabase.from('brands').select('*').eq('is_visible', true).order('name')));
+      const categoriesP = timed('fetch_categories', Promise.resolve(supabase.from('categories').select('name, show_age_restriction').eq('is_visible', true).order('name')));
+      const featuredP = timed('fetch_featured', Promise.resolve(supabase.from('products').select('*').eq('is_featured', true).eq('is_visible', true).limit(8)));
+      const popupP = timed('fetch_popup', Promise.resolve(supabase.from('informational_popups').select('title, content').eq('is_active', true).limit(1).maybeSingle()));
 
-      const timeoutMs = 8000;
+      const timeoutMs = 15000; // increased to reduce false timeouts
+
+      const fetchAllPromise = Promise.all([
+        productsP,
+        variantsP,
+        heroP,
+        promosP,
+        brandsP,
+        categoriesP,
+        featuredP,
+        popupP,
+      ]).then(res => res);
+
       const raceResult: any = await Promise.race([
-        fetchAll,
+        fetchAllPromise,
         new Promise(resolve => setTimeout(() => resolve({ __timed_out: true }), timeoutMs)),
       ]);
 
       if (raceResult && raceResult.__timed_out) {
         console.warn('[Index] fetchData timed out after', timeoutMs, 'ms');
-        // Fallback: clear loading and keep previous data (or empty)
         if (isMountedRef.current && !background) setLoadingProducts(false);
         return;
       }

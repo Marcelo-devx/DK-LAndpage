@@ -15,6 +15,12 @@ const Footer = () => {
 
   // Corrige o link do Instagram no banco UMA ÚNICA VEZ na montagem, apenas se admin
   useEffect(() => {
+    const STORAGE_KEY = 'footer_instagram_fixed';
+    // If we've already fixed it this session, skip
+    try {
+      if (sessionStorage.getItem(STORAGE_KEY) === 'true') return;
+    } catch { /* noop */ }
+
     if (hasAttemptedFix.current) return;
     hasAttemptedFix.current = true;
 
@@ -27,6 +33,7 @@ const Footer = () => {
         if (!currentUrl || currentUrl === '#' || currentUrl !== CORRECT_INSTAGRAM_URL) {
           console.log('[Footer] Corrigindo link do Instagram no banco...');
           await updateSetting('social_instagram', CORRECT_INSTAGRAM_URL);
+          try { sessionStorage.setItem(STORAGE_KEY, 'true'); } catch { /* noop */ }
           console.log('[Footer] Link do Instagram atualizado com sucesso!');
         }
       } catch (error) {
@@ -35,7 +42,7 @@ const Footer = () => {
     };
 
     tryFix();
-  }, [user, isAdmin, settings.socialInstagram, updateSetting]);
+  }, [user, isAdmin, updateSetting]);
 
   const contactEmail = settings.contactEmail || 'dondkcwb@protonmail.com';
   const contactPhone = settings.contactPhone || '+595 985 981 046';

@@ -1,11 +1,11 @@
-import { Info } from 'lucide-react';
+import { Info, Truck, Calendar } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 const InformacoesPage = () => {
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Header Section */}
-      <div className="relative overflow-hidden bg-gradient-to-b from-slate-900 to-black py-16 md:py-24 border-b border-white/10">
+      <div className="relative overflow-hidden bg-gradient-to-b from-slate-900 to-black py-16 md:py-20 lg:py-24 border-b border-white/10">
         <div className="container mx-auto px-4 md:px-6 lg:px-8 xl:px-12">
           <div className="flex items-center gap-4 mb-6">
             <div className="bg-sky-500/10 p-3 rounded-xl border border-sky-500/20">
@@ -24,50 +24,72 @@ const InformacoesPage = () => {
       </div>
 
       {/* Content Section */}
-      <div className="container mx-auto px-4 md:px-6 lg:px-8 xl:px-12 py-12 md:py-16">
-        <div className="grid grid-cols-1 gap-8 md:gap-10">
+      <div className="container mx-auto px-4 md:px-6 lg:px-8 xl:px-12 py-16 md:py-20 lg:py-24">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 lg:gap-16 items-stretch">
 
           {/* Segunda a Sexta */}
-          <Card className="bg-gradient-to-br from-slate-900 to-black border-white/10 overflow-hidden">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-2xl md:text-3xl font-black uppercase tracking-tighter text-white">
-                Como Funcionam as entregas: - De Segunda a Sexta
+          <Card className="bg-gradient-to-br from-slate-900 to-black border-white/5 overflow-hidden shadow-lg">
+            <CardHeader className="flex items-center gap-4 pb-4">
+              <div className="flex items-center justify-center h-12 w-12 rounded-lg bg-sky-500/10 border border-sky-500/20">
+                <Truck className="h-6 w-6 text-sky-400" />
+              </div>
+              <CardTitle className="text-2xl md:text-3xl lg:text-4xl font-black uppercase tracking-tight text-white">
+                De Segunda a Sexta
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-slate-400 text-sm leading-relaxed">
-                De Segunda a Sexta
-                <br />
-                Faça pedido até as 14:00h, os pedidos são separados e feito a rota de entrega para cada motoboy.
-                <br />
-                As 15:30 a rota se inicia, vai chegar um e-mail pra você (verifique a caixa de spam), com link para acompanhar a rota e horario estimado de entrega.
-                <br />
-                Curitiba: das 15:30 as 18:30.
-                <br />
-                Região Metropolitana: Pode passar das 18:30.
-              </p>
+
+            <CardContent className="p-8 md:p-10 min-h-[240px] flex flex-col justify-center">
+              <div className="space-y-4 text-base md:text-lg leading-7 text-slate-300">
+                <p>
+                  Faça pedido até as <span className="font-bold text-white">14:00h</span>. Os pedidos são separados e montamos a rota de entrega para cada motoboy.
+                </p>
+
+                <p>
+                  Às <span className="font-bold text-white">15:30</span> a rota se inicia. Você receberá um e-mail (verifique a caixa de spam) com um link para acompanhar a rota e o horário estimado de entrega.
+                </p>
+
+                <ul className="list-disc list-inside text-slate-400 space-y-1">
+                  <li>
+                    <span className="font-bold text-white">Curitiba:</span> das <span className="font-bold text-white">15:30</span> às <span className="font-bold text-white">18:30</span>
+                  </li>
+                  <li>
+                    <span className="font-bold text-white">Região Metropolitana:</span> pode passar das <span className="font-bold text-white">18:30</span>
+                  </li>
+                </ul>
+              </div>
             </CardContent>
           </Card>
 
-          {/* Sabado */}
-          <Card className="bg-gradient-to-br from-slate-900 to-black border-white/10 overflow-hidden">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-2xl md:text-3xl font-black uppercase tracking-tighter text-white">
+          {/* Sábado */}
+          <Card className="bg-gradient-to-br from-slate-900 to-black border-white/5 overflow-hidden shadow-lg">
+            <CardHeader className="flex items-center gap-4 pb-4">
+              <div className="flex items-center justify-center h-12 w-12 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                <Calendar className="h-6 w-6 text-purple-400" />
+              </div>
+              <CardTitle className="text-2xl md:text-3xl lg:text-4xl font-black uppercase tracking-tight text-white">
                 Sábado
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-slate-400 text-sm leading-relaxed">
-                Sábado
-                <br />
-                Faça pedido até as 12:30h, os pedidos são separados e feito a rota de entrega para cada motoboy.
-                <br />
-                As 13:30h a rota se inicia, vai chegar um e-mail pra você (verifique a caixa de spam), com o link para acompanhar a rota e horario estimado de entrega.
-                <br />
-                Curitiba: das 13:30 as 18h
-                <br />
-                Região Metropolitana: Pode passar das 18h.
-              </p>
+
+            <CardContent className="p-8 md:p-10 min-h-[240px] flex flex-col justify-center">
+              <div className="space-y-4 text-base md:text-lg leading-7 text-slate-300">
+                <p>
+                  Faça pedido até as <span className="font-bold text-white">12:30h</span>. Os pedidos são separados e montamos a rota de entrega para cada motoboy.
+                </p>
+
+                <p>
+                  Às <span className="font-bold text-white">13:30</span> a rota se inicia. Você receberá um e-mail (verifique a caixa de spam) com o link para acompanhar a rota e o horário estimado de entrega.
+                </p>
+
+                <ul className="list-disc list-inside text-slate-400 space-y-1">
+                  <li>
+                    <span className="font-bold text-white">Curitiba:</span> das <span className="font-bold text-white">13:30</span> às <span className="font-bold text-white">18:00</span>
+                  </li>
+                  <li>
+                    <span className="font-bold text-white">Região Metropolitana:</span> pode passar das <span className="font-bold text-white">18:00</span>
+                  </li>
+                </ul>
+              </div>
             </CardContent>
           </Card>
 

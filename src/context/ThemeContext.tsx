@@ -121,9 +121,11 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
           const { data: footerRow } = await supabase
             .from('footer_settings')
             .select('contact_email, contact_phone, contact_hours, social_facebook, social_instagram, social_twitter, logo_url')
-            .order('created_at', { ascending: false })
+            .order('updated_at', { ascending: false })
             .limit(1)
             .maybeSingle();
+
+          console.log('[ThemeContext] footer_settings row:', footerRow);
 
           if (footerRow) {
             if (footerRow.contact_email) newSettings.contactEmail = footerRow.contact_email;

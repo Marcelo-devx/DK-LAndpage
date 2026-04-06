@@ -182,15 +182,16 @@ const Index = () => {
                     to={slide.button_url || '#'}
                     className="block relative w-full h-full"
                   >
-                    {/* Use object-contain to keep full image visible and centered within fixed height */}
+                    {/* Use cover so the image fills the hero area and doesn't leave letterbox gaps */}
                     <ProductImage
                       src={slide.image_url}
                       alt={slide.title || "Banner Principal"}
                       className="w-full h-full block rounded-none"
                       priority={true}
-                      fit="contain"
+                      fit="cover"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-off-white/80 via-transparent to-transparent" />
+                    {/* reduced gradient to avoid visible off-white band under the hero */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-transparent" />
                   </Link>
                 </CarouselItem>
               ))}
@@ -204,7 +205,7 @@ const Index = () => {
         
         {settings.showInfo && (
           <ScrollAnimationWrapper>
-            <InfoSection />
+            <InfoSection compactTop />
           </ScrollAnimationWrapper>
         )}
 

@@ -32,7 +32,8 @@ const icons: { [key: string]: LucideIcon } = {
   ShieldCheck,
 };
 
-const InfoSection = () => {
+// Accept compactTop to remove large top padding when this section sits directly under the hero
+const InfoSection = ({ compactTop = false }: { compactTop?: boolean }) => {
   const [infoBarItems, setInfoBarItems] = useState<InfoBarItem[]>([]);
   const [infoCards, setInfoCards] = useState<InfoCard[]>([]);
   const [loading, setLoading] = useState(true);
@@ -79,8 +80,9 @@ const InfoSection = () => {
   }, []);
 
   if (loading) {
+    const sectionClass = compactTop ? 'py-0 md:py-4' : 'py-4 md:py-12';
     return (
-      <section className="py-4 md:py-12">
+      <section className={sectionClass}>
         <div className="container mx-auto px-4 md:px-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 md:mb-12">
             {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 w-full bg-stone-200 rounded-2xl" />)}
@@ -90,8 +92,10 @@ const InfoSection = () => {
     );
   }
 
+  const sectionClass = compactTop ? 'py-0 md:py-4 xl:py-6' : 'py-4 md:py-10 xl:py-14';
+
   return (
-    <section className="py-4 md:py-10 xl:py-14">
+    <section className={sectionClass}>
       <div className="container mx-auto px-4 md:px-6 xl:px-8">
         {/* Info Bar Carousel */}
         <div className="mb-6 md:mb-10 xl:mb-12 bg-white p-3 md:p-5 xl:p-6 rounded-3xl md:rounded-[2.5rem] border border-stone-200 shadow-sm relative">

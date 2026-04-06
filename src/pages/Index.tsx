@@ -172,8 +172,8 @@ const Index = () => {
       )}
 
       {settings.showHero && heroSlides.length > 0 && (
-        // Increased heights by ~20% as requested
-        <section className="relative w-full overflow-hidden h-[264px] md:h-[312px] lg:h-[384px] xl:h-[456px]">
+        // For very wide monitors, increase hero height significantly so the banners aren't visually small
+        <section className="relative w-full overflow-hidden h-[264px] md:h-[312px] lg:h-[384px] xl:h-[456px] 2xl:h-[600px] 2xl:min-h-[55vh]">
           <Carousel plugins={[Autoplay({ delay: 5000 })]} className="w-full h-full">
             <CarouselContent>
               {heroSlides.map((slide, index) => (

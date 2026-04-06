@@ -200,12 +200,11 @@ const Index = () => {
         </section>
       )}
 
-      {/* Slightly increased spacing under the hero to avoid tight overlap */}
-      <div className="mt-4 md:mt-8 lg:mt-10 xl:mt-12">
+      {/* Compact spacing under hero */}
+      <div className="-mt-6 md:mt-0 lg:mt-0 xl:mt-0">
         
         {settings.showInfo && (
-          // Do not use compactTop so the InfoSection keeps its normal top padding
-          <InfoSection />
+          <InfoSection compactTop />
         )}
 
         {settings.showBrands && brands.length > 0 && (

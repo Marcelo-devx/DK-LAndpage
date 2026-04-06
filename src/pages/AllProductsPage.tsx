@@ -131,6 +131,10 @@ const AllProductsPage = () => {
 
   const fetchProducts = useCallback(async (background = false) => {
     if (!isMountedRef.current) return;
+    
+    // Proteção contra re-fetch desnecessário quando já há dados
+    if (displayProducts.length > 0 && !background) return;
+    
     const currentFetchId = ++fetchIdRef.current;
     if (!background) setLoading(true);
 
@@ -425,7 +429,7 @@ const AllProductsPage = () => {
       if (safetyTimer) clearTimeout(safetyTimer);
       if (!background && isMountedRef.current && fetchIdRef.current === currentFetchId) setLoading(false);
     }
-  }, [debouncedSearchTerm, selectedCategories, selectedSubCategories, selectedBrands, selectedFlavors, sortBy]);
+  }, [debouncedSearchTerm, selectedCategories, selectedSubCategories, selectedBrands, selectedFlavors, sortBy, displayProducts.length]);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 

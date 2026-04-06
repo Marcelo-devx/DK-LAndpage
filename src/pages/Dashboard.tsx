@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
@@ -27,12 +27,17 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const isFetchingRef = useRef(false);
 
   const fetchPendingOrders = useCallback(async () => {
     if (!profile?.id) {
       setLoading(false);
       return;
     }
+
+    // Proteção contra fetch duplicado
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
 
     try {
       const { count, error } = await supabase
@@ -47,6 +52,7 @@ const Dashboard = () => {
     } catch (error) {
       console.error('[Dashboard] Erro ao buscar pedidos pendentes:', error);
     } finally {
+      isFetchingRef.current = false;
       setLoading(false);
     }
   }, [profile?.id]);

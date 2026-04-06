@@ -139,6 +139,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setUser(currentSession?.user || null);
 
         if (event === 'SIGNED_IN' && currentSession?.user) {
+          // Ignorar SIGNED_IN se já for o mesmo usuário (evita re-renderizações desnecessárias)
+          if (user?.id === currentSession.user.id) {
+            console.log('[AuthContext] Ignoring redundant SIGNED_IN for same user');
+            return;
+          }
           const userProfile = await fetchProfile(currentSession.user.id);
           if (mounted) {
             setProfile(userProfile);

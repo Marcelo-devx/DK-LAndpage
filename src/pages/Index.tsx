@@ -202,7 +202,11 @@ const Index = () => {
     }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    // Não re-executar se já tiver dados carregados
+    if (displayedProducts.length > 0) return;
+    fetchData();
+  }, [fetchData]);
 
   const handleClosePopup = () => {
     setIsPopupOpen(false);

@@ -22,6 +22,15 @@ const markVerified = () => {
   try { sessionStorage.setItem('age-verified-v2', 'true'); } catch { /* noop */ }
 };
 
+const dispatchAgeVerifiedOnce = () => {
+  try {
+    const KEY = 'ageVerifiedDispatched';
+    if (sessionStorage.getItem(KEY) === 'true') return;
+    sessionStorage.setItem(KEY, 'true');
+    try { window.dispatchEvent(new Event('ageVerified')); } catch { /* noop */ }
+  } catch { /* noop */ }
+};
+
 const checkReturnedFromTab = (): boolean => {
   try {
     const leftAt = sessionStorage.getItem('left_at');
@@ -58,21 +67,18 @@ const AgeVerificationPopup = () => {
     // ── Verificações síncronas rápidas ──────────────────────────────────────
     if (isAlreadyVerified()) { setShowState(false); return; }
     if (checkReturnedFromTab()) {
-      try { window.dispatchEvent(new Event('ageVerified')); } catch { /* noop */ }
+      // markVerified already called in checkReturnedFromTab
+      dispatchAgeVerifiedOnce();
       setShowState(false);
       return;
     }
     if (isExemptRoute()) {
       markVerified();
-      try { window.dispatchEvent(new Event('ageVerified')); } catch { /* noop */ }
+      dispatchAgeVerifiedOnce();
       setShowState(false);
       return;
     }
 
-    // ── Verificação via AuthContext (useAuth) ────────────────────────────────
-    // O AuthContext gerencia o estado de autenticação de forma centralizada.
-    // Usamos user e loading do useAuth() para evitar race conditions.
-    
     // Fallback: se o auth demorar mais de 4s, mostra o popup para não travar a UI
     const fallbackTimer = setTimeout(() => {
       setShowState(true);
@@ -93,7 +99,7 @@ const AgeVerificationPopup = () => {
       setShowState(false);
       // Dispara o evento somente após o modal ter fechado (pequeno delay)
       setTimeout(() => {
-        try { window.dispatchEvent(new Event('ageVerified')); } catch { /* noop */ }
+        dispatchAgeVerifiedOnce();
       }, 200);
     } else {
       // Visitante anônimo — mostrar popup
@@ -108,7 +114,7 @@ const AgeVerificationPopup = () => {
     // Marcar verificado e notificar após um pequeno delay para evitar sobreposição
     setTimeout(() => {
       markVerified();
-      try { window.dispatchEvent(new Event('ageVerified')); } catch { /* noop */ }
+      dispatchAgeVerifiedOnce();
     }, 200);
   };
 

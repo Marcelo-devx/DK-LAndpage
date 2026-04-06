@@ -19,7 +19,6 @@ import {
 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { showError } from '@/utils/toast';
-import { useVisibilityRefresh } from '@/hooks/use-visibility-refresh';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -89,8 +88,6 @@ const Dashboard = () => {
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData, refreshTrigger]);
-
-  useVisibilityRefresh(() => fetchDashboardData(true));
 
   const handleLogout = async () => {
     try {

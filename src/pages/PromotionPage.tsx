@@ -10,7 +10,6 @@ import { addToCart } from '@/utils/cart';
 import ScrollAnimationWrapper from '@/components/ScrollAnimationWrapper';
 import PromotionCard from '@/components/PromotionCard';
 import ProductImage from '@/components/ProductImage';
-import { useVisibilityRefresh } from '@/hooks/use-visibility-refresh';
 
 interface Promotion {
   id: number;
@@ -76,8 +75,6 @@ const PromotionPage = () => {
     fetchPromotionData();
     window.scrollTo(0, 0);
   }, [fetchPromotionData]);
-
-  useVisibilityRefresh(fetchPromotionData);
 
   const handleIncrease = () => setQuantity(prev => prev + 1);
   const handleDecrease = () => setQuantity(prev => Math.max(1, prev - 1));

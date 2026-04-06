@@ -11,7 +11,6 @@ import ReviewModal from '@/components/ReviewModal';
 import { showLoading, dismissToast, showError } from '@/utils/toast';
 import { cn } from '@/lib/utils';
 import OrderTimer from '@/components/OrderTimer';
-import { useVisibilityRefresh } from '@/hooks/use-visibility-refresh';
 
 interface OrderItem {
   item_id: number;
@@ -126,8 +125,6 @@ const OrdersPage = () => {
     setLoading(true);
     fetchOrders();
   }, [fetchOrders]);
-
-  useVisibilityRefresh(() => fetchOrders(true));
 
   const handlePayWithMP = async (order: Order) => {
     const toastId = showLoading("Iniciando pagamento...");

@@ -16,7 +16,6 @@ import InformationalPopup from '@/components/InformationalPopup';
 import { useTheme } from '@/context/ThemeContext';
 import ProductImage from '@/components/ProductImage';
 import AgeVerificationPopup from '@/components/AgeVerificationPopup';
-import { useVisibilityRefresh } from '@/hooks/use-visibility-refresh';
 
 const Index = () => {
   const { settings } = useTheme();
@@ -159,11 +158,6 @@ const Index = () => {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-
-  // Recarrega dados ao voltar de outra aba (após 30s ausente)
-  useVisibilityRefresh(useCallback(() => fetchData(true), [fetchData]));
-
-  // REMOVED: old useEffect with inline fetchData
 
   const handleClosePopup = () => {
     setIsPopupOpen(false);

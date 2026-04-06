@@ -6,7 +6,6 @@ import ProductFilters from '@/components/ProductFilters';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useSearchParams } from 'react-router-dom';
 import { PackageSearch, X } from 'lucide-react';
-import { useVisibilityRefresh } from '@/hooks/use-visibility-refresh';
 
 interface DisplayProduct {
   id: number;
@@ -427,8 +426,6 @@ const AllProductsPage = () => {
   }, [debouncedSearchTerm, selectedCategories, selectedSubCategories, selectedBrands, selectedFlavors, sortBy]);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
-
-  useVisibilityRefresh(useCallback(() => fetchProducts(true), [fetchProducts]));
 
   const handleClearFilters = () => {
     setSearchTerm('');

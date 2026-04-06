@@ -9,7 +9,6 @@ import { cn } from '@/lib/utils';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { differenceInDays, addMonths, endOfWeek, isSameWeek, startOfWeek, addWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useVisibilityRefresh } from '@/hooks/use-visibility-refresh';
 
 interface Tier {
   id: number;
@@ -104,8 +103,6 @@ const LoyaltyClubPage = () => {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-
-  useVisibilityRefresh(() => fetchData(true));
 
   const onRedeemCoupon = async (coupon: any) => {
     if (!sessionUser) { showError('Faça login para resgatar cupons.'); return; }

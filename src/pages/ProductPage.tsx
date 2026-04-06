@@ -10,7 +10,6 @@ import { showError } from '@/utils/toast';
 import { Card, CardContent } from "@/components/ui/card";
 import ProductImage from '@/components/ProductImage';
 import DOMPurify from 'dompurify';
-import { useVisibilityRefresh } from '@/hooks/use-visibility-refresh';
 
 interface Product {
   id: number;
@@ -107,8 +106,6 @@ const ProductPage = () => {
     fetchProductData();
     window.scrollTo(0, 0);
   }, [fetchProductData]);
-
-  useVisibilityRefresh(fetchProductData);
 
   useEffect(() => {
     if (variants.length > 0) {

@@ -99,7 +99,8 @@ const ProductImage = ({ src, alt, className, priority = false, fit = 'cover' }: 
     return <Placeholder className={className} />;
   }
 
-  const imgFitClass = fit === 'contain' ? 'object-contain' : 'object-cover';
+  // For contain we also center the image so focal point appears centered
+  const imgFitClass = fit === 'contain' ? 'object-contain object-center' : 'object-cover object-center';
 
   return (
     <div ref={containerRef} className={cn('relative overflow-hidden rounded-lg flex items-center justify-center', className)}>

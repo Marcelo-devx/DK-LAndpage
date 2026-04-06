@@ -92,7 +92,7 @@ const InfoSection = ({ compactTop = false }: { compactTop?: boolean }) => {
     );
   }
 
-  const sectionClass = compactTop ? 'pt-3 pb-0 md:pt-4 md:pb-0' : 'py-4 md:py-10 xl:py-14';
+  const sectionClass = compactTop ? 'pt-0 pb-0 md:pt-0 md:pb-0' : 'py-4 md:py-10 xl:py-14';
 
   return (
     <section className={sectionClass}>

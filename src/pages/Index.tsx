@@ -201,7 +201,7 @@ const Index = () => {
       )}
 
       {/* Tight spacing under hero to match the small gap used between cards */}
-      <div className="space-y-2 md:space-y-3 xl:space-y-4 py-0 md:py-0 xl:py-0">
+      <div className="space-y-2 md:space-y-3 xl:space-y-4 py-0 md:py-0 xl:py-0 -mt-8 md:-mt-10 lg:-mt-12">
         
         {settings.showInfo && (
           <InfoSection compactTop />

@@ -79,9 +79,9 @@ const InfoSection = ({ compactTop = false }: { compactTop?: boolean }) => {
     fetchData();
   }, []);
 
-  // Section class: when compactTop is true we use a slightly larger negative top margin so the section rises more
-  // This is still conservative and won't touch the hero or header.
-  const sectionClass = compactTop ? '-mt-4 md:-mt-6 lg:-mt-8' : 'py-4 md:py-10 xl:py-14';
+  // Section class: when compactTop is true we use a larger negative top margin so the section rises more
+  // Doubling previous values as requested by the user, but keep conservative to avoid touching header
+  const sectionClass = compactTop ? '-mt-8 md:-mt-12 lg:-mt-16' : 'py-4 md:py-10 xl:py-14';
 
   if (loading) {
     return (

@@ -58,10 +58,14 @@ export const useInfoPopup = () => {
 
     // Escuta evento de verificação de idade para abrir automaticamente
     const handleAgeVerified = () => {
-      // Só abre se houver dados do popup e ainda não foi visto
-      if (infoPopup && sessionStorage.getItem('info_popup_seen') !== 'true') {
-        setIsOpen(true);
-      }
+      // Usa updater function para acessar o estado mais recente do infoPopup
+      setInfoPopup(currentPopup => {
+        // Só abre se houver dados do popup e ainda não foi visto
+        if (currentPopup && sessionStorage.getItem('info_popup_seen') !== 'true') {
+          setIsOpen(true);
+        }
+        return currentPopup;
+      });
     };
 
     window.addEventListener('ageVerified', handleAgeVerified);
@@ -69,7 +73,7 @@ export const useInfoPopup = () => {
     return () => {
       window.removeEventListener('ageVerified', handleAgeVerified);
     };
-  }, [infoPopup]);
+  }, []); // Run once on mount - no dependency on infoPopup
 
   return { infoPopup, isOpen, onClose: handleClose };
 };

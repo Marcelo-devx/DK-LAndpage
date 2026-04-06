@@ -23,6 +23,7 @@ const ProductImage = ({ src, alt, className, priority = false }: ProductImagePro
   const [errored, setErrored] = useState(false);
   const [shouldLoad, setShouldLoad] = useState<boolean>(priority);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const imgRef = useRef<HTMLImageElement | null>(null);
 
   // If src changes, reset state
   useEffect(() => {
@@ -70,10 +71,27 @@ const ProductImage = ({ src, alt, className, priority = false }: ProductImagePro
     img.src = src;
     img.decoding = 'async';
     img.onload = () => {
-      // let the actual <img> onLoad handler setLoaded
+      // preloaded, actual <img> will setLoaded on its onLoad
     };
-    img.onerror = () => { /* noop */ };
+    img.onerror = (e) => {
+      console.error('Preload image error', src, e);
+    };
   }, [src, shouldLoad]);
+
+  // Set fetchpriority attribute directly on the DOM node to avoid React warning
+  useEffect(() => {
+    const el = imgRef.current;
+    if (!el) return;
+    try {
+      if (priority) {
+        el.setAttribute('fetchpriority', 'high');
+      } else {
+        el.removeAttribute('fetchpriority');
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, [priority, shouldLoad]);
 
   if (!src) {
     return <Placeholder className={className} />;
@@ -85,13 +103,16 @@ const ProductImage = ({ src, alt, className, priority = false }: ProductImagePro
 
       {shouldLoad ? (
         <img
+          ref={imgRef}
           src={src}
           alt={alt}
           loading={priority ? 'eager' : 'lazy'}
           decoding="async"
-          fetchPriority={priority ? 'high' : 'low'}
           onLoad={() => setLoaded(true)}
-          onError={() => setErrored(true)}
+          onError={(e) => {
+            console.error('Failed to load image', src, e);
+            setErrored(true);
+          }}
           className={cn(
             'w-full h-full object-cover block transition-opacity duration-500 ease-out',
             loaded ? 'opacity-100' : 'opacity-0',

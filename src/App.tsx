@@ -32,6 +32,7 @@ import MaintenanceScreen from "./components/MaintenanceScreen";
 import ErrorBoundary from "./components/ErrorBoundary";
 import DashboardSecurity from "./pages/DashboardSecurity";
 import { useMercadoPagoRedirect } from "./hooks/useMercadoPagoRedirect";
+import { ImageCacheProvider } from "./context/ImageCacheContext";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -105,15 +106,17 @@ const App = () => {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <ThemeProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-            <ScrollToTop />
-            <AuthProvider>
-              <AuthEventHandler />
-              <AppContent />
-            </AuthProvider>
-          </BrowserRouter>
+          <ImageCacheProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+              <ScrollToTop />
+              <AuthProvider>
+                <AuthEventHandler />
+                <AppContent />
+              </AuthProvider>
+            </BrowserRouter>
+          </ImageCacheProvider>
         </ThemeProvider>
       </TooltipProvider>
     </QueryClientProvider>

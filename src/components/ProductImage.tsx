@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils';
 import { useState, useEffect, useRef } from 'react';
 import { getOptimizedImageUrl, getResponsiveSrcset, getBlurPlaceholder } from '@/utils/imageOptimizer';
+import { useImageCache } from '@/context/ImageCacheContext';
 
 interface ProductImageProps {
   src: string;
@@ -53,13 +54,28 @@ const ProductImage = ({
   const [shouldLoad, setShouldLoad] = useState<boolean>(priority);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
+  const { markAsLoaded, isLoaded: isImageLoaded, markAsErrored, isErrored: isImageErrored } = useImageCache();
 
-  // If src changes, reset state
+  // Check cache on mount - if image is already loaded, set loaded immediately
   useEffect(() => {
-    setLoaded(false);
-    setErrored(false);
+    if (src && isImageLoaded(src)) {
+      setLoaded(true);
+    }
+    if (src && isImageErrored(src)) {
+      setErrored(true);
+    }
+  }, [src, isImageLoaded, isImageErrored]);
+
+  // If src changes, reset state (except for cached images)
+  useEffect(() => {
+    if (!src || !isImageLoaded(src)) {
+      setLoaded(false);
+    }
+    if (!src || !isImageErrored(src)) {
+      setErrored(false);
+    }
     setShouldLoad(priority);
-  }, [src, priority]);
+  }, [src, priority, isImageLoaded, isImageErrored]);
 
   // IntersectionObserver to start loading images before they enter viewport
   useEffect(() => {
@@ -140,6 +156,17 @@ const ProductImage = ({
   const srcset = getResponsiveSrcset(src, [300, 600, 900, 1200], 85);
   const sizes = `(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw`;
 
+  const handleLoad = () => {
+    setLoaded(true);
+    if (src) markAsLoaded(src);
+  };
+
+  const handleError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    console.error('Failed to load image', src, e);
+    setErrored(true);
+    if (src) markAsErrored(src);
+  };
+
   return (
     <div ref={containerRef} className={cn('relative overflow-hidden rounded-lg flex items-center justify-center bg-white', className)}>
       {!loaded && !errored && <div className="absolute inset-0"><Placeholder /></div>}
@@ -153,11 +180,8 @@ const ProductImage = ({
           alt={alt}
           loading={priority ? 'eager' : 'lazy'}
           decoding="async"
-          onLoad={() => setLoaded(true)}
-          onError={(e) => {
-            console.error('Failed to load image', src, e);
-            setErrored(true);
-          }}
+          onLoad={handleLoad}
+          onError={handleError}
           className={cn(
             'w-full h-full block transition-opacity duration-300 ease-out',
             imgFitClass,

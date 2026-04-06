@@ -108,12 +108,14 @@ const AgeVerificationPopup = () => {
   }, [authLoading, user]);
 
   const handleConfirm = () => {
+    // Marca imediatamente para evitar reabertura em navegações rápidas
+    markVerified();
+
     // Fecha o modal imediatamente
     setShowState(false);
 
-    // Marcar verificado e notificar após um pequeno delay para evitar sobreposição
+    // Dispara o evento após um pequeno delay para evitar sobreposição
     setTimeout(() => {
-      markVerified();
       dispatchAgeVerifiedOnce();
     }, 200);
   };

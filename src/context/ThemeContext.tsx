@@ -133,38 +133,10 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
             if (footerRow.social_instagram) newSettings.socialInstagram = footerRow.social_instagram;
             if (footerRow.social_twitter) newSettings.socialTwitter = footerRow.social_twitter;
             if (footerRow.logo_url) newSettings.logoUrl = footerRow.logo_url;
-          } else if (latest['footer_config']) {
-            // fallback to footer_config JSON if footer_settings missing
-            try {
-              const parsed = JSON.parse(latest['footer_config']);
-              if (parsed.contactEmail) newSettings.contactEmail = parsed.contactEmail;
-              if (parsed.contactPhone) newSettings.contactPhone = parsed.contactPhone;
-              if (parsed.contactHours) newSettings.contactHours = parsed.contactHours;
-              if (parsed.socialFacebook) newSettings.socialFacebook = parsed.socialFacebook;
-              if (parsed.socialInstagram) newSettings.socialInstagram = parsed.socialInstagram;
-              if (parsed.socialTwitter) newSettings.socialTwitter = parsed.socialTwitter;
-              if (parsed.logoUrl) newSettings.logoUrl = parsed.logoUrl;
-            } catch (e) {
-              console.warn('[ThemeContext] Invalid footer_config JSON', e);
-            }
           }
         } catch (e) {
-          // ignore footer_settings read errors and fallback to app_settings
-          console.warn('[ThemeContext] Could not read footer_settings, falling back to app_settings', e);
-          if (latest['footer_config']) {
-            try {
-              const parsed = JSON.parse(latest['footer_config']);
-              if (parsed.contactEmail) newSettings.contactEmail = parsed.contactEmail;
-              if (parsed.contactPhone) newSettings.contactPhone = parsed.contactPhone;
-              if (parsed.contactHours) newSettings.contactHours = parsed.contactHours;
-              if (parsed.socialFacebook) newSettings.socialFacebook = parsed.socialFacebook;
-              if (parsed.socialInstagram) newSettings.socialInstagram = parsed.socialInstagram;
-              if (parsed.socialTwitter) newSettings.socialTwitter = parsed.socialTwitter;
-              if (parsed.logoUrl) newSettings.logoUrl = parsed.logoUrl;
-            } catch (e2) {
-              console.warn('[ThemeContext] Invalid footer_config JSON', e2);
-            }
-          }
+          // ignore footer_settings read errors - use default values
+          console.warn('[ThemeContext] Could not read footer_settings, using default values', e);
         }
 
         if (latest['site_background_color']) newSettings.backgroundColor = latest['site_background_color'] || '#F4EEE3';
@@ -175,16 +147,9 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
         if (latest['show_promotions']) newSettings.showPromotions = latest['show_promotions'] === 'true';
         if (latest['show_brands']) newSettings.showBrands = latest['show_brands'] === 'true';
         if (latest['header_announcement_text']) newSettings.headerAnnouncement = latest['header_announcement_text'] || '';
-        if (latest['logo_url'] && !latest['footer_config']) newSettings.logoUrl = latest['logo_url'];
         if (latest['footer_banner_title']) newSettings.footerBannerTitle = latest['footer_banner_title'] || '';
         if (latest['footer_banner_subtitle']) newSettings.footerBannerSubtitle = latest['footer_banner_subtitle'] || '';
         if (latest['footer_banner_button_text']) newSettings.footerBannerButtonText = latest['footer_banner_button_text'] || '';
-        if (latest['contact_email'] && !latest['footer_config']) newSettings.contactEmail = latest['contact_email'] || '';
-        if (latest['contact_phone'] && !latest['footer_config']) newSettings.contactPhone = latest['contact_phone'] || '';
-        if (latest['contact_hours'] && !latest['footer_config']) newSettings.contactHours = latest['contact_hours'] || '';
-        if (latest['social_facebook'] && !latest['footer_config']) newSettings.socialFacebook = latest['social_facebook'] || '';
-        if (latest['social_instagram'] && !latest['footer_config']) newSettings.socialInstagram = latest['social_instagram'] || '';
-        if (latest['social_twitter'] && !latest['footer_config']) newSettings.socialTwitter = latest['social_twitter'] || '';
         if (latest['login_title']) newSettings.loginTitle = latest['login_title'] || 'DKCWB';
         if (latest['login_subtitle']) newSettings.loginSubtitle = latest['login_subtitle'] || 'Acesso Exclusivo';
         if (latest['dashboard_greeting']) newSettings.dashboardGreeting = latest['dashboard_greeting'] || 'Olá';
@@ -270,25 +235,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     dbTimeouts.current[key] = setTimeout(async () => {
-      // Persist generic setting to app_settings for compatibility
-      const { error } = await supabase
-        .from('app_settings')
-        .upsert([{ key, value }], { onConflict: 'key' });
-
-      if (error) {
-        console.error(`Erro ao salvar ${key}:`, error);
-
-        if ((error as any)?.code === '23505') {
-          const { error: updateError } = await supabase
-            .from('app_settings')
-            .update({ value })
-            .eq('key', key);
-
-          if (updateError) console.error(`Erro ao atualizar ${key} após conflito:`, updateError);
-        }
-      }
-
-      // If this is a footer-related key, update the dedicated footer_settings table instead of footer_config
+      // If this is a footer-related key, update the dedicated footer_settings table
       if (footerKeys.includes(key)) {
         const footerPayload = {
           id: '00000000-0000-0000-0000-000000000001',
@@ -310,6 +257,24 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
         } else {
           console.log('footer_settings atualizado automaticamente após alteração em:', key);
         }
+      } else {
+        // Persist generic setting to app_settings for other settings
+        const { error } = await supabase
+          .from('app_settings')
+          .upsert([{ key, value }], { onConflict: 'key' });
+
+        if (error) {
+          console.error(`Erro ao salvar ${key}:`, error);
+
+          if ((error as any)?.code === '23505') {
+            const { error: updateError } = await supabase
+              .from('app_settings')
+              .update({ value })
+              .eq('key', key);
+
+            if (updateError) console.error(`Erro ao atualizar ${key} após conflito:`, updateError);
+          }
+        }
       }
 
       delete dbTimeouts.current[key];
@@ -319,17 +284,6 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   // Persist all settings at once (called by Save button to ensure a concrete write)
   const saveAllSettings = async (s?: ThemeSettings) => {
     const toSave = s || settings;
-    // create an atomic footer config to ensure footer updates are saved together
-    const footerConfig = {
-      contactEmail: toSave.contactEmail,
-      contactPhone: toSave.contactPhone,
-      contactHours: toSave.contactHours,
-      socialFacebook: toSave.socialFacebook,
-      socialInstagram: toSave.socialInstagram,
-      socialTwitter: toSave.socialTwitter,
-      logoUrl: toSave.logoUrl || '',
-    };
-
     const payload = [
       { key: 'site_background_color', value: toSave.backgroundColor },
       { key: 'site_primary_color', value: toSave.primaryColor },
@@ -339,19 +293,9 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
       { key: 'show_promotions', value: String(toSave.showPromotions) },
       { key: 'show_brands', value: String(toSave.showBrands) },
       { key: 'header_announcement_text', value: toSave.headerAnnouncement },
-      { key: 'logo_url', value: toSave.logoUrl || '' },
       { key: 'footer_banner_title', value: toSave.footerBannerTitle },
       { key: 'footer_banner_subtitle', value: toSave.footerBannerSubtitle },
       { key: 'footer_banner_button_text', value: toSave.footerBannerButtonText },
-      // footer atomic entry (kept for backward compatibility but site will prefer footer_settings)
-      { key: 'footer_config', value: JSON.stringify(footerConfig) },
-      // keep individual footer keys as compatibility fallback (they will be ignored if footer_settings exists)
-      { key: 'contact_email', value: toSave.contactEmail },
-      { key: 'contact_phone', value: toSave.contactPhone },
-      { key: 'contact_hours', value: toSave.contactHours },
-      { key: 'social_facebook', value: toSave.socialFacebook },
-      { key: 'social_instagram', value: toSave.socialInstagram },
-      { key: 'social_twitter', value: toSave.socialTwitter },
       { key: 'login_title', value: toSave.loginTitle },
       { key: 'login_subtitle', value: toSave.loginSubtitle },
       { key: 'dashboard_greeting', value: toSave.dashboardGreeting },
@@ -368,13 +312,13 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
         .upsert([
           {
             id: '00000000-0000-0000-0000-000000000001',
-            contact_email: footerConfig.contactEmail,
-            contact_phone: footerConfig.contactPhone,
-            contact_hours: footerConfig.contactHours,
-            social_facebook: footerConfig.socialFacebook,
-            social_instagram: footerConfig.socialInstagram,
-            social_twitter: footerConfig.socialTwitter,
-            logo_url: footerConfig.logoUrl || '',
+            contact_email: toSave.contactEmail,
+            contact_phone: toSave.contactPhone,
+            contact_hours: toSave.contactHours,
+            social_facebook: toSave.socialFacebook,
+            social_instagram: toSave.socialInstagram,
+            social_twitter: toSave.socialTwitter,
+            logo_url: toSave.logoUrl || '',
           }
         ], { onConflict: 'id' });
 

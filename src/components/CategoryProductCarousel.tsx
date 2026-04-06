@@ -27,22 +27,29 @@ const CategoryProductCarousel = memo(({ categoryName, showAgeBadge = true }: Cat
     const fetchProducts = async () => {
       setLoading(true);
       try {
-        // Fetch products and their variants in parallel — no extra categories query
-        const [productsRes, variantsRes] = await Promise.all([
+        const cat = (categoryName || '').trim();
+        if (!cat) {
+          setProducts([]);
+          return;
+        }
+
+        // Fetch products and their variants in parallel — more robust matching using ILIKE
+        const [productsRes] = await Promise.all([
           supabase
             .from('products')
             .select('id, name, price, pix_price, image_url, stock_quantity, category')
-            .eq('category', categoryName)
+            // use case-insensitive partial match to avoid missing items due to minor differences
+            .ilike('category', `%${cat}%`)
             .eq('is_visible', true)
-            .limit(10),
-          // We'll filter variants client-side after getting product IDs
-          Promise.resolve(null),
+            .order('created_at', { ascending: false })
+            .limit(12),
         ]);
 
         if (!mounted) return;
 
         const parentProducts = productsRes.data || [];
         if (productsRes.error || parentProducts.length === 0) {
+          // No products found for this category
           setProducts([]);
           return;
         }
@@ -119,7 +126,7 @@ const CategoryProductCarousel = memo(({ categoryName, showAgeBadge = true }: Cat
           </h3>
         </div>
         {products.length > 0 && (
-          <Link to={`/produtos?category=${categoryName}`} className="text-[10px] xl:text-xs font-bold uppercase tracking-widest hover:text-sky-400 transition-colors hidden md:block">
+          <Link to={`/produtos?category=${encodeURIComponent(categoryName)}`} className="text-[10px] xl:text-xs font-bold uppercase tracking-widest hover:text-sky-400 transition-colors hidden md:block">
             Ver tudo →
           </Link>
         )}

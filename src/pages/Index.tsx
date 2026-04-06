@@ -182,12 +182,13 @@ const Index = () => {
                     to={slide.button_url || '#'}
                     className="block relative w-full h-full"
                   >
+                    {/* Use object-contain to keep full image visible and centered within fixed height */}
                     <ProductImage
                       src={slide.image_url}
                       alt={slide.title || "Banner Principal"}
-                      // container gets fixed height; image uses object-cover to crop
                       className="w-full h-full block rounded-none"
                       priority={true}
+                      fit="contain"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-off-white/80 via-transparent to-transparent" />
                   </Link>

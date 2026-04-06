@@ -7,6 +7,8 @@ interface ProductImageProps {
   className?: string;
   // If true, load with high priority (no lazy). Default false.
   priority?: boolean;
+  // object-fit mode: 'cover' (default) or 'contain'
+  fit?: 'cover' | 'contain';
 }
 
 const Placeholder = ({ className }: { className?: string }) => (
@@ -18,7 +20,7 @@ const Placeholder = ({ className }: { className?: string }) => (
   />
 );
 
-const ProductImage = ({ src, alt, className, priority = false }: ProductImageProps) => {
+const ProductImage = ({ src, alt, className, priority = false, fit = 'cover' }: ProductImageProps) => {
   const [loaded, setLoaded] = useState(false);
   const [errored, setErrored] = useState(false);
   const [shouldLoad, setShouldLoad] = useState<boolean>(priority);
@@ -97,8 +99,10 @@ const ProductImage = ({ src, alt, className, priority = false }: ProductImagePro
     return <Placeholder className={className} />;
   }
 
+  const imgFitClass = fit === 'contain' ? 'object-contain' : 'object-cover';
+
   return (
-    <div ref={containerRef} className={cn('relative overflow-hidden rounded-lg', className)}>
+    <div ref={containerRef} className={cn('relative overflow-hidden rounded-lg flex items-center justify-center', className)}>
       {!loaded && !errored && <div className="absolute inset-0"><Placeholder /></div>}
 
       {shouldLoad ? (
@@ -114,7 +118,8 @@ const ProductImage = ({ src, alt, className, priority = false }: ProductImagePro
             setErrored(true);
           }}
           className={cn(
-            'w-full h-full object-cover block transition-opacity duration-500 ease-out',
+            'w-full h-full block transition-opacity duration-500 ease-out',
+            imgFitClass,
             loaded ? 'opacity-100' : 'opacity-0',
           )}
         />

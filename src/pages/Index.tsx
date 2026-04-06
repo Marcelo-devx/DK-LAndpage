@@ -172,19 +172,22 @@ const Index = () => {
       )}
 
       {settings.showHero && heroSlides.length > 0 && (
-        <section className="relative w-full overflow-hidden min-h-[100px] md:min-h-[200px] lg:min-h-[260px] xl:min-h-[320px]">
+        // Reduced hero heights to crop images more aggressively while keeping aspect via object-cover
+        <section className="relative w-full overflow-hidden h-[140px] md:h-[180px] lg:h-[220px] xl:h-[260px]">
           <Carousel plugins={[Autoplay({ delay: 5000 })]} className="w-full h-full">
             <CarouselContent>
               {heroSlides.map((slide, index) => (
                 <CarouselItem key={index}>
-                  <Link 
-                    to={slide.button_url || '#'} 
+                  <Link
+                    to={slide.button_url || '#'}
                     className="block relative w-full h-full"
                   >
-                    <ProductImage 
-                      src={slide.image_url} 
-                      alt={slide.title || "Banner Principal"} 
-                      className="w-full h-full object-cover block" 
+                    <ProductImage
+                      src={slide.image_url}
+                      alt={slide.title || "Banner Principal"}
+                      // container gets fixed height; image uses object-cover to crop
+                      className="w-full h-full block rounded-none"
+                      priority={true}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-off-white/80 via-transparent to-transparent" />
                   </Link>

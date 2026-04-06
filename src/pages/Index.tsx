@@ -16,6 +16,7 @@ import InformationalPopup from '@/components/InformationalPopup';
 import { useTheme } from '@/context/ThemeContext';
 import ProductImage from '@/components/ProductImage';
 import AgeVerificationPopup from '@/components/AgeVerificationPopup';
+import { useInfoPopup } from '@/hooks/useInfoPopup';
 
 const Index = () => {
   const { settings } = useTheme();
@@ -28,34 +29,11 @@ const Index = () => {
   const [brands, setBrands] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
-  
-  const [infoPopup, setInfoPopup] = useState<{ title: string; content: string } | null>(null);
-  const [isPopupOpen, setIsPopupOpen] = useState(false);
-  const [ageVerified, setAgeVerified] = useState(false);
 
   const { handleBrandClick } = useOutletContext<OutletContextType>();
+  const { infoPopup, isOpen: isInfoPopupOpen, onClose: handleInfoPopupClose } = useInfoPopup();
 
   // Scroll to top is handled globally by ScrollToTop in App.tsx
-
-  // Verificar se a idade já foi confirmada antes de mostrar popup informativo
-  useEffect(() => {
-    try {
-      const verified = localStorage.getItem('ageVerified') === 'true';
-      setAgeVerified(verified);
-    } catch (e) {
-      setAgeVerified(false);
-    }
-  }, []);
-
-  // Ouvir evento de verificação de idade
-  useEffect(() => {
-    const handleAgeVerified = () => {
-      setAgeVerified(true);
-    };
-
-    window.addEventListener('ageVerified', handleAgeVerified);
-    return () => window.removeEventListener('ageVerified', handleAgeVerified);
-  }, []);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -88,7 +66,6 @@ const Index = () => {
       const brandsP = timed('fetch_brands', Promise.resolve(supabase.from('brands').select('*').eq('is_visible', true).order('name')));
       const categoriesP = timed('fetch_categories', Promise.resolve(supabase.from('categories').select('name, show_age_restriction').eq('is_visible', true).order('name')));
       const featuredP = timed('fetch_featured', Promise.resolve(supabase.from('products').select('*').eq('is_featured', true).eq('is_visible', true).limit(8)));
-      const popupP = timed('fetch_popup', Promise.resolve(supabase.from('informational_popups').select('title, content').eq('is_active', true).limit(1).maybeSingle()));
 
       const timeoutMs = 15000; // increased to reduce false timeouts
 
@@ -100,7 +77,6 @@ const Index = () => {
         brandsP,
         categoriesP,
         featuredP,
-        popupP,
       ]).then(res => res);
 
       const raceResult: any = await Promise.race([
@@ -122,7 +98,6 @@ const Index = () => {
         brandsRes,
         categoriesRes,
         featuredRes,
-        popupRes,
       ] = raceResult;
 
       const categoryMap = new Map(
@@ -171,30 +146,6 @@ const Index = () => {
         setBrands(brandsRes.data || []);
         setCategories(categoriesRes.data || []);
       }
-
-      if (!background && isMountedRef.current) {
-        if (popupRes.data && !sessionStorage.getItem('info_popup_seen')) {
-          setInfoPopup(popupRes.data);
-          setIsPopupOpen(false);
-        }
-
-        const isAgeVerifiedNow = (localStorage.getItem('ageVerified') === 'true') || (sessionStorage.getItem('age-verified-v2') === 'true');
-        if (isAgeVerifiedNow) {
-          setAgeVerified(true);
-          if (popupRes.data && !sessionStorage.getItem('info_popup_seen')) {
-            setIsPopupOpen(true);
-          }
-        } else {
-          const handleVerification = () => {
-            setAgeVerified(true);
-            if (popupRes.data && !sessionStorage.getItem('info_popup_seen')) {
-              setIsPopupOpen(true);
-            }
-            window.removeEventListener('ageVerified', handleVerification);
-          };
-          window.addEventListener('ageVerified', handleVerification);
-        }
-      }
     } catch (error) {
       console.error("Erro ao carregar dados da Home:", error);
     } finally {
@@ -208,18 +159,13 @@ const Index = () => {
     fetchData();
   }, [fetchData]);
 
-  const handleClosePopup = () => {
-    setIsPopupOpen(false);
-    sessionStorage.setItem('info_popup_seen', 'true');
-  };
-
   return (
     <div className="bg-off-white overflow-x-hidden text-charcoal-gray w-full transition-colors duration-500">
       <AgeVerificationPopup />
-      {infoPopup && isPopupOpen && (
+      {infoPopup && (
         <InformationalPopup
-          isOpen={isPopupOpen}
-          onClose={handleClosePopup}
+          isOpen={isInfoPopupOpen}
+          onClose={handleInfoPopupClose}
           title={infoPopup.title}
           content={infoPopup.content}
         />

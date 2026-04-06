@@ -199,8 +199,8 @@ const Index = () => {
         </section>
       )}
 
-      {/* Tighter spacing under hero: pull content closer but keep a small visual gap */}
-      <div className="space-y-3 md:space-y-4 xl:space-y-6 py-0 md:py-0 xl:py-0 -mt-8 md:-mt-10 xl:-mt-12">
+      {/* Tight spacing under hero to match the small gap used between cards */}
+      <div className="space-y-3 md:space-y-4 xl:space-y-6 py-0 md:py-0 xl:py-0 -mt-3">
         
         {settings.showInfo && (
           <ScrollAnimationWrapper>

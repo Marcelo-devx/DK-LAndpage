@@ -34,6 +34,7 @@ interface SubCategory {
 const AllProductsPage = () => {
   const [searchParams] = useSearchParams();
   const isMountedRef = useRef(true);
+  const fetchIdRef = useRef(0);
 
   const [displayProducts, setDisplayProducts] = useState<DisplayProduct[]>([]);
   const [loading, setLoading] = useState(false);
@@ -130,11 +131,12 @@ const AllProductsPage = () => {
 
   const fetchProducts = useCallback(async (background = false) => {
     if (!isMountedRef.current) return;
+    const currentFetchId = ++fetchIdRef.current;
     if (!background) setLoading(true);
 
     // Timeout de segurança — garante que loading nunca fica preso
     const safetyTimer = !background ? setTimeout(() => {
-      if (isMountedRef.current) setLoading(false);
+      if (isMountedRef.current && fetchIdRef.current === currentFetchId) setLoading(false);
     }, 10000) : null;
 
     try {
@@ -203,7 +205,7 @@ const AllProductsPage = () => {
       // Apply subcategory filter via product IDs (join table)
       if (subCategoryProductIds !== null) {
         if (subCategoryProductIds.length === 0) {
-          if (isMountedRef.current && !background) {
+          if (isMountedRef.current && fetchIdRef.current === currentFetchId && !background) {
             setDisplayProducts([]);
             setSubCategoryOptions([]);
           }
@@ -235,7 +237,7 @@ const AllProductsPage = () => {
 
       if (error) {
         console.error('[AllProductsPage] Error fetching products:', error);
-        if (isMountedRef.current && !background) {
+        if (isMountedRef.current && fetchIdRef.current === currentFetchId && !background) {
           setDisplayProducts([]);
           setCategoryOptions([]);
           setSubCategoryOptions([]);
@@ -270,7 +272,7 @@ const AllProductsPage = () => {
           const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
           return qSortOrder === 'asc' ? aTime - bTime : bTime - aTime;
         });
-        if (isMountedRef.current) setDisplayProducts(quickList);
+        if (isMountedRef.current && fetchIdRef.current === currentFetchId) setDisplayProducts(quickList);
         return;
       }
 
@@ -380,19 +382,19 @@ const AllProductsPage = () => {
             if (name) flavorsArr.push({ name, count });
           }
           flavorsArr.sort((a, b) => a.name.localeCompare(b.name));
-          if (isMountedRef.current) setFlavorOptions(flavorsArr);
+          if (isMountedRef.current && fetchIdRef.current === currentFetchId) setFlavorOptions(flavorsArr);
         } else {
-          if (isMountedRef.current) setFlavorOptions([]);
+          if (isMountedRef.current && fetchIdRef.current === currentFetchId) setFlavorOptions([]);
         }
       } else {
-        if (isMountedRef.current) setFlavorOptions([]);
+        if (isMountedRef.current && fetchIdRef.current === currentFetchId) setFlavorOptions([]);
       }
 
       const categoriesArr = Array.from(catCountMap.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => a.name.localeCompare(b.name));
       const subCategoriesArr = Array.from(subCatCountMap.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => a.name.localeCompare(b.name));
       const brandsArr = Array.from(brandCountMap.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => a.name.localeCompare(b.name));
 
-      if (isMountedRef.current) {
+      if (isMountedRef.current && fetchIdRef.current === currentFetchId) {
         setCategoryOptions(categoriesArr);
         setSubCategoryOptions(subCategoriesArr);
         setBrandOptions(brandsArr);
@@ -413,7 +415,7 @@ const AllProductsPage = () => {
         return sOrder === 'asc' ? aTime - bTime : bTime - aTime;
       });
 
-      if (isMountedRef.current) {
+      if (isMountedRef.current && fetchIdRef.current === currentFetchId) {
         setDisplayProducts(finalDisplayList);
       }
 
@@ -421,7 +423,7 @@ const AllProductsPage = () => {
       console.error('[AllProductsPage] fetchProducts error:', err);
     } finally {
       if (safetyTimer) clearTimeout(safetyTimer);
-      if (!background && isMountedRef.current) setLoading(false);
+      if (!background && isMountedRef.current && fetchIdRef.current === currentFetchId) setLoading(false);
     }
   }, [debouncedSearchTerm, selectedCategories, selectedSubCategories, selectedBrands, selectedFlavors, sortBy]);
 

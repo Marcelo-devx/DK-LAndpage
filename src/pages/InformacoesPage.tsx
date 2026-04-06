@@ -183,34 +183,6 @@ const InformacoesPage = () => {
 
         </div>
 
-        {/* CTA Section */}
-        <div className="mt-12 md:mt-16 p-8 rounded-2xl bg-gradient-to-r from-sky-500/10 to-purple-500/10 border border-white/10">
-          <div className="text-center">
-            <h3 className="text-2xl md:text-3xl font-black uppercase tracking-tighter text-white mb-4">
-              Ainda com Dúvidas?
-            </h3>
-            <p className="text-slate-400 text-sm md:text-base max-w-xl mx-auto mb-6">
-              Nossa equipe está pronta para te ajudar. Entre em contato através do WhatsApp ou e-mail.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <a 
-                href="https://wa.me/5541999999999" 
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 bg-sky-500 hover:bg-sky-600 text-white font-black uppercase tracking-wider px-8 py-4 rounded-xl transition-all hover:scale-105"
-              >
-                Falar no WhatsApp
-              </a>
-              <a 
-                href="mailto:dondkcwb@protonmail.com"
-                className="inline-flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white font-black uppercase tracking-wider px-8 py-4 rounded-xl border border-white/10 transition-all"
-              >
-                Enviar E-mail
-              </a>
-            </div>
-          </div>
-        </div>
-
       </div>
     </div>
   );

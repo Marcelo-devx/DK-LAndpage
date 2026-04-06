@@ -132,13 +132,13 @@ const AllProductsPage = () => {
   const fetchProducts = useCallback(async (background = false) => {
     if (!isMountedRef.current) return;
     
-    // Proteção contra re-fetch desnecessário quando já há dados
-    if (displayProducts.length > 0 && !background) return;
+    // Always refetch when called (filter/URL changes). Avoid skipping fetch so page updates
+    // when user navigates between categories via header links.
     
     const currentFetchId = ++fetchIdRef.current;
     if (!background) setLoading(true);
 
-    // Timeout de segurança — garante que loading nunca fica preso
+    // Timeout of safety — ensures loading never gets stuck
     const safetyTimer = !background ? setTimeout(() => {
       if (isMountedRef.current && fetchIdRef.current === currentFetchId) setLoading(false);
     }, 10000) : null;
@@ -432,6 +432,11 @@ const AllProductsPage = () => {
   }, [debouncedSearchTerm, selectedCategories, selectedSubCategories, selectedBrands, selectedFlavors, sortBy, displayProducts.length]);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
+
+  // Re-run fetch when the URL search params change (category/sub_category/search)
+  useEffect(() => {
+    fetchProducts(false);
+  }, [searchParams.get('category'), searchParams.get('sub_category'), searchParams.get('search')]);
 
   const handleClearFilters = () => {
     setSearchTerm('');

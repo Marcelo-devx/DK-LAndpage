@@ -211,8 +211,9 @@ const ProductPage = () => {
             <ProductImage
               src={product.image_url || ''}
               alt={product.name}
+              fit="contain"
               className={cn(
-                "w-full object-contain md:object-cover rounded-[2rem] md:rounded-[2.5rem] xl:rounded-[3rem] border border-stone-100 shadow-xl md:shadow-2xl relative bg-white transition-all md:max-h-[500px] xl:max-h-[600px]",
+                "w-full rounded-[2rem] md:rounded-[2.5rem] xl:rounded-[3rem] border border-stone-100 shadow-xl md:shadow-2xl relative bg-white transition-all max-h-[800px]",
                 isOutOfStock && "grayscale opacity-80"
               )}
             />

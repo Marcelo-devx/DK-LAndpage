@@ -220,6 +220,8 @@ const Index = () => {
                       className="w-full h-full block rounded-none"
                       priority={true}
                       fit="cover"
+                      quality={95}
+                      maxWidth={1920}
                     />
                     {/* reduced gradient to avoid visible off-white band under the hero */}
                     <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-transparent" />

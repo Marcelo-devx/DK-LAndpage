@@ -13,6 +13,8 @@ interface ProductImageProps {
   fit?: 'cover' | 'contain';
   // Maximum container width for responsive sizing
   maxWidth?: number;
+  // JPEG/WebP quality (1-100). Default 85.
+  quality?: number;
 }
 
 const Placeholder = ({ className }: { className?: string }) => (
@@ -47,7 +49,8 @@ const ProductImage = ({
   className, 
   priority = false, 
   fit = 'cover',
-  maxWidth = 1200 
+  maxWidth = 1200,
+  quality = 85
 }: ProductImageProps) => {
   const [loaded, setLoaded] = useState(false);
   const [errored, setErrored] = useState(false);
@@ -114,7 +117,7 @@ const ProductImage = ({
     if (!src || !shouldLoad) return;
     
     // Get optimized URL for preloading (use a mid-size for preloading)
-    const preloadUrl = getOptimizedImageUrl(src, 600, 80);
+    const preloadUrl = getOptimizedImageUrl(src, 600, Math.max(quality - 5, 75));
     if (!preloadUrl) return;
     
     const img = new Image();
@@ -126,7 +129,7 @@ const ProductImage = ({
     img.onerror = (e) => {
       console.error('Preload image error', src, e);
     };
-  }, [src, shouldLoad]);
+  }, [src, shouldLoad, quality]);
 
   // Set fetchpriority attribute directly on the DOM node
   useEffect(() => {
@@ -151,9 +154,9 @@ const ProductImage = ({
   // For contain we also center the image so focal point appears centered
   const imgFitClass = fit === 'contain' ? 'object-contain object-center' : 'object-cover object-center';
 
-  // Get optimized image URLs
-  const optimizedSrc = getOptimizedImageUrl(src, maxWidth, 85);
-  const srcset = getResponsiveSrcset(src, [300, 600, 900, 1200], 85);
+  // Get optimized image URLs with custom quality
+  const optimizedSrc = getOptimizedImageUrl(src, maxWidth, quality);
+  const srcset = getResponsiveSrcset(src, [300, 600, 900, 1200, 1920], quality);
   const sizes = `(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw`;
 
   const handleLoad = () => {

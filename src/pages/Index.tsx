@@ -172,8 +172,8 @@ const Index = () => {
       )}
 
       {settings.showHero && heroSlides.length > 0 && (
-        // Increased heights to show more of the image while keeping a reasonable crop
-        <section className="relative w-full overflow-hidden h-[220px] md:h-[260px] lg:h-[320px] xl:h-[380px]">
+        // Increased heights by ~20% as requested
+        <section className="relative w-full overflow-hidden h-[264px] md:h-[312px] lg:h-[384px] xl:h-[456px]">
           <Carousel plugins={[Autoplay({ delay: 5000 })]} className="w-full h-full">
             <CarouselContent>
               {heroSlides.map((slide, index) => (

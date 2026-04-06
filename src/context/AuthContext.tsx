@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { getSessionWithRetry, getSessionOrUser } from '@/lib/auth';
 import type { Session, User } from '@supabase/supabase-js';
@@ -47,6 +47,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [initializing, setInitializing] = useState(true);
+
+  // Ref to track current user ID and avoid stale closure issues
+  const currentUserIdRef = useRef<string | null>(null);
+
+  // Keep ref synced with user state to avoid stale closure in onAuthStateChange
+  useEffect(() => {
+    currentUserIdRef.current = user?.id ?? null;
+  }, [user]);
 
   // Função para buscar perfil do usuário
   const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
@@ -140,8 +148,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
         if (event === 'SIGNED_IN' && currentSession?.user) {
           // Ignorar SIGNED_IN se já for o mesmo usuário (evita re-renderizações desnecessárias)
-          if (user?.id === currentSession.user.id) {
+          if (currentUserIdRef.current === currentSession.user.id) {
             console.log('[AuthContext] Ignoring redundant SIGNED_IN for same user');
+            if (mounted) setLoading(false); // ← libera o loading antes de sair
             return;
           }
           const userProfile = await fetchProfile(currentSession.user.id);

@@ -20,6 +20,19 @@ const Placeholder = ({ className }: { className?: string }) => (
   />
 );
 
+const FallbackImage = ({ className }: { className?: string }) => (
+  <div className={cn('w-full h-full bg-white border border-stone-100 rounded-lg flex items-center justify-center', className)}>
+    <div className="flex flex-col items-center gap-2">
+      <svg className="h-12 w-12 text-stone-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="3" width="18" height="14" rx="2" ry="2"></rect>
+        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+        <path d="M21 21l-5-5L13 17l-4-4-6 6"></path>
+      </svg>
+      <div className="text-[12px] text-stone-400 font-semibold">Imagem indisponível</div>
+    </div>
+  </div>
+);
+
 const ProductImage = ({ src, alt, className, priority = false, fit = 'cover' }: ProductImageProps) => {
   const [loaded, setLoaded] = useState(false);
   const [errored, setErrored] = useState(false);
@@ -95,15 +108,16 @@ const ProductImage = ({ src, alt, className, priority = false, fit = 'cover' }: 
     }
   }, [priority, shouldLoad]);
 
+  // If src is missing, show a clear fallback (instead of an empty animating box)
   if (!src) {
-    return <Placeholder className={className} />;
+    return <FallbackImage className={className} />;
   }
 
   // For contain we also center the image so focal point appears centered
   const imgFitClass = fit === 'contain' ? 'object-contain object-center' : 'object-cover object-center';
 
   return (
-    <div ref={containerRef} className={cn('relative overflow-hidden rounded-lg flex items-center justify-center', className)}>
+    <div ref={containerRef} className={cn('relative overflow-hidden rounded-lg flex items-center justify-center bg-white', className)}>
       {!loaded && !errored && <div className="absolute inset-0"><Placeholder /></div>}
 
       {shouldLoad ? (
@@ -130,12 +144,8 @@ const ProductImage = ({ src, alt, className, priority = false, fit = 'cover' }: 
       )}
 
       {errored && (
-        <div className="absolute inset-0 flex items-center justify-center bg-stone-100">
-          <svg className="h-8 w-8 text-stone-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="7 10 12 15 17 10" />
-            <line x1="12" y1="15" x2="12" y2="3" />
-          </svg>
+        <div className="absolute inset-0">
+          <FallbackImage />
         </div>
       )}
     </div>

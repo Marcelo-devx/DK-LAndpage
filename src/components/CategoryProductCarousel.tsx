@@ -135,9 +135,9 @@ const CategoryProductCarousel = memo(({ categoryName, showAgeBadge = true }: Cat
       <div className="min-h-[250px] md:min-h-[300px] xl:min-h-[340px]">
         {loading ? (
           <Carousel opts={{ align: "start" }} className="w-full">
-            <CarouselContent className="-ml-3 md:-ml-4">
+            <CarouselContent className="-ml-1 md:-ml-2">
               {Array.from({ length: 4 }).map((_, i) => (
-                <CarouselItem key={i} className="pl-3 md:pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/5">
+                <CarouselItem key={i} className="pl-1 md:pl-2 basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/5">
                   <Skeleton className="aspect-square bg-white/5 rounded-2xl md:rounded-3xl" />
                 </CarouselItem>
               ))}
@@ -145,9 +145,9 @@ const CategoryProductCarousel = memo(({ categoryName, showAgeBadge = true }: Cat
           </Carousel>
         ) : products.length > 0 ? (
           <Carousel opts={{ align: "start", loop: products.length > 4 }} className="w-full">
-            <CarouselContent className="-ml-3 md:-ml-4">
+            <CarouselContent className="-ml-1 md:-ml-2">
               {products.map((p, idx) => (
-                <CarouselItem key={`${p.id}-${idx}`} className="pl-3 md:pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/5">
+                <CarouselItem key={`${p.id}-${idx}`} className="pl-1 md:pl-2 basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/5">
                   <ProductCard product={{ 
                     id: p.id, 
                     name: p.name, 

@@ -201,7 +201,7 @@ const Index = () => {
       )}
 
       {/* Tight spacing under hero to match the small gap used between cards */}
-      <div className="space-y-2 md:space-y-3 xl:space-y-4 py-0 md:py-0 xl:py-0 -mt-8 md:-mt-10 lg:-mt-12">
+      <div className="space-y-1 md:space-y-2 py-0 md:py-0 xl:py-0 -mt-8 md:-mt-10 lg:-mt-12">
         
         {settings.showInfo && (
           <InfoSection compactTop />
@@ -217,7 +217,7 @@ const Index = () => {
           <ScrollAnimationWrapper>
             <section className="container mx-auto px-4 md:px-6 xl:px-8">
               <h2 className="text-[10px] md:text-xs xl:text-sm font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-3 md:mb-4 xl:mb-6 text-center">Ofertas Exclusivas</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3 gap-2 md:gap-3 xl:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3 gap-1 md:gap-2">
                 {promotions.slice(0, 3).map((promo) => (
                   <CategoryCarouselCard 
                     key={promo.id}
@@ -240,14 +240,14 @@ const Index = () => {
             </div>
             
             <Carousel opts={{ align: "start", loop: displayedProducts.length > 4 }} className="w-full">
-              <CarouselContent className="-ml-2 md:-ml-3">
+              <CarouselContent className="-ml-1 md:-ml-2">
                 {loadingProducts ? Array.from({ length: 4 }).map((_, i) => (
-                  <CarouselItem key={i} className="pl-2 md:pl-3 basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/5">
+                  <CarouselItem key={i} className="pl-1 md:pl-2 basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/5">
                     <Skeleton className="aspect-square bg-slate-200 rounded-2xl md:rounded-3xl" />
                   </CarouselItem>
                 )) : displayedProducts.length > 0 ?
                   displayedProducts.map((p, idx) => (
-                    <CarouselItem key={`${p.id}-${idx}`} className="pl-2 md:pl-3 basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/5">
+                    <CarouselItem key={`${p.id}-${idx}`} className="pl-1 md:pl-2 basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/5">
                       <ProductCard product={{ id: p.id, name: p.name, price: p.price, pixPrice: p.pixPrice, imageUrl: p.imageUrl, stockQuantity: p.stockQuantity, variantId: p.variantId, hasMultipleVariants: p.hasMultipleVariants, showAgeBadge: p.showAgeBadge }} />
                     </CarouselItem>
                   )) : (
@@ -273,7 +273,7 @@ const Index = () => {
             <section className="bg-white py-4 md:py-8 xl:py-10 rounded-[3rem] mx-4 md:mx-6 xl:mx-8 shadow-sm border border-stone-100">
               <div className="container mx-auto px-4 md:px-6 xl:px-8">
                 <h2 className="text-[10px] md:text-xs xl:text-sm font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-3 md:mb-4 xl:mb-6 text-center">Seleção Premium</h2>
-                <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-2 md:gap-3 xl:gap-4">
+                <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-1 md:gap-2">
                   {featuredProducts.map((p, idx) => (
                     <ProductCard key={`${p.id}-${idx}`} product={{ id: p.id, name: p.name, price: p.price, pixPrice: p.pixPrice, imageUrl: p.imageUrl, stockQuantity: p.stockQuantity, variantId: p.variantId, hasMultipleVariants: p.hasMultipleVariants, showAgeBadge: p.showAgeBadge }} />
                   ))}

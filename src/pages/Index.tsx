@@ -199,7 +199,8 @@ const Index = () => {
         </section>
       )}
 
-      <div className="space-y-3 md:space-y-4 xl:space-y-6 py-2 md:py-3 xl:py-4">
+      {/* Reduced vertical spacing under the hero to remove excessive blank area */}
+      <div className="space-y-3 md:space-y-4 xl:space-y-6 py-0 md:py-2 xl:py-3 -mt-4 md:-mt-6">
         
         {settings.showInfo && (
           <ScrollAnimationWrapper>

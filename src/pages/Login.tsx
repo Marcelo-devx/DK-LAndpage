@@ -205,19 +205,9 @@ const Login = () => {
   }, [navigate, from]);
 
   useEffect(() => {
-    // Fallback listener for OAuth, magic link, OTP sign-in flows
-    const { data } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('[Login] onAuthStateChange:', event);
-      // Only act on SIGNED_IN — ignore INITIAL_SESSION to avoid redirecting users
-      // who were already logged in and navigated back to the login page
-      if (event === 'SIGNED_IN' && session) {
-        redirectAfterLogin(session);
-      }
-    });
-
-    return () => {
-      try { data.subscription.unsubscribe(); } catch (e) {}
-    };
+    // Listener removido - o AuthContext agora gerencia o estado de autenticação
+    // O redirectAfterLogin é chamado diretamente após login bem-sucedido
+    // para evitar race conditions com múltiplos listeners
   }, [redirectAfterLogin]);
 
   // Cooldown timer

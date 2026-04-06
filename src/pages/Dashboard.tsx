@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { getSessionOrUser } from '@/lib/auth';
 import { useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,76 +17,48 @@ import {
   Key
 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
+import { useAuth } from '@/context/AuthContext';
 import { showError } from '@/utils/toast';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { settings } = useTheme();
+  const { profile, loading: authLoading, refresh } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState<any>(null);
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  const fetchDashboardData = useCallback(async (isBackground = false) => {
-    if (!isBackground) setLoading(true);
-
-    // Timeout de 3s para evitar loading infinito ao voltar de outra aba
-    const timeoutId = setTimeout(() => {
-      if (!isBackground) setLoading(false);
-    }, 3000);
+  const fetchPendingOrders = useCallback(async () => {
+    if (!profile?.id) {
+      setLoading(false);
+      return;
+    }
 
     try {
-        const { session, user } = await getSessionOrUser();
-        
-        if (!session && !user) {
-          clearTimeout(timeoutId);
-          if (!isBackground) setLoading(false);
-          navigate('/login');
-          return;
-        }
+      const { count, error } = await supabase
+        .from('orders')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', profile.id)
+        .or('status.ilike.%aguardando%,status.ilike.%pendente%,status.ilike.%preparação%');
 
-        // Se tem user mas não session, usa o user.id
-        const userId = session?.user.id || user?.id;
-        if (!userId) {
-          clearTimeout(timeoutId);
-          if (!isBackground) setLoading(false);
-          navigate('/login');
-          return;
-        }
-
-        const [profileRes, ordersRes] = await Promise.all([
-          supabase.from('profiles').select('*').eq('id', userId).single(),
-          supabase.from('orders')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', userId)
-            .or('status.ilike.%aguardando%,status.ilike.%pendente%,status.ilike.%preparação%')
-        ]);
-
-        if (profileRes.data) {
-            setProfile(profileRes.data);
-        } else if (profileRes.error && profileRes.error.code !== 'PGRST116') {
-            console.error("Erro ao buscar perfil:", profileRes.error);
-        }
-
-        if (ordersRes.count !== null) {
-            setPendingOrdersCount(ordersRes.count);
-        }
-        
-    } catch (error: any) {
-        console.error("Erro ao carregar dashboard:", error);
-        // Se for erro de auth, redireciona para login
-        if (error?.message?.includes('auth') || error?.code?.startsWith('auth')) {
-          navigate('/login');
-        }
+      if (!error && count !== null) {
+        setPendingOrdersCount(count);
+      }
+    } catch (error) {
+      console.error('[Dashboard] Erro ao buscar pedidos pendentes:', error);
     } finally {
-        clearTimeout(timeoutId);
-        if (!isBackground) setLoading(false);
+      setLoading(false);
     }
-  }, [navigate]);
+  }, [profile?.id]);
 
   useEffect(() => {
-    fetchDashboardData();
-  }, [fetchDashboardData, refreshTrigger]);
+    if (profile) {
+      fetchPendingOrders();
+    } else if (!authLoading) {
+      // Se não há perfil e não está carregando auth, redireciona
+      navigate('/login');
+    }
+  }, [profile, authLoading, fetchPendingOrders, navigate, refreshTrigger]);
 
   const handleLogout = async () => {
     try {
@@ -102,11 +73,12 @@ const Dashboard = () => {
     navigate('/login');
   };
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
+    await refresh();
     setRefreshTrigger(prev => prev + 1);
   };
 
-  if (loading) {
+  if (loading || authLoading || !profile) {
     return (
       <div className="flex flex-col justify-center items-center h-[60vh] gap-4">
         <Loader2 className="h-8 w-8 animate-spin text-sky-400" />

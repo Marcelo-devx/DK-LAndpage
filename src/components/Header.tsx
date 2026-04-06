@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Session } from '@supabase/supabase-js';
 import { getCartTotalItems } from '@/utils/localCart';
+import { useAuth } from '@/context/AuthContext';
 import {
   NavigationMenu,
   NavigationMenuItem,
@@ -99,9 +100,9 @@ DesktopNav.displayName = 'DesktopNav';
 const Header = memo(({ onCartClick }: HeaderProps) => {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
+  const { session } = useAuth();
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [loadingLogo, setLoadingLogo] = useState(true);
-  const [session, setSession] = useState<Session | null>(null);
   const [cartCount, setCartCount] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -208,8 +209,6 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
       }
 
       try {
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
-        if (isMounted) setSession(currentSession);
         updateCartCount();
         if (isMounted) fetchNavData();
       } catch (error) {
@@ -219,16 +218,9 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
 
     fetchInitialData();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, currentSession) => {
-      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED' || event === 'INITIAL_SESSION') {
-        if (isMounted) setSession(currentSession);
-      }
-    });
-
     window.addEventListener('cartUpdated', updateCartCount);
     return () => {
       isMounted = false;
-      try { authListener?.subscription?.unsubscribe(); } catch (e) { /* ignore */ }
       window.removeEventListener('cartUpdated', updateCartCount);
     };
   }, []);

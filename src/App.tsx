@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -25,11 +25,11 @@ import UpdatePassword from "./pages/UpdatePassword";
 import AuthEventHandler from "./components/AuthEventHandler";
 import ScrollToTop from "./components/ScrollToTop";
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 import AdminCustomizer from "./components/AdminCustomizer";
 import EmailConfirm from "./pages/EmailConfirm";
 import MaintenanceScreen from "./components/MaintenanceScreen";
 import ErrorBoundary from "./components/ErrorBoundary";
-import { supabase } from "./integrations/supabase/client";
 import DashboardSecurity from "./pages/DashboardSecurity";
 import { useMercadoPagoRedirect } from "./hooks/useMercadoPagoRedirect";
 
@@ -46,9 +46,7 @@ const AppContent = () => {
   useMercadoPagoRedirect();
 
   const { settings } = useTheme();
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [checkingRole, setCheckingRole] = useState(false);
-  const adminCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const { isAdmin } = useAuth();
 
   // Registra quando o usuário sai da aba para que o AgeVerificationPopup
   // saiba que ele voltou recentemente e não exiba o popup novamente
@@ -62,63 +60,6 @@ const AppContent = () => {
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, []);
-
-  useEffect(() => {
-    const checkAdmin = async () => {
-      if (adminCheckTimeoutRef.current) {
-        clearTimeout(adminCheckTimeoutRef.current);
-      }
-
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const user = session?.user;
-        if (!user) {
-          setIsAdmin(false);
-          return;
-        }
-
-        const { data, error } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-        if (!error && data?.role === 'adm') {
-          setIsAdmin(true);
-        } else {
-          setIsAdmin(false);
-        }
-      } catch (e) {
-        console.error('[App] failed to determine admin role', e);
-        setIsAdmin(false);
-      }
-    };
-
-    // Executa inicialmente
-    checkAdmin();
-
-    const listener = supabase.auth.onAuthStateChange((event) => {
-      console.log('[App] Auth state event:', event);
-      
-      try {
-        // TOKEN_REFRESHED não requer re-verificação — evita re-render ao voltar de outra aba
-        // SIGNED_IN só precisa re-verificar se era diferente de logged antes
-        if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
-          checkAdmin();
-        }
-      } catch (e) {
-        console.error('[App] Error handling auth state change:', e);
-      }
-    });
-
-    return () => {
-      if (adminCheckTimeoutRef.current) {
-        clearTimeout(adminCheckTimeoutRef.current);
-      }
-      try {
-        const subscription = (listener as any)?.data?.subscription ?? (listener as any)?.subscription ?? null;
-        if (subscription && typeof subscription.unsubscribe === 'function') subscription.unsubscribe();
-        else if ((listener as any)?.unsubscribe) (listener as any).unsubscribe();
-      } catch (e) {
-        console.warn('[App] failed to unsubscribe auth listener', e);
-      }
-    };
   }, []);
 
   if (settings.maintenanceMode && !isAdmin) {
@@ -168,8 +109,10 @@ const App = () => {
           <Sonner />
           <BrowserRouter>
             <ScrollToTop />
-            <AuthEventHandler />
-            <AppContent />
+            <AuthProvider>
+              <AuthEventHandler />
+              <AppContent />
+            </AuthProvider>
           </BrowserRouter>
         </ThemeProvider>
       </TooltipProvider>

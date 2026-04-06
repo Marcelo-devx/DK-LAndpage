@@ -107,17 +107,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     let mounted = true;
     let initializationComplete = false;
 
-    // Timer de segurança para garantir que initializing nunca fica true forever
-    const safetyTimer = setTimeout(() => {
-      if (mounted && !initializationComplete) {
-        console.warn('[AuthContext] Initialization timeout (10s) - forcing loading false to prevent infinite loading');
-        if (mounted) {
-          setLoading(false);
-          setInitializing(false);
-        }
-      }
-    }, 10000);
-
     const initializeAuth = async () => {
       try {
         // Usa getSessionWithRetry para casos de renovação de token
@@ -154,7 +143,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           initializationComplete = true;
           setInitializing(false);
           setLoading(false);
-          clearTimeout(safetyTimer);
         }
       }
     };

@@ -70,32 +70,30 @@ const AppContent = () => {
   return (
     <>
       <AdminCustomizer />
-      <ErrorBoundary>
-        <Routes>
-          <Route element={<MainLayout />}>
-            <Route path="/" element={<Index />} />
-            <Route path="/produtos" element={<AllProductsPage />} />
-            <Route path="/produto/:id" element={<ProductPage />} />
-            <Route path="/promocao/:id" element={<PromotionPage />} />
-            <Route path="/perfil" element={<ProfilePage />} />
-            <Route path="/checkout" element={<CheckoutPage />} />
-            <Route path="/compras" element={<OrdersPage />} />
-            <Route path="/pedidos" element={<Navigate to="/compras" replace />} />
-            <Route path="/confirmacao-pedido/:id" element={<ConfirmacaoPedido />} />
-            <Route path="/indicacoes" element={<ReferralsPage />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/dashboard/security" element={<DashboardSecurity />} />
-            <Route path="/clube-dk" element={<LoyaltyClubPage />} />
-            <Route path="/como-funciona" element={<HowItWorksPage />} />
-          </Route>
-          <Route path="/login" element={<Login />} />
-          <Route path="/complete-profile" element={<CompleteProfilePage />} />
-          <Route path="/update-password" element={<UpdatePassword />} />
-          <Route path="/admin/logistica" element={<AdminLogistics />} />
-          <Route path="/auth/confirm" element={<EmailConfirm />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </ErrorBoundary>
+      <Routes>
+        <Route element={<MainLayout />}>
+          <Route path="/" element={<Index />} />
+          <Route path="/produtos" element={<AllProductsPage />} />
+          <Route path="/produto/:id" element={<ProductPage />} />
+          <Route path="/promocao/:id" element={<PromotionPage />} />
+          <Route path="/perfil" element={<ProfilePage />} />
+          <Route path="/checkout" element={<CheckoutPage />} />
+          <Route path="/compras" element={<OrdersPage />} />
+          <Route path="/pedidos" element={<Navigate to="/compras" replace />} />
+          <Route path="/confirmacao-pedido/:id" element={<ConfirmacaoPedido />} />
+          <Route path="/indicacoes" element={<ReferralsPage />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard/security" element={<DashboardSecurity />} />
+          <Route path="/clube-dk" element={<LoyaltyClubPage />} />
+          <Route path="/como-funciona" element={<HowItWorksPage />} />
+        </Route>
+        <Route path="/login" element={<Login />} />
+        <Route path="/complete-profile" element={<CompleteProfilePage />} />
+        <Route path="/update-password" element={<UpdatePassword />} />
+        <Route path="/admin/logistica" element={<AdminLogistics />} />
+        <Route path="/auth/confirm" element={<EmailConfirm />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
     </>
   );
 };

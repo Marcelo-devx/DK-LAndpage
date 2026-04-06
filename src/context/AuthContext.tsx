@@ -105,6 +105,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Inicialização - carregar sessão e perfil
   useEffect(() => {
     let mounted = true;
+    let initializationComplete = false;
+
+    // Timer de segurança para garantir que initializing nunca fica true forever
+    const safetyTimer = setTimeout(() => {
+      if (mounted && !initializationComplete) {
+        console.warn('[AuthContext] Initialization timeout (10s) - forcing loading false to prevent infinite loading');
+        if (mounted) {
+          setLoading(false);
+          setInitializing(false);
+        }
+      }
+    }, 10000);
 
     const initializeAuth = async () => {
       try {
@@ -116,20 +128,33 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
           if (session?.user) {
             setUser(session.user);
-            const userProfile = await fetchProfile(session.user.id);
+            // Fetch profile com try/catch - se falhar, continua sem perfil
+            try {
+              const userProfile = await fetchProfile(session.user.id);
 
-            if (mounted && userProfile) {
-              setProfile(userProfile);
-              setIsAdmin(userProfile.role === 'adm');
+              if (mounted && userProfile) {
+                setProfile(userProfile);
+                setIsAdmin(userProfile.role === 'adm');
+              }
+            } catch (profileError) {
+              console.warn('[AuthContext] Failed to fetch profile during initialization - continuing without profile', profileError);
+              // Não quebra a aplicação - continua sem perfil
+              if (mounted) {
+                setProfile(null);
+                setIsAdmin(false);
+              }
             }
           }
         }
       } catch (error) {
         console.error('[AuthContext] Error initializing auth:', error);
+        // Mesmo com erro, libera o loading para app renderizar
       } finally {
         if (mounted) {
+          initializationComplete = true;
           setInitializing(false);
           setLoading(false);
+          clearTimeout(safetyTimer);
         }
       }
     };
@@ -153,10 +178,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             if (mounted) setLoading(false); // ← libera o loading antes de sair
             return;
           }
-          const userProfile = await fetchProfile(currentSession.user.id);
-          if (mounted) {
-            setProfile(userProfile);
-            setIsAdmin(userProfile?.role === 'adm' || false);
+          try {
+            const userProfile = await fetchProfile(currentSession.user.id);
+            if (mounted) {
+              setProfile(userProfile);
+              setIsAdmin(userProfile?.role === 'adm' || false);
+            }
+          } catch (profileError) {
+            console.warn('[AuthContext] Failed to fetch profile on SIGNED_IN - continuing without profile', profileError);
+            if (mounted) {
+              setProfile(null);
+              setIsAdmin(false);
+            }
           }
         } else if (event === 'SIGNED_OUT') {
           if (mounted) {
@@ -164,10 +197,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             setIsAdmin(false);
           }
         } else if (event === 'USER_UPDATED' && currentSession?.user) {
-          const userProfile = await fetchProfile(currentSession.user.id);
-          if (mounted) {
-            setProfile(userProfile);
-            setIsAdmin(userProfile?.role === 'adm' || false);
+          try {
+            const userProfile = await fetchProfile(currentSession.user.id);
+            if (mounted) {
+              setProfile(userProfile);
+              setIsAdmin(userProfile?.role === 'adm' || false);
+            }
+          } catch (profileError) {
+            console.warn('[AuthContext] Failed to fetch profile on USER_UPDATED - continuing without profile', profileError);
           }
         }
         // TOKEN_REFRESHED e INITIAL_SESSION não fazem nada específico

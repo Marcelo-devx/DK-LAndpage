@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Edge Function - Mercado Pago</title>
+    <style>
+        body { font-family: Arial; padding: 20px; max-width: 600px; margin: 0 auto; }
+        .test { margin: 20px 0; padding: 15px; border-radius: 8px; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .info { background: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+        button { padding: 12px 24px; font-size: 16px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 5px; }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        #result { margin-top: 20px; padding: 15px; border-radius: 8px; white-space: pre-wrap; font-family: monospace; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Teste da Edge Function - Mercado Pago</h1>
+    
+    <div class="test info">
+        <strong>URL da função:</strong><br>
+        https://jrlozhhvwqfmjtkmvukf.supabase.co/functions/v1/process-mercadopago-payment
+    </div>
+
+    <button onclick="testFunction()" id="testBtn">Testar Conexão</button>
+    
+    <div id="result">Clique no botão para testar...</div>
+
+    <script>
+        async function testFunction() {
+            const btn = document.getElementById('testBtn');
+            const result = document.getElementById('result');
+            
+            btn.disabled = true;
+            btn.textContent = 'Testando...';
+            result.textContent = 'Enviando requisição...';
+            
+            try {
+                // Teste simples de OPTIONS (preflight)
+                console.log('[Test] Enviando requisição OPTIONS...');
+                const optionsResponse = await fetch('https://jrlozhhvwqfmjtkmvukf.supabase.co/functions/v1/process-mercadopago-payment', {
+                    method: 'OPTIONS',
+                    headers: {
+                        'Origin': 'https://dk-l-andpage.vercel.app',
+                        'Access-Control-Request-Method': 'POST',
+                        'Access-Control-Request-Headers': 'authorization, content-type'
+                    }
+                });
+                
+                console.log('[Test] Resposta OPTIONS:', optionsResponse.status, optionsResponse.statusText);
+                
+                // Verificar headers CORS
+                const corsHeaders = {
+                    'Access-Control-Allow-Origin': optionsResponse.headers.get('Access-Control-Allow-Origin'),
+                    'Access-Control-Allow-Methods': optionsResponse.headers.get('Access-Control-Allow-Methods'),
+                    'Access-Control-Allow-Headers': optionsResponse.headers.get('Access-Control-Allow-Headers'),
+                };
+                
+                console.log('[Test] Headers CORS:', corsHeaders);
+                
+                // Testar POST (vai falhar porque não tem token válido, mas deve responder com CORS ok)
+                console.log('[Test] Enviando requisição POST...');
+                const postResponse = await fetch('https://jrlozhhvwqfmjtkmvukf.supabase.co/functions/v1/process-mercadopago-payment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Origin': 'https://dk-l-andpage.vercel.app'
+                    },
+                    body: JSON.stringify({
+                        token: 'test',
+                        payment_method_id: 'visa',
+                        installments: 1,
+                        external_reference: 'test',
+                        transaction_amount: 1
+                    })
+                });
+                
+                console.log('[Test] Resposta POST:', postResponse.status, postResponse.statusText);
+                const postData = await postResponse.json();
+                console.log('[Test] Dados POST:', postData);
+                
+                // Exibir resultado
+                if (corsHeaders['Access-Control-Allow-Origin'] === 'https://dk-l-andpage.vercel.app') {
+                    result.className = 'success';
+                    result.innerHTML = `
+✅ <strong>SUCESSO!</strong>
+
+A configuração de CORS está correta!
+
+<strong>Origem permitida:</strong> ${corsHeaders['Access-Control-Allow-Origin']}
+<strong>Métodos permitidos:</strong> ${corsHeaders['Access-Control-Allow-Methods']}
+<strong>Headers permitidos:</strong> ${corsHeaders['Access-Control-Allow-Headers']}
+
+<strong>Status OPTIONS:</strong> ${optionsResponse.status} ${optionsResponse.statusText}
+<strong>Status POST:</strong> ${postResponse.status} ${postResponse.statusText}
+
+<strong>Resposta da função:</strong> ${JSON.stringify(postData, null, 2)}
+
+Agora o pagamento com cartão deve funcionar em todos os dispositivos! 🎉
+                    `;
+                } else {
+                    result.className = 'error';
+                    result.innerHTML = `
+❌ <strong>ERRO DE CORS DETECTADO</strong>
+
+<strong>Origem retornada:</strong> ${corsHeaders['Access-Control-Allow-Origin'] || 'NÃO DEFINIDO'}
+<strong>Esperado:</strong> https://dk-l-andpage.vercel.app
+
+Isso indica que o re-deploy ainda não foi processado. Tente novamente em alguns minutos ou faça deploy manual.
+
+<strong>Comando para deploy manual:</strong>
+<code>supabase functions deploy process-mercadopago-payment</code>
+                    `;
+                }
+                
+            } catch (error) {
+                console.error('[Test] Erro:', error);
+                result.className = 'error';
+                result.textContent = 'Erro ao testar: ' + error.message;
+            }
+            
+            btn.disabled = false;
+            btn.textContent = 'Testar Novamente';
+        }
+    </script>
+</body>
+</html>

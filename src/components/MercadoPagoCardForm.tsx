@@ -100,7 +100,6 @@ const MercadoPagoCardForm = memo(({ amount, onSubmit }: MercadoPagoCardFormProps
                 textPrimaryColor: '#0f172a',
                 textSecondaryColor: '#64748b',
                 inputBackgroundColor: '#f8fafc',
-                inputHoverColor: '#f1f5f9',
                 borderRadiusSmall: '8px',
                 borderRadiusMedium: '12px',
                 borderRadiusLarge: '16px',

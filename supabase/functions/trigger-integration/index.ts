@@ -1,30 +1,25 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
+import { getCorsHeaders, createPreflightResponse } from '../_shared/cors.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || 'https://jrlozhhvwqfmjtkmvukf.supabase.co'
 const SUPABASE_SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 
-// Always use wildcard CORS — this function is called server-to-server (DB trigger) and from admin UI
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-webhook-secret',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-}
-
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE)
 
-// Dispatch with retry (up to maxRetries attempts)
+// Dispatch com retry (up to maxRetries attempts)
 async function dispatchWithRetry(
   url: string,
   headers: Record<string, string>,
   body: string,
   maxRetries = 3,
-  timeoutMs = 15000
+  timeoutMs = 15000,
+  requestId = 'unknown'
 ): Promise<{ ok: boolean; status?: number; body?: string; error?: string; attempts: number }> {
   let lastError = ''
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`[trigger-integration] dispatch attempt ${attempt}/${maxRetries} to ${url}`)
+      console.log(`[trigger-integration][${requestId}] dispatch attempt ${attempt}/${maxRetries} to ${url}`)
       const resp = await fetch(url, {
         method: 'POST',
         headers,
@@ -32,24 +27,24 @@ async function dispatchWithRetry(
         signal: AbortSignal.timeout(timeoutMs),
       })
       const text = await resp.text().catch(() => '')
-      console.log(`[trigger-integration] attempt ${attempt} response: status=${resp.status} body=${text.substring(0, 200)}`)
+      console.log(`[trigger-integration][${requestId}] attempt ${attempt} response: status=${resp.status} body=${text.substring(0, 200)}`)
       if (resp.ok) {
         return { ok: true, status: resp.status, body: text, attempts: attempt }
       }
       lastError = `HTTP ${resp.status}: ${text.substring(0, 300)}`
       // Don't retry on 4xx (client errors) — only on 5xx or network issues
       if (resp.status >= 400 && resp.status < 500) {
-        console.warn(`[trigger-integration] 4xx error, not retrying: ${lastError}`)
+        console.warn(`[trigger-integration][${requestId}] 4xx error, not retrying: ${lastError}`)
         return { ok: false, status: resp.status, body: text, error: lastError, attempts: attempt }
       }
     } catch (err: any) {
       lastError = String(err?.message || err)
-      console.error(`[trigger-integration] attempt ${attempt} threw: ${lastError}`)
+      console.error(`[trigger-integration][${requestId}] attempt ${attempt} threw: ${lastError}`)
     }
     // Wait before retry: 1s, 2s, 4s
     if (attempt < maxRetries) {
       const delay = Math.pow(2, attempt - 1) * 1000
-      console.log(`[trigger-integration] waiting ${delay}ms before retry...`)
+      console.log(`[trigger-integration][${requestId}] waiting ${delay}ms before retry...`)
       await new Promise(r => setTimeout(r, delay))
     }
   }
@@ -57,8 +52,8 @@ async function dispatchWithRetry(
 }
 
 // Build enriched order payload for n8n
-async function buildOrderPayload(orderId: number, eventType: string): Promise<any> {
-  console.log(`[trigger-integration] fetching order ${orderId} from DB`)
+async function buildOrderPayload(orderId: number, eventType: string, requestId = 'unknown'): Promise<any> {
+  console.log(`[trigger-integration][${requestId}] fetching order ${orderId} from DB`)
 
   const { data: order, error: orderErr } = await supabase
     .from('orders')
@@ -67,7 +62,7 @@ async function buildOrderPayload(orderId: number, eventType: string): Promise<an
     .single()
 
   if (orderErr || !order) {
-    console.error('[trigger-integration] failed to fetch order', orderErr)
+    console.error(`[trigger-integration][${requestId}] failed to fetch order`, orderErr)
     return null
   }
 
@@ -97,7 +92,7 @@ async function buildOrderPayload(orderId: number, eventType: string): Promise<an
   const couponDiscount = Number(order.coupon_discount ?? 0)
   const subtotalProducts = mappedItems.reduce((s: number, it: any) => s + it.total, 0)
 
-  console.log('[trigger-integration] order values from DB', {
+  console.log(`[trigger-integration][${requestId}] order values from DB`, {
     orderId,
     total_price: totalPrice,
     shipping_cost: shippingCost,
@@ -138,14 +133,18 @@ async function buildOrderPayload(orderId: number, eventType: string): Promise<an
 }
 
 serve(async (req) => {
+  const requestId = crypto.randomUUID()
+  const origin = req.headers.get('origin')
+  console.log(`[trigger-integration][${requestId}] ${req.method} ${req.url}`, { origin })
+
   if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: corsHeaders })
+    return createPreflightResponse(origin)
   }
 
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' },
     })
   }
 
@@ -153,20 +152,21 @@ serve(async (req) => {
   try {
     body = await req.json()
   } catch {
+    console.error(`[trigger-integration][${requestId}] Invalid JSON body`)
     return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
       status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' },
     })
   }
 
-  console.log('[trigger-integration] received body', JSON.stringify(body).substring(0, 500))
+  console.log(`[trigger-integration][${requestId}] received body`, JSON.stringify(body).substring(0, 500))
 
   // Support simulate flag for admin tests
   if (body?.simulate) {
-    console.log('[trigger-integration] simulate mode — returning success without dispatching')
+    console.log(`[trigger-integration][${requestId}] simulate mode — returning success without dispatching`)
     return new Response(JSON.stringify({ success: true, simulated: true }), {
       status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' },
     })
   }
 
@@ -178,14 +178,14 @@ serve(async (req) => {
     null
 
   if (!eventType) {
-    console.error('[trigger-integration] missing event_type in body')
+    console.error(`[trigger-integration][${requestId}] missing event_type in body`)
     return new Response(JSON.stringify({ error: 'event_type is required' }), {
       status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' },
     })
   }
 
-  console.log('[trigger-integration] processing event_type:', eventType)
+  console.log(`[trigger-integration][${requestId}] processing event_type:`, eventType)
 
   // Extract order_id from various payload shapes
   const orderId: number | null =
@@ -194,9 +194,9 @@ serve(async (req) => {
   // Build enriched payload for order events
   let outgoingPayload: any = null
   if (eventType === 'order_created' && orderId) {
-    outgoingPayload = await buildOrderPayload(orderId, eventType)
+    outgoingPayload = await buildOrderPayload(orderId, eventType, requestId)
     if (!outgoingPayload) {
-      console.error('[trigger-integration] could not build order payload for order', orderId)
+      console.error(`[trigger-integration][${requestId}] could not build order payload for order`, orderId)
       // Still try to dispatch with raw body as fallback
       outgoingPayload = { event: eventType, timestamp: new Date().toISOString(), data: body?.payload ?? body }
     }
@@ -225,17 +225,17 @@ serve(async (req) => {
     .eq('is_active', true)
 
   if (configsErr) {
-    console.error('[trigger-integration] error fetching webhook_configs', configsErr)
+    console.error(`[trigger-integration][${requestId}] error fetching webhook_configs`, configsErr)
     return new Response(JSON.stringify({ error: 'Failed to load webhook configs' }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' },
     })
   }
 
-  console.log(`[trigger-integration] found ${configs?.length ?? 0} active webhook(s) for event "${eventType}"`)
+  console.log(`[trigger-integration][${requestId}] found ${configs?.length ?? 0} active webhook(s) for event "${eventType}"`)
 
   if (!configs || configs.length === 0) {
-    console.warn(`[trigger-integration] no active webhook configs for event "${eventType}" — nothing to dispatch`)
+    console.warn(`[trigger-integration][${requestId}] no active webhook configs for event "${eventType}" — nothing to dispatch`)
     // Log this so admin can see it
     await supabase.from('integration_logs').insert({
       event_type: eventType,
@@ -246,7 +246,7 @@ serve(async (req) => {
     }).catch(() => {})
     return new Response(JSON.stringify({ success: true, dispatched: [], warning: 'no active webhook configs' }), {
       status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' },
     })
   }
 
@@ -278,14 +278,14 @@ serve(async (req) => {
         }
       }
 
-      console.log(`[trigger-integration] dispatching to ${url}`, {
+      console.log(`[trigger-integration][${requestId}] dispatching to ${url}`, {
         event: eventType,
         orderId,
         headerNames: Object.keys(headers),
         bodyPreview: bodyToSend.substring(0, 200),
       })
 
-      const result = await dispatchWithRetry(url, headers, bodyToSend, 3, 15000)
+      const result = await dispatchWithRetry(url, headers, bodyToSend, 3, 15000, requestId)
       return { url, cfg_id: cfg.id, ...result }
     })
   )
@@ -294,7 +294,7 @@ serve(async (req) => {
     r.status === 'fulfilled' ? r.value : { ok: false, error: String((r as any).reason) }
   )
 
-  console.log('[trigger-integration] dispatch summary', dispatched.map(d => ({
+  console.log(`[trigger-integration][${requestId}] dispatch summary`, dispatched.map(d => ({
     url: (d as any).url,
     ok: (d as any).ok,
     status: (d as any).status,
@@ -315,12 +315,12 @@ serve(async (req) => {
     }))
     await supabase.from('integration_logs').insert(logRows)
   } catch (logErr) {
-    console.error('[trigger-integration] failed to persist integration_logs', logErr)
+    console.error(`[trigger-integration][${requestId}] failed to persist integration_logs`, logErr)
   }
 
   const allOk = dispatched.every((d: any) => d.ok)
   return new Response(JSON.stringify({ success: allOk, dispatched }), {
     status: 200,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' },
   })
 })

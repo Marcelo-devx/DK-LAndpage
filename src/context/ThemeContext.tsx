@@ -88,9 +88,9 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const refreshSettings = async () => {
-    // Timeout de 5s para evitar loading infinito ao voltar de outra aba
+    // Timeout de 10s para evitar loading infinito ao voltar de outra aba
     const timeout = new Promise<null>((_, reject) =>
-      setTimeout(() => reject(new Error('timeout')), 5000)
+      setTimeout(() => reject(new Error('timeout')), 10000)
     );
 
     try {

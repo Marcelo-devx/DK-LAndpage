@@ -513,9 +513,9 @@ const CheckoutPage = () => {
           const { error: invokeErr } = await supabase.functions.invoke('trigger-integration', invokeOpts);
           const status = invokeErr ? 'failed' : 'sent';
           const details = invokeErr ? String(invokeErr) : 'Dispatched via trigger-integration';
-          await supabase.from('integration_logs').insert([{ event_type: 'order_created', status, details, payload: { order_id: createdOrderId } }]);
+          await supabase.functions.invoke('log-integration', { body: { event_type: 'order_created', status, details, payload: { order_id: createdOrderId } } });
         } catch (ex) {
-          try { await supabase.from('integration_logs').insert([{ event_type: 'order_created', status: 'failed', details: String(ex), payload: { order_id: createdOrderId } }]); } catch { /* ignore */ }
+          try { await supabase.functions.invoke('log-integration', { body: { event_type: 'order_created', status: 'failed', details: String(ex), payload: { order_id: createdOrderId } } }); } catch { /* ignore */ }
         }
       })();
 

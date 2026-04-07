@@ -222,6 +222,7 @@ const Index = () => {
                       fit="cover"
                       quality={100}
                       maxWidth={1920}
+                      skipOptimization={true}
                     />
                     {/* reduced gradient to avoid visible off-white band under the hero */}
                     <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-transparent" />

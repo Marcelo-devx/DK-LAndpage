@@ -15,6 +15,8 @@ interface ProductImageProps {
   maxWidth?: number;
   // JPEG/WebP quality (1-100). Default 85.
   quality?: number;
+  // If true, skip all Cloudinary optimizations and use original image. Default false.
+  skipOptimization?: boolean;
 }
 
 const Placeholder = ({ className }: { className?: string }) => (
@@ -50,7 +52,8 @@ const ProductImage = ({
   priority = false, 
   fit = 'cover',
   maxWidth = 1200,
-  quality = 85
+  quality = 85,
+  skipOptimization = false
 }: ProductImageProps) => {
   const [loaded, setLoaded] = useState(false);
   const [errored, setErrored] = useState(false);
@@ -154,10 +157,10 @@ const ProductImage = ({
   // For contain we also center the image so focal point appears centered
   const imgFitClass = fit === 'contain' ? 'object-contain object-center' : 'object-cover object-center';
 
-  // Get optimized image URLs with custom quality
-  const optimizedSrc = getOptimizedImageUrl(src, maxWidth, quality);
-  const srcset = getResponsiveSrcset(src, [300, 600, 900, 1200, 1920], quality);
-  const sizes = `(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw`;
+  // Get optimized image URLs with custom quality, or use original if skipOptimization is true
+  const optimizedSrc = skipOptimization ? src : getOptimizedImageUrl(src, maxWidth, quality);
+  const srcset = skipOptimization ? undefined : getResponsiveSrcset(src, [300, 600, 900, 1200, 1920], quality);
+  const sizes = skipOptimization ? undefined : `(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw`;
 
   const handleLoad = () => {
     setLoaded(true);

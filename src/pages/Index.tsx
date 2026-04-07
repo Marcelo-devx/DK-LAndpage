@@ -220,7 +220,7 @@ const Index = () => {
                       className="w-full h-full block rounded-none"
                       priority={true}
                       fit="cover"
-                      quality={95}
+                      quality={100}
                       maxWidth={1920}
                     />
                     {/* reduced gradient to avoid visible off-white band under the hero */}

@@ -2,15 +2,15 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 // @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { getCorsHeaders, createPreflightResponse } from '../_shared/cors.ts'
 
 serve(async (req) => {
+  const requestId = crypto.randomUUID()
+  const origin = req.headers.get('origin')
+  console.log(`[get-order-public][${requestId}] ${req.method} ${req.url}`, { origin })
+
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return createPreflightResponse(origin)
   }
 
   try {
@@ -18,7 +18,7 @@ serve(async (req) => {
     const orderId = body.order_id || body.id || null;
     if (!orderId) {
       return new Response(JSON.stringify({ success: false, error: 'order_id is required' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,
+        headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' }, status: 400,
       });
     }
 
@@ -28,8 +28,9 @@ serve(async (req) => {
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
 
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      console.error(`[get-order-public][${requestId}] Supabase service config missing`)
       return new Response(JSON.stringify({ success: false, error: 'Supabase service config missing' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,
+        headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' }, status: 500,
       });
     }
 
@@ -42,9 +43,9 @@ serve(async (req) => {
       .single();
 
     if (orderError || !order) {
-      console.error('[get-order-public] Order not found:', orderId, orderError);
+      console.error(`[get-order-public][${requestId}] Order not found:`, orderId, orderError);
       return new Response(JSON.stringify({ success: false, error: 'Order not found' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,
+        headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' }, status: 404,
       });
     }
 
@@ -54,17 +55,17 @@ serve(async (req) => {
       .eq('order_id', Number(orderId));
 
     if (itemsError) {
-      console.warn('[get-order-public] order items error', itemsError);
+      console.warn(`[get-order-public][${requestId}] order items error`, itemsError);
     }
 
     return new Response(JSON.stringify({ success: true, order, items: items || [] }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,
+      headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' }, status: 200,
     });
 
   } catch (err) {
-    console.error('[get-order-public] Error', err);
+    console.error(`[get-order-public][${requestId}] Error`, err);
     return new Response(JSON.stringify({ success: false, error: 'internal_error' }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200,
+      headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' }, status: 500,
     });
   }
 })

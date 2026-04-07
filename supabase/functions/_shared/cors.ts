@@ -32,7 +32,8 @@ function getAllowedOrigins(): string[] {
   // via painel do Supabase para controle em produção.
   const productionDefaults = [
     'https://www.dkcwb.com',
-    'https://dkcwb.com'
+    'https://dkcwb.com',
+    'https://dk-l-andpage.vercel.app'
   ];
 
   return [...devDefaults, ...productionDefaults, ...fromEnv];

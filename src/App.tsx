@@ -23,6 +23,7 @@ import HowItWorksPage from "./pages/HowItWorksPage";
 import InformacoesPage from "./pages/InformacoesPage";
 import AdminLogistics from "./pages/AdminLogistics";
 import UpdatePassword from "./pages/UpdatePassword";
+import TestEdgeFunction from "./pages/TestEdgeFunction";
 import AuthEventHandler from "./components/AuthEventHandler";
 import ScrollToTop from "./components/ScrollToTop";
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
@@ -97,6 +98,7 @@ const AppContent = () => {
         <Route path="/update-password" element={<UpdatePassword />} />
         <Route path="/admin/logistica" element={<AdminLogistics />} />
         <Route path="/auth/confirm" element={<EmailConfirm />} />
+        <Route path="/test-edge-function" element={<TestEdgeFunction />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>

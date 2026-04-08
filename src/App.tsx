@@ -19,6 +19,7 @@ import CompleteProfilePage from "./pages/CompleteProfilePage";
 import ReferralsPage from "./pages/ReferralsPage";
 import Dashboard from "./pages/Dashboard";
 import LoyaltyClubPage from "./pages/LoyaltyClubPage";
+import MyCouponsPage from "./pages/MyCouponsPage";
 import HowItWorksPage from "./pages/HowItWorksPage";
 import InformacoesPage from "./pages/InformacoesPage";
 import AdminLogistics from "./pages/AdminLogistics";
@@ -71,7 +72,7 @@ const AppContent = () => {
     return <MaintenanceScreen />;
   }
 
-  // Otherwise render the full app (admins and normal operation)
+  // Otherwise render full app (admins and normal operation)
   return (
     <>
       <AdminCustomizer />
@@ -90,6 +91,7 @@ const AppContent = () => {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/dashboard/security" element={<DashboardSecurity />} />
           <Route path="/clube-dk" element={<LoyaltyClubPage />} />
+          <Route path="/meus-cupons" element={<MyCouponsPage />} />
           <Route path="/como-funciona" element={<HowItWorksPage />} />
           <Route path="/informacoes" element={<InformacoesPage />} />
         </Route>

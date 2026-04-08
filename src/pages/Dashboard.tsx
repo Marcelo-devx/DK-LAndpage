@@ -119,6 +119,14 @@ const Dashboard = () => {
       notification: false
     },
     {
+      title: 'Meus Cupons',
+      description: 'Veja todos os seus cupons e histórico',
+      icon: Ticket,
+      link: '/meus-cupons',
+      color: 'text-emerald-600 bg-emerald-100',
+      notification: false
+    },
+    {
       title: 'Minhas Avaliações',
       description: 'Veja os produtos que você avaliou',
       icon: Star,

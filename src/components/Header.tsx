@@ -69,7 +69,7 @@ const DesktopNav = memo(({ categories, categoryProductSubsMap }: DesktopNavProps
               <NavigationMenuContent>
                 <div className="w-[680px] max-w-[90vw] p-6 md:p-8 bg-black border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,1)] rounded-2xl">
                   <h4 className="text-[11px] font-black text-sky-500 uppercase tracking-[0.3em] border-b border-white/10 pb-3">Sub-Categorias</h4>
-                  <div className="mt-4 grid grid-cols-1 gap-2 max-h-[60vh] overflow-y-auto pr-3 custom-scrollbar">
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {productSubs.length > 0 ? (
                       productSubs.map((sub) => (
                         <NavigationMenuLink key={sub} asChild>

@@ -371,7 +371,7 @@ const Login = () => {
       } catch (timeoutErr: any) {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
-          showSuccess('Cadastro realizado! Redirecionando...');
+          await redirectAfterLogin(session);
           return;
         }
         throw timeoutErr;
@@ -392,12 +392,12 @@ const Login = () => {
 
       const { data: { session: existingSession } } = await supabase.auth.getSession();
       if (existingSession) {
-        showSuccess('Cadastro realizado! Redirecionando...');
+        await redirectAfterLogin(existingSession);
         return;
       }
 
       const DEFAULT_PASSWORD = '123456';
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password: DEFAULT_PASSWORD });
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password: DEFAULT_PASSWORD });
 
       if (signInError) {
         setSignUpError({
@@ -408,12 +408,17 @@ const Login = () => {
         return;
       }
 
+      if (signInData?.session) {
+        await redirectAfterLogin(signInData.session);
+        return;
+      }
+
       showSuccess('Código verificado! Redirecionando...');
 
     } catch (err: any) {
       const { data: { session } } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
       if (session) {
-        showSuccess('Cadastro realizado! Redirecionando...');
+        await redirectAfterLogin(session);
         return;
       }
       setSignUpError(translateAuthError(err?.message || 'Erro ao verificar código'));

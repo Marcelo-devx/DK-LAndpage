@@ -8,6 +8,7 @@ declare const Deno: any;
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 }
 
 // Gera senha forte
@@ -41,7 +42,7 @@ async function isPwned(password: string): Promise<boolean> {
     const res = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`);
     if (!res.ok) {
       console.warn('[forgot-password] HIBP lookup failed, assuming not pwned', { status: res.status });
-      return false; // em caso de falha externa, não bloquear
+      return false;
     }
 
     const text = await res.text();
@@ -55,32 +56,46 @@ async function isPwned(password: string): Promise<boolean> {
     return false;
   } catch (e) {
     console.warn('[forgot-password] HIBP check error, assuming not pwned', e);
-    return false; // não bloquear por falha de verificação
+    return false;
   }
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+  // ← SEMPRE responde ao preflight OPTIONS primeiro — nunca pode falhar
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
 
   try {
     const { email } = await req.json();
-    if (!email) return new Response(JSON.stringify({ error: 'email required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    if (!email) {
+      return new Response(JSON.stringify({ error: 'email required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+
     if (!supabaseUrl || !serviceRoleKey) {
-      return new Response(JSON.stringify({ error: 'Server not configured' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ error: 'Server not configured' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
+    const supabase = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
 
     const cleanEmail = email.toLowerCase().trim();
     console.log('[forgot-password] buscando usuário com email:', cleanEmail);
 
     // Busca direta em auth.users via RPC com SECURITY DEFINER
     const { data: userId, error: userIdError } = await supabase.rpc('get_auth_user_id_by_email', {
-      p_email: cleanEmail
+      p_email: cleanEmail,
     });
 
     if (userIdError || !userId) {
@@ -106,7 +121,6 @@ serve(async (req) => {
         continue;
       }
 
-      // Check if candidate matches current password (unlikely but safe)
       if (anonKey) {
         try {
           const authResp = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
@@ -121,11 +135,10 @@ serve(async (req) => {
 
           if (authResp.ok) {
             console.log('[forgot-password] generated password collides with current password, regenerating (attempt', attempt + 1, ')');
-            continue; // collision
+            continue;
           }
         } catch (e) {
           console.warn('[forgot-password] auth check failed, proceeding assuming no collision', e);
-          // fallback: accept candidate
         }
       }
 
@@ -135,10 +148,13 @@ serve(async (req) => {
 
     if (!newPassword) {
       console.error('[forgot-password] failed to generate non-pwned password after attempts');
-      return new Response(JSON.stringify({ error: 'Erro ao gerar nova senha. Tente novamente.' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ error: 'Erro ao gerar nova senha. Tente novamente.' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    // Atualiza senha via REST API direta (bypassa verificação HaveIBeenPwned no servidor)
+    // Atualiza senha via REST API direta
     const updateRes = await fetch(`${supabaseUrl}/auth/v1/admin/users/${user.id}`, {
       method: 'PUT',
       headers: {
@@ -152,7 +168,10 @@ serve(async (req) => {
     if (!updateRes.ok) {
       const errBody = await updateRes.json().catch(() => ({}));
       console.error('[forgot-password] REST API updateUser error', updateRes.status, errBody);
-      return new Response(JSON.stringify({ error: 'Erro ao atualizar a senha do usuário' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ error: 'Erro ao atualizar a senha do usuário' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Seta must_change_password = true no perfil do usuário
@@ -163,7 +182,6 @@ serve(async (req) => {
 
     if (profileError) {
       console.warn('[forgot-password] failed to set must_change_password flag:', profileError);
-      // Não bloqueia o fluxo — a senha já foi atualizada
     } else {
       console.log('[forgot-password] must_change_password=true setado para user:', user.id);
     }
@@ -187,14 +205,23 @@ serve(async (req) => {
     const sendData = await sendResp.json().catch(() => ({}));
     if (!sendResp.ok) {
       console.error('[forgot-password] send-email error', sendResp.status, sendData);
-      return new Response(JSON.stringify({ error: 'Senha atualizada, mas erro ao enviar e-mail' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ error: 'Senha atualizada, mas erro ao enviar e-mail' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     console.log('[forgot-password] senha redefinida e e-mail enviado para', cleanEmail);
-    return new Response(JSON.stringify({ success: true }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
 
   } catch (err: any) {
     console.error('[forgot-password] unexpected', err);
-    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 })

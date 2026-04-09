@@ -17,6 +17,7 @@ import { useTheme } from '@/context/ThemeContext';
 import ProductImage from '@/components/ProductImage';
 import AgeVerificationPopup from '@/components/AgeVerificationPopup';
 import { useInfoPopup } from '@/hooks/useInfoPopup';
+import { timer } from '@/lib/logger';
 
 const Index = () => {
   const { settings } = useTheme();
@@ -41,13 +42,13 @@ const Index = () => {
   }, []);
 
   const timed = async (label: string, promise: Promise<any>) => {
+    const t = timer();
     try {
-      console.time(label);
       const res = await promise;
-      console.timeEnd(label);
+      t.end(label);
       return res;
     } catch (e) {
-      console.timeEnd(label);
+      t.end(label);
       throw e;
     }
   };

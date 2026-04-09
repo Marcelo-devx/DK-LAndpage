@@ -127,7 +127,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
                 setIsAdmin(userProfile.role === 'adm');
               }
             } catch (profileError) {
-              console.warn('[AuthContext] Failed to fetch profile during initialization - continuing without profile', profileError);
+              logger.warn('[AuthContext] Failed to fetch profile during initialization - continuing without profile', profileError);
               // Não quebra a aplicação - continua sem perfil
               if (mounted) {
                 setProfile(null);
@@ -174,7 +174,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
               setIsAdmin(userProfile?.role === 'adm' || false);
             }
           } catch (profileError) {
-            console.warn('[AuthContext] Failed to fetch profile on SIGNED_IN - continuing without profile', profileError);
+            logger.warn('[AuthContext] Failed to fetch profile on SIGNED_IN - continuing without profile', profileError);
             if (mounted) {
               setProfile(null);
               setIsAdmin(false);
@@ -193,7 +193,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
               setIsAdmin(userProfile?.role === 'adm' || false);
             }
           } catch (profileError) {
-            console.warn('[AuthContext] Failed to fetch profile on USER_UPDATED - continuing without profile', profileError);
+            logger.warn('[AuthContext] Failed to fetch profile on USER_UPDATED - continuing without profile', profileError);
           }
         }
         // TOKEN_REFRESHED e INITIAL_SESSION não fazem nada específico

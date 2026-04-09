@@ -21,6 +21,7 @@ import InformacoesPage from "./pages/InformacoesPage";
 import UpdatePassword from "./pages/UpdatePassword";
 import AuthEventHandler from "./components/AuthEventHandler";
 import ScrollToTop from "./components/ScrollToTop";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ImageCacheProvider } from "./context/ImageCacheContext";
@@ -111,7 +112,11 @@ const AppContent = () => {
           <Route path="/login" element={<Login />} />
           <Route path="/complete-profile" element={<CompleteProfilePage />} />
           <Route path="/update-password" element={<UpdatePassword />} />
-          <Route path="/admin/logistica" element={<AdminLogistics />} />
+          <Route path="/admin/logistica" element={
+            <ProtectedRoute requireAdmin>
+              <AdminLogistics />
+            </ProtectedRoute>
+          } />
           <Route path="/auth/confirm" element={<EmailConfirm />} />
           <Route path="/test-edge-function" element={<TestEdgeFunction />} />
           <Route path="*" element={<NotFound />} />

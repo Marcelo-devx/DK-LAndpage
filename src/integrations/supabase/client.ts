@@ -27,6 +27,6 @@ export const supabase = createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_AN
 });
 
 // Log informativo para facilitar debug em caso de problemas relacionados a sessão/locks
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && import.meta.env.DEV) {
   console.info('[supabase] client initialized — auth.lock is set to lockNoOp to avoid cross-tab WebLock deadlocks');
 }

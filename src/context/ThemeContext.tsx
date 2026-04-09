@@ -258,7 +258,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
         if (footerError) {
           console.error('[ThemeContext] Erro ao atualizar footer_settings:', footerError);
         } else {
-          console.log('footer_settings atualizado automaticamente após alteração em:', key);
+          logger.log('footer_settings atualizado automaticamente após alteração em:', key);
         }
       } else {
         // Persist generic setting to app_settings for other settings
@@ -346,7 +346,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
         }
       }
       
-      console.log('[ThemeContext] Todas as configurações salvas com sucesso via upsert');
+      logger.log('[ThemeContext] Todas as configurações salvas com sucesso via upsert');
     } catch (e) {
       console.error('[ThemeContext] Erro ao salvar configurações:', e);
       throw e;
@@ -362,7 +362,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
       })
       .finally(() => {
         if (isMounted) {
-          console.log('[ThemeContext] Settings initialized');
+          logger.log('[ThemeContext] Settings initialized');
         }
       });
     

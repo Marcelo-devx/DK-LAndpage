@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { Loader2, Lock, ShieldCheck, Check, X, AlertTriangle } from 'lucide-react';
+import { logger } from '@/lib/logger';
 
 // const SUPABASE_URL moved to env; we now use supabase.functions.invoke where possible
 
@@ -75,7 +76,7 @@ const UpdatePassword = () => {
     }, 20000);
 
     try {
-      console.log('[UpdatePassword] Buscando sessão...');
+      logger.log('[UpdatePassword] Buscando sessão...');
       const { data: { session } } = await supabase.auth.getSession();
 
       if (!session?.access_token) {
@@ -91,7 +92,7 @@ const UpdatePassword = () => {
       const userId = session.user.id;
       const userEmail = session.user.email || '';
 
-      console.log('[UpdatePassword] Chamando update-password-admin via edge function...');
+      logger.log('[UpdatePassword] Chamando update-password-admin via edge function...');
 
       // Usar a edge function com service role — bypassa HaveIBeenPwned e evita travamento
       const controller = new AbortController();
@@ -120,7 +121,7 @@ const UpdatePassword = () => {
         clearTimeout(fetchTimeout);
       }
 
-      console.log('[UpdatePassword] Resultado update-password-admin:', { status: updRes.status, data: updData });
+      logger.log('[UpdatePassword] Resultado update-password-admin:', { status: updRes.status, data: updData });
 
       if (!updRes.ok) {
         clearTimeout(watchdog);

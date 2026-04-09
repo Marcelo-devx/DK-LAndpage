@@ -184,7 +184,7 @@ const DashboardSecurity = () => {
         profile.cep && profile.street && profile.number &&
         profile.neighborhood && profile.city && profile.state);
 
-      console.log('[DashboardSecurity] Perfil completo?', { isProfileComplete });
+      logger.log('[DashboardSecurity] Perfil completo?', { isProfileComplete });
 
       // Limpar campos
       setCurrentPassword('');
@@ -194,7 +194,7 @@ const DashboardSecurity = () => {
 
       if (!isProfileComplete) {
         // Perfil incompleto → redirecionar para completar cadastro
-        console.log('[DashboardSecurity] Redirecionando para complete-profile');
+        logger.log('[DashboardSecurity] Redirecionando para complete-profile');
         navigate('/complete-profile');
       }
       // Se perfil completo, apenas mostra sucesso e fica no dashboard

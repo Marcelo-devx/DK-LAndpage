@@ -377,13 +377,20 @@ const LoyaltyClubPage = () => {
                 </div>
             )}
 
-            {/* Total acumulado de pontos (destaque) */}
+            {/* Total acumulado de pontos (destaque) - mostrar Lifetime e últimos 180 dias */}
             <div className="mt-6 flex justify-center">
-              <div className="inline-flex items-center gap-4 px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 text-white font-black text-lg shadow-2xl border border-white/10">
-                <Gem className="h-6 w-6 text-white" />
-                <div className="text-right">
-                  <div className="text-xs uppercase tracking-widest opacity-90">Total acumulado</div>
+              <div className="inline-flex items-center gap-6 px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 text-white font-black text-lg shadow-2xl border border-white/10">
+                <Gem className="h-8 w-8 text-white" />
+                <div className="text-left">
+                  <div className="text-xs uppercase tracking-widest opacity-90">Total (lifetime)</div>
                   <div className="text-2xl md:text-3xl font-black">{sessionUser ? totalPointsEarned : 0} PTS</div>
+                </div>
+
+                <div className="h-10 w-px bg-white/20 mx-2" />
+
+                <div className="text-left">
+                  <div className="text-xs uppercase tracking-widest opacity-80">Últimos 180 dias</div>
+                  <div className="text-xl md:text-2xl font-black">{sessionUser ? totalPointsLast180Days : 0} PTS</div>
                 </div>
               </div>
             </div>

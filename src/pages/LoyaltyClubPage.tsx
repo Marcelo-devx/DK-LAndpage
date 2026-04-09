@@ -324,12 +324,18 @@ const LoyaltyClubPage = () => {
                                 <div className="relative z-10">
                                     <p className="text-sky-600 font-black text-xs uppercase tracking-widest mb-2">{coupon.points_cost} PONTOS</p>
                                     <h4 className="text-2xl font-black text-charcoal-gray mb-1">R$ {coupon.discount_value} OFF</h4>
-                                    <p className="text-stone-500 text-xs mb-6">Mínimo: R$ {coupon.minimum_order_value}</p>
+                                    <p className="text-stone-500 text-xs mb-2">Mínimo: R$ {coupon.minimum_order_value}</p>
+                                    
+                                    {/* Validade do cupom */}
+                                    <div className="flex items-center gap-1.5 mb-4">
+                                        <Clock className="h-3 w-3 text-stone-400" />
+                                        <p className="text-[10px] text-stone-500 font-medium">Válido por 90 dias após resgate</p>
+                                    </div>
                                     
                                     <Button 
                                         onClick={() => onRedeemCoupon(coupon)}
                                         disabled={!canAfford || redeemingId === coupon.id}
-                                        className={cn("w-full font-black uppercase tracking-widest h-12 rounded-xl", canAfford ? "bg-sky-500 hover:bg-sky-400 text-white" : "bg-stone-200 text-stone-400 cursor-not-allowed")}
+                                        className={cn("w-full font-black uppercase tracking-widest h-12 rounded-xl transition-all", canAfford ? "bg-sky-500 hover:bg-sky-400 text-white cursor-pointer" : "bg-stone-200 text-stone-400 cursor-not-allowed")}
                                     >
                                         {redeemingId === coupon.id ? <Loader2 className="animate-spin h-4 w-4" /> : (canAfford ? 'Resgatar' : (sessionUser ? 'Faltam Pontos' : 'Entre para resgatar'))}
                                     </Button>

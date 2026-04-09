@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ShoppingBag, Cake, User, Gem, Lock, Loader2, ChevronRight, Star, CheckCircle } from 'lucide-react';
+import { ShoppingBag, Cake, User, Gem, Lock, Loader2, ChevronRight, Star, CheckCircle, Clock } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { cn } from '@/lib/utils';
 
@@ -238,17 +238,23 @@ const LoyaltyWidget = ({ onClose }: LoyaltyWidgetProps) => {
                                         <div className="bg-sky-500 text-white px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest shadow-sm">
                                             {coupon.points_cost} PTS
                                         </div>
-                                        {!canAfford && <Lock className="h-3 w-3 text-slate-400" />}
+                                        {!canAfford && <Lock className="h-3 w-3 text-stone-400" />}
                                     </div>
                                     
                                     <h4 className="font-black text-slate-900 text-sm tracking-tighter uppercase italic leading-tight line-clamp-2">{coupon.name}</h4>
                                     <p className="text-[8px] text-slate-400 font-bold mt-1 uppercase tracking-widest">Mínimo: R$ {coupon.minimum_order_value}</p>
                                     
+                                    {/* Validade do cupom */}
+                                    <div className="flex items-center gap-1.5 mt-2 mb-4">
+                                        <Clock className="h-2.5 w-2.5 text-stone-400" />
+                                        <p className="text-[8px] text-stone-500 font-medium">Válido por 90 dias após resgate</p>
+                                    </div>
+                                    
                                     <Button 
                                         className={cn(
-                                            "w-full h-9 text-[9px] font-black uppercase tracking-[0.2em] mt-4 rounded-xl transition-all shadow-md",
+                                            "w-full h-9 text-[9px] font-black uppercase tracking-[0.2em] rounded-xl transition-all shadow-md",
                                             canAfford 
-                                                ? "bg-sky-500 hover:bg-sky-400 text-white active:scale-95" 
+                                                ? "bg-sky-500 hover:bg-sky-400 text-white active:scale-95 cursor-pointer" 
                                                 : "bg-slate-300 text-slate-700 cursor-not-allowed"
                                         )}
                                         disabled={!canAfford || redeemingId === coupon.id}

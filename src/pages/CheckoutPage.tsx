@@ -940,7 +940,19 @@ const CheckoutPage = () => {
           <Select onValueChange={handleCouponChange} value={selectedCoupon?.user_coupon_id.toString() || 'none'}>
             <SelectTrigger className="rounded-xl h-12"><SelectValue placeholder="Aplicar cupom" /></SelectTrigger>
             <SelectContent>
-              {coupons.map(c => <SelectItem key={c.user_coupon_id} value={c.user_coupon_id.toString()}>{c.name}</SelectItem>)}
+              {coupons.map(c => {
+                const daysLeft = differenceInDays(new Date(c.expires_at), new Date());
+                const validityLabel = `Válido até ${new Date(c.expires_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
+                const daysText = daysLeft <= 0 ? 'Expirado' : `expira em ${daysLeft} ${daysLeft === 1 ? 'dia' : 'dias'}`;
+                return (
+                  <SelectItem key={c.user_coupon_id} value={c.user_coupon_id.toString()}>
+                    <div className="flex flex-col items-start">
+                      <span className="font-medium">{c.name}</span>
+                      <span className="text-[10px] text-slate-500">{validityLabel} ({daysText})</span>
+                    </div>
+                  </SelectItem>
+                );
+              })}
               <SelectItem value="none">Nenhum</SelectItem>
             </SelectContent>
           </Select>

@@ -7,7 +7,6 @@ import { CartSheet } from "./CartSheet";
 import Footer from "./Footer";
 import SocialProofPopup from "./SocialProofPopup";
 import DeliveryTimerBar from "./DeliveryTimerBar";
-import LoyaltyButton from "./LoyaltyButton";
 
 export interface OutletContextType {
   handleCategoryClick: (categoryName: string) => void;
@@ -19,7 +18,6 @@ export const useAppOutletContext = () => useOutletContext<OutletContextType>();
 // Memoizar componentes fixos para evitar re-renderizações desnecessárias
 const MemoizedDeliveryTimerBar = memo(DeliveryTimerBar);
 const MemoizedSocialProofPopup = memo(SocialProofPopup);
-const MemoizedLoyaltyButton = memo(LoyaltyButton);
 
 const MainLayout = () => {
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -64,9 +62,6 @@ const MainLayout = () => {
       />
       <CartSheet isOpen={isCartOpen} onOpenChange={setIsCartOpen} />
       <MemoizedSocialProofPopup />
-      
-      {/* Botões Flutuantes */}
-      <MemoizedLoyaltyButton />
     </div>
   );
 };

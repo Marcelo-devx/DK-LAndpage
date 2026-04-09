@@ -36,6 +36,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import DashboardSecurity from "./pages/DashboardSecurity";
 import { useMercadoPagoRedirect } from "./hooks/useMercadoPagoRedirect";
 import { ImageCacheProvider } from "./context/ImageCacheContext";
+import LoyaltyButton from "./components/LoyaltyButton";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -103,6 +104,7 @@ const AppContent = () => {
         <Route path="/test-edge-function" element={<TestEdgeFunction />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
+      <LoyaltyButton />
     </>
   );
 };

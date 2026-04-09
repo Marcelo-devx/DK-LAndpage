@@ -305,7 +305,7 @@ const LoyaltyClubPage = () => {
 
         <Tabs defaultValue="redeem" className="mt-12">
             <TabsList className="bg-stone-100 border border-stone-200 p-1 rounded-xl h-14 w-full justify-start overflow-x-auto">
-                <TabsTrigger value="redeem" className="data-[state=active]:bg-sky-500 data-[state=active]:text-white text-stone-500 rounded-lg px-6 h-10 uppercase text-xs font-black tracking-widest transition-all">Resgatar Prêmios</TabsTrigger>
+                <TabsTrigger value="redeem" className="data-[state=active]:bg-sky-500 data-[state=active]:text-white text-stone-500 rounded-lg px-6 h-10 uppercase text-xs font-black tracking-widest transition-all">Resgatar Cupons</TabsTrigger>
                 <TabsTrigger value="tiers" className="data-[state=active]:bg-sky-500 data-[state=active]:text-white text-stone-500 rounded-lg px-6 h-10 uppercase text-xs font-black tracking-widest transition-all">Níveis</TabsTrigger>
                 <TabsTrigger value="history" className="data-[state=active]:bg-sky-500 data-[state=active]:text-white text-stone-500 rounded-lg px-6 h-10 uppercase text-xs font-black tracking-widest transition-all">Extrato</TabsTrigger>
             </TabsList>

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ShoppingBag, Cake, User, Gem, Lock, Loader2, ChevronRight, Star, CheckCircle, Clock } from 'lucide-react';
+import { ShoppingBag, Cake, User, Gem, Lock, Loader2, ChevronRight, Star, CheckCircle, Clock, Gift, Ticket, ShoppingBag as ShoppingBagIcon } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { cn } from '@/lib/utils';
 
@@ -94,20 +94,66 @@ const LoyaltyWidget = ({ onClose }: LoyaltyWidgetProps) => {
   }, [birthDate, profile]);
 
   const handleRedeem = useCallback(async (coupon: any) => {
-    if (!profile || profile.points < coupon.points_cost) return;
+    console.log('[LoyaltyWidget] ===========================================');
+    console.log('[LoyaltyWidget] Iniciando resgate:', { id: coupon.id, name: coupon.name, cost: coupon.points_cost });
+    
+    if (!profile) {
+      console.error('[LoyaltyWidget] ❌ Profile não está carregado');
+      showError('Carregando seus dados...');
+      return;
+    }
+    
+    console.log('[LoyaltyWidget] Pontos atuais:', profile.points);
+    console.log('[LoyaltyWidget] Custo do cupom:', coupon.points_cost);
+    
+    if (profile.points < coupon.points_cost) {
+      console.error('[LoyaltyWidget] ❌ Saldo insuficiente');
+      showError(`Você precisa de ${coupon.points_cost} pontos. Tem ${profile.points}.`);
+      return;
+    }
+    
+    console.log('[LoyaltyWidget] ✅ Iniciando resgate...');
     setRedeemingId(coupon.id);
     const toastId = showLoading("Resgatando...");
+    
     try {
-        const { error } = await supabase.rpc('redeem_coupon', { coupon_id_to_redeem: coupon.id });
-        dismissToast(toastId);
-        if (error) throw error;
-        showSuccess("Cupom resgatado!");
-        setProfile((prev: any) => ({ ...prev, points: prev.points - coupon.points_cost }));
+      const { data, error } = await supabase.rpc('redeem_coupon', { coupon_id_to_redeem: coupon.id });
+      
+      console.log('[LoyaltyWidget] Resposta da RPC:', { data, error });
+      
+      dismissToast(toastId);
+      
+      if (error) {
+        console.error('[LoyaltyWidget] ❌ Erro na RPC:', error);
+        throw error;
+      }
+      
+      console.log('[LoyaltyWidget] ✅ Resgate bem-sucedido!');
+      showSuccess(`🎉 Cupom resgatado! R$ ${coupon.discount_value} OFF adicionado.`);
+      
+      // Atualizar pontos localmente
+      const newPoints = profile.points - coupon.points_cost;
+      console.log('[LoyaltyWidget] Novos pontos:', newPoints);
+      setProfile((prev: any) => ({ ...prev, points: newPoints }));
+      
     } catch (e: any) {
-        dismissToast(toastId);
-        showError(e.message);
+      console.error('[LoyaltyWidget] ❌ Erro ao resgatar:', e);
+      dismissToast(toastId);
+      
+      let errorMessage = 'Erro ao resgatar.';
+      if (e.message) {
+        if (e.message.includes('esgotado')) {
+          errorMessage = 'Cupom esgotado.';
+        } else if (e.message.includes('pontos para')) {
+          errorMessage = e.message;
+        } else {
+          errorMessage = e.message;
+        }
+      }
+      showError(errorMessage);
     } finally {
-        setRedeemingId(null);
+      setRedeemingId(null);
+      console.log('[LoyaltyWidget] ===========================================');
     }
   }, [profile]);
 
@@ -153,7 +199,7 @@ const LoyaltyWidget = ({ onClose }: LoyaltyWidgetProps) => {
 
             <Tabs defaultValue="redeem" className="flex-1 flex flex-col overflow-hidden">
                 <TabsList className="grid w-full grid-cols-2 bg-white border-b border-slate-100 rounded-none h-12 p-1 shrink-0">
-                    <TabsTrigger value="redeem" className="rounded-lg data-[state=active]:bg-sky-500 data-[state=active]:text-white text-slate-400 font-black uppercase text-[9px] tracking-widest h-full transition-all">Recompensas</TabsTrigger>
+                    <TabsTrigger value="redeem" className="rounded-lg data-[state=active]:bg-sky-500 data-[state=active]:text-white text-slate-400 font-black uppercase text-[9px] tracking-widest h-full transition-all">Resgatar Cupons</TabsTrigger>
                     <TabsTrigger value="earn" className="rounded-lg data-[state=active]:bg-sky-500 data-[state=active]:text-white text-slate-400 font-black uppercase text-[9px] tracking-widest h-full transition-all">Ganhar Pontos</TabsTrigger>
                 </TabsList>
 
@@ -231,48 +277,95 @@ const LoyaltyWidget = ({ onClose }: LoyaltyWidgetProps) => {
                             const canAfford = (profile?.points || 0) >= coupon.points_cost;
                             return (
                                 <Card key={coupon.id} className={cn(
-                                    "p-4 border-none transition-all rounded-2xl relative overflow-hidden",
-                                    canAfford ? "bg-white shadow-sm hover:shadow-md" : "bg-white/50 opacity-60 grayscale-[0.5]"
+                                    "p-4 border-none transition-all rounded-2xl relative overflow-hidden group",
+                                    canAfford 
+                                        ? "bg-gradient-to-br from-sky-50 to-white shadow-sm hover:shadow-lg hover:scale-[1.02] hover:border-sky-300 border border-sky-100" 
+                                        : "bg-white/70 opacity-60 grayscale-[0.5]"
                                 )}>
-                                    <div className="flex justify-between items-start mb-3">
-                                        <div className="bg-sky-500 text-white px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest shadow-sm">
-                                            {coupon.points_cost} PTS
+                                    {/* Ícone de fundo para cupons resgatáveis */}
+                                    {canAfford && (
+                                        <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
+                                            <Gift className="h-20 w-20 text-sky-500" />
                                         </div>
-                                        {!canAfford && <Lock className="h-3 w-3 text-stone-400" />}
+                                    )}
+                                    
+                                    <div className="relative z-10">
+                                        <div className="flex justify-between items-start mb-3">
+                                            <div className={cn(
+                                                "px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest shadow-sm flex items-center gap-1",
+                                                canAfford ? "bg-sky-500 text-white" : "bg-slate-300 text-slate-600"
+                                            )}>
+                                                {canAfford ? <Gift className="h-2.5 w-2.5" /> : <Lock className="h-2.5 w-2.5" />}
+                                                {coupon.points_cost} PTS
+                                            </div>
+                                            {!canAfford && (
+                                                <div className="text-[8px] font-black text-orange-600 bg-orange-50 px-2 py-0.5 rounded border border-orange-200">
+                                                    Faltam {coupon.points_cost - (profile?.points || 0)} pts
+                                                </div>
+                                            )}
+                                        </div>
+                                        
+                                        <h4 className="font-black text-slate-900 text-sm tracking-tighter uppercase italic leading-tight line-clamp-2 mb-2">
+                                            {coupon.name}
+                                        </h4>
+                                        
+                                        <div className="flex items-baseline gap-1 mb-3">
+                                            <span className="text-2xl font-black text-sky-600 tracking-tighter">
+                                                R$ {coupon.discount_value}
+                                            </span>
+                                            <span className="text-[10px] font-bold text-slate-500">OFF</span>
+                                        </div>
+                                        
+                                        <div className="flex items-center gap-1.5 mb-4">
+                                            <ShoppingBagIcon className="h-2.5 w-2.5 text-slate-400" />
+                                            <p className="text-[8px] text-slate-500 font-bold uppercase">Mínimo: R$ {coupon.minimum_order_value}</p>
+                                        </div>
+                                        
+                                        <div className="flex items-center gap-1.5 mb-4">
+                                            <Clock className="h-2.5 w-2.5 text-slate-400" />
+                                            <p className="text-[8px] text-slate-500 font-medium">Válido por 90 dias após resgate</p>
+                                        </div>
+                                        
+                                        <Button 
+                                            className={cn(
+                                                "w-full h-10 text-[9px] font-black uppercase tracking-[0.2em] rounded-xl transition-all shadow-md",
+                                                canAfford 
+                                                    ? "bg-sky-500 hover:bg-sky-400 text-white hover:shadow-lg hover:scale-105 active:scale-95 cursor-pointer" 
+                                                    : "bg-slate-300 text-slate-600 cursor-not-allowed"
+                                            )}
+                                            disabled={!canAfford || redeemingId === coupon.id}
+                                            onClick={() => handleRedeem(coupon)}
+                                        >
+                                            {redeemingId === coupon.id ? (
+                                                <>
+                                                    <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                                                    Resgatando...
+                                                </>
+                                            ) : canAfford ? (
+                                                <>
+                                                    <Gift className="mr-1.5 h-3 w-3" />
+                                                    Resgatar Agora
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Lock className="mr-1.5 h-3 w-3" />
+                                                    Precisa de Pontos
+                                                </>
+                                            )}
+                                        </Button>
                                     </div>
-                                    
-                                    <h4 className="font-black text-slate-900 text-sm tracking-tighter uppercase italic leading-tight line-clamp-2">{coupon.name}</h4>
-                                    <p className="text-[8px] text-slate-400 font-bold mt-1 uppercase tracking-widest">Mínimo: R$ {coupon.minimum_order_value}</p>
-                                    
-                                    {/* Validade do cupom */}
-                                    <div className="flex items-center gap-1.5 mt-2 mb-4">
-                                        <Clock className="h-2.5 w-2.5 text-stone-400" />
-                                        <p className="text-[8px] text-stone-500 font-medium">Válido por 90 dias após resgate</p>
-                                    </div>
-                                    
-                                    <Button 
-                                        className={cn(
-                                            "w-full h-9 text-[9px] font-black uppercase tracking-[0.2em] rounded-xl transition-all shadow-md",
-                                            canAfford 
-                                                ? "bg-sky-500 hover:bg-sky-400 text-white active:scale-95 cursor-pointer" 
-                                                : "bg-slate-300 text-slate-700 cursor-not-allowed"
-                                        )}
-                                        disabled={!canAfford || redeemingId === coupon.id}
-                                        onClick={() => handleRedeem(coupon)}
-                                    >
-                                        {redeemingId === coupon.id ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Resgatar'}
-                                    </Button>
                                 </Card>
                             )
                         }) : (
                             <div className="py-10 text-center">
+                                <Ticket className="h-12 w-12 text-slate-300 mx-auto mb-3" />
                                 <p className="text-[10px] font-bold text-slate-400 uppercase italic">Nenhum cupom disponível.</p>
                             </div>
                         )}
                         
                         <div className="pt-2 pb-2">
                             <Link to="/clube-dk" className="group flex items-center justify-center gap-1.5 text-[9px] font-black text-slate-400 uppercase tracking-widest hover:text-sky-500 transition-colors">
-                                Clube Completo <ChevronRight className="h-2.5 w-2.5 group-hover:translate-x-1 transition-transform" />
+                                Ver todos os cupons <ChevronRight className="h-2.5 w-2.5 group-hover:translate-x-1 transition-transform" />
                             </Link>
                         </div>
                     </TabsContent>

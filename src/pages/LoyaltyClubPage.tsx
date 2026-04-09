@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Gem, Lock, Unlock, Trophy, History, Gift, TrendingUp, Clock, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, Gem, Lock, Unlock, Trophy, History, Gift, TrendingUp, Clock, AlertTriangle, CheckCircle, XCircle, ShoppingBag, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { differenceInDays, addMonths, endOfWeek, isSameWeek, startOfWeek, addWeeks } from 'date-fns';
@@ -105,37 +105,145 @@ const LoyaltyClubPage = () => {
   }, [fetchData]);
 
   const onRedeemCoupon = async (coupon: any) => {
-    if (!sessionUser) { showError('Faça login para resgatar cupons.'); return; }
-    if (!profile || profile.points < coupon.points_cost) {
-        showError("Saldo insuficiente.");
-        return;
+    console.log('[LoyaltyClubPage] ===========================================');
+    console.log('[LoyaltyClubPage] Iniciando resgate do cupom:', { 
+      id: coupon.id, 
+      name: coupon.name, 
+      cost: coupon.points_cost 
+    });
+    
+    // Verificar autenticação
+    if (!sessionUser) { 
+      console.error('[LoyaltyClubPage] ❌ Usuário não autenticado');
+      showError('Faça login para resgatar cupons.'); 
+      return; 
     }
+    
+    console.log('[LoyaltyClubPage] ✅ Usuário autenticado:', sessionUser.id);
+    
+    // Verificar se profile está carregado
+    if (!profile) {
+      console.error('[LoyaltyClubPage] ❌ Profile não está carregado');
+      console.log('[LoyaltyClubPage] Buscando profile novamente...');
+      
+      try {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('points, spend_last_6_months, tier_id, current_tier_name, last_tier_update')
+          .eq('id', sessionUser.id)
+          .single();
+        
+        if (profileData) {
+          console.log('[LoyaltyClubPage] Profile carregado:', profileData);
+          setProfile(profileData);
+        } else {
+          console.error('[LoyaltyClubPage] ❌ Profile não encontrado');
+          showError('Erro ao carregar seus dados. Tente novamente.');
+          return;
+        }
+      } catch (error) {
+        console.error('[LoyaltyClubPage] ❌ Erro ao buscar profile:', error);
+        showError('Erro ao carregar seus dados. Tente novamente.');
+        return;
+      }
+    }
+    
+    // Verificar pontos suficientes (usando profile atualizado)
+    const currentPoints = profile?.points || 0;
+    console.log('[LoyaltyClubPage] Pontos atuais:', currentPoints);
+    console.log('[LoyaltyClubPage] Custo do cupom:', coupon.points_cost);
+    
+    if (currentPoints < coupon.points_cost) {
+      console.error('[LoyaltyClubPage] ❌ Saldo insuficiente:', currentPoints, '<', coupon.points_cost);
+      showError(`Saldo insuficiente. Você tem ${currentPoints} pontos e precisa de ${coupon.points_cost}.`);
+      return;
+    }
+    
+    console.log('[LoyaltyClubPage] ✅ Pontos suficientes, iniciando resgate...');
+    
     setRedeemingId(coupon.id);
     const toastId = showLoading("Gerando seu cupom...");
     
     try {
-        const { error } = await supabase.rpc('redeem_coupon', { coupon_id_to_redeem: coupon.id });
-        dismissToast(toastId);
-        if (error) throw error;
+      console.log('[LoyaltyClubPage] Chamando RPC redeem_coupon...');
+      const { data, error } = await supabase.rpc('redeem_coupon', { 
+        coupon_id_to_redeem: coupon.id 
+      });
+      
+      console.log('[LoyaltyClubPage] Resposta da RPC:', { data, error });
+      
+      dismissToast(toastId);
+      
+      if (error) {
+        console.error('[LoyaltyClubPage] ❌ Erro na RPC:', error);
+        console.error('[LoyaltyClubPage] Erro details:', {
+          message: error.message,
+          code: error.code,
+          hint: error.hint,
+          details: error.details
+        });
+        throw error;
+      }
+      
+      console.log('[LoyaltyClubPage] ✅ RPC executada com sucesso:', data);
+      showSuccess(`🎉 Cupom resgatado com sucesso! R$ ${coupon.discount_value} OFF adicionado aos seus cupons.`);
+      
+      // Buscar pontos atualizados
+      console.log('[LoyaltyClubPage] Buscando pontos atualizados...');
+      const { data: userData } = await supabase.auth.getUser();
+      
+      if (userData.user) {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('points')
+          .eq('id', userData.user.id)
+          .single();
         
-        showSuccess("Cupom resgatado com sucesso!");
-        const { data } = await supabase.from('profiles').select('points').eq('id', (await supabase.auth.getUser()).data.user?.id).single();
-        if (data) setProfile(prev => prev ? { ...prev, points: data.points } : null);
-        
-        // Atualiza a lista de histórico localmente com o novo padrão de nome
-        setHistory(prev => [{
-            id: Date.now(),
-            points: -coupon.points_cost,
-            description: `Resgate Clube DK: ${coupon.name}`,
-            created_at: new Date().toISOString(),
-            operation_type: 'redeem'
-        }, ...prev]);
+        if (profileError) {
+          console.error('[LoyaltyClubPage] ❌ Erro ao buscar profile atualizado:', profileError);
+        } else {
+          console.log('[LoyaltyClubPage] ✅ Pontos atualizados:', profileData);
+          if (profileData) {
+            setProfile(prev => prev ? { ...prev, points: profileData.points } : null);
+          }
+        }
+      }
+      
+      // Atualiza a lista de histórico localmente
+      setHistory(prev => [{
+        id: Date.now(),
+        points: -coupon.points_cost,
+        description: `Resgate Clube DK: ${coupon.name}`,
+        created_at: new Date().toISOString(),
+        operation_type: 'redeem'
+      }, ...prev]);
+      
+      console.log('[LoyaltyClubPage] ✅ Resgate completado com sucesso!');
 
     } catch (e: any) {
-        dismissToast(toastId);
-        showError(e.message || "Erro ao resgatar.");
+      console.error('[LoyaltyClubPage] ❌ Erro ao resgatar cupom:', e);
+      dismissToast(toastId);
+      
+      // Mensagem de erro mais amigável
+      let errorMessage = 'Erro ao resgatar cupom. Tente novamente.';
+      if (e.message) {
+        if (e.message.includes('esgotado')) {
+          errorMessage = 'Este cupom está esgotado no momento.';
+        } else if (e.message.includes('não encontrado')) {
+          errorMessage = 'Cupom não encontrado.';
+        } else if (e.message.includes('autenticado')) {
+          errorMessage = 'Você precisa estar logado para resgatar cupons.';
+        } else if (e.message.includes('pontos para')) {
+          errorMessage = e.message;
+        } else {
+          errorMessage = e.message;
+        }
+      }
+      
+      showError(errorMessage);
     } finally {
-        setRedeemingId(null);
+      setRedeemingId(null);
+      console.log('[LoyaltyClubPage] ===========================================');
     }
   };
 
@@ -312,34 +420,110 @@ const LoyaltyClubPage = () => {
 
             <TabsContent value="redeem" className="mt-8 space-y-6">
                 <h3 className="text-xl font-black italic uppercase tracking-tighter text-charcoal-gray">Troque seus pontos</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6">
                     {coupons.map((coupon) => {
                         const canAfford = effectiveProfile.points >= coupon.points_cost && !!sessionUser;
                         return (
-                            <div key={coupon.id} className={cn("group relative bg-white border border-stone-200 p-6 rounded-2xl transition-all overflow-hidden shadow-sm hover:shadow-md", canAfford ? "hover:border-sky-500/50" : "opacity-60 grayscale bg-stone-50")}>
-                                <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                                    <Gift className="h-24 w-24 text-charcoal-gray" />
+                            <div key={coupon.id} className={cn(
+                                "group relative bg-white border-2 p-8 rounded-3xl transition-all overflow-hidden shadow-lg",
+                                canAfford 
+                                    ? "border-sky-200 hover:border-sky-400 hover:shadow-2xl hover:scale-[1.02] bg-gradient-to-br from-sky-50 to-white" 
+                                    : "border-stone-200 opacity-70 grayscale bg-stone-50 cursor-not-allowed"
+                            )}>
+                                {/* Ícone de fundo para cupons resgatáveis */}
+                                {canAfford && (
+                                    <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
+                                        <Gift className="h-40 w-40 text-sky-500" />
+                                    </div>
+                                )}
+                                
+                                {/* Badge de pontos */}
+                                <div className="relative z-10 flex justify-between items-start mb-6">
+                                    <div className={cn(
+                                        "px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-md flex items-center gap-2",
+                                        canAfford ? "bg-gradient-to-r from-sky-500 to-sky-600 text-white" : "bg-slate-300 text-slate-600"
+                                    )}>
+                                        {canAfford ? <Gem className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+                                        {coupon.points_cost} PONTOS
+                                    </div>
+                                    {!canAfford && sessionUser && (
+                                        <div className="text-xs font-black text-orange-600 bg-orange-50 px-3 py-1.5 rounded-lg border border-orange-200">
+                                            Faltam {coupon.points_cost - effectiveProfile.points} pontos
+                                        </div>
+                                    )}
                                 </div>
                                 
-                                <div className="relative z-10">
-                                    <p className="text-sky-600 font-black text-xs uppercase tracking-widest mb-2">{coupon.points_cost} PONTOS</p>
-                                    <h4 className="text-2xl font-black text-charcoal-gray mb-1">R$ {coupon.discount_value} OFF</h4>
-                                    <p className="text-stone-500 text-xs mb-2">Mínimo: R$ {coupon.minimum_order_value}</p>
-                                    
-                                    {/* Validade do cupom */}
-                                    <div className="flex items-center gap-1.5 mb-4">
-                                        <Clock className="h-3 w-3 text-stone-400" />
-                                        <p className="text-[10px] text-stone-500 font-medium">Válido por 90 dias após resgate</p>
+                                {/* Valor do desconto */}
+                                <div className="relative z-10 mb-6">
+                                    <div className="flex items-baseline gap-2 mb-2">
+                                        <span className={cn(
+                                            "text-5xl font-black tracking-tighter",
+                                            canAfford ? "text-sky-600" : "text-slate-500"
+                                        )}>
+                                            R$ {coupon.discount_value}
+                                        </span>
+                                        <span className={cn(
+                                            "text-lg font-black uppercase",
+                                            canAfford ? "text-sky-600" : "text-slate-500"
+                                        )}>
+                                            OFF
+                                        </span>
                                     </div>
-                                    
-                                    <Button 
-                                        onClick={() => onRedeemCoupon(coupon)}
-                                        disabled={!canAfford || redeemingId === coupon.id}
-                                        className={cn("w-full font-black uppercase tracking-widest h-12 rounded-xl transition-all", canAfford ? "bg-sky-500 hover:bg-sky-400 text-white cursor-pointer" : "bg-stone-200 text-stone-400 cursor-not-allowed")}
-                                    >
-                                        {redeemingId === coupon.id ? <Loader2 className="animate-spin h-4 w-4" /> : (canAfford ? 'Resgatar' : (sessionUser ? 'Faltam Pontos' : 'Entre para resgatar'))}
-                                    </Button>
+                                    {coupon.name && (
+                                        <p className={cn(
+                                            "text-sm font-bold mb-2",
+                                            canAfford ? "text-slate-900" : "text-slate-500"
+                                        )}>
+                                            {coupon.name}
+                                        </p>
+                                    )}
                                 </div>
+                                
+                                {/* Informações do cupom */}
+                                <div className="relative z-10 space-y-3 mb-6">
+                                    <div className="flex items-center gap-2 text-sm text-slate-600 font-bold">
+                                        <ShoppingBag className="h-4 w-4 text-slate-400" />
+                                        Pedido mínimo: R$ {coupon.minimum_order_value}
+                                    </div>
+                                    <div className="flex items-center gap-2 text-sm text-slate-600 font-bold">
+                                        <Clock className="h-4 w-4 text-slate-400" />
+                                        Válido por 90 dias após resgate
+                                    </div>
+                                </div>
+                                
+                                {/* Botão de resgate */}
+                                <Button 
+                                    onClick={() => onRedeemCoupon(coupon)}
+                                    disabled={!canAfford || redeemingId === coupon.id}
+                                    className={cn(
+                                        "w-full font-black uppercase tracking-widest h-14 rounded-2xl transition-all shadow-lg relative overflow-hidden",
+                                        canAfford 
+                                            ? "bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-400 hover:to-sky-500 text-white hover:shadow-2xl hover:scale-[1.02] active:scale-95 cursor-pointer" 
+                                            : "bg-slate-300 text-slate-600 cursor-not-allowed"
+                                    )}
+                                >
+                                    {redeemingId === coupon.id ? (
+                                        <span className="flex items-center gap-2">
+                                            <Loader2 className="animate-spin h-5 w-5" />
+                                            Gerando cupom...
+                                        </span>
+                                    ) : canAfford ? (
+                                        <span className="flex items-center gap-2">
+                                            <Gift className="h-5 w-5" />
+                                            Resgatar Agora
+                                        </span>
+                                    ) : sessionUser ? (
+                                        <span className="flex items-center gap-2">
+                                            <Lock className="h-5 w-5" />
+                                            Faltam Pontos
+                                        </span>
+                                    ) : (
+                                        <span className="flex items-center gap-2">
+                                            <User className="h-5 w-5" />
+                                            Entre para resgatar
+                                        </span>
+                                    )}
+                                </Button>
                             </div>
                         )
                     })}

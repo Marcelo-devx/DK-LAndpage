@@ -93,14 +93,7 @@ const LoyaltyButton = () => {
     }}>
       <PopoverTrigger asChild>
         <button
-          className={cn(
-            "fixed bottom-7 right-3 z-[999999]", // z-index muito alto para garantir que fique acima de tudo, incluindo AdminCustomizer (z-[99999]) e outros elementos fixos
-            "bg-black hover:bg-slate-900 text-white",
-            "p-4 rounded-full shadow-[0_10px_30px_-5px_rgba(0,0,0,0.5)]",
-            "transition-all duration-300 hover:scale-110 active:scale-95 group",
-            "flex items-center justify-center animate-in fade-in zoom-in duration-500 delay-100",
-            "cursor-pointer border-2 border-white/10 ring-2 ring-black/5 relative"
-          )}
+          className="fixed bottom-6 right-6 z-[99999] rounded-full h-14 w-14 bg-slate-900 text-white shadow-2xl border-2 border-white/20 hover:scale-110 transition-transform flex items-center justify-center group"
           aria-label="Acessar DK Clube Points"
         >
           {/* Badge de cupons prestes a expirar */}
@@ -110,7 +103,7 @@ const LoyaltyButton = () => {
             </span>
           )}
           
-          <Gem className="h-6 w-6 text-sky-400" />
+          <Gem className="h-6 w-6 group-hover:text-sky-400 transition-colors" />
           
           {/* Tooltip flutuante à esquerda (apenas desktop) */}
           <span className="absolute right-full mr-4 bg-white text-charcoal-gray text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-xl border border-stone-100 hidden md:block">
@@ -120,7 +113,7 @@ const LoyaltyButton = () => {
       </PopoverTrigger>
       <PopoverContent
         // Sempre abre para cima em todas as telas para não cobrir o botão
-        className="w-[calc(100vw-32px)] sm:w-[380px] p-0 rounded-2xl overflow-hidden border-none shadow-2xl h-[550px] max-h-[85vh] animate-in slide-in-from-bottom-2 duration-300 z-[999998]"
+        className="w-[calc(100vw-32px)] sm:w-[380px] p-0 rounded-2xl overflow-hidden border-none shadow-2xl h-[550px] max-h-[85vh] animate-in slide-in-from-bottom-2 duration-300 z-[99999]"
         side="top"
         align="end"
         sideOffset={16}

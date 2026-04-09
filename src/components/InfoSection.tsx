@@ -137,6 +137,8 @@ const InfoSection = ({ compactTop = false }: { compactTop?: boolean }) => {
                       <img
                         src={card.image_url}
                         alt={`Info card ${index + 1}`}
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-auto block object-contain"
                       />
                     </Card>

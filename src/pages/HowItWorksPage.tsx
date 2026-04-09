@@ -318,13 +318,15 @@ const HowItWorksPage = () => {
         className="relative w-full h-[400px] md:h-[650px] overflow-hidden bg-black flex items-center justify-center border-t border-white/5"
       >
         {/* Contêiner da Imagem com Movimento Parallax */}
-        <motion.div 
+        <motion.div
             style={{ y }}
             className="absolute inset-0 w-full h-[140%] -top-[20%]" // A imagem é mais alta que o contêiner para permitir o movimento
         >
-            <img 
-            src="https://jrlozhhvwqfmjtkmvukf.supabase.co/storage/v1/object/public/site_assets/clube_dk_cta_banner.jpg" 
-            alt="Clube DK Banner" 
+            <img
+            src="https://jrlozhhvwqfmjtkmvukf.supabase.co/storage/v1/object/public/site_assets/clube_dk_cta_banner.jpg"
+            alt="Clube DK Banner"
+            loading="lazy"
+            decoding="async"
             className="w-full h-full object-cover object-center grayscale-[0.2] contrast-[1.1]"
             />
         </motion.div>

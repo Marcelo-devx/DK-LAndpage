@@ -17,6 +17,8 @@ const CategoryCarouselCard = ({ category, onClick }: CategoryCarouselCardProps) 
       <img
         src={category.imageUrl}
         alt={category.name}
+        loading="lazy"
+        decoding="async"
         className="w-full h-full object-cover"
       />
       <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors duration-300 flex items-center justify-center p-2">

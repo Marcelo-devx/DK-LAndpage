@@ -462,9 +462,11 @@ const AdminCustomizer = () => {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             {category.image_url && (
-                              <img 
-                                src={category.image_url} 
-                                alt={category.name} 
+                              <img
+                                src={category.image_url}
+                                alt={category.name}
+                                loading="lazy"
+                                decoding="async"
                                 className="w-10 h-10 rounded-lg object-cover"
                               />
                             )}

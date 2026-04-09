@@ -51,9 +51,11 @@ const BrandSection = ({ brands, loading, onBrandClick }: BrandSectionProps) => {
                   <div className="absolute inset-0 bg-sky-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-400" />
                   
                   {brand.image_url ? (
-                    <img 
-                      src={brand.image_url} 
-                      alt={brand.name} 
+                    <img
+                      src={brand.image_url}
+                      alt={brand.name}
+                      loading="lazy"
+                      decoding="async"
                       className="max-h-[60%] w-[80%] object-contain transition-all duration-500 group-hover:scale-105 drop-shadow-sm"
                     />
                   ) : (

@@ -102,6 +102,8 @@ const SocialProofPopup = () => {
               <img
                 src={currentItem.product_image_url}
                 alt={currentItem.product_name}
+                loading="lazy"
+                decoding="async"
                 className="w-full h-full object-cover"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = 'https://placehold.co/100x100?text=DKCWB';

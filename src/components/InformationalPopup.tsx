@@ -119,6 +119,8 @@ const parseHtmlToReact = (html: string) => {
                   <img
                     src={src || undefined}
                     alt={alt}
+                    loading="lazy"
+                    decoding="async"
                     className="w-full max-w-full h-auto object-contain rounded-lg shadow-sm"
                     // prevent very large images from overflowing the viewport height
                     style={{ maxHeight: '60vh' }}

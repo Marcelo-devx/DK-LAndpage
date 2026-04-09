@@ -294,28 +294,17 @@ const Login = () => {
 
       const code = gen.data.code;
 
-      const emailRes = await fetchWithTimeout(`${SUPABASE_URL}/functions/v1/send-email-via-resend`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-          'apikey': SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({
-          to: email,
-          subject: 'Seu código de verificação - DKCWB',
-          type: 'otp',
-          code,
-        }),
+      // Use supabase.functions.invoke instead of direct fetch with SUPABASE_URL/SUPABASE_ANON_KEY
+      const emailInvoke = await supabase.functions.invoke('send-email-via-resend', {
+        body: { to: email, subject: 'Seu código de verificação - DKCWB', type: 'otp', code },
       });
 
-      const emailData = await emailRes.json().catch(() => ({}));
-
-      if (!emailRes.ok) {
-        setSignUpError(translateAuthError(emailData?.error || `Erro ao enviar e-mail (${emailRes.status})`));
+      if (emailInvoke.error) {
+        setSignUpError(translateAuthError(emailInvoke.error.message || 'Erro ao enviar e-mail'));
         return;
       }
 
+      // success
       setCodeSent(true);
       setResendCooldown(60);
       showSuccess(`Código enviado para ${email}!`);
@@ -441,27 +430,16 @@ const Login = () => {
 
     setIsSendingForgot(true);
     try {
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/forgot-password`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-          'apikey': SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({ email }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        const errMsg = data?.error || '';
+      const res = await supabase.functions.invoke('forgot-password', { body: { email } });
+      if (res.error) {
+        const errMsg = res.error.message || '';
         if (errMsg.toLowerCase().includes('not found') || errMsg.toLowerCase().includes('no user')) {
           setForgotError({
             message: 'Nenhuma conta encontrada com este e-mail.',
             hint: 'Verifique o e-mail digitado ou crie uma conta nova na aba "Criar Conta".',
           });
         } else {
-          setForgotError(translateAuthError(errMsg || `Erro ${res.status}`));
+          setForgotError(translateAuthError(errMsg || 'Erro ao enviar nova senha'));
         }
         return;
       }

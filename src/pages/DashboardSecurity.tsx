@@ -59,22 +59,10 @@ const DashboardSecurity = () => {
 
       const email = session.user.email;
 
-      const res = await fetchWithTimeout(`${SUPABASE_URL}/functions/v1/forgot-password`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-          'apikey': SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({ email }),
-      }, 20000);
-
-      const data = await res.json().catch(() => ({}));
-      dismissToast(toastId);
-
-      if (!res.ok) {
-        showError(data?.error || 'Erro ao gerar nova senha. Tente novamente.');
-        logger.error('[DashboardSecurity] forgot-password error', res.status, data);
+      const res = await supabase.functions.invoke('forgot-password', { body: { email } });
+      if (res.error) {
+        showError(res.error.message || 'Erro ao gerar nova senha. Tente novamente.');
+        logger.error('[DashboardSecurity] forgot-password error', res.error);
         return;
       }
 
@@ -143,18 +131,23 @@ const DashboardSecurity = () => {
         const accessToken = sessionData?.session?.access_token;
         if (!accessToken) throw new Error('session_missing');
 
-        const updRes = await fetch(`${SUPABASE_URL}/functions/v1/update-password-admin`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
-          body: JSON.stringify({ newPassword }),
-        });
+        // Call edge function via supabase client
+        const invokeRes = await supabase.functions.invoke('update-password-admin', { body: { newPassword } });
 
-        if (!updRes.ok) {
-          const body = await updRes.json().catch(() => ({}));
-          updateError = body?.error || `update_password_failed_status_${updRes.status}`;
+        if (invokeRes.error) {
+          updateError = invokeRes.error;
         }
-      } catch (e) {
-        updateError = e;
+      } catch (fetchErr: any) {
+        clearTimeout(watchdog);
+        dismissToast(toastId);
+        setChanging(false);
+        if (fetchErr?.name === 'AbortError') {
+          showError('A operação demorou demais. Tente novamente.');
+        } else {
+          showError('Erro de conexão. Verifique sua internet e tente novamente.');
+        }
+        logger.error('[DashboardSecurity] unexpected', fetchErr);
+        return;
       }
 
       dismissToast(toastId);

@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { Loader2, Lock, ShieldCheck, Check, X, AlertTriangle } from 'lucide-react';
 
-const SUPABASE_URL = "https://jrlozhhvwqfmjtkmvukf.supabase.co";
+// const SUPABASE_URL moved to env; we now use supabase.functions.invoke where possible
 
 const translateError = (msg: string): string => {
   const m = msg.toLowerCase();
@@ -100,16 +100,10 @@ const UpdatePassword = () => {
       let updRes: Response;
       let updData: any = {};
       try {
-        updRes = await fetch(`${SUPABASE_URL}/functions/v1/update-password-admin`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({ newPassword: password }),
-          signal: controller.signal,
-        });
-        updData = await updRes.json().catch(() => ({}));
+        const invokeRes = await supabase.functions.invoke('update-password-admin', { body: { newPassword: password } });
+                // Normalize response shape
+                updRes = { ok: !invokeRes.error, status: invokeRes.error ? 500 : 200 } as any;
+                updData = invokeRes.data || {};
       } catch (fetchErr: any) {
         clearTimeout(fetchTimeout);
         clearTimeout(watchdog);

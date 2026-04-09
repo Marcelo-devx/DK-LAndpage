@@ -79,8 +79,8 @@ const UserReviewsTab = () => {
         image_url: item.image_url_at_purchase,
       }));
       
-    const uniqueProductsToReview = Array.from(new Map(unreviewedProducts.map(item => [item.product_id, item])).values());
-    setProductsToReview(uniqueProductsToReview);
+    // Permitir múltiplas avaliações do mesmo produto em diferentes pedidos
+    setProductsToReview(unreviewedProducts);
 
     setLoading(false);
   }, []);

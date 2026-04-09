@@ -27,6 +27,10 @@ const ReviewModal = ({ isOpen, onOpenChange, productId, orderId, productName, on
       showError("Por favor, selecione uma avaliação de 1 a 5 estrelas.");
       return;
     }
+    if (!comment.trim()) {
+      showError("Por favor, escreva um comentário para sua avaliação.");
+      return;
+    }
     setIsSubmitting(true);
     const toastId = showLoading("Enviando seu veredito...");
 
@@ -83,12 +87,13 @@ const ReviewModal = ({ isOpen, onOpenChange, productId, orderId, productName, on
           </div>
           
           <div className="space-y-3">
-            <Label htmlFor="comment" className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">Seu Comentário (opcional)</Label>
+            <Label htmlFor="comment" className="text-xs font-black uppercase tracking-[0.2em] text-slate-700">Seu Comentário</Label>
             <Textarea
               id="comment"
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               placeholder="Conte-nos sua experiência com o produto..."
+              required
               className="bg-slate-950 border-white/10 rounded-xl min-h-[120px] focus:border-sky-500 transition-colors placeholder:text-slate-600"
             />
           </div>
@@ -96,7 +101,7 @@ const ReviewModal = ({ isOpen, onOpenChange, productId, orderId, productName, on
 
         <DialogFooter className="gap-3 sm:gap-0">
           <Button variant="ghost" onClick={() => onOpenChange(false)} className="text-slate-700 hover:text-slate-900 hover:bg-white/5 rounded-xl font-bold uppercase text-[10px] tracking-widest h-12">Cancelar</Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting || rating === 0} className="bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest h-12 px-8 rounded-xl shadow-lg transition-all">
+          <Button onClick={handleSubmit} disabled={isSubmitting || rating === 0 || !comment.trim()} className="bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest h-12 px-8 rounded-xl shadow-lg transition-all">
             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Publicar Avaliação'}
           </Button>
         </DialogFooter>

@@ -11,13 +11,14 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { showError, showSuccess, showLoading, dismissToast } from '@/utils/toast';
-import { Loader2, Search, User, MapPin, Star, Truck } from 'lucide-react';
+import { Loader2, Search, User, MapPin, Star, Truck, AlertCircle } from 'lucide-react';
 import { maskCep, maskPhone, maskCpfCnpj } from '@/utils/masks';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import UserReviewsTab from '@/components/UserReviewsTab';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { format } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useAuth } from '@/context/AuthContext';
 
 const profileSchema = z.object({
   first_name: z.string().min(1, "Nome é obrigatório"),
@@ -40,15 +41,59 @@ type ProfileFormData = z.infer<typeof profileSchema>;
 const ProfilePage = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { isAdmin } = useAuth();
+
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isFetchingCep, setIsFetchingCep] = useState(false);
   const [deliveryType, setDeliveryType] = useState<'local' | 'correios' | null>(null);
 
+  // New states for address edit permission
+  const [canEditAddress, setCanEditAddress] = useState<boolean>(true);
+  const [isCheckingPermission, setIsCheckingPermission] = useState<boolean>(false);
+
   const { register, handleSubmit, control, setValue, getValues, formState: { errors } } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
   });
+
+  // Function to check permission server-side via RPC
+  const checkAddressEditPermission = async (userId: string) => {
+    try {
+      if (!userId) return true;
+      // Admins always allowed on client side as well
+      if (isAdmin) {
+        setCanEditAddress(true);
+        return true;
+      }
+      setIsCheckingPermission(true);
+      const { data, error } = await supabase.rpc('can_edit_address', { user_id_param: userId });
+      if (error) {
+        console.error('[ProfilePage] can_edit_address RPC error:', error);
+        // Em caso de erro, manter edição habilitada para não bloquear usuário indevidamente
+        setCanEditAddress(true);
+        return true;
+      }
+      // RPC may return boolean or [{ can_edit_address: true }] depending on DB; normalize
+      let allowed = false as boolean;
+      if (typeof data === 'boolean') allowed = data as boolean;
+      else if (Array.isArray(data) && data.length === 1 && typeof data[0] === 'boolean') allowed = data[0];
+      else if (Array.isArray(data) && data.length === 1 && typeof data[0]?.can_edit_address === 'boolean') allowed = data[0].can_edit_address;
+      else if (data && typeof data?.can_edit_address === 'boolean') allowed = data.can_edit_address;
+      else {
+        // Fallback: if RPC returned unexpected, allow edit to avoid locking users
+        allowed = true;
+      }
+      setCanEditAddress(Boolean(allowed));
+      return allowed;
+    } catch (e) {
+      console.error('[ProfilePage] checkAddressEditPermission error:', e);
+      setCanEditAddress(true);
+      return true;
+    } finally {
+      setIsCheckingPermission(false);
+    }
+  };
 
   const handleCepLookup = async () => {
     const cup = getValues('cep');
@@ -127,6 +172,13 @@ const ProfilePage = () => {
           Object.keys(initialFormValues).forEach((key) => {
             setValue(key as keyof ProfileFormData, initialFormValues[key as keyof ProfileFormData]);
           });
+
+          // After loading profile, check address edit permission
+          try {
+            await checkAddressEditPermission(userId);
+          } catch (err) {
+            console.error('[ProfilePage] checkAddressEditPermission after profile load failed', err);
+          }
         }
       } catch (e) {
         console.error('[ProfilePage] fetchUserAndProfile error:', e);
@@ -146,6 +198,21 @@ const ProfilePage = () => {
 
   const onAttemptSubmit = async (data: ProfileFormData) => {
     if (!user) return;
+
+    // Double-check permission before saving (server-side)
+    if (!isAdmin) {
+      try {
+        const allowed = await checkAddressEditPermission(user.id);
+        if (!allowed) {
+          showError('Edição de endereço bloqueada: você possui 3 ou mais pedidos pagos e entregues. Entre em contato com o suporte para alterar o endereço.');
+          return;
+        }
+      } catch (e) {
+        console.error('[ProfilePage] permission check before submit failed', e);
+        // continuar com tentativa de salvar para não bloquear por erro transitório
+      }
+    }
+
     setIsSaving(true);
     const toastId = showLoading("Salvando perfil...");
 
@@ -261,6 +328,17 @@ const ProfilePage = () => {
                     <h3 className="font-black text-xl tracking-tighter italic uppercase text-charcoal-gray">Endereço de Entrega.</h3>
                   </div>
 
+                  {/* Show block alert if user cannot edit address and is not admin */}
+                  {(!canEditAddress && !isAdmin) && (
+                    <Alert className="mb-6 bg-rose-50 border-rose-200 text-rose-800">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle className="font-bold uppercase text-xs tracking-wider">Endereço bloqueado para edição</AlertTitle>
+                      <AlertDescription className="text-xs">
+                        Você já completou 3 ou mais pedidos pagos e entregues. Por segurança, a edição do endereço foi bloqueada. Entre em contato com o suporte para alterar o endereço.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
                   {deliveryType === 'correios' && (
                     <Alert className="mb-6 bg-yellow-50 border-yellow-200 text-yellow-800">
                       <Truck className="h-4 w-4" />
@@ -286,8 +364,9 @@ const ProfilePage = () => {
                             }
                           }}
                           className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors"
+                          disabled={!canEditAddress && !isAdmin}
                         />
-                        <Button type="button" size="icon" onClick={handleCepLookup} disabled={isFetchingCep} className="bg-sky-500 hover:bg-sky-400 text-white h-12 w-12 rounded-xl shrink-0">
+                        <Button type="button" size="icon" onClick={handleCepLookup} disabled={isFetchingCep || (!canEditAddress && !isAdmin)} className="bg-sky-500 hover:bg-sky-400 text-white h-12 w-12 rounded-xl shrink-0">
                           {isFetchingCep ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
                         </Button>
                       </div>
@@ -296,37 +375,37 @@ const ProfilePage = () => {
 
                     <div className="space-y-3">
                       <Label htmlFor="street" className="text-xs font-black uppercase tracking-[0.2em] text-stone-500">Rua</Label>
-                      <Input id="street" {...register('street')} className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" />
+                      <Input id="street" {...register('street')} className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" disabled={!canEditAddress && !isAdmin} />
                       {errors.street && <p className="text-xs font-bold text-red-400">{errors.street.message}</p>}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                       <div className="space-y-3">
                         <Label htmlFor="number" className="text-xs font-black uppercase tracking-[0.2em] text-stone-500">Número</Label>
-                        <Input id="number" {...register('number')} className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" />
+                        <Input id="number" {...register('number')} className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" disabled={!canEditAddress && !isAdmin} />
                         {errors.number && <p className="text-xs font-bold text-red-400">{errors.number.message}</p>}
                       </div>
                       <div className="md:col-span-2 space-y-3">
                         <Label htmlFor="complement" className="text-xs font-black uppercase tracking-[0.2em] text-stone-500">Complemento (opcional)</Label>
-                        <Input id="complement" {...register('complement')} className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" />
+                        <Input id="complement" {...register('complement')} className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" disabled={!canEditAddress && !isAdmin} />
                       </div>
                     </div>
 
                     <div className="space-y-3">
                       <Label htmlFor="neighborhood" className="text-xs font-black uppercase tracking-[0.2em] text-stone-500">Bairro</Label>
-                      <Input id="neighborhood" {...register('neighborhood')} className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" />
+                      <Input id="neighborhood" {...register('neighborhood')} className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" disabled={!canEditAddress && !isAdmin} />
                       {errors.neighborhood && <p className="text-xs font-bold text-red-400">{errors.neighborhood.message}</p>}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       <div className="space-y-3">
                         <Label htmlFor="city" className="text-xs font-black uppercase tracking-[0.2em] text-stone-500">Cidade</Label>
-                        <Input id="city" {...register('city')} className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" />
+                        <Input id="city" {...register('city')} className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" disabled={!canEditAddress && !isAdmin} />
                         {errors.city && <p className="text-xs font-bold text-red-400">{errors.city.message}</p>}
                       </div>
                       <div className="space-y-3">
                         <Label htmlFor="state" className="text-xs font-black uppercase tracking-[0.2em] text-stone-500">Estado</Label>
-                        <Input id="state" {...register('state')} className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" />
+                        <Input id="state" {...register('state')} className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" disabled={!canEditAddress && !isAdmin} />
                         {errors.state && <p className="text-xs font-bold text-red-400">{errors.state.message}</p>}
                       </div>
                     </div>

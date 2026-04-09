@@ -7,8 +7,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from './ui/skeleton';
 import { showError, showSuccess, showLoading, dismissToast } from '@/utils/toast';
 import { Gem, Ticket, Loader2, Calendar, ShoppingBag, History, CheckCircle2 } from 'lucide-react';
-import format from 'date-fns/format';
-import ptBR from 'date-fns/locale/pt-BR';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
 interface Coupon {
@@ -165,7 +165,6 @@ const CouponsModal = ({ isOpen, onOpenChange, userPoints, onRedemption }: Coupon
                   return (
                     <Card key={coupon.id} className={cn(
                       "bg-white border-stone-200 transition-all duration-300 rounded-2xl overflow-hidden shadow-sm",
-                      // Removido opacity-60 para garantir legibilidade
                       !canRedeem ? 'bg-stone-50' : 'hover:border-sky-500/50 hover:shadow-md'
                     )}>
                       <CardContent className="p-5 flex items-center justify-between gap-4">

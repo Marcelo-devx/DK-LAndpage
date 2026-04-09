@@ -5,7 +5,7 @@ import LoyaltyWidget from './LoyaltyWidget';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { memo, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import differenceInDays from 'date-fns/differenceInDays';
+import { differenceInDays } from 'date-fns';
 
 const LoyaltyButtonContent = memo(() => <LoyaltyWidget />);
 LoyaltyButtonContent.displayName = 'LoyaltyButtonContent';

@@ -4,10 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Truck, MapPin, Package, RefreshCw, Gift, Heart } from 'lucide-react';
-import format from 'date-fns/format';
-import isToday from 'date-fns/isToday';
-import isTomorrow from 'date-fns/isTomorrow';
-import ptBR from 'date-fns/locale/pt-BR';
+import { format, isToday, isTomorrow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 
 interface OrderRoute {

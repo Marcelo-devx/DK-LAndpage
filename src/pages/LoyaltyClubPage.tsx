@@ -7,11 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, Gem, Lock, Unlock, Trophy, History, Gift, TrendingUp, Clock, AlertTriangle, CheckCircle, XCircle, ShoppingBag, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import differenceInDays from 'date-fns/differenceInDays';
-import addMonths from 'date-fns/addMonths';
-import endOfWeek from 'date-fns/endOfWeek';
-import isSameWeek from 'date-fns/isSameWeek';
-import ptBR from 'date-fns/locale/pt-BR';
+import { differenceInDays, addMonths, endOfWeek, isSameWeek } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface Tier {
   id: number;

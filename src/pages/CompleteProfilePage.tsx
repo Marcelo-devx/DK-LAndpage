@@ -14,7 +14,7 @@ import { showError, showSuccess, showLoading, dismissToast } from '@/utils/toast
 import { Loader2, Search, Truck, CheckCircle } from 'lucide-react';
 import { maskCep, maskPhone, maskCpfCnpj } from '@/utils/masks';
 import { DatePicker } from '@/components/ui/DatePicker';
-import format from 'date-fns/format';
+import { format } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checkbox } from '@/components/ui/checkbox';
 import InformationalPopup from '@/components/InformationalPopup';

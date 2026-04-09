@@ -54,6 +54,7 @@ const LoyaltyClubPage = () => {
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [sessionUser, setSessionUser] = useState<any | null>(null);
   const [totalPointsEarned, setTotalPointsEarned] = useState<number>(0);
+  const [totalPointsLast180Days, setTotalPointsLast180Days] = useState<number>(0);
 
   const fetchData = useCallback(async (isBackground = false) => {
     // Timeout de 3s para evitar loading infinito ao voltar de outra aba
@@ -84,13 +85,20 @@ const LoyaltyClubPage = () => {
       }
 
       // Authenticated: fetch full data
-      const [tiersRes, profileRes, historyRes, couponsRes, ordersRes, totalPointsData] = await Promise.all([
+      // calcular data de corte para 180 dias
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - 180);
+      const cutoffISO = cutoffDate.toISOString();
+
+      const [tiersRes, profileRes, historyRes, couponsRes, ordersRes, totalPointsData, last180Data] = await Promise.all([
         supabase.from('loyalty_tiers').select('*').order('min_spend', { ascending: true }),
         supabase.from('profiles').select('points, spend_last_6_months, tier_id, current_tier_name, last_tier_update').eq('id', session.user.id).single(),
         supabase.from('loyalty_history').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false }).limit(100),
         supabase.from('coupons').select('*').eq('is_active', true).or('stock_quantity.gt.0,stock_quantity.lt.0').order('points_cost'),
         supabase.from('orders').select('created_at, benefits_used').eq('user_id', session.user.id).order('created_at', { ascending: false }).limit(10),
-        supabase.from('loyalty_history').select('points').eq('user_id', session.user.id).gt('points', 0)
+        supabase.from('loyalty_history').select('points').eq('user_id', session.user.id).gt('points', 0),
+        // pontos positivos nos últimos 180 dias
+        supabase.from('loyalty_history').select('points').eq('user_id', session.user.id).gt('points', 0).gte('created_at', cutoffISO)
       ]);
 
       if (tiersRes.data) setTiers(tiersRes.data);
@@ -106,6 +114,10 @@ const LoyaltyClubPage = () => {
       // Calcular total de pontos ganhos (apenas pontos positivos)
       const totalEarned = totalPointsData?.data?.reduce((sum: number, item: any) => sum + (item.points || 0), 0) || 0;
       setTotalPointsEarned(totalEarned);
+
+      // Calcular total de pontos ganhos nos últimos 180 dias
+      const total180 = last180Data?.data?.reduce((sum: number, item: any) => sum + (item.points || 0), 0) || 0;
+      setTotalPointsLast180Days(total180);
     } catch (e: any) {
       console.error('[LoyaltyClubPage] fetchData error:', e);
     } finally {

@@ -419,7 +419,7 @@ const LoyaltyClubPage = () => {
                     </div>
                     <p className="text-xs text-stone-500 mt-2 font-medium">Cada compra te leva mais longe.</p>
                     
-                    {/* Total de pontos acumulados */}
+                    {/* Total de pontos acumulados (mostrando lifetime e últimos 180 dias) */}
                     <div className="mt-4 pt-4 border-t border-stone-100">
                         <div className="flex items-center justify-between">
                             <span className="text-xs font-bold uppercase tracking-widest text-stone-400">Total acumulado</span>
@@ -428,7 +428,16 @@ const LoyaltyClubPage = () => {
                                 <span className="text-2xl font-black text-emerald-600">{sessionUser ? totalPointsEarned : 0}</span>
                             </div>
                         </div>
-                        <p className="text-xs text-stone-400 mt-1">Todos os pontos que você já ganhou</p>
+
+                        <div className="mt-3 flex items-center justify-between">
+                            <span className="text-xs text-stone-400">Últimos 180 dias</span>
+                            <div className="flex items-center gap-2">
+                                <Gem className="h-4 w-4 text-emerald-400" />
+                                <span className="text-lg font-black text-emerald-500">{sessionUser ? totalPointsLast180Days : 0}</span>
+                            </div>
+                        </div>
+
+                        <p className="text-xs text-stone-400 mt-2">Todos os pontos que você já ganhou</p>
                     </div>
                     
                     {!sessionUser && (

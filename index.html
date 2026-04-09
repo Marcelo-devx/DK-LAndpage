@@ -10,23 +10,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="google" content="notranslate" />
 
-    <!-- Content-Security-Policy (S-02 CORRIGIDO) -->
-    <!-- Política inicial permissiva para garantir funcionamento do app -->
-    <!-- Documentação: https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
-    <meta http-equiv="Content-Security-Policy" content="
-      default-src 'self';
-      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net;
-      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-      font-src 'self' https://fonts.gstatic.com;
-      img-src 'self' data: https: blob:;
-      connect-src 'self' https://*.supabase.co https://*.vercel.app https://n8n-ws.dkcwb.cloud https://*.mercadopago.com.br https://*.mercadopago.com;
-      frame-src 'self' https://*.mercadopago.com.br https://*.mercadopago.com;
-      object-src 'none';
-      base-uri 'self';
-      form-action 'self';
-      upgrade-insecure-requests;
-    ">
-
     <title>DKCWB</title>
   </head>
 

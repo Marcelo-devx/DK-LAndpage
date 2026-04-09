@@ -365,6 +365,17 @@ const LoyaltyClubPage = () => {
                 </div>
             )}
 
+            {/* Total acumulado de pontos (destaque) */}
+            <div className="mt-6 flex justify-center">
+              <div className="inline-flex items-center gap-4 px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 text-white font-black text-lg shadow-2xl border border-white/10">
+                <Gem className="h-6 w-6 text-white" />
+                <div className="text-right">
+                  <div className="text-xs uppercase tracking-widest opacity-90">Total acumulado</div>
+                  <div className="text-2xl md:text-3xl font-black">{sessionUser ? totalPointsEarned : 0} PTS</div>
+                </div>
+              </div>
+            </div>
+
             <div className={cn("mt-6 pt-4 border-t border-white/10 flex items-center justify-between", isExpiringSoon ? "text-orange-300" : "text-white/80")}>
                 <div className="flex items-center gap-2">
                     {isExpiringSoon ? <AlertTriangle className="h-4 w-4" /> : <Clock className="h-4 w-4" />}

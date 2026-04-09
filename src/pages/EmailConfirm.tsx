@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertCircle } from "lucide-react";
 import { useTheme } from "@/context/ThemeContext";
+import { logger } from '@/lib/logger';
 import { supabase } from '@/integrations/supabase/client';
 
 const EmailConfirm: React.FC = () => {
@@ -25,10 +26,10 @@ const EmailConfirm: React.FC = () => {
             const result = await getSessionFromUrlFn();
             // result may contain data/session or an error depending on SDK version
             if (result?.error) {
-              console.warn('[EmailConfirm] getSessionFromUrl returned error:', result.error);
+              logger.warn('[EmailConfirm] getSessionFromUrl returned error:', result.error);
             }
           } catch (err) {
-            console.warn('[EmailConfirm] getSessionFromUrl threw:', err);
+            logger.warn('[EmailConfirm] getSessionFromUrl threw:', err);
           }
         }
 

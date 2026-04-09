@@ -18,6 +18,7 @@ import { getLocalCart, ItemType, clearLocalCart } from '@/utils/localCart';
 import { maskCep, maskPhone, maskCpfCnpj } from '@/utils/masks';
 import CouponsModal from '@/components/CouponsModal';
 import { cn } from '@/lib/utils';
+import { logger } from '@/lib/logger';
 import { differenceInDays, endOfWeek, isSameWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import ProductImage from '@/components/ProductImage';
@@ -596,7 +597,7 @@ const CheckoutPage = () => {
           const invokeOpts: any = { body: { order_id: orderId, event_type: 'order_created', guest_email: getValues('email') } };
           if (authToken) invokeOpts.headers = { Authorization: `Bearer ${authToken}` };
           await supabase.functions.invoke('trigger-integration', invokeOpts);
-        } catch (e) { console.warn('[CheckoutPage] trigger-integration warning (card):', e); }
+        } catch (e) { logger.warn('[CheckoutPage] trigger-integration warning (card):', e); }
       })();
 
     } catch (e: any) {

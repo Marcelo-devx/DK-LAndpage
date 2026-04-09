@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { logger } from '@/lib/logger';
 import { 
   Settings, 
   Save, 
@@ -325,9 +326,9 @@ const AdminCustomizer = () => {
           body: JSON.stringify({ event_type: eventType, simulate: true })
         });
         if (!debugResp.ok) {
-          console.warn('[AdminCustomizer] direct function fetch response not ok:', debugResp.status, debugResp.statusText);
+          logger.warn('[AdminCustomizer] direct function fetch response not ok:', debugResp.status, debugResp.statusText);
         } else {
-          console.info('[AdminCustomizer] direct function fetch succeeded (for debug).');
+          logger.info('[AdminCustomizer] direct function fetch succeeded (for debug).');
         }
       } catch (fetchErr) {
         console.error('[AdminCustomizer] direct function fetch error (CORS/network):', fetchErr);
@@ -827,7 +828,7 @@ const AdminCustomizer = () => {
                   (window as any).__refreshThemeSettings = refreshSettings;
                   showSuccess('Salvo!');
                 } catch (e: any) {
-                  console.warn('[AdminCustomizer] saveAllSettings failed or timed out', e);
+                  logger.warn('[AdminCustomizer] saveAllSettings failed or timed out', e);
                   // Distinguish timeout vs other errors for clearer messages
                   if (e?.message === 'timeout') {
                     showError('Tempo de salvamento excedido. Verifique sua conexão e tente novamente.');

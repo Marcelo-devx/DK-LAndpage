@@ -1,9 +1,11 @@
 /**
  * Image Optimizer Utility
- * 
+ *
  * Detects Cloudinary URLs and adds optimization parameters automatically.
  * Falls back to original URL if not a Cloudinary URL or on error.
  */
+
+import { logger } from '@/lib/logger';
 
 const CLOUDINARY_DOMAINS = ['res.cloudinary.com', 'cloudinary.com'];
 
@@ -64,7 +66,7 @@ function extractExistingTransformations(url: string): { baseUrl: string; existin
     };
     
   } catch (error) {
-    console.warn('[imageOptimizer] Error extracting transformations:', error);
+    logger.warn('[imageOptimizer] Error extracting transformations:', error);
     return { baseUrl: url, existingTransforms: '' };
   }
 }
@@ -106,7 +108,7 @@ export function getOptimizedImageUrl(
     return url; // Fallback if parsing failed
     
   } catch (error) {
-    console.warn('[imageOptimizer] Error optimizing image:', error);
+    logger.warn('[imageOptimizer] Error optimizing image:', error);
     return url; // Always return original URL on error
   }
 }

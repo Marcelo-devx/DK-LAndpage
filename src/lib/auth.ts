@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { logger } from '@/lib/logger';
 import type { Session, User } from '@supabase/supabase-js';
 
 /**
@@ -23,7 +24,7 @@ export async function getSessionWithRetry(
       if (session) return session;
     } catch (e) {
       // ignora erros de rede transitórios e tenta novamente
-      console.warn('[auth] getSession attempt failed:', e);
+      logger.warn('[auth] getSession attempt failed:', e);
     }
     if (i < retries) {
       await new Promise(r => setTimeout(r, delayMs));
@@ -45,7 +46,7 @@ export async function getSessionOrUser(): Promise<{ session: Session | null; use
       return { session, user: session.user };
     }
   } catch (e) {
-    console.warn('[auth] getSession failed, trying getUser:', e);
+    logger.warn('[auth] getSession failed, trying getUser:', e);
   }
 
   // Se getSession falhar ou retornar null, tenta getUser (força refresh)
@@ -53,7 +54,7 @@ export async function getSessionOrUser(): Promise<{ session: Session | null; use
     const { data: { user } } = await supabase.auth.getUser();
     return { session: null, user };
   } catch (e) {
-    console.warn('[auth] getUser also failed:', e);
+    logger.warn('[auth] getUser also failed:', e);
     return { session: null, user: null };
   }
 }

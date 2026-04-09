@@ -139,7 +139,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
           }
         } catch (e) {
           // ignore footer_settings read errors - use default values
-          console.warn('[ThemeContext] Could not read footer_settings, using default values', e);
+          logger.warn('[ThemeContext] Could not read footer_settings, using default values', e);
         }
 
         if (latest['site_background_color']) newSettings.backgroundColor = latest['site_background_color'] || '#F4EEE3';
@@ -166,7 +166,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
       }
     } catch (e: any) {
       if (e?.message === 'timeout') {
-        console.warn('[ThemeContext] refreshSettings timed out — using default/cached settings');
+        logger.warn('[ThemeContext] refreshSettings timed out — using default/cached settings');
         // Aplica as cores dos defaults para garantir que o app renderize corretamente
         applyColors(defaultSettings);
       } else {

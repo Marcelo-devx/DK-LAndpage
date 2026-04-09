@@ -7,6 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import { Loader2, CheckCircle, CreditCard, MessageSquare, AlertTriangle, Smartphone, Heart } from 'lucide-react';
 import OrderTimer from '@/components/OrderTimer';
 import { cn } from '@/lib/utils';
+import { logger } from '@/lib/logger';
 import ProductImage from '@/components/ProductImage';
 
 interface Order {
@@ -111,7 +112,7 @@ const ConfirmacaoPedido = () => {
           return;
         }
       } catch (fnErr) {
-        console.warn('[ConfirmacaoPedido] get-order-public failed, trying direct query:', fnErr);
+        logger.warn('[ConfirmacaoPedido] get-order-public failed, trying direct query:', fnErr);
       }
 
       // Strategy 2: Direct query (works if user is logged in and owns the order)
@@ -191,15 +192,15 @@ const ConfirmacaoPedido = () => {
               try {
                 const { error: finalizeError } = await supabase.rpc('finalize_order_payment', { p_order_id: orderId });
                 if (finalizeError) {
-                  console.warn('[ConfirmacaoPedido] finalize_order_payment error:', finalizeError);
+                  logger.warn('[ConfirmacaoPedido] finalize_order_payment error:', finalizeError);
                 } else {
-                  console.info('[ConfirmacaoPedido] finalize_order_payment OK for order', orderId);
+                  logger.info('[ConfirmacaoPedido] finalize_order_payment OK for order', orderId);
                 }
               } catch (e) {
-                console.error('[ConfirmacaoPedido] finalize_order_payment exception:', e);
+                logger.error('[ConfirmacaoPedido] finalize_order_payment exception:', e);
               }
             } else {
-              console.info('[ConfirmacaoPedido] already processed order', orderId, '— skipping finalize');
+              logger.info('[ConfirmacaoPedido] already processed order', orderId, '— skipping finalize');
             }
 
             // 4. Buscar detalhes atualizados (sempre)
@@ -276,7 +277,7 @@ const ConfirmacaoPedido = () => {
     try {
       const { error: rpcError } = await supabase.rpc('finalize_order_payment', { p_order_id: Number(id) });
       if (rpcError) {
-        console.warn('RPC finalize_order_payment returned error:', rpcError);
+        logger.warn('RPC finalize_order_payment returned error:', rpcError);
         setErrorMessage('Não foi possível forçar a verificação automática do pagamento. Tente novamente em alguns instantes.');
       } else {
         await fetchOrderDetails();

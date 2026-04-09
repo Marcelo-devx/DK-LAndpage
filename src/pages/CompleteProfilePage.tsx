@@ -17,6 +17,7 @@ import { DatePicker } from '@/components/ui/DatePicker';
 import { format } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checkbox } from '@/components/ui/checkbox';
+import { logger } from '@/lib/logger';
 import InformationalPopup from '@/components/InformationalPopup';
 
 const profileSchema = z.object({
@@ -171,7 +172,7 @@ const CompleteProfilePage = () => {
     setCpfValidated(false);
 
     const watchdog = setTimeout(() => {
-      console.warn('[CompleteProfilePage] checkCpfDuplicate watchdog cleared');
+      logger.warn('[CompleteProfilePage] checkCpfDuplicate watchdog cleared');
       setIsCheckingCpf(false);
       setCpfValidated(true); // don't block user on timeout
     }, 20000);
@@ -261,7 +262,7 @@ const CompleteProfilePage = () => {
     setValue('state', '');
 
     const watchdog = setTimeout(() => {
-      console.warn('[CompleteProfilePage] handleCepLookup watchdog cleared');
+      logger.warn('[CompleteProfilePage] handleCepLookup watchdog cleared');
       setIsFetchingCep(false);
     }, 20000);
 
@@ -298,7 +299,7 @@ const CompleteProfilePage = () => {
           }
 
           // Erro técnico (500, timeout, network) → tentar fallback
-          console.warn('[CompleteProfilePage] edge function falhou, tentando fallback ViaCEP:', error);
+          logger.warn('[CompleteProfilePage] edge function falhou, tentando fallback ViaCEP:', error);
           edgeFailed = true;
         } else if (data) {
           fillAddressFromData(data);
@@ -307,7 +308,7 @@ const CompleteProfilePage = () => {
           edgeFailed = true;
         }
       } catch (edgeErr: any) {
-        console.warn('[CompleteProfilePage] edge function exception, tentando fallback ViaCEP:', edgeErr);
+        logger.warn('[CompleteProfilePage] edge function exception, tentando fallback ViaCEP:', edgeErr);
         edgeFailed = true;
       }
 

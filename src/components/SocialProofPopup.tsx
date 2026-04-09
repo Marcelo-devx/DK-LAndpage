@@ -129,9 +129,10 @@ const SocialProofPopup = () => {
 
           <button 
             onClick={() => setIsVisible(false)} 
-            className="text-slate-600 hover:text-white absolute top-2 right-2 p-1 transition-colors"
+            className="text-white hover:bg-white/10 bg-black/30 p-2 rounded-full transition-colors"
+            aria-label="Fechar notificação"
           >
-            <X size={14} />
+            <X size={18} />
           </button>
         </motion.div>
       )}

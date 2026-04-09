@@ -118,6 +118,11 @@ const CategoryProductCarousel = memo(({ categoryName, showAgeBadge = true }: Cat
     };
   }, [categoryName, showAgeBadge]);
 
+  // Não renderiza nada se não houver produtos e não estiver carregando
+  if (!loading && products.length === 0) {
+    return null;
+  }
+
   return (
     <section className="container mx-auto px-4 md:px-6 xl:px-8 py-6 md:py-12 xl:py-16">
       <div className="flex items-end justify-between mb-6 md:mb-10 xl:mb-12">

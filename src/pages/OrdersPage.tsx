@@ -3,10 +3,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { getSessionOrUser } from '@/lib/auth';
 import { useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, Package, ChevronRight, CreditCard, MessageSquare, Clock, CheckCircle2, Truck, AlertCircle, Calendar, Heart } from 'lucide-react';
+import { Loader2, Package, ChevronRight, CreditCard, MessageSquare, Clock, CheckCircle2, Truck, AlertCircle, Calendar, Heart, MapPin } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ReviewModal from '@/components/ReviewModal';
 import { showLoading, dismissToast, showError } from '@/utils/toast';
 import { cn } from '@/lib/utils';
@@ -59,9 +60,50 @@ const OrdersPage = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [reviewingItem, setReviewingItem] = useState<{ productId: number; orderId: number; productName: string } | null>(null);
+  
+  // Filtros
+  const [dateFilter, setDateFilter] = useState('all');
+  const [financialStatusFilter, setFinancialStatusFilter] = useState('all');
+  const [deliveryStatusFilter, setDeliveryStatusFilter] = useState('all');
 
   // REMOVIDO: A verificação de MP params agora é feita no App.tsx
   // O OrdersPage sempre buscará os pedidos normalmente
+
+  // Função de filtragem de pedidos
+  const getFilteredOrders = useCallback(() => {
+    return orders.filter(order => {
+      // Filtro de status financeiro
+      if (financialStatusFilter !== 'all') {
+        const status = order.status.toLowerCase();
+        const matches = {
+          'pendente': status.includes('aguardando') || status.includes('pendente'),
+          'pago': status.includes('pago') || status.includes('aprovado') || status.includes('finalizada'),
+          'em-preparacao': status.includes('preparação'),
+          'cancelado': status.includes('cancelado'),
+          'transito': status.includes('trânsito') || status.includes('enviado') || status.includes('despachado')
+        };
+        if (!matches[financialStatusFilter as keyof typeof matches]) return false;
+      }
+
+      // Filtro de status de entrega
+      if (deliveryStatusFilter !== 'all') {
+        const delivery = (order.delivery_status || '').toLowerCase();
+        const matches = {
+          'aguardando': delivery.includes('aguardando') || delivery.includes('pendente'),
+          'enviado': delivery.includes('enviado') || delivery.includes('caminho') || delivery.includes('despachado'),
+          'entregue': delivery.includes('entregue')
+        };
+        if (!matches[deliveryStatusFilter as keyof typeof matches]) return false;
+      }
+
+      // Filtro de data (atualmente apenas "todos" implementado)
+      // Futuramente pode-se adicionar filtros por período específico
+
+      return true;
+    });
+  }, [orders, financialStatusFilter, deliveryStatusFilter]);
+
+  const filteredOrders = getFilteredOrders();
 
   const fetchOrders = useCallback(async (isBackground = false) => {
     // Timeout de 3s para evitar loading infinito ao voltar de outra aba
@@ -148,13 +190,69 @@ const OrdersPage = () => {
 
   return (
     <div className="container mx-auto px-4 md:px-6 py-4 md:py-10 text-charcoal-gray">
-      <header className="mb-12 max-w-5xl mx-auto">
+      <header className="mb-8 md:mb-12 max-w-5xl mx-auto">
         <h1 className="text-4xl font-extrabold tracking-tight uppercase text-charcoal-gray">Minhas Compras.</h1>
         <p className="text-stone-600 font-semibold mt-2">Acompanhe seus pedidos e histórico de exclusividade.</p>
       </header>
 
+      {/* Filtros */}
+      {orders.length > 0 && (
+        <div className="max-w-5xl mx-auto mb-8">
+          <div className="bg-white border border-stone-200 rounded-2xl p-4 md:p-6 shadow-sm">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Filtro de Período */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-extrabold uppercase text-slate-500 tracking-widest">Período</label>
+                <Select value={dateFilter} onValueChange={setDateFilter}>
+                  <SelectTrigger className="h-11 rounded-xl">
+                    <SelectValue placeholder="Selecione o período" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os pedidos</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Filtro de Status Financeiro */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-extrabold uppercase text-slate-500 tracking-widest">Status Financeiro</label>
+                <Select value={financialStatusFilter} onValueChange={setFinancialStatusFilter}>
+                  <SelectTrigger className="h-11 rounded-xl">
+                    <SelectValue placeholder="Selecione o status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="pendente">Aguardando Pagamento</SelectItem>
+                    <SelectItem value="pago">Pago / Finalizada</SelectItem>
+                    <SelectItem value="em-preparacao">Em Preparação</SelectItem>
+                    <SelectItem value="transito">Em Trânsito</SelectItem>
+                    <SelectItem value="cancelado">Cancelado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Filtro de Status de Entrega */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-extrabold uppercase text-slate-500 tracking-widest">Status de Entrega</label>
+                <Select value={deliveryStatusFilter} onValueChange={setDeliveryStatusFilter}>
+                  <SelectTrigger className="h-11 rounded-xl">
+                    <SelectValue placeholder="Selecione o status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="aguardando">Aguardando</SelectItem>
+                    <SelectItem value="enviado">Enviado</SelectItem>
+                    <SelectItem value="entregue">Entregue</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-5xl mx-auto">
-        {orders.length === 0 ? (
+        {filteredOrders.length === 0 ? (
           <div className="text-center py-24 bg-white rounded-[2.5rem] border border-stone-200 shadow-sm">
             <Package className="mx-auto h-20 w-20 text-stone-300 mb-6" />
             <h3 className="text-2xl font-bold tracking-tight uppercase text-charcoal-gray">Nenhum pedido encontrado.</h3>
@@ -165,7 +263,7 @@ const OrdersPage = () => {
           </div>
         ) : (
           <Accordion type="single" collapsible className="w-full space-y-6">
-            {orders.map((order) => {
+            {filteredOrders.map((order) => {
               const financialStatus = getStatusBadge(order.status);
               const deliveryStatus = getDeliveryBadge(order.delivery_status || 'Aguardando');
               const isPending = order.status === 'Aguardando Pagamento' || order.status === 'Em Preparação';
@@ -231,7 +329,32 @@ const OrdersPage = () => {
                             </div>
                           ))}
                         </div>
+
+                        {/* Endereço de Entrega */}
+                        {order.shipping_address && (
+                          <div className="flex items-start gap-3 bg-sky-50 border border-sky-100 p-4 rounded-2xl">
+                            <MapPin className="h-5 w-5 text-sky-600 shrink-0 mt-0.5" />
+                            <div className="flex-1">
+                              <p className="text-[10px] font-black uppercase text-sky-600 tracking-widest mb-2">Endereço de Entrega</p>
+                              <p className="text-sm font-bold text-charcoal-gray">
+                                {order.shipping_address.street}, {order.shipping_address.number}
+                              </p>
+                              {order.shipping_address.complement && (
+                                <p className="text-xs text-stone-600 mt-0.5">
+                                  {order.shipping_address.complement}
+                                </p>
+                              )}
+                              <p className="text-xs text-stone-600 mt-1">
+                                {order.shipping_address.neighborhood} — {order.shipping_address.city} - {order.shipping_address.state}
+                              </p>
+                              <p className="text-xs text-stone-500 font-semibold mt-0.5">
+                                CEP: {order.shipping_address.cep}
+                              </p>
+                            </div>
+                          </div>
+                        )}
                       </div>
+
 
                       <div className="space-y-8">
                         <div>

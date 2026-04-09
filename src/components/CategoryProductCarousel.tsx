@@ -38,8 +38,7 @@ const CategoryProductCarousel = memo(({ categoryName, showAgeBadge = true }: Cat
           supabase
             .from('products')
             .select('id, name, price, pix_price, image_url, stock_quantity, category')
-            // use case-insensitive partial match to avoid missing items due to minor differences
-            .ilike('category', `%${cat}%`)
+            .eq('category', cat.trim())
             .eq('is_visible', true)
             .order('created_at', { ascending: false })
             .limit(24), // Reduced from 48 to 24 for better performance

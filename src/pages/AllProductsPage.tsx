@@ -104,6 +104,9 @@ const AllProductsPage = () => {
 
   // Limpa subcategorias selecionadas quando a categoria muda
   useEffect(() => {
+    // Não limpa se ainda estiver carregando as categorias/subcategorias
+    if (allSubCategories.length === 0) return;
+    
     const available = availableSubCategories();
     const validSelected = selectedSubCategories.filter(sc => 
       available.some(a => normalizeString(a.name) === normalizeString(sc))
@@ -113,7 +116,7 @@ const AllProductsPage = () => {
     if (validSelected.length !== selectedSubCategories.length) {
       setSelectedSubCategories(validSelected);
     }
-  }, [selectedCategories, allSubCategories, availableSubCategories, normalizeString]);
+  }, [selectedCategories, allSubCategories, availableSubCategories, normalizeString, selectedSubCategories.length]);
 
   const fetchFilterOptions = useCallback(async () => {
     // keep legacy master lists for ids

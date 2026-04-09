@@ -192,9 +192,6 @@ const Index = () => {
 
   return (
     <div className="bg-off-white overflow-x-hidden text-charcoal-gray w-full transition-colors duration-500">
-      {/* Tag H1 semanticamente correta para SEO e acessibilidade - visível apenas para leitores de tela */}
-      <h1 className="sr-only">DKCWB - Curadoria exclusiva e produtos premium</h1>
-      
       <AgeVerificationPopup />
       {infoPopup && (
         <InformationalPopup

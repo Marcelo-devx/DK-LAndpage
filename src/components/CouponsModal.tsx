@@ -165,6 +165,7 @@ const CouponsModal = ({ isOpen, onOpenChange, userPoints, onRedemption }: Coupon
                   return (
                     <Card key={coupon.id} className={cn(
                       "bg-white border-stone-200 transition-all duration-300 rounded-2xl overflow-hidden shadow-sm",
+                      // Removido opacity-60 para garantir legibilidade
                       !canRedeem ? 'bg-stone-50' : 'hover:border-sky-500/50 hover:shadow-md'
                     )}>
                       <CardContent className="p-5 flex items-center justify-between gap-4">

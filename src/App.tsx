@@ -1,41 +1,36 @@
-import { useEffect, lazy, Suspense } from "react";
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { Skeleton } from "@/components/ui/skeleton";
-
-// Lazy load all pages for better initial load performance
-const Index = lazy(() => import("./pages/Index"));
-const ProductPage = lazy(() => import("./pages/ProductPage"));
-const PromotionPage = lazy(() => import("./pages/PromotionPage"));
-const Login = lazy(() => import("./pages/Login"));
-const ProfilePage = lazy(() => import("./pages/ProfilePage"));
-const CheckoutPage = lazy(() => import("./pages/CheckoutPage"));
-const OrdersPage = lazy(() => import("./pages/OrdersPage"));
-const ConfirmacaoPedido = lazy(() => import("./pages/ConfirmacaoPedido"));
-const AllProductsPage = lazy(() => import("./pages/AllProductsPage"));
-const CompleteProfilePage = lazy(() => import("./pages/CompleteProfilePage"));
-const ReferralsPage = lazy(() => import("./pages/ReferralsPage"));
-const Dashboard = lazy(() => import("./pages/Dashboard"));
-const LoyaltyClubPage = lazy(() => import("./pages/LoyaltyClubPage"));
-const MyCouponsPage = lazy(() => import("./pages/MyCouponsPage"));
-const HowItWorksPage = lazy(() => import("./pages/HowItWorksPage"));
-const InformacoesPage = lazy(() => import("./pages/InformacoesPage"));
-const AdminLogistics = lazy(() => import("./pages/AdminLogistics"));
-const UpdatePassword = lazy(() => import("./pages/UpdatePassword"));
-const TestEdgeFunction = lazy(() => import("./pages/TestEdgeFunction"));
-const EmailConfirm = lazy(() => import("./pages/EmailConfirm"));
-
-// Non-lazy loaded components (needed for layout)
-import MainLayout from "./components/MainLayout";
+import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import ProductPage from "./pages/ProductPage";
+import PromotionPage from "./pages/PromotionPage";
+import MainLayout from "./components/MainLayout";
+import Login from "./pages/Login";
+import ProfilePage from "./pages/ProfilePage";
+import CheckoutPage from "./pages/CheckoutPage";
+import OrdersPage from "./pages/OrdersPage";
+import ConfirmacaoPedido from "./pages/ConfirmacaoPedido";
+import AllProductsPage from "./pages/AllProductsPage";
+import CompleteProfilePage from "./pages/CompleteProfilePage";
+import ReferralsPage from "./pages/ReferralsPage";
+import Dashboard from "./pages/Dashboard";
+import LoyaltyClubPage from "./pages/LoyaltyClubPage";
+import MyCouponsPage from "./pages/MyCouponsPage";
+import HowItWorksPage from "./pages/HowItWorksPage";
+import InformacoesPage from "./pages/InformacoesPage";
+import AdminLogistics from "./pages/AdminLogistics";
+import UpdatePassword from "./pages/UpdatePassword";
+import TestEdgeFunction from "./pages/TestEdgeFunction";
 import AuthEventHandler from "./components/AuthEventHandler";
 import ScrollToTop from "./components/ScrollToTop";
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import AdminCustomizer from "./components/AdminCustomizer";
+import EmailConfirm from "./pages/EmailConfirm";
 import MaintenanceScreen from "./components/MaintenanceScreen";
 import ErrorBoundary from "./components/ErrorBoundary";
 import DashboardSecurity from "./pages/DashboardSecurity";
@@ -53,16 +48,6 @@ const queryClient = new QueryClient({
     },
   },
 });
-
-// Loading component for lazy-loaded pages
-const PageLoader = () => (
-  <div className="min-h-screen flex items-center justify-center bg-off-white">
-    <div className="space-y-4 w-full max-w-md px-4">
-      <Skeleton className="h-12 w-12 rounded-full mx-auto" />
-      <Skeleton className="h-4 w-3/4 mx-auto" />
-    </div>
-  </div>
-);
 
 const AppContent = () => {
   useMercadoPagoRedirect();
@@ -92,35 +77,33 @@ const AppContent = () => {
   return (
     <>
       <AdminCustomizer />
-      <Suspense fallback={<PageLoader />}>
-        <Routes>
-          <Route element={<MainLayout />}>
-            <Route path="/" element={<Index />} />
-            <Route path="/produtos" element={<AllProductsPage />} />
-            <Route path="/produto/:id" element={<ProductPage />} />
-            <Route path="/promocao/:id" element={<PromotionPage />} />
-            <Route path="/perfil" element={<ProfilePage />} />
-            <Route path="/checkout" element={<CheckoutPage />} />
-            <Route path="/compras" element={<OrdersPage />} />
-            <Route path="/pedidos" element={<Navigate to="/compras" replace />} />
-            <Route path="/confirmacao-pedido/:id" element={<ConfirmacaoPedido />} />
-            <Route path="/indicacoes" element={<ReferralsPage />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/dashboard/security" element={<DashboardSecurity />} />
-            <Route path="/clube-dk" element={<LoyaltyClubPage />} />
-            <Route path="/meus-cupons" element={<MyCouponsPage />} />
-            <Route path="/como-funciona" element={<HowItWorksPage />} />
-            <Route path="/informacoes" element={<InformacoesPage />} />
-          </Route>
-          <Route path="/login" element={<Login />} />
-          <Route path="/complete-profile" element={<CompleteProfilePage />} />
-          <Route path="/update-password" element={<UpdatePassword />} />
-          <Route path="/admin/logistica" element={<AdminLogistics />} />
-          <Route path="/auth/confirm" element={<EmailConfirm />} />
-          <Route path="/test-edge-function" element={<TestEdgeFunction />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </Suspense>
+      <Routes>
+        <Route element={<MainLayout />}>
+          <Route path="/" element={<Index />} />
+          <Route path="/produtos" element={<AllProductsPage />} />
+          <Route path="/produto/:id" element={<ProductPage />} />
+          <Route path="/promocao/:id" element={<PromotionPage />} />
+          <Route path="/perfil" element={<ProfilePage />} />
+          <Route path="/checkout" element={<CheckoutPage />} />
+          <Route path="/compras" element={<OrdersPage />} />
+          <Route path="/pedidos" element={<Navigate to="/compras" replace />} />
+          <Route path="/confirmacao-pedido/:id" element={<ConfirmacaoPedido />} />
+          <Route path="/indicacoes" element={<ReferralsPage />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard/security" element={<DashboardSecurity />} />
+          <Route path="/clube-dk" element={<LoyaltyClubPage />} />
+          <Route path="/meus-cupons" element={<MyCouponsPage />} />
+          <Route path="/como-funciona" element={<HowItWorksPage />} />
+          <Route path="/informacoes" element={<InformacoesPage />} />
+        </Route>
+        <Route path="/login" element={<Login />} />
+        <Route path="/complete-profile" element={<CompleteProfilePage />} />
+        <Route path="/update-password" element={<UpdatePassword />} />
+        <Route path="/admin/logistica" element={<AdminLogistics />} />
+        <Route path="/auth/confirm" element={<EmailConfirm />} />
+        <Route path="/test-edge-function" element={<TestEdgeFunction />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
       <LoyaltyButton />
     </>
   );

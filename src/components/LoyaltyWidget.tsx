@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ShoppingBag, Cake, User, Gem, Lock, Loader2, ChevronRight, Star, CheckCircle, Clock, Gift, Ticket, ShoppingBag as ShoppingBagIcon } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
+import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 
 interface LoyaltyWidgetProps {
@@ -95,50 +96,50 @@ const LoyaltyWidget = ({ onClose }: LoyaltyWidgetProps) => {
   }, [birthDate, profile]);
 
   const handleRedeem = useCallback(async (coupon: any) => {
-    console.log('[LoyaltyWidget] ===========================================');
-    console.log('[LoyaltyWidget] Iniciando resgate:', { id: coupon.id, name: coupon.name, cost: coupon.points_cost });
-    
+    logger.log('[LoyaltyWidget] ===========================================');
+    logger.log('[LoyaltyWidget] Iniciando resgate:', { id: coupon.id, name: coupon.name, cost: coupon.points_cost });
+
     if (!profile) {
-      console.error('[LoyaltyWidget] ❌ Profile não está carregado');
+      logger.error('[LoyaltyWidget] ❌ Profile não está carregado');
       showError('Carregando seus dados...');
       return;
     }
-    
-    console.log('[LoyaltyWidget] Pontos atuais:', profile.points);
-    console.log('[LoyaltyWidget] Custo do cupom:', coupon.points_cost);
-    
+
+    logger.log('[LoyaltyWidget] Pontos atuais:', profile.points);
+    logger.log('[LoyaltyWidget] Custo do cupom:', coupon.points_cost);
+
     if (profile.points < coupon.points_cost) {
-      console.error('[LoyaltyWidget] ❌ Saldo insuficiente');
+      logger.error('[LoyaltyWidget] ❌ Saldo insuficiente');
       showError(`Você precisa de ${coupon.points_cost} pontos. Tem ${profile.points}.`);
       return;
     }
-    
-    console.log('[LoyaltyWidget] ✅ Iniciando resgate...');
+
+    logger.log('[LoyaltyWidget] ✅ Iniciando resgate...');
     setRedeemingId(coupon.id);
     const toastId = showLoading("Resgatando...");
     
     try {
       const { data, error } = await supabase.rpc('redeem_coupon', { coupon_id_to_redeem: coupon.id });
-      
-      console.log('[LoyaltyWidget] Resposta da RPC:', { data, error });
-      
+
+      logger.log('[LoyaltyWidget] Resposta da RPC:', { data, error });
+
       dismissToast(toastId);
-      
+
       if (error) {
-        console.error('[LoyaltyWidget] ❌ Erro na RPC:', error);
+        logger.error('[LoyaltyWidget] ❌ Erro na RPC:', error);
         throw error;
       }
-      
-      console.log('[LoyaltyWidget] ✅ Resgate bem-sucedido!');
+
+      logger.log('[LoyaltyWidget] ✅ Resgate bem-sucedido!');
       showSuccess(`🎉 Cupom resgatado! R$ ${coupon.discount_value} OFF adicionado.`);
-      
+
       // Atualizar pontos localmente
       const newPoints = profile.points - coupon.points_cost;
-      console.log('[LoyaltyWidget] Novos pontos:', newPoints);
+      logger.log('[LoyaltyWidget] Novos pontos:', newPoints);
       setProfile((prev: any) => ({ ...prev, points: newPoints }));
-      
+
     } catch (e: any) {
-      console.error('[LoyaltyWidget] ❌ Erro ao resgatar:', e);
+      logger.error('[LoyaltyWidget] ❌ Erro ao resgatar:', e);
       dismissToast(toastId);
       
       let errorMessage = 'Erro ao resgatar.';
@@ -154,7 +155,7 @@ const LoyaltyWidget = ({ onClose }: LoyaltyWidgetProps) => {
       showError(errorMessage);
     } finally {
       setRedeemingId(null);
-      console.log('[LoyaltyWidget] ===========================================');
+      logger.log('[LoyaltyWidget] ===========================================');
     }
   }, [profile]);
 

@@ -10,10 +10,8 @@ import { ArrowLeft, LogIn, UserPlus, RefreshCw, Mail, CheckCircle2, KeyRound, Gi
 import { useTheme } from '@/context/ThemeContext';
 import { showSuccess } from '@/utils/toast';
 import OtpInput from '@/components/OtpInput';
+import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
-
-const SUPABASE_URL = "https://jrlozhhvwqfmjtkmvukf.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpybG96aGh2d3FmbWp0a212dWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzNDU2NjQsImV4cCI6MjA2NzkyMTY2NH0.Do5c1-TKqpyZTJeX_hLbw1SU40CbwXfCIC-pPpcD_JM";
 
 type CustomView = 'sign_in' | 'sign_up' | 'forgot_password';
 
@@ -158,7 +156,7 @@ const Login = () => {
 
   // ── redirectAfterLogin — extracted as useCallback so it can be called directly ──
   const redirectAfterLogin = useCallback(async (session: any) => {
-    console.log('[Login] redirectAfterLogin iniciado para user:', session.user.id);
+    logger.log('[Login] redirectAfterLogin iniciado para user:', session.user.id);
 
     const storedRefCode = sessionStorage.getItem('referral_code');
     if (storedRefCode) {
@@ -169,18 +167,18 @@ const Login = () => {
     }
 
     try {
-      console.log('[Login] buscando perfil...');
+      logger.log('[Login] buscando perfil...');
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('first_name, last_name, phone, cpf_cnpj, gender, date_of_birth, cep, street, number, neighborhood, city, state, must_change_password')
         .eq('id', session.user.id)
         .single();
 
-      console.log('[Login] perfil recebido:', { profile, profileError });
+      logger.log('[Login] perfil recebido:', { profile, profileError });
 
       // Prioridade 1: Usuário precisa trocar a senha temporária
       if (profile?.must_change_password) {
-        console.log('[Login] must_change_password=true → /update-password');
+        logger.log('[Login] must_change_password=true → /update-password');
         navigate('/update-password', { replace: true, state: { mandatory: true } });
         return;
       }
@@ -191,7 +189,7 @@ const Login = () => {
         profile.cep && profile.street && profile.number &&
         profile.neighborhood && profile.city && profile.state;
 
-      console.log('[Login] isProfileComplete:', isProfileComplete, '→ redirecionando para:', !isProfileComplete ? '/complete-profile' : from);
+      logger.log('[Login] isProfileComplete:', isProfileComplete, '→ redirecionando para:', !isProfileComplete ? '/complete-profile' : from);
 
       if (!isProfileComplete) {
         navigate('/complete-profile', { replace: true });

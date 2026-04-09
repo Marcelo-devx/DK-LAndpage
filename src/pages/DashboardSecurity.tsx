@@ -6,9 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { showError, showSuccess, showLoading, dismissToast } from '@/utils/toast';
 import { Loader2, Mail, ShieldCheck, KeyRound, Lock, Check, X } from 'lucide-react';
-
-const SUPABASE_URL = "https://jrlozhhvwqfmjtkmvukf.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpybG96aGh2d3FmbWp0a212dWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzNDU2NjQsImV4cCI6MjA2NzkyMTY2NH0.Do5c1-TKqpyZTJeX_hLbw1SU40CbwXfCIC-pPpcD_JM";
+import { logger } from '@/lib/logger';
 
 const DashboardSecurity = () => {
   const [loading, setLoading] = useState(false);
@@ -76,7 +74,7 @@ const DashboardSecurity = () => {
 
       if (!res.ok) {
         showError(data?.error || 'Erro ao gerar nova senha. Tente novamente.');
-        console.error('[DashboardSecurity] forgot-password error', res.status, data);
+        logger.error('[DashboardSecurity] forgot-password error', res.status, data);
         return;
       }
 
@@ -90,7 +88,7 @@ const DashboardSecurity = () => {
       } else {
         showError(err.message || 'Erro inesperado. Tente novamente.');
       }
-      console.error('[DashboardSecurity] unexpected', err);
+      logger.error('[DashboardSecurity] unexpected', err);
     } finally {
       setLoading(false);
     }
@@ -163,7 +161,7 @@ const DashboardSecurity = () => {
 
       if (updateError) {
         showError(typeof updateError === 'string' ? updateError : 'Erro ao atualizar senha.');
-        console.error('[DashboardSecurity] updateUser (admin) error', updateError);
+        logger.error('[DashboardSecurity] updateUser (admin) error', updateError);
         clearTimeout(watchdog);
         setChanging(false);
         return;
@@ -175,9 +173,9 @@ const DashboardSecurity = () => {
       supabase.functions.invoke('notify-password-change', {
         body: { email, name: '' },
       }).then(() => {
-        console.log('[DashboardSecurity] E-mail de confirmação enviado com sucesso');
+        logger.log('[DashboardSecurity] E-mail de confirmação enviado com sucesso');
       }).catch(err => {
-        console.warn('[DashboardSecurity] Erro ao enviar e-mail de confirmação:', err);
+        logger.warn('[DashboardSecurity] Erro ao enviar e-mail de confirmação:', err);
       });
 
       // Verificar se o perfil está completo

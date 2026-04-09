@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { MessageCircle, X, Send, Loader2, Bot, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -52,7 +53,7 @@ const SupportChatWidget = () => {
                     }]);
                 }
             } catch (error) {
-                console.error("Falha ao buscar saudação:", error);
+                logger.error("Falha ao buscar saudação:", error);
                 // Fallback caso o webhook falhe
                 setMessages([{
                     id: 'default-welcome',
@@ -106,7 +107,7 @@ const SupportChatWidget = () => {
       setMessages(prev => [...prev, botMsg]);
 
     } catch (err) {
-      console.error('[SupportChatWidget] chat-proxy invoke error:', err);
+      logger.error('[SupportChatWidget] chat-proxy invoke error:', err);
       // If supabase.functions.invoke fails, log and attempt direct fetch to help diagnose CORS/network issues
       try {
         const debugResp = await fetch('https://jrlozhhvwqfmjtkmvukf.supabase.co/functions/v1/chat-proxy', {
@@ -115,12 +116,12 @@ const SupportChatWidget = () => {
           body: JSON.stringify({ message: userMsg.text, history: messages.slice(-5).map(m => ({ role: m.sender, content: m.text })) })
         });
         if (!debugResp.ok) {
-          console.warn('[SupportChatWidget] direct function fetch not ok:', debugResp.status, debugResp.statusText);
+          logger.warn('[SupportChatWidget] direct function fetch not ok:', debugResp.status, debugResp.statusText);
         } else {
-          console.info('[SupportChatWidget] direct function fetch succeeded (for debug).');
+          logger.info('[SupportChatWidget] direct function fetch succeeded (for debug).');
         }
       } catch (fetchErr) {
-        console.error('[SupportChatWidget] direct function fetch error (CORS/network):', fetchErr);
+        logger.error('[SupportChatWidget] direct function fetch error (CORS/network):', fetchErr);
       }
 
       setMessages(prev => [...prev, {

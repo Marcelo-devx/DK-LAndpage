@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
+import { logger } from '@/lib/logger';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -131,78 +132,78 @@ const LoyaltyClubPage = () => {
   }, [fetchData]);
 
   const onRedeemCoupon = async (coupon: any) => {
-    console.log('[LoyaltyClubPage] ===========================================');
-    console.log('[LoyaltyClubPage] Iniciando resgate do cupom:', { 
-      id: coupon.id, 
-      name: coupon.name, 
-      cost: coupon.points_cost 
+    logger.log('[LoyaltyClubPage] ===========================================');
+    logger.log('[LoyaltyClubPage] Iniciando resgate do cupom:', {
+      id: coupon.id,
+      name: coupon.name,
+      cost: coupon.points_cost
     });
-    
+
     // Verificar autenticação
-    if (!sessionUser) { 
-      console.error('[LoyaltyClubPage] ❌ Usuário não autenticado');
-      showError('Faça login para resgatar cupons.'); 
-      return; 
+    if (!sessionUser) {
+      logger.error('[LoyaltyClubPage] ❌ Usuário não autenticado');
+      showError('Faça login para resgatar cupons.');
+      return;
     }
-    
-    console.log('[LoyaltyClubPage] ✅ Usuário autenticado:', sessionUser.id);
-    
+
+    logger.log('[LoyaltyClubPage] ✅ Usuário autenticado:', sessionUser.id);
+
     // Verificar se profile está carregado
     if (!profile) {
-      console.error('[LoyaltyClubPage] ❌ Profile não está carregado');
-      console.log('[LoyaltyClubPage] Buscando profile novamente...');
-      
+      logger.error('[LoyaltyClubPage] ❌ Profile não está carregado');
+      logger.log('[LoyaltyClubPage] Buscando profile novamente...');
+
       try {
         const { data: profileData } = await supabase
           .from('profiles')
           .select('points, spend_last_6_months, tier_id, current_tier_name, last_tier_update')
           .eq('id', sessionUser.id)
           .single();
-        
+
         if (profileData) {
-          console.log('[LoyaltyClubPage] Profile carregado:', profileData);
+          logger.log('[LoyaltyClubPage] Profile carregado:', profileData);
           setProfile(profileData);
         } else {
-          console.error('[LoyaltyClubPage] ❌ Profile não encontrado');
+          logger.error('[LoyaltyClubPage] ❌ Profile não encontrado');
           showError('Erro ao carregar seus dados. Tente novamente.');
           return;
         }
       } catch (error) {
-        console.error('[LoyaltyClubPage] ❌ Erro ao buscar profile:', error);
+        logger.error('[LoyaltyClubPage] ❌ Erro ao buscar profile:', error);
         showError('Erro ao carregar seus dados. Tente novamente.');
         return;
       }
     }
-    
+
     // Verificar pontos suficientes (usando profile atualizado)
     const currentPoints = profile?.points || 0;
-    console.log('[LoyaltyClubPage] Pontos atuais:', currentPoints);
-    console.log('[LoyaltyClubPage] Custo do cupom:', coupon.points_cost);
-    
+    logger.log('[LoyaltyClubPage] Pontos atuais:', currentPoints);
+    logger.log('[LoyaltyClubPage] Custo do cupom:', coupon.points_cost);
+
     if (currentPoints < coupon.points_cost) {
-      console.error('[LoyaltyClubPage] ❌ Saldo insuficiente:', currentPoints, '<', coupon.points_cost);
+      logger.error('[LoyaltyClubPage] ❌ Saldo insuficiente:', currentPoints, '<', coupon.points_cost);
       showError(`Saldo insuficiente. Você tem ${currentPoints} pontos e precisa de ${coupon.points_cost}.`);
       return;
     }
-    
-    console.log('[LoyaltyClubPage] ✅ Pontos suficientes, iniciando resgate...');
-    
+
+    logger.log('[LoyaltyClubPage] ✅ Pontos suficientes, iniciando resgate...');
+
     setRedeemingId(coupon.id);
     const toastId = showLoading("Gerando seu cupom...");
-    
+
     try {
-      console.log('[LoyaltyClubPage] Chamando RPC redeem_coupon...');
-      const { data, error } = await supabase.rpc('redeem_coupon', { 
-        coupon_id_to_redeem: coupon.id 
+      logger.log('[LoyaltyClubPage] Chamando RPC redeem_coupon...');
+      const { data, error } = await supabase.rpc('redeem_coupon', {
+        coupon_id_to_redeem: coupon.id
       });
-      
-      console.log('[LoyaltyClubPage] Resposta da RPC:', { data, error });
-      
+
+      logger.log('[LoyaltyClubPage] Resposta da RPC:', { data, error });
+
       dismissToast(toastId);
-      
+
       if (error) {
-        console.error('[LoyaltyClubPage] ❌ Erro na RPC:', error);
-        console.error('[LoyaltyClubPage] Erro details:', {
+        logger.error('[LoyaltyClubPage] ❌ Erro na RPC:', error);
+        logger.error('[LoyaltyClubPage] Erro details:', {
           message: error.message,
           code: error.code,
           hint: error.hint,
@@ -210,31 +211,31 @@ const LoyaltyClubPage = () => {
         });
         throw error;
       }
-      
-      console.log('[LoyaltyClubPage] ✅ RPC executada com sucesso:', data);
+
+      logger.log('[LoyaltyClubPage] ✅ RPC executada com sucesso:', data);
       showSuccess(`🎉 Cupom resgatado com sucesso! R$ ${coupon.discount_value} OFF adicionado aos seus cupons.`);
-      
+
       // Buscar pontos atualizados
-      console.log('[LoyaltyClubPage] Buscando pontos atualizados...');
+      logger.log('[LoyaltyClubPage] Buscando pontos atualizados...');
       const { data: userData } = await supabase.auth.getUser();
-      
+
       if (userData.user) {
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('points')
           .eq('id', userData.user.id)
           .single();
-        
+
         if (profileError) {
-          console.error('[LoyaltyClubPage] ❌ Erro ao buscar profile atualizado:', profileError);
+          logger.error('[LoyaltyClubPage] ❌ Erro ao buscar profile atualizado:', profileError);
         } else {
-          console.log('[LoyaltyClubPage] ✅ Pontos atualizados:', profileData);
+          logger.log('[LoyaltyClubPage] ✅ Pontos atualizados:', profileData);
           if (profileData) {
             setProfile(prev => prev ? { ...prev, points: profileData.points } : null);
           }
         }
       }
-      
+
       // Atualiza a lista de histórico localmente
       setHistory(prev => [{
         id: Date.now(),
@@ -243,13 +244,13 @@ const LoyaltyClubPage = () => {
         created_at: new Date().toISOString(),
         operation_type: 'redeem'
       }, ...prev]);
-      
-      console.log('[LoyaltyClubPage] ✅ Resgate completado com sucesso!');
+
+      logger.log('[LoyaltyClubPage] ✅ Resgate completado com sucesso!');
 
     } catch (e: any) {
-      console.error('[LoyaltyClubPage] ❌ Erro ao resgatar cupom:', e);
+      logger.error('[LoyaltyClubPage] ❌ Erro ao resgatar cupom:', e);
       dismissToast(toastId);
-      
+
       // Mensagem de erro mais amigável
       let errorMessage = 'Erro ao resgatar cupom. Tente novamente.';
       if (e.message) {
@@ -265,11 +266,11 @@ const LoyaltyClubPage = () => {
           errorMessage = e.message;
         }
       }
-      
+
       showError(errorMessage);
     } finally {
       setRedeemingId(null);
-      console.log('[LoyaltyClubPage] ===========================================');
+      logger.log('[LoyaltyClubPage] ===========================================');
     }
   };
 

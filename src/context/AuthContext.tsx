@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { getSessionWithRetry, getSessionOrUser } from '@/lib/auth';
+import { logger } from '@/lib/logger';
 import type { Session, User } from '@supabase/supabase-js';
 
 interface Profile {
@@ -151,7 +152,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     // Listener único de auth state change
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
-      console.log('[AuthContext] Auth state changed:', event, currentSession?.user?.id);
+      logger.log('[AuthContext] Auth state changed:', event, currentSession?.user?.id);
 
       if (!mounted) return;
 
@@ -162,7 +163,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         if (event === 'SIGNED_IN' && currentSession?.user) {
           // Ignorar SIGNED_IN se já for o mesmo usuário (evita re-renderizações desnecessárias)
           if (currentUserIdRef.current === currentSession.user.id) {
-            console.log('[AuthContext] Ignoring redundant SIGNED_IN for same user');
+            logger.log('[AuthContext] Ignoring redundant SIGNED_IN for same user');
             if (mounted) setLoading(false); // ← libera o loading antes de sair
             return;
           }

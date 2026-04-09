@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { logger } from '@/lib/logger';
 
 interface ThemeSettings {
   backgroundColor: string;
@@ -103,7 +104,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
       const { data, error } = result;
 
       if (error) {
-        console.error('[ThemeContext] refreshSettings supabase error', error);
+        logger.error('[ThemeContext] refreshSettings supabase error', error);
         // Não quebra a app se falhar o fetch de settings - usa valores default
         return;
       }
@@ -125,7 +126,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
             .limit(1)
             .maybeSingle();
 
-          console.log('[ThemeContext] footer_settings row:', footerRow);
+          logger.log('[ThemeContext] footer_settings row:', footerRow);
 
           if (footerRow) {
             if (footerRow.contact_email) newSettings.contactEmail = footerRow.contact_email;

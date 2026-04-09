@@ -7,8 +7,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from './ui/skeleton';
 import { showError, showSuccess, showLoading, dismissToast } from '@/utils/toast';
 import { Gem, Ticket, Loader2, Calendar, ShoppingBag, History, CheckCircle2 } from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import format from 'date-fns/format';
+import ptBR from 'date-fns/locale/pt-BR';
 import { cn } from '@/lib/utils';
 
 interface Coupon {

@@ -16,7 +16,7 @@ import { maskCep, maskPhone, maskCpfCnpj } from '@/utils/masks';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import UserReviewsTab from '@/components/UserReviewsTab';
 import { DatePicker } from '@/components/ui/DatePicker';
-import { format } from 'date-fns';
+import format from 'date-fns/format';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useAuth } from '@/context/AuthContext';
 

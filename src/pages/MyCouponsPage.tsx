@@ -17,8 +17,9 @@ import {
   Loader2,
   AlertTriangle
 } from 'lucide-react';
-import { format, differenceInDays } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import format from 'date-fns/format';
+import differenceInDays from 'date-fns/differenceInDays';
+import ptBR from 'date-fns/locale/pt-BR';
 import { cn } from '@/lib/utils';
 import { showError } from '@/utils/toast';
 

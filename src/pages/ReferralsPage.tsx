@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Copy, Check, UserPlus, Gift, Share2 } from 'lucide-react';
 import { showSuccess } from '@/utils/toast';
 import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
+import format from 'date-fns/format';
 
 interface Referral {
   id?: number;

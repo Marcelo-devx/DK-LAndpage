@@ -58,7 +58,8 @@ const LoyaltyWidget = ({ onClose }: LoyaltyWidgetProps) => {
           .order('points_cost', { ascending: true });
         
         if (mounted) {
-          setCoupons(couponsData || []);
+          const excludeNames = ['PRIMEIRACOMPRA', 'FRETEGRATIS'];
+          setCoupons((couponsData || []).filter((c: any) => !excludeNames.includes(String(c.name).toUpperCase())));
         }
       } catch (error) {
         console.error("Error fetching loyalty data:", error);

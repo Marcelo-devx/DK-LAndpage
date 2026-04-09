@@ -45,13 +45,15 @@ const LoyaltyButton = () => {
         // Buscar cupons ativos
         const { data: coupons } = await supabase
           .from('coupons')
-          .select('points_cost, is_active, stock_quantity')
+          .select('points_cost, is_active, stock_quantity, name')
           .eq('is_active', true)
           .or('stock_quantity.gt.0,stock_quantity.lt.0');
 
         // Calcular quantos cupons o usuário pode resgatar
         if (coupons) {
-          const affordableCoupons = coupons.filter(c => points >= c.points_cost);
+          const excludeNames = ['PRIMEIRACOMPRA', 'FRETEGRATIS'];
+          const filtered = coupons.filter((c: any) => !excludeNames.includes(String(c.name).toUpperCase()));
+          const affordableCoupons = filtered.filter(c => points >= c.points_cost);
           setAvailableCouponsCount(affordableCoupons.length);
         }
 
@@ -108,12 +110,14 @@ const LoyaltyButton = () => {
               // Buscar cupons ativos
               const { data: coupons } = await supabase
                 .from('coupons')
-                .select('points_cost, is_active, stock_quantity')
+                .select('points_cost, is_active, stock_quantity, name')
                 .eq('is_active', true)
                 .or('stock_quantity.gt.0,stock_quantity.lt.0');
 
               if (coupons) {
-                const affordableCoupons = coupons.filter(c => points >= c.points_cost);
+                const excludeNames = ['PRIMEIRACOMPRA', 'FRETEGRATIS'];
+                const filtered = coupons.filter((c: any) => !excludeNames.includes(String(c.name).toUpperCase()));
+                const affordableCoupons = filtered.filter(c => points >= c.points_cost);
                 setAvailableCouponsCount(affordableCoupons.length);
               }
 

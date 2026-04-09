@@ -72,7 +72,11 @@ const LoyaltyClubPage = () => {
         ]);
 
         if (tiersRes.data) setTiers(tiersRes.data);
-        if (couponsRes.data) setCoupons(couponsRes.data);
+        if (couponsRes.data) {
+          const excludeNames = ['PRIMEIRACOMPRA', 'FRETEGRATIS'];
+          const filtered = couponsRes.data.filter((c: any) => !excludeNames.includes(String(c.name).toUpperCase()));
+          setCoupons(filtered);
+        }
         clearTimeout(timeoutId);
         if (!isBackground) setLoading(false);
         return;
@@ -90,7 +94,11 @@ const LoyaltyClubPage = () => {
       if (tiersRes.data) setTiers(tiersRes.data);
       if (profileRes.data) setProfile(profileRes.data);
       if (historyRes.data) setHistory(historyRes.data);
-      if (couponsRes.data) setCoupons(couponsRes.data);
+      if (couponsRes.data) {
+        const excludeNames = ['PRIMEIRACOMPRA', 'FRETEGRATIS'];
+        const filtered = couponsRes.data.filter((c: any) => !excludeNames.includes(String(c.name).toUpperCase()));
+        setCoupons(filtered);
+      }
       if (ordersRes.data) setRecentOrders(ordersRes.data);
     } catch (e: any) {
       console.error('[LoyaltyClubPage] fetchData error:', e);

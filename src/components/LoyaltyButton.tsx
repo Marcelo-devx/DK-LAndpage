@@ -47,7 +47,7 @@ const LoyaltyButton = () => {
           .from('coupons')
           .select('points_cost, is_active, stock_quantity')
           .eq('is_active', true)
-          .gt('stock_quantity', 0);
+          .or('stock_quantity.gt.0,stock_quantity.lt.0');
 
         // Calcular quantos cupons o usuário pode resgatar
         if (coupons) {
@@ -110,7 +110,7 @@ const LoyaltyButton = () => {
                 .from('coupons')
                 .select('points_cost, is_active, stock_quantity')
                 .eq('is_active', true)
-                .gt('stock_quantity', 0);
+                .or('stock_quantity.gt.0,stock_quantity.lt.0');
 
               if (coupons) {
                 const affordableCoupons = coupons.filter(c => points >= c.points_cost);

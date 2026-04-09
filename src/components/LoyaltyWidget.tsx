@@ -54,7 +54,7 @@ const LoyaltyWidget = ({ onClose }: LoyaltyWidgetProps) => {
           .from('coupons')
           .select('*')
           .eq('is_active', true)
-          .gt('stock_quantity', 0)
+          .or('stock_quantity.gt.0,stock_quantity.lt.0')
           .order('points_cost', { ascending: true });
         
         if (mounted) {

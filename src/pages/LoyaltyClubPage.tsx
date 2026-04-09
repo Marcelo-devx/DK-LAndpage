@@ -53,6 +53,7 @@ const LoyaltyClubPage = () => {
   const [coupons, setCoupons] = useState<any[]>([]);
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [sessionUser, setSessionUser] = useState<any | null>(null);
+  const [totalPointsEarned, setTotalPointsEarned] = useState<number>(0);
 
   const fetchData = useCallback(async (isBackground = false) => {
     // Timeout de 3s para evitar loading infinito ao voltar de outra aba
@@ -83,12 +84,13 @@ const LoyaltyClubPage = () => {
       }
 
       // Authenticated: fetch full data
-      const [tiersRes, profileRes, historyRes, couponsRes, ordersRes] = await Promise.all([
+      const [tiersRes, profileRes, historyRes, couponsRes, ordersRes, totalPointsData] = await Promise.all([
         supabase.from('loyalty_tiers').select('*').order('min_spend', { ascending: true }),
         supabase.from('profiles').select('points, spend_last_6_months, tier_id, current_tier_name, last_tier_update').eq('id', session.user.id).single(),
         supabase.from('loyalty_history').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false }).limit(100),
         supabase.from('coupons').select('*').eq('is_active', true).or('stock_quantity.gt.0,stock_quantity.lt.0').order('points_cost'),
-        supabase.from('orders').select('created_at, benefits_used').eq('user_id', session.user.id).order('created_at', { ascending: false }).limit(10)
+        supabase.from('orders').select('created_at, benefits_used').eq('user_id', session.user.id).order('created_at', { ascending: false }).limit(10),
+        supabase.from('loyalty_history').select('points').eq('user_id', session.user.id).gt('points', 0)
       ]);
 
       if (tiersRes.data) setTiers(tiersRes.data);
@@ -100,6 +102,10 @@ const LoyaltyClubPage = () => {
         setCoupons(filtered);
       }
       if (ordersRes.data) setRecentOrders(ordersRes.data);
+      
+      // Calcular total de pontos ganhos (apenas pontos positivos)
+      const totalEarned = totalPointsData?.data?.reduce((sum: number, item: any) => sum + (item.points || 0), 0) || 0;
+      setTotalPointsEarned(totalEarned);
     } catch (e: any) {
       console.error('[LoyaltyClubPage] fetchData error:', e);
     } finally {
@@ -382,6 +388,19 @@ const LoyaltyClubPage = () => {
                         <span className="text-4xl font-black tracking-tighter">{effectiveProfile.points}</span>
                     </div>
                     <p className="text-xs text-stone-500 mt-2 font-medium">Cada compra te leva mais longe.</p>
+                    
+                    {/* Total de pontos acumulados */}
+                    <div className="mt-4 pt-4 border-t border-stone-100">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold uppercase tracking-widest text-stone-400">Total acumulado</span>
+                            <div className="flex items-center gap-2">
+                                <Gem className="h-5 w-5 text-emerald-500" />
+                                <span className="text-2xl font-black text-emerald-600">{sessionUser ? totalPointsEarned : 0}</span>
+                            </div>
+                        </div>
+                        <p className="text-xs text-stone-400 mt-1">Todos os pontos que você já ganhou</p>
+                    </div>
+                    
                     {!sessionUser && (
                       <div className="mt-4">
                         <Button onClick={() => navigate('/login')} className="w-full bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest h-10 rounded-xl">Entrar para ver seu saldo</Button>

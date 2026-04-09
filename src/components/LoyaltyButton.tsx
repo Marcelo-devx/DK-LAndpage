@@ -94,7 +94,7 @@ const LoyaltyButton = () => {
       <PopoverTrigger asChild>
         <button
           className={cn(
-            "fixed bottom-7 right-3 z-[9999]", // Canto inferior direito, z-index alto para garantir visibilidade
+            "fixed bottom-7 right-3 z-[999999]", // z-index muito alto para garantir que fique acima de tudo, incluindo AdminCustomizer (z-[99999]) e outros elementos fixos
             "bg-black hover:bg-slate-900 text-white",
             "p-4 rounded-full shadow-[0_10px_30px_-5px_rgba(0,0,0,0.5)]",
             "transition-all duration-300 hover:scale-110 active:scale-95 group",
@@ -120,7 +120,7 @@ const LoyaltyButton = () => {
       </PopoverTrigger>
       <PopoverContent
         // Sempre abre para cima em todas as telas para não cobrir o botão
-        className="w-[calc(100vw-32px)] sm:w-[380px] p-0 rounded-2xl overflow-hidden border-none shadow-2xl h-[550px] max-h-[85vh] animate-in slide-in-from-bottom-2 duration-300 z-[9998]"
+        className="w-[calc(100vw-32px)] sm:w-[380px] p-0 rounded-2xl overflow-hidden border-none shadow-2xl h-[550px] max-h-[85vh] animate-in slide-in-from-bottom-2 duration-300 z-[999998]"
         side="top"
         align="end"
         sideOffset={16}

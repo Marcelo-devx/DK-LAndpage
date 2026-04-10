@@ -30,6 +30,8 @@ const Index = () => {
   const [brands, setBrands] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
+  // Controla quando os carrosséis de categoria começam a montar (evita flood de queries)
+  const [categoriesVisible, setCategoriesVisible] = useState(false);
 
   const { handleBrandClick } = useOutletContext<OutletContextType>();
   const { infoPopup, isOpen: isInfoPopupOpen, onClose: handleInfoPopupClose } = useInfoPopup();
@@ -120,7 +122,7 @@ const Index = () => {
         setFeaturedProducts(buildProductList(featuredRes.data || [], variantsForFeatured));
       }
 
-      // PHASE 2: Fetch remaining data after a small delay (non-critical for initial render)
+      // PHASE 2: Fetch remaining data after a delay (non-critical for initial render)
       setTimeout(async () => {
         if (!isMountedRef.current) return;
         
@@ -175,8 +177,13 @@ const Index = () => {
           setPromotions(promosRes.data || []);
           setBrands(brandsRes.data || []);
           setCategories(categoriesRes.data || []);
+          // Ativa os carrosséis de categoria com um pequeno delay adicional
+          // para não disparar todas as queries ao mesmo tempo
+          setTimeout(() => {
+            if (isMountedRef.current) setCategoriesVisible(true);
+          }, 400);
         }
-      }, 200); // 200ms delay for non-critical data
+      }, 800); // Aumentado de 200ms para 800ms — hero e produtos carregam primeiro
 
     } catch (error) {
       console.error("Erro ao carregar dados da Home:", error);
@@ -294,7 +301,7 @@ const Index = () => {
           </section>
         </ScrollAnimationWrapper>
 
-        {categories.map((cat) => (
+        {categoriesVisible && categories.map((cat) => (
           <ScrollAnimationWrapper key={cat.name}>
             <CategoryProductCarousel
               categoryName={cat.name}

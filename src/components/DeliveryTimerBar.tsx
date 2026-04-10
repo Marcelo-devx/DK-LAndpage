@@ -1,16 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Truck, Clock } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 
-interface TimerMessages {
-  weekday_before: string;
-  weekday_after: string;
-  saturday_before: string;
-  saturday_after: string;
-  sunday: string;
-}
-
-const defaultMessages: TimerMessages = {
+const defaultMessages = {
   weekday_before: "Faça seu pedido antes das 14h para ser enviado ainda hoje! Tempo restante:",
   weekday_after: "Fazendo seu pedido após as 14h será enviado na próxima rota!",
   saturday_before: "Faça seu pedido antes das 12:30h para ser enviado ainda hoje! Tempo restante:",
@@ -22,36 +13,6 @@ const DeliveryTimerBar = () => {
   const [message, setMessage] = useState('');
   const [timeLeft, setTimeLeft] = useState<string | null>(null);
   const [showTimer, setShowTimer] = useState(false);
-  const [messages, setMessages] = useState<TimerMessages>(defaultMessages);
-
-  useEffect(() => {
-    const fetchMessages = async () => {
-      const { data } = await supabase
-        .from('app_settings')
-        .select('key, value')
-        .in('key', [
-          'timer_weekday_before',
-          'timer_weekday_after',
-          'timer_saturday_before',
-          'timer_saturday_after',
-          'timer_sunday',
-        ]);
-
-      if (data && data.length > 0) {
-        const map: Record<string, string> = {};
-        data.forEach((row) => { map[row.key] = row.value; });
-        setMessages({
-          weekday_before: map['timer_weekday_before'] || defaultMessages.weekday_before,
-          weekday_after: map['timer_weekday_after'] || defaultMessages.weekday_after,
-          saturday_before: map['timer_saturday_before'] || defaultMessages.saturday_before,
-          saturday_after: map['timer_saturday_after'] || defaultMessages.saturday_after,
-          sunday: map['timer_sunday'] || defaultMessages.sunday,
-        });
-      }
-    };
-
-    fetchMessages();
-  }, []);
 
   useEffect(() => {
     const updateTimer = () => {
@@ -64,27 +25,25 @@ const DeliveryTimerBar = () => {
       if (day >= 1 && day <= 5) {
         deadline = new Date();
         deadline.setHours(14, 0, 0, 0);
-        
         if (now.getTime() <= deadline.getTime()) {
           isTimerVisible = true;
-          msg = messages.weekday_before;
+          msg = defaultMessages.weekday_before;
         } else {
-          msg = messages.weekday_after;
+          msg = defaultMessages.weekday_after;
           isTimerVisible = false;
         }
       } else if (day === 6) {
         deadline = new Date();
         deadline.setHours(12, 30, 0, 0);
-        
         if (now.getTime() <= deadline.getTime()) {
           isTimerVisible = true;
-          msg = messages.saturday_before;
+          msg = defaultMessages.saturday_before;
         } else {
-          msg = messages.saturday_after;
+          msg = defaultMessages.saturday_after;
           isTimerVisible = false;
         }
       } else {
-        msg = messages.sunday;
+        msg = defaultMessages.sunday;
         isTimerVisible = false;
       }
 
@@ -105,7 +64,7 @@ const DeliveryTimerBar = () => {
     updateTimer();
     const interval = setInterval(updateTimer, 1000);
     return () => clearInterval(interval);
-  }, [messages]);
+  }, []);
 
   return (
     <div className="w-full py-2.5 md:py-3 xl:py-3.5 px-4 flex justify-center items-center text-center font-black uppercase tracking-widest shadow-lg relative z-50 bg-yellow-400 text-slate-900">

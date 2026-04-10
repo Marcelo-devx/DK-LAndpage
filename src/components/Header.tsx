@@ -210,7 +210,8 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
 
       try {
         updateCartCount();
-        if (isMounted) fetchNavData();
+        // Atrasa o fetch do nav para não competir com hero/produtos no carregamento inicial
+        if (isMounted) setTimeout(() => { if (isMounted) fetchNavData(); }, 400);
       } catch (error) {
         console.error('[Header] Error fetching session:', error);
       }

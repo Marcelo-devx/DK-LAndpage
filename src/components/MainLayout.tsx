@@ -1,12 +1,14 @@
 import { Outlet, useOutletContext } from "react-router-dom";
 import Header from "./Header";
-import { useState, memo, useCallback } from "react";
+import { useState, memo, useCallback, lazy, Suspense } from "react";
 import CategoryProductsModal from "./CategoryProductsModal";
 import BrandProductsModal from "./BrandProductsModal";
 import { CartSheet } from "./CartSheet";
 import Footer from "./Footer";
-import SocialProofPopup from "./SocialProofPopup";
 import DeliveryTimerBar from "./DeliveryTimerBar";
+
+// Lazy load de componentes não-críticos — tira framer-motion do bundle inicial
+const SocialProofPopup = lazy(() => import("./SocialProofPopup"));
 
 export interface OutletContextType {
   handleCategoryClick: (categoryName: string) => void;
@@ -15,9 +17,7 @@ export interface OutletContextType {
 
 export const useAppOutletContext = () => useOutletContext<OutletContextType>();
 
-// Memoizar componentes fixos para evitar re-renderizações desnecessárias
 const MemoizedDeliveryTimerBar = memo(DeliveryTimerBar);
-const MemoizedSocialProofPopup = memo(SocialProofPopup);
 
 const MainLayout = () => {
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -50,7 +50,7 @@ const MainLayout = () => {
         <Outlet context={{ handleCategoryClick, handleBrandClick }} />
       </main>
       <Footer />
-      <CategoryProductsModal 
+      <CategoryProductsModal
         isOpen={isCategoryModalOpen}
         onOpenChange={setIsCategoryModalOpen}
         categoryName={selectedCategory}
@@ -61,7 +61,10 @@ const MainLayout = () => {
         brandName={selectedBrand}
       />
       <CartSheet isOpen={isCartOpen} onOpenChange={setIsCartOpen} />
-      <MemoizedSocialProofPopup />
+      {/* SocialProofPopup carregado de forma lazy — não bloqueia o bundle inicial */}
+      <Suspense fallback={null}>
+        <SocialProofPopup />
+      </Suspense>
     </div>
   );
 };

@@ -1,5 +1,5 @@
-import { motion, useAnimation, useInView } from "framer-motion";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 
 interface ScrollAnimationWrapperProps {
   children: React.ReactNode;
@@ -8,29 +8,39 @@ interface ScrollAnimationWrapperProps {
 }
 
 const ScrollAnimationWrapper = ({ children, delay = 0, className }: ScrollAnimationWrapperProps) => {
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, amount: 0 });
-  const mainControls = useAnimation();
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (isInView) {
-      mainControls.start("visible");
-    }
-  }, [isInView, mainControls]);
+    const el = ref.current;
+    if (!el) return;
+
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          obs.disconnect();
+        }
+      },
+      { threshold: 0, rootMargin: "0px 0px -40px 0px" }
+    );
+
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
 
   return (
-    <div ref={ref} className={className}>
-      <motion.div
-        variants={{
-          hidden: { opacity: 0, y: 20 },
-          visible: { opacity: 1, y: 0 },
-        }}
-        initial="hidden"
-        animate={mainControls}
-        transition={{ duration: 0.6, delay: delay, ease: "easeOut" }}
-      >
-        {children}
-      </motion.div>
+    <div
+      ref={ref}
+      className={cn(className)}
+      style={{
+        opacity: visible ? 1 : 0,
+        transform: visible ? "translateY(0)" : "translateY(20px)",
+        transition: `opacity 0.5s ease ${delay}s, transform 0.5s ease ${delay}s`,
+        willChange: "opacity, transform",
+      }}
+    >
+      {children}
     </div>
   );
 };

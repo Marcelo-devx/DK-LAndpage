@@ -1,13 +1,28 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
+import { visualizer } from "rollup-plugin-visualizer";
+
+// Configuração do bundle analyzer (só roda em desenvolvimento com ANALYZE=true)
+const bundleAnalyzer = process.env.ANALYZE === 'true'
+  ? visualizer({
+      open: true,
+      gzipSize: true,
+      brotliSize: true,
+      filename: 'dist/bundle-stats.html'
+    })
+  : null;
 
 export default defineConfig(() => ({
   server: {
     host: "::",
     port: 8080,
   },
-  plugins: [react()],
+  plugins: [
+    react(),
+    // Bundle analyzer só é adicionado se ANALYZE=true
+    ...(bundleAnalyzer ? [bundleAnalyzer] : [])
+  ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

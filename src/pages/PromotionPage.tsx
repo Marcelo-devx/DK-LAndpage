@@ -10,6 +10,7 @@ import { addToCart } from '@/utils/cart';
 import ScrollAnimationWrapper from '@/components/ScrollAnimationWrapper';
 import PromotionCard from '@/components/PromotionCard';
 import ProductImage from '@/components/ProductImage';
+import { useSEO } from '@/hooks/useSEO';
 
 interface Promotion {
   id: number;
@@ -35,6 +36,23 @@ const PromotionPage = () => {
   const [quantity, setQuantity] = useState(1);
   const [relatedPromotions, setRelatedPromotions] = useState<RelatedPromotion[]>([]);
   const [loadingRelated, setLoadingRelated] = useState(true);
+
+  // SEO - Dynamic promotion page
+  useEffect(() => {
+    if (promotion) {
+      const sanitizedDescription = promotion.description
+        ? promotion.description.replace(/<[^>]*>/g, '').substring(0, 160)
+        : `Confira a promoção ${promotion.name} na DKCWB. Ofertas exclusivas por tempo limitado.`;
+
+      useSEO({
+        title: `${promotion.name} | Promoção | DKCWB`,
+        description: sanitizedDescription,
+        image: promotion.image_url,
+        url: `https://dkcwb.com.br/promocao/${id}`,
+        type: 'article'
+      });
+    }
+  }, [promotion, id]);
 
   const fetchPromotionData = useCallback(async (background = false) => {
     if (!id) return;

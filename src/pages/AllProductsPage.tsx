@@ -6,6 +6,7 @@ import ProductFilters from '@/components/ProductFilters';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useSearchParams } from 'react-router-dom';
 import { PackageSearch, X } from 'lucide-react';
+import { useSEO } from '@/hooks/useSEO';
 
 interface DisplayProduct {
   id: number;
@@ -62,6 +63,13 @@ const AllProductsPage = () => {
   const [sortBy, setSortBy] = useState('created_at-desc');
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
+
+  // SEO - Products page
+  useSEO({
+    title: 'Todos os Produtos | DKCWB',
+    description: 'Explore nossa coleção completa de produtos. Curadoria exclusiva com novidades, promoções e muito mais na DKCWB.',
+    url: 'https://dkcwb.com.br/produtos'
+  });
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -544,8 +552,8 @@ const AllProductsPage = () => {
                 {Array.from({ length: 9 }).map((_, index) => (
                   <div key={index} className="flex flex-col space-y-2">
                     <Skeleton className="w-full rounded-2xl aspect-[4/5] bg-stone-200" />
-                    <Skeleton className="h-4 w-3/4 rounded-lg bg-stone-200" />
-                    <Skeleton className="h-4 w-1/2 rounded-lg bg-stone-200" />
+                    <Skeleton className="h-3 w-3/4 rounded-lg bg-stone-200" />
+                    <Skeleton className="h-3 w-1/2 rounded-lg bg-stone-200" />
                     <Skeleton className="h-10 w-full rounded-xl bg-stone-200" />
                   </div>
                 ))}

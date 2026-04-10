@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import ProductImage from '@/components/ProductImage';
 import DOMPurify from 'dompurify';
 import ProductCard from '@/components/ProductCard';
+import { useSEO } from '@/hooks/useSEO';
 
 interface Product {
   id: number;
@@ -68,6 +69,48 @@ const ProductPage = () => {
   const [quantity, setQuantity] = useState(1);
   const [recommendedProducts, setRecommendedProducts] = useState<DisplayProduct[]>([]);
   const [loadingRecommended, setLoadingRecommended] = useState(true);
+
+  // SEO - Dynamic product page
+  useEffect(() => {
+    if (product) {
+      const sanitizedDescription = product.description
+        ? product.description.replace(/<[^>]*>/g, '').substring(0, 160)
+        : `Confira ${product.name} na DKCWB. Curadoria exclusiva dos melhores produtos.`;
+
+      const currentPrice = selectedVariant?.price || product.price;
+      const availability = (selectedVariant?.stock_quantity || product.stock_quantity) > 0 ? 'InStock' : 'OutOfStock';
+
+      // JSON-LD Schema.org para Produto
+      const jsonLd = {
+        '@context': 'https://schema.org',
+        '@type': 'Product',
+        name: product.name,
+        description: sanitizedDescription,
+        image: product.image_url || 'https://dkcwb.com.br/og-image.jpg',
+        category: product.category || 'Produtos',
+        offers: {
+          '@type': 'Offer',
+          price: currentPrice,
+          priceCurrency: 'BRL',
+          availability: `https://schema.org/${availability}`,
+          seller: {
+            '@type': 'Organization',
+            name: 'DKCWB',
+            url: 'https://dkcwb.com.br'
+          }
+        }
+      };
+
+      useSEO({
+        title: `${product.name} | DKCWB`,
+        description: sanitizedDescription,
+        image: product.image_url,
+        url: `https://dkcwb.com.br/produto/${id}`,
+        type: 'product',
+        jsonLd
+      });
+    }
+  }, [product, selectedVariant, id]);
 
   const fetchProductData = useCallback(async (background = false) => {
       if (!id) return;

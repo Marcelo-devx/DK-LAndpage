@@ -21,6 +21,7 @@ import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { showError } from '@/utils/toast';
+import { useSEO } from '@/hooks/useSEO';
 
 interface UserCoupon {
   id: number;
@@ -51,6 +52,13 @@ const MyCouponsPage = () => {
   const [loading, setLoading] = useState(true);
   const [coupons, setCoupons] = useState<UserCoupon[]>([]);
   const [orderDates, setOrderDates] = useState<Record<number, string>>({});
+
+  // SEO - My Coupons Page
+  useSEO({
+    title: 'Meus Cupons | DKCWB',
+    description: 'Gerencie seus cupons de desconto do Clube DK. Acompanhe cupons disponíveis, utilizados e expirados na DKCWB.',
+    url: 'https://dkcwb.com.br/meus-cupons'
+  });
 
   const fetchCoupons = useCallback(async () => {
     setLoading(true);

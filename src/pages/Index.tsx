@@ -17,12 +17,13 @@ import { useTheme } from '@/context/ThemeContext';
 import ProductImage from '@/components/ProductImage';
 import AgeVerificationPopup from '@/components/AgeVerificationPopup';
 import { useInfoPopup } from '@/hooks/useInfoPopup';
+import { useSEO } from '@/hooks/useSEO';
 import { timer } from '@/lib/logger';
 
 const Index = () => {
   const { settings } = useTheme();
   const navigate = useNavigate();
-  const isMountedRef = useRef(true);
+  isMountedRef.current = true;
   const [displayedProducts, setDisplayedProducts] = useState<any[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [heroSlides, setHeroSlides] = useState<any[]>([]);
@@ -35,6 +36,13 @@ const Index = () => {
 
   const { handleBrandClick } = useOutletContext<OutletContextType>();
   const { infoPopup, isOpen: isInfoPopupOpen, onClose: handleInfoPopupClose } = useInfoPopup();
+
+  // SEO - Home Page
+  useSEO({
+    title: 'DKCWB | Loja Oficial',
+    description: 'Curadoria exclusiva dos melhores produtos. Encontre promoções, novidades e muito mais na DKCWB - sua loja favorita.',
+    url: 'https://dkcwb.com.br'
+  });
 
   // Scroll to top is handled globally by ScrollToTop in App.tsx
 
@@ -218,7 +226,7 @@ const Index = () => {
               {heroSlides.map((slide, index) => (
                 <CarouselItem key={index}>
                   <Link
-                    to={slide.button_url || '#' }
+                    to={slide.button_url || '#'}
                     className="block relative w-full h-full"
                   >
                     {/* Use cover so the image fills the hero area and doesn't leave letterbox gaps */}

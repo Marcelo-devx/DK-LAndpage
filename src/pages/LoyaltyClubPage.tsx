@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { differenceInDays, addMonths, endOfWeek, isSameWeek, startOfWeek, addWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useSEO } from '@/hooks/useSEO';
 
 interface Tier {
   id: number;
@@ -56,6 +57,13 @@ const LoyaltyClubPage = () => {
   const [sessionUser, setSessionUser] = useState<any | null>(null);
   const [totalPointsEarned, setTotalPointsEarned] = useState<number>(0);
   const [totalPointsLast180Days, setTotalPointsLast180Days] = useState<number>(0);
+
+  // SEO - Loyalty Club Page
+  useSEO({
+    title: 'Clube DK | Programa de Fidelidade | DKCWB',
+    description: 'Faça parte do Clube DK da DKCWB. Acumule pontos com suas compras, suba de nível e aproveite benefícios exclusivos como descontos, brindes e experiências.',
+    url: 'https://dkcwb.com.br/clube-dk'
+  });
 
   const fetchData = useCallback(async (isBackground = false) => {
     // Timeout de 3s para evitar loading infinito ao voltar de outra aba
@@ -314,7 +322,7 @@ const LoyaltyClubPage = () => {
 
   if (loading) return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-sky-400" /></div>;
 
-  // Use an effective profile for calculations so the page shows public info when not logged in
+  // Use an effective profile for calculations so page shows public info when not logged in
   const effectiveProfile: LoyaltyProfile = profile || {
     points: 0,
     spend_last_6_months: 0,
@@ -616,7 +624,7 @@ const LoyaltyClubPage = () => {
                                     </p>
                                     <div className="flex flex-wrap gap-2">
                                         {tier.benefits.map((b, i) => (
-                                            <span key={i} className="text-[10px] bg-stone-100 text-stone-600 px-2 py-1 rounded border border-stone-200 uppercase font-bold tracking-wider">{b}</span>
+                                            <span key={i} className="text-[10px] bg-stone-100 text-slate-600 px-2 py-1 rounded border border-stone-200 uppercase font-bold tracking-wider">{b}</span>
                                         ))}
                                     </div>
                                 </div>

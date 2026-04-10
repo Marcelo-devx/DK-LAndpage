@@ -20,6 +20,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import ScrollAnimationWrapper from '@/components/ScrollAnimationWrapper';
 import { cn } from '@/lib/utils';
 import { motion, useScroll, useTransform } from 'framer-motion';
+import { useSEO } from '@/hooks/useSEO';
 
 interface Tier {
   id: number;
@@ -90,6 +91,13 @@ const HowItWorksPage = () => {
 
   // Transformação do movimento Y (sobe 15% e desce 15% em relação ao scroll)
   const y = useTransform(scrollYProgress, [0, 1], ["-15%", "15%"]);
+
+  // SEO - How It Works Page
+  useSEO({
+    title: 'Como Funciona | Clube DK | DKCWB',
+    description: 'Descubra como funciona o Clube DK da DKCWB. Acumule pontos, suba de nível e aproveite benefícios exclusivos com cada compra.',
+    url: 'https://dkcwb.com.br/como-funciona'
+  });
 
   const fetchTiers = async () => {
     setLoading(true);

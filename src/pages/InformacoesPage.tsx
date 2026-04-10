@@ -3,9 +3,17 @@ import { Info, Truck, Calendar, Shield, Lock, FileText, Globe, Key, AlertCircle,
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
+import { useSEO } from '@/hooks/useSEO';
 
 const InformacoesPage = () => {
   const [showFullPrivacy, setShowFullPrivacy] = useState(false);
+
+  // SEO - Informações Page
+  useSEO({
+    title: 'Informações | DKCWB',
+    description: 'Encontre todas as informações sobre horários de entrega, garantia, política de trocas e privacidade da DKCWB.',
+    url: 'https://dkcwb.com.br/informacoes'
+  });
 
   return (
     <div className="min-h-screen bg-black text-white">

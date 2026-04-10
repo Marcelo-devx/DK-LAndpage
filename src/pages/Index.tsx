@@ -3,6 +3,7 @@ import { Link, useOutletContext, useNavigate } from 'react-router-dom';
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
 import ProductCard from "@/components/ProductCard";
+import PromotionCard from '@/components/PromotionCard';
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
 import CategoryCarouselCard from '@/components/CategoryCarouselCard';
@@ -266,16 +267,29 @@ const Index = () => {
         {settings.showPromotions && promotions.length > 0 && (
           <ScrollAnimationWrapper>
             <section className="container mx-auto px-4 md:px-6 xl:px-8">
-              <h2 className="text-[10px] md:text-xs xl:text-sm font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-3 md:mb-4 xl:mb-6 text-center">Ofertas Exclusivas</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3 gap-1 md:gap-2">
-                {promotions.slice(0, 3).map((promo) => (
-                  <CategoryCarouselCard 
-                    key={promo.id}
-                    category={{ name: promo.name, imageUrl: promo.image_url }}
-                    onClick={() => navigate(`/promocao/${promo.id}`)}
-                  />
-                ))}
+              <div className="flex flex-col md:flex-row items-start md:items-end justify-between mb-2 md:mb-3 xl:mb-4 gap-2">
+                <div>
+                  <h3 className="text-xl md:text-3xl xl:text-4xl font-black tracking-tighter italic uppercase text-charcoal-gray" translate="no">OFERTAS EXCLUSIVAS</h3>
+                </div>
               </div>
+              <Carousel opts={{ align: "start", loop: promotions.length > 3 }} className="w-full">
+                <CarouselContent className="-ml-1 md:-ml-2">
+                  {promotions.map((promo) => (
+                    <CarouselItem key={promo.id} className="pl-1 md:pl-2 basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/5">
+                      <PromotionCard promotion={{
+                        id: promo.id,
+                        name: promo.name,
+                        price: `R$ ${(promo.price ?? 0).toFixed(2).replace('.', ',')}`,
+                        pixPrice: promo.pix_price ? `R$ ${(promo.pix_price).toFixed(2).replace('.', ',')}` : null,
+                        imageUrl: promo.image_url || '',
+                        url: `/promocao/${promo.id}`,
+                        stockQuantity: promo.stock_quantity ?? null,
+                        discountPercent: promo.discount_percent ?? null,
+                      }} />
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+              </Carousel>
             </section>
           </ScrollAnimationWrapper>
         )}

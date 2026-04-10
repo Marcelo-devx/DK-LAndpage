@@ -2,10 +2,6 @@ import { memo, useEffect, useRef, useState } from 'react';
 import { initMercadoPago, CardPayment } from '@mercadopago/sdk-react';
 import { Loader2 } from 'lucide-react';
 
-// A Public Key do MP é segura para ficar no frontend (não é o Access Token)
-// Ela é inicializada uma vez e reutilizada
-let mpInitialized = false;
-
 interface MercadoPagoCardFormProps {
   amount: number;
   onSubmit: (formData: any) => Promise<void>;
@@ -16,6 +12,7 @@ const MercadoPagoCardForm = memo(({ amount, onSubmit }: MercadoPagoCardFormProps
   const [mpReady, setMpReady] = useState(false);
   const [mpPublicKey, setMpPublicKey] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [mpInitialized, setMpInitialized] = useState(false);
 
   // Manter referência estável do onSubmit para não recriar o Brick quando o callback muda
   const onSubmitRef = useRef(onSubmit);
@@ -39,10 +36,25 @@ const MercadoPagoCardForm = memo(({ amount, onSubmit }: MercadoPagoCardFormProps
         if (data?.value) {
           setMpPublicKey(data.value);
         } else {
-          setLoadError('Public Key do Mercado Pago não configurada. Acesse o painel admin e configure a chave.');
+          // Fallback: tentar usar variável de ambiente se não estiver no banco
+          const envPublicKey = import.meta.env.VITE_MP_PUBLIC_KEY;
+          if (envPublicKey) {
+            console.warn('[MercadoPagoCardForm] Usando VITE_MP_PUBLIC_KEY como fallback');
+            setMpPublicKey(envPublicKey);
+          } else {
+            setLoadError('Public Key do Mercado Pago não configurada. Acesse o painel admin e configure a chave.');
+          }
         }
-      } catch {
-        setLoadError('Erro ao carregar configurações de pagamento.');
+      } catch (error) {
+        console.error('[MercadoPagoCardForm] Erro ao carregar public key:', error);
+        // Fallback: tentar usar variável de ambiente em caso de erro
+        const envPublicKey = import.meta.env.VITE_MP_PUBLIC_KEY;
+        if (envPublicKey) {
+          console.warn('[MercadoPagoCardForm] Usando VITE_MP_PUBLIC_KEY como fallback após erro');
+          setMpPublicKey(envPublicKey);
+        } else {
+          setLoadError('Erro ao carregar configurações de pagamento.');
+        }
       }
     };
 
@@ -53,13 +65,20 @@ const MercadoPagoCardForm = memo(({ amount, onSubmit }: MercadoPagoCardFormProps
     if (!mpPublicKey) return;
 
     if (!mpInitialized) {
-      initMercadoPago(mpPublicKey, { locale: 'pt-BR' });
-      mpInitialized = true;
+      try {
+        initMercadoPago(mpPublicKey, { locale: 'pt-BR' });
+        setMpInitialized(true);
+        console.log('[MercadoPagoCardForm] SDK inicializado com sucesso');
+      } catch (error) {
+        console.error('[MercadoPagoCardForm] Erro ao inicializar SDK:', error);
+        setLoadError('Erro ao inicializar o formulário de pagamento. Tente recarregar a página.');
+        return;
+      }
     }
 
     const timer = setTimeout(() => setMpReady(true), 300);
     return () => clearTimeout(timer);
-  }, [mpPublicKey]);
+  }, [mpPublicKey, mpInitialized]);
 
   if (loadError) {
     return (

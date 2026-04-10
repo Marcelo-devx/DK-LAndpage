@@ -617,15 +617,32 @@ const CheckoutPage = () => {
     const currentOrderId = pendingOrderIdRef.current;
 
     try {
-      const { data: orderRow, error: orderRowError } = await supabase
+      // Verificar status atual do pedido antes de processar
+      const { data: orderCheck, error: orderCheckError } = await supabase
         .from('orders')
-        .select('total_price, shipping_address')
+        .select('status, total_price')
         .eq('id', currentOrderId)
         .single();
 
-      if (orderRowError || !orderRow) throw new Error('Pedido não encontrado.');
+      if (orderCheckError || !orderCheck) {
+        throw new Error('Pedido não encontrado.');
+      }
 
-      const finalTotal = Number(orderRow.total_price || 0);
+      // Se já foi finalizado, redirecionar sem reprocessar
+      if (orderCheck.status === 'Em Preparação' || orderCheck.status === 'Finalizada' || orderCheck.status === 'Entregue') {
+        clearLocalCart();
+        sessionStorage.removeItem('mp_pending_order_id');
+        showSuccess('Pagamento já processado! 🎉');
+        safeNavigate(`/confirmacao-pedido/${currentOrderId}`);
+        return;
+      }
+
+      // Se foi cancelado, impedir processamento
+      if (orderCheck.status === 'Cancelado') {
+        throw new Error('Este pedido foi cancelado. Crie um novo pedido.');
+      }
+
+      const finalTotal = Number(orderCheck.total_price || 0);
       if (!finalTotal || finalTotal <= 0) throw new Error('Total do pedido inválido.');
 
       const formData = getValues();

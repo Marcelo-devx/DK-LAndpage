@@ -23,7 +23,7 @@ import { timer } from '@/lib/logger';
 const Index = () => {
   const { settings } = useTheme();
   const navigate = useNavigate();
-  isMountedRef.current = true;
+  const isMountedRef = useRef(true);
   const [displayedProducts, setDisplayedProducts] = useState<any[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [heroSlides, setHeroSlides] = useState<any[]>([]);

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { supabase } from '@/integrations/supabase/client';
@@ -70,47 +70,38 @@ const ProductPage = () => {
   const [recommendedProducts, setRecommendedProducts] = useState<DisplayProduct[]>([]);
   const [loadingRecommended, setLoadingRecommended] = useState(true);
 
-  // SEO - Dynamic product page
-  useEffect(() => {
-    if (product) {
-      const sanitizedDescription = product.description
+  // SEO — computed at top level (no hook inside useEffect)
+  const seoTitle = product ? `${product.name} | DKCWB` : 'DKCWB';
+  const seoDescription = product
+    ? (product.description
         ? product.description.replace(/<[^>]*>/g, '').substring(0, 160)
-        : `Confira ${product.name} na DKCWB. Curadoria exclusiva dos melhores produtos.`;
+        : `Confira ${product.name} na DKCWB. Curadoria exclusiva dos melhores produtos.`)
+    : 'DKCWB — Curadoria exclusiva dos melhores produtos.';
+  const seoImage = product?.image_url ?? null;
+  const seoUrl = id ? `https://dkcwb.com.br/produto/${id}` : 'https://dkcwb.com.br';
 
-      const currentPrice = selectedVariant?.price || product.price;
-      const availability = (selectedVariant?.stock_quantity || product.stock_quantity) > 0 ? 'InStock' : 'OutOfStock';
+  const seoJsonLd = useMemo(() => {
+    if (!product) return undefined;
+    const currentPrice = selectedVariant?.price ?? product.price;
+    const availability = (selectedVariant?.stock_quantity ?? product.stock_quantity) > 0 ? 'InStock' : 'OutOfStock';
+    return {
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      name: product.name,
+      description: seoDescription,
+      image: product.image_url || 'https://dkcwb.com.br/og-image.jpg',
+      category: product.category || 'Produtos',
+      offers: {
+        '@type': 'Offer',
+        price: currentPrice,
+        priceCurrency: 'BRL',
+        availability: `https://schema.org/${availability}`,
+        seller: { '@type': 'Organization', name: 'DKCWB', url: 'https://dkcwb.com.br' }
+      }
+    };
+  }, [product, selectedVariant, seoDescription]);
 
-      // JSON-LD Schema.org para Produto
-      const jsonLd = {
-        '@context': 'https://schema.org',
-        '@type': 'Product',
-        name: product.name,
-        description: sanitizedDescription,
-        image: product.image_url || 'https://dkcwb.com.br/og-image.jpg',
-        category: product.category || 'Produtos',
-        offers: {
-          '@type': 'Offer',
-          price: currentPrice,
-          priceCurrency: 'BRL',
-          availability: `https://schema.org/${availability}`,
-          seller: {
-            '@type': 'Organization',
-            name: 'DKCWB',
-            url: 'https://dkcwb.com.br'
-          }
-        }
-      };
-
-      useSEO({
-        title: `${product.name} | DKCWB`,
-        description: sanitizedDescription,
-        image: product.image_url,
-        url: `https://dkcwb.com.br/produto/${id}`,
-        type: 'product',
-        jsonLd
-      });
-    }
-  }, [product, selectedVariant, id]);
+  useSEO({ title: seoTitle, description: seoDescription, image: seoImage, url: seoUrl, type: 'product', jsonLd: seoJsonLd });
 
   const fetchProductData = useCallback(async (background = false) => {
       if (!id) return;

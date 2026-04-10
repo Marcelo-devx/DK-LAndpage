@@ -37,22 +37,21 @@ const PromotionPage = () => {
   const [relatedPromotions, setRelatedPromotions] = useState<RelatedPromotion[]>([]);
   const [loadingRelated, setLoadingRelated] = useState(true);
 
-  // SEO - Dynamic promotion page
-  useEffect(() => {
-    if (promotion) {
-      const sanitizedDescription = promotion.description
+  // SEO — computed at top level (no hook inside useEffect)
+  const seoTitle = promotion ? `${promotion.name} | Promoção | DKCWB` : 'Promoção | DKCWB';
+  const seoDescription = promotion
+    ? (promotion.description
         ? promotion.description.replace(/<[^>]*>/g, '').substring(0, 160)
-        : `Confira a promoção ${promotion.name} na DKCWB. Ofertas exclusivas por tempo limitado.`;
+        : `Confira a promoção ${promotion.name} na DKCWB. Ofertas exclusivas por tempo limitado.`)
+    : 'Ofertas exclusivas por tempo limitado na DKCWB.';
 
-      useSEO({
-        title: `${promotion.name} | Promoção | DKCWB`,
-        description: sanitizedDescription,
-        image: promotion.image_url,
-        url: `https://dkcwb.com.br/promocao/${id}`,
-        type: 'article'
-      });
-    }
-  }, [promotion, id]);
+  useSEO({
+    title: seoTitle,
+    description: seoDescription,
+    image: promotion?.image_url ?? null,
+    url: id ? `https://dkcwb.com.br/promocao/${id}` : 'https://dkcwb.com.br',
+    type: 'article',
+  });
 
   const fetchPromotionData = useCallback(async (background = false) => {
     if (!id) return;

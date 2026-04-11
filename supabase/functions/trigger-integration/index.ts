@@ -119,28 +119,35 @@ async function buildOrderPayload(orderId: number, eventType: string, requestId =
 
   const rawPhone = (shipping.phone || order.guest_phone || '').replace(/\D/g, '')
 
-  // Gera variações com e sem o dígito 9 (celular brasileiro),
-  // pois o WhatsApp do cliente pode estar registrado com ou sem o 9.
-  // Ex: banco tem 32991213190 (com 9), WhatsApp pode ser 3291213190 (sem 9).
-  // O n8n recebe ambas as versões e pode usar phone_alt como fallback.
-  let phoneWithNine: string | null = null
-  let phoneWithoutNine: string | null = null
-
-  if (rawPhone.length === 11) {
-    // Já tem o 9: ex 32991213190 → sem9=3291213190
-    phoneWithNine = rawPhone
-    phoneWithoutNine = rawPhone.slice(0, 2) + rawPhone.slice(3) // remove o 9 após o DDD
-  } else if (rawPhone.length === 10) {
-    // Sem o 9: ex 3291213190 → com9=32991213190
-    phoneWithoutNine = rawPhone
-    phoneWithNine = rawPhone.slice(0, 2) + '9' + rawPhone.slice(2) // insere o 9 após o DDD
+  // Normaliza o número para o formato exato que o WhatsApp usa ao identificar o remetente.
+  // O WhatsApp brasileiro usa: 55 + DDD (2 dígitos) + número (8 dígitos) = 12 dígitos no total.
+  // Números cadastrados no Brasil têm 11 dígitos (DDD + 9 + 8 dígitos).
+  // O 9 extra após o DDD NÃO faz parte do número do WhatsApp — ele é removido.
+  // Ex: banco = 32991213190 (11 dígitos) → WhatsApp = 553291213190 (12 dígitos)
+  let whatsappPhone: string | null = null
+  if (rawPhone) {
+    let base = rawPhone
+    // Remove DDI 55 se já vier com ele
+    if (base.startsWith('55') && base.length >= 12) {
+      base = base.slice(2)
+    }
+    if (base.length === 11) {
+      // DDD (2) + 9 + número (8): remove o 9 após o DDD para formato WhatsApp
+      whatsappPhone = '55' + base.slice(0, 2) + base.slice(3)
+    } else if (base.length === 10) {
+      // DDD (2) + número (8): já está no formato certo, só adiciona DDI
+      whatsappPhone = '55' + base
+    } else {
+      // Formato desconhecido: adiciona DDI e envia como está
+      whatsappPhone = '55' + base
+    }
   }
 
   const customer = {
     id: order.user_id || null,
     full_name: [shipping.first_name, shipping.last_name].filter(Boolean).join(' ') || shipping.full_name || null,
-    phone: phoneWithNine || rawPhone || null,       // número com 9 (padrão atual, igual ao que sempre foi enviado)
-    phone_alt: phoneWithoutNine || null,            // variação sem o 9, para o n8n usar como fallback
+    phone: whatsappPhone,          // formato WhatsApp: 55 + DDD + 8 dígitos (ex: 553291213190)
+    phone_raw: rawPhone || null,   // número original do banco sem formatação (ex: 32991213190)
     email: customerEmail,
     cpf: (shipping.cpf_cnpj || order.guest_cpf_cnpj || '').replace(/\D/g, '') || null,
   }

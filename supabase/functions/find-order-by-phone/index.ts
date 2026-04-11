@@ -15,7 +15,7 @@ const corsHeaders = {
  * Trata: DDI 55, com/sem o 9 dígito, com/sem máscara.
  *
  * Exemplos:
- *   "553291213190" → ["553291213190", "3291213190", "32991213190", "3291213190"]
+ *   "553291213190" → ["553291213190", "3291213190", "32991213190"]
  *   "32991213190"  → ["32991213190", "3291213190"]
  *   "3291213190"   → ["3291213190", "32991213190"]
  */
@@ -108,26 +108,29 @@ serve(async (req) => {
 
     const rawPhone: string = String(body.phone || body.telefone || body.whatsapp || '').trim();
     const orderId: number | null = body.order_id ? Number(body.order_id) : null;
+    // NOVO: aceitar email como fallback para encontrar o pedido
+    const email: string | null = (body.email || body.email_address || body.customer_email || null);
 
-    console.log('[find-order-by-phone] Request', { rawPhone, orderId });
+    console.log('[find-order-by-phone] Request', { rawPhone, orderId, hasEmail: !!email });
 
-    if (!rawPhone) {
-      return new Response(JSON.stringify({ error: 'Campo "phone" é obrigatório.' }), {
+    if (!rawPhone && !email) {
+      return new Response(JSON.stringify({ error: 'Campo "phone" ou "email" é obrigatório.' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     // ── Normalização do telefone ───────────────────────────────────────────────
-    const phoneVariants = normalizePhone(rawPhone);
+    const phoneVariants = rawPhone ? normalizePhone(rawPhone) : [];
     console.log('[find-order-by-phone] Phone variants', phoneVariants);
 
     // ── Busca no banco ────────────────────────────────────────────────────────
-    // Usa a função SQL melhorada que já trata todas as variações
+    // Usa a função SQL que trata todas as variações de telefone + email como fallback
     const { data: orders, error: dbError } = await supabaseAdmin
       .rpc('find_pending_orders_by_phone', {
-        p_phone: rawPhone,
+        p_phone: rawPhone || '',
         p_order_id: orderId,
+        p_email: email,
       });
 
     if (dbError) {
@@ -151,10 +154,11 @@ serve(async (req) => {
 
         if (orderById) {
           const phoneInOrder = (orderById.shipping_address?.phone || '').replace(/\D/g, '');
-          console.log('[find-order-by-phone] Order found by ID but phone mismatch', {
+          console.log('[find-order-by-phone] Order found by ID but phone/email mismatch', {
             orderId,
             phoneInOrder,
             phoneVariants,
+            hasEmail: !!email,
           });
           return new Response(JSON.stringify({
             found: false,
@@ -182,13 +186,6 @@ serve(async (req) => {
 
     // Retorna o pedido mais recente (primeiro da lista, já ordenado por created_at DESC)
     const latestOrder = orders[0];
-
-    // Buscar detalhes completos do pedido
-    const { data: fullOrder } = await supabaseAdmin
-      .from('orders')
-      .select('id, status, total_price, payment_method, created_at, shipping_address, user_id, guest_phone')
-      .eq('id', latestOrder.order_id)
-      .single();
 
     // Buscar itens do pedido
     const { data: items } = await supabaseAdmin

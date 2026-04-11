@@ -218,6 +218,7 @@ const ProfilePage = () => {
 
     const updatePayload: any = {
       ...data,
+      email: user.email,
       phone: data.phone.replace(/\D/g, ''),
       cpf_cnpj: data.cpf_cnpj.replace(/\D/g, ''),
       date_of_birth: format(data.date_of_birth, 'yyyy-MM-dd'),

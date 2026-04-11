@@ -363,6 +363,7 @@ const CompleteProfilePage = () => {
 
       const profilePayload: any = {
         ...rest,
+        email: emailToSet,
         phone: data.phone.replace(/\D/g, ''),
         cpf_cnpj: cleanCpf,
         date_of_birth: format(data.date_of_birth, 'yyyy-MM-dd'),

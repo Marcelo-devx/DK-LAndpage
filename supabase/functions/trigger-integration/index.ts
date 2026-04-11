@@ -103,11 +103,28 @@ async function buildOrderPayload(orderId: number, eventType: string, requestId =
 
   // Build customer info from shipping_address or guest fields
   const shipping = order.shipping_address || {}
+  let customerEmail: string | null = shipping.email || order.guest_email || null
+
+  // Fallback: fetch email from auth.users when not present in shipping_address or guest_email
+  if (!customerEmail && order.user_id) {
+    try {
+      const { data: authUserData, error: authUserErr } = await supabase.auth.admin.getUserById(order.user_id)
+      if (authUserErr) {
+        console.warn(`[trigger-integration][${requestId}] auth.admin.getUserById error for user ${order.user_id}:`, authUserErr)
+      } else {
+        customerEmail = authUserData?.user?.email || null
+        console.log(`[trigger-integration][${requestId}] resolved email via auth.admin for user ${order.user_id}: ${customerEmail}`)
+      }
+    } catch (authErr) {
+      console.warn(`[trigger-integration][${requestId}] auth.admin.getUserById threw for user ${order.user_id}:`, authErr)
+    }
+  }
+
   const customer = {
     id: order.user_id || null,
     full_name: [shipping.first_name, shipping.last_name].filter(Boolean).join(' ') || shipping.full_name || null,
     phone: (shipping.phone || order.guest_phone || '').replace(/\D/g, '') || null,
-    email: shipping.email || order.guest_email || null,
+    email: customerEmail,
     cpf: (shipping.cpf_cnpj || order.guest_cpf_cnpj || '').replace(/\D/g, '') || null,
   }
 

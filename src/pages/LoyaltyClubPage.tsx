@@ -62,7 +62,7 @@ const LoyaltyClubPage = () => {
   useSEO({
     title: 'Clube DK | Programa de Fidelidade | DKCWB',
     description: 'Faça parte do Clube DK da DKCWB. Acumule pontos com suas compras, suba de nível e aproveite benefícios exclusivos como descontos, brindes e experiências.',
-    url: 'https://dkcwb.com.br/clube-dk'
+    url: 'https://dkcwb.com/clube-dk'
   });
 
   const fetchData = useCallback(async (isBackground = false) => {

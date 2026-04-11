@@ -33,7 +33,6 @@ function getAllowedOrigins(): string[] {
   const productionDefaults = [
     'https://www.dkcwb.com',
     'https://dkcwb.com',
-    'https://dk-l-andpage.vercel.app'
   ];
 
   return [...devDefaults, ...productionDefaults, ...fromEnv];

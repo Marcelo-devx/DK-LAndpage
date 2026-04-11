@@ -11,7 +11,7 @@ interface SEOOptions {
 
 const DEFAULT_TITLE = 'DKCWB';
 const DEFAULT_DESCRIPTION = 'Curadoria exclusiva dos melhores produtos para você. Encontre promoções, novidades e muito mais na DKCWB.';
-const DEFAULT_IMAGE = 'https://dkcwb.com.br/og-image.jpg';
+const DEFAULT_IMAGE = 'https://dkcwb.com/og-image.jpg';
 
 /**
  * useSEO Hook
@@ -24,7 +24,7 @@ const DEFAULT_IMAGE = 'https://dkcwb.com.br/og-image.jpg';
  *   title: 'Meu Produto | DKCWB',
  *   description: 'Descrição do produto...',
  *   image: 'https://...',
- *   url: 'https://dkcwb.com.br/produto/123',
+ *   url: 'https://dkcwb.com/produto/123',
  *   type: 'product'
  * })
  */

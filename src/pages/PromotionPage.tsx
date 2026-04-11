@@ -96,7 +96,7 @@ const PromotionPage = () => {
     title: seoTitle,
     description: seoDescription,
     image: promotion?.image_url ?? null,
-    url: id ? `https://dkcwb.com.br/promocao/${id}` : 'https://dkcwb.com.br',
+    url: id ? `https://dkcwb.com/promocao/${id}` : 'https://dkcwb.com',
     type: 'article',
   });
 

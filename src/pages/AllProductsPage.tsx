@@ -68,7 +68,7 @@ const AllProductsPage = () => {
   useSEO({
     title: 'Todos os Produtos | DKCWB',
     description: 'Explore nossa coleção completa de produtos. Curadoria exclusiva com novidades, promoções e muito mais na DKCWB.',
-    url: 'https://dkcwb.com.br/produtos'
+    url: 'https://dkcwb.com/produtos'
   });
 
   useEffect(() => {

@@ -42,7 +42,7 @@ const Index = () => {
   useSEO({
     title: 'DKCWB | Loja Oficial',
     description: 'Curadoria exclusiva dos melhores produtos. Encontre promoções, novidades e muito mais na DKCWB - sua loja favorita.',
-    url: 'https://dkcwb.com.br'
+    url: 'https://dkcwb.com'
   });
 
   // Scroll to top is handled globally by ScrollToTop in App.tsx

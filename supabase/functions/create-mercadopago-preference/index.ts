@@ -224,7 +224,7 @@ serve(async (req) => {
 
     // Mercado Pago rejeita URLs localhost/127.0.0.1 nas back_urls — usar sempre a URL de produção
     if (!backUrlBase || backUrlBase.includes('localhost') || backUrlBase.includes('127.0.0.1')) {
-      backUrlBase = 'https://dkcwb.com.br';
+      backUrlBase = 'https://dkcwb.com';
     }
 
     if (!backUrlBase) {

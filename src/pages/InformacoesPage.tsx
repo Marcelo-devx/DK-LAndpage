@@ -12,7 +12,7 @@ const InformacoesPage = () => {
   useSEO({
     title: 'Informações | DKCWB',
     description: 'Encontre todas as informações sobre horários de entrega, garantia, política de trocas e privacidade da DKCWB.',
-    url: 'https://dkcwb.com.br/informacoes'
+    url: 'https://dkcwb.com/informacoes'
   });
 
   return (

@@ -96,7 +96,7 @@ const HowItWorksPage = () => {
   useSEO({
     title: 'Como Funciona | Clube DK | DKCWB',
     description: 'Descubra como funciona o Clube DK da DKCWB. Acumule pontos, suba de nível e aproveite benefícios exclusivos com cada compra.',
-    url: 'https://dkcwb.com.br/como-funciona'
+    url: 'https://dkcwb.com/como-funciona'
   });
 
   const fetchTiers = async () => {

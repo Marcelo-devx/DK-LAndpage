@@ -78,7 +78,7 @@ const ProductPage = () => {
         : `Confira ${product.name} na DKCWB. Curadoria exclusiva dos melhores produtos.`)
     : 'DKCWB — Curadoria exclusiva dos melhores produtos.';
   const seoImage = product?.image_url ?? null;
-  const seoUrl = id ? `https://dkcwb.com.br/produto/${id}` : 'https://dkcwb.com.br';
+  const seoUrl = id ? `https://dkcwb.com/produto/${id}` : 'https://dkcwb.com';
 
   const seoJsonLd = useMemo(() => {
     if (!product) return undefined;
@@ -89,14 +89,14 @@ const ProductPage = () => {
       '@type': 'Product',
       name: product.name,
       description: seoDescription,
-      image: product.image_url || 'https://dkcwb.com.br/og-image.jpg',
+      image: product.image_url || 'https://dkcwb.com/og-image.jpg',
       category: product.category || 'Produtos',
       offers: {
         '@type': 'Offer',
         price: currentPrice,
         priceCurrency: 'BRL',
         availability: `https://schema.org/${availability}`,
-        seller: { '@type': 'Organization', name: 'DKCWB', url: 'https://dkcwb.com.br' }
+        seller: { '@type': 'Organization', name: 'DKCWB', url: 'https://dkcwb.com' }
       }
     };
   }, [product, selectedVariant, seoDescription]);

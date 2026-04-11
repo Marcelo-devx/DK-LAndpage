@@ -57,7 +57,7 @@ const MyCouponsPage = () => {
   useSEO({
     title: 'Meus Cupons | DKCWB',
     description: 'Gerencie seus cupons de desconto do Clube DK. Acompanhe cupons disponíveis, utilizados e expirados na DKCWB.',
-    url: 'https://dkcwb.com.br/meus-cupons'
+    url: 'https://dkcwb.com/meus-cupons'
   });
 
   const fetchCoupons = useCallback(async () => {

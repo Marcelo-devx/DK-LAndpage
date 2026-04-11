@@ -1,51 +1,33 @@
 -- Primeiro, REMOVER qualquer trigger existente para evitar conflitos
 DROP TRIGGER IF EXISTS tr_on_order_created_webhook ON public.orders;
 
--- Verificar se a função existe e recriá-la se necessário
+-- Recriar a função do trigger usando net.http_post, que é o caminho suportado nas migrações existentes
 CREATE OR REPLACE FUNCTION public.trigger_order_created_webhook()
 RETURNS TRIGGER
 LANGUAGE PLPGSQL
-SECURITY DEFINER SET SEARCH_PATH TO 'public', 'extensions', 'net'
+SECURITY DEFINER
+SET SEARCH_PATH TO 'public', 'extensions', 'net'
 AS $$
+DECLARE
+  v_url TEXT := 'https://jrlozhhvwqfmjtkmvukf.supabase.co/functions/v1/trigger-integration';
+  v_payload JSONB;
 BEGIN
-  -- DEBUG: Log para saber se o trigger está sendo chamado
   RAISE NOTICE '[trigger_order_created_webhook] Disparando para pedido %', NEW.id;
-  
-  -- Só dispara se for INSERT (novo pedido criado)
-  IF (TG_OP = 'INSERT') THEN
-    DECLARE
-      v_url TEXT;
-      v_payload JSONB;
-      v_event_type TEXT;
-    BEGIN
-      -- Determina o tipo de evento
-      v_event_type := 'order_created';
-      
-      -- URL da Edge Function que vai disparar o webhook
-      v_url := 'https://jrlozhhvwqfmjtkmvukf.supabase.co/functions/v1/trigger-integration';
-      
-      -- Monta o payload inicial
-      v_payload := jsonb_build_object(
-        'event_type', v_event_type,
-        'payload', jsonb_build_object('order_id', NEW.id)
-      );
-      
-      -- DEBUG: Log do payload
-      RAISE NOTICE '[trigger_order_created_webhook] Payload: %', v_payload;
-      
-      -- Disparo assíncrono via pg_net
-      PERFORM net.http_post(
-        url := v_url,
-        body := v_payload,
-        headers := jsonb_build_object('Content-Type', 'application/json')
-      );
-      
-      -- Log de sucesso (será capturado nos logs do Supabase)
-      RAISE NOTICE '[trigger_order_created_webhook] Webhook disparado com sucesso para pedido %', NEW.id;
-      
-    END;
-  END IF;
-  
+
+  v_payload := jsonb_build_object(
+    'event_type', 'order_created',
+    'payload', jsonb_build_object('order_id', NEW.id)
+  );
+
+  RAISE NOTICE '[trigger_order_created_webhook] Payload: %', v_payload;
+
+  PERFORM net.http_post(
+    url := v_url,
+    body := v_payload,
+    headers := jsonb_build_object('Content-Type', 'application/json')
+  );
+
+  RAISE NOTICE '[trigger_order_created_webhook] Webhook disparado com sucesso para pedido %', NEW.id;
   RETURN NEW;
 END;
 $$;
@@ -60,7 +42,7 @@ EXECUTE FUNCTION public.trigger_order_created_webhook();
 DO $$
 BEGIN
   IF EXISTS (
-    SELECT 1 FROM pg_trigger 
+    SELECT 1 FROM pg_trigger
     WHERE tgname = 'tr_on_order_created_webhook'
   ) THEN
     RAISE NOTICE 'SUCESSO: Trigger tr_on_order_created_webhook foi criado corretamente';

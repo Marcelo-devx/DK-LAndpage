@@ -357,8 +357,16 @@ const CheckoutPage = () => {
 
         const { data: { session } } = await supabase.auth.getSession();
         const u = session?.user;
+
+        // Sem sessão → redirecionar para login
+        if (!u) {
+          if (isMountedRef.current) safeNavigate('/login', { replace: true });
+          clearTimeout(timeoutId);
+          return;
+        }
+
         if (isMountedRef.current) setUser(u);
-        if (u) await fetchUserData(u);
+        await fetchUserData(u);
         await fetchCartItems();
       } catch (e) {
         console.error('[CheckoutPage] loadCheckout error:', e);
@@ -571,43 +579,25 @@ const CheckoutPage = () => {
       if (!formValid) {
         throw new Error('Confira os campos obrigatórios marcados com * antes de finalizar o pedido.');
       }
-      let createdOrderId: number;
 
-      if (user) {
-        const bStrings = [...tierBenefits.filter(isPassiveBenefit), ...selectedBenefits];
-        const { data: o, error: err } = await supabase.rpc('create_pending_order_from_local_cart', {
-          shipping_cost_input: shippingCost,
-          shipping_address_input: data,
-          cart_items_input: getLocalCart(),
-          user_coupon_id_input: selectedCoupon?.user_coupon_id,
-          benefits_input: bStrings.length ? `Nível ${tierName}: ${bStrings.join(', ')}` : null,
-          payment_method_input: 'pix',
-          donation_amount_input: donationAmount,
-        });
-        if (err) throw err;
-        const raw: any = (o as any)?.new_order_id ?? (o as any)?.order_id ?? (o as any)?.id ?? o;
-        createdOrderId = typeof raw === 'string' ? Number(raw) : raw;
+      if (!user) throw new Error('Sessão expirada. Faça login novamente.');
 
-        // Sincroniza endereço e dados pessoais no perfil (fire-and-forget)
-        syncAddressToProfile(data);
-      } else {
-        const { data: o, error: err } = await supabase.rpc('create_order', {
-          user_id_input: null,
-          cart_items_input: getLocalCart(),
-          shipping_address_input: data,
-          shipping_cost_input: shippingCost,
-          payment_method_input: 'pix',
-          donation_amount_input: donationAmount,
-          guest_email_input: data.email,
-          guest_phone_input: data.phone.replace(/\D/g, ''),
-          guest_cpf_cnpj_input: data.cpf_cnpj.replace(/\D/g, ''),
-        });
-        if (err) throw err;
-        // create_order retorna TABLE → Supabase devolve array de rows
-        const row: any = Array.isArray(o) ? o[0] : o;
-        const raw: any = row?.order_id ?? row?.new_order_id ?? row?.id ?? row;
-        createdOrderId = typeof raw === 'string' ? Number(raw) : raw;
-      }
+      const bStrings = [...tierBenefits.filter(isPassiveBenefit), ...selectedBenefits];
+      const { data: o, error: err } = await supabase.rpc('create_pending_order_from_local_cart', {
+        shipping_cost_input: shippingCost,
+        shipping_address_input: data,
+        cart_items_input: getLocalCart(),
+        user_coupon_id_input: selectedCoupon?.user_coupon_id,
+        benefits_input: bStrings.length ? `Nível ${tierName}: ${bStrings.join(', ')}` : null,
+        payment_method_input: 'pix',
+        donation_amount_input: donationAmount,
+      });
+      if (err) throw err;
+      const raw: any = (o as any)?.new_order_id ?? (o as any)?.order_id ?? (o as any)?.id ?? o;
+      const createdOrderId: number = typeof raw === 'string' ? Number(raw) : raw;
+
+      // Sincroniza endereço e dados pessoais no perfil (fire-and-forget)
+      syncAddressToProfile(data);
 
       if (!isMountedRef.current) return;
       dismissToast(toastId);
@@ -619,7 +609,7 @@ const CheckoutPage = () => {
         try {
           const { data: { session } } = await supabase.auth.getSession();
           const authToken = session?.access_token;
-          const invokeOpts: any = { body: { order_id: createdOrderId, event_type: 'order_created', guest_email: data.email } };
+          const invokeOpts: any = { body: { order_id: createdOrderId, event_type: 'order_created' } };
           if (authToken) invokeOpts.headers = { Authorization: `Bearer ${authToken}` };
           const { error: invokeErr } = await supabase.functions.invoke('trigger-integration', invokeOpts);
           const status = invokeErr ? 'failed' : 'sent';
@@ -653,49 +643,30 @@ const CheckoutPage = () => {
       showError('Confira os campos obrigatórios marcados com * antes de finalizar o pedido.');
       return;
     }
+    if (!user) { showError('Sessão expirada. Faça login novamente.'); return; }
+
     setIsSubmitting(true);
     const toastId = showLoading("Preparando pagamento...");
 
     try {
-      let orderId: number;
-
-      if (user) {
-        const bStrings = [...tierBenefits.filter(isPassiveBenefit), ...selectedBenefits];
-        const { data: orderData, error: orderError } = await supabase.rpc('create_pending_order_from_local_cart', {
-          shipping_cost_input: shippingCost,
-          shipping_address_input: data,
-          cart_items_input: getLocalCart(),
-          user_coupon_id_input: selectedCoupon?.user_coupon_id,
-          benefits_input: bStrings.length ? `Nível ${tierName}: ${bStrings.join(', ')}` : null,
-          payment_method_input: 'Cartão de Crédito',
-          donation_amount_input: donationAmount,
-        });
-        if (orderError) throw new Error(orderError.message || "Erro ao criar pedido.");
-        const raw: any = (orderData as any)?.new_order_id ?? (orderData as any)?.order_id ?? (orderData as any)?.id ?? orderData;
-        orderId = typeof raw === 'string' ? Number(raw) : raw;
-
-        // Sincroniza endereço e dados pessoais no perfil (fire-and-forget)
-        syncAddressToProfile(data);
-      } else {
-        const { data: orderData, error: orderError } = await supabase.rpc('create_order', {
-          user_id_input: null,
-          cart_items_input: getLocalCart(),
-          shipping_address_input: data,
-          shipping_cost_input: shippingCost,
-          payment_method_input: 'Cartão de Crédito',
-          donation_amount_input: donationAmount,
-          guest_email_input: data.email,
-          guest_phone_input: data.phone.replace(/\D/g, ''),
-          guest_cpf_cnpj_input: data.cpf_cnpj.replace(/\D/g, ''),
-        });
-        if (orderError) throw new Error(orderError.message || "Erro ao criar pedido.");
-        // create_order retorna TABLE → Supabase devolve array de rows
-        const row: any = Array.isArray(orderData) ? orderData[0] : orderData;
-        const raw: any = row?.order_id ?? row?.new_order_id ?? row?.id ?? row;
-        orderId = typeof raw === 'string' ? Number(raw) : raw;
-      }
+      const bStrings = [...tierBenefits.filter(isPassiveBenefit), ...selectedBenefits];
+      const { data: orderData, error: orderError } = await supabase.rpc('create_pending_order_from_local_cart', {
+        shipping_cost_input: shippingCost,
+        shipping_address_input: data,
+        cart_items_input: getLocalCart(),
+        user_coupon_id_input: selectedCoupon?.user_coupon_id,
+        benefits_input: bStrings.length ? `Nível ${tierName}: ${bStrings.join(', ')}` : null,
+        payment_method_input: 'Cartão de Crédito',
+        donation_amount_input: donationAmount,
+      });
+      if (orderError) throw new Error(orderError.message || "Erro ao criar pedido.");
+      const raw: any = (orderData as any)?.new_order_id ?? (orderData as any)?.order_id ?? (orderData as any)?.id ?? orderData;
+      const orderId: number = typeof raw === 'string' ? Number(raw) : raw;
 
       if (!orderId || !Number.isFinite(Number(orderId))) throw new Error('Não foi possível criar o pedido.');
+
+      // Sincroniza endereço e dados pessoais no perfil (fire-and-forget)
+      syncAddressToProfile(data);
 
       // Buscar o total_price real do banco como fonte da verdade para o Brick
       const { data: orderRow } = await supabase
@@ -709,7 +680,6 @@ const CheckoutPage = () => {
       setCardFormAmount(realAmount);
       setPendingOrderId(orderId);
       setShowMpForm(true);
-      // Persistir para sobreviver a recarregamentos / redirect do MP
       sessionStorage.setItem('mp_pending_order_id', String(orderId));
 
       // Fire-and-forget webhook
@@ -717,7 +687,7 @@ const CheckoutPage = () => {
         try {
           const { data: { session } } = await supabase.auth.getSession();
           const authToken = session?.access_token;
-          const invokeOpts: any = { body: { order_id: orderId, event_type: 'order_created', guest_email: getValues('email') } };
+          const invokeOpts: any = { body: { order_id: orderId, event_type: 'order_created' } };
           if (authToken) invokeOpts.headers = { Authorization: `Bearer ${authToken}` };
           await supabase.functions.invoke('trigger-integration', invokeOpts);
         } catch (e) { logger.warn('[CheckoutPage] trigger-integration warning (card):', e); }
@@ -832,8 +802,10 @@ const CheckoutPage = () => {
 
   if (loading) return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-sky-400" /></div>;
 
-  const profileComplete = user ? Boolean(
-    user?.email &&
+  // Sem usuário logado → não renderiza nada (o redirect já foi disparado no loadCheckout)
+  if (!user) return null;
+
+  const profileComplete = Boolean(
     getValues('phone')?.replace(/\D/g, '').length >= 10 &&
     getValues('cpf_cnpj')?.replace(/\D/g, '').length >= 11 &&
     getValues('cep')?.trim() &&
@@ -842,8 +814,8 @@ const CheckoutPage = () => {
     getValues('neighborhood')?.trim() &&
     getValues('city')?.trim() &&
     getValues('state')?.trim()
-  ) : true;
-  if (user && !profileComplete) {
+  );
+  if (!profileComplete) {
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
         <div className="max-w-2xl w-full rounded-2xl border bg-white p-6 md:p-8 shadow-lg">

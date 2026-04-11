@@ -7,7 +7,6 @@ const SUPABASE_SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE)
 
-// Dispatch com retry (up to maxRetries attempts)
 async function dispatchWithRetry(
   url: string,
   headers: Record<string, string>,
@@ -17,6 +16,7 @@ async function dispatchWithRetry(
   requestId = 'unknown'
 ): Promise<{ ok: boolean; status?: number; body?: string; error?: string; attempts: number }> {
   let lastError = ''
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       console.log(`[trigger-integration][${requestId}] dispatch attempt ${attempt}/${maxRetries} to ${url}`)
@@ -28,11 +28,12 @@ async function dispatchWithRetry(
       })
       const text = await resp.text().catch(() => '')
       console.log(`[trigger-integration][${requestId}] attempt ${attempt} response: status=${resp.status} body=${text.substring(0, 200)}`)
+
       if (resp.ok) {
         return { ok: true, status: resp.status, body: text, attempts: attempt }
       }
+
       lastError = `HTTP ${resp.status}: ${text.substring(0, 300)}`
-      // Don't retry on 4xx (client errors) — only on 5xx or network issues
       if (resp.status >= 400 && resp.status < 500) {
         console.warn(`[trigger-integration][${requestId}] 4xx error, not retrying: ${lastError}`)
         return { ok: false, status: resp.status, body: text, error: lastError, attempts: attempt }
@@ -41,17 +42,17 @@ async function dispatchWithRetry(
       lastError = String(err?.message || err)
       console.error(`[trigger-integration][${requestId}] attempt ${attempt} threw: ${lastError}`)
     }
-    // Wait before retry: 1s, 2s, 4s
+
     if (attempt < maxRetries) {
       const delay = Math.pow(2, attempt - 1) * 1000
       console.log(`[trigger-integration][${requestId}] waiting ${delay}ms before retry...`)
       await new Promise(r => setTimeout(r, delay))
     }
   }
+
   return { ok: false, error: lastError, attempts: maxRetries }
 }
 
-// Build enriched order payload for n8n
 async function buildOrderPayload(orderId: number, eventType: string, requestId = 'unknown'): Promise<any> {
   console.log(`[trigger-integration][${requestId}] fetching order ${orderId} from DB`)
 
@@ -66,7 +67,6 @@ async function buildOrderPayload(orderId: number, eventType: string, requestId =
     return null
   }
 
-  // Fetch order items
   const { data: items } = await supabase
     .from('order_items')
     .select('item_id, item_type, name_at_purchase, quantity, price_at_purchase, image_url_at_purchase')
@@ -85,7 +85,6 @@ async function buildOrderPayload(orderId: number, eventType: string, requestId =
     }
   })
 
-  // Use total_price directly from DB — it already includes shipping + donation - discount
   const totalPrice = Number(order.total_price ?? 0)
   const shippingCost = Number(order.shipping_cost ?? 0)
   const donationAmount = Number(order.donation_amount ?? 0)
@@ -101,11 +100,9 @@ async function buildOrderPayload(orderId: number, eventType: string, requestId =
     subtotal_products: subtotalProducts,
   })
 
-  // Build customer info from shipping_address or guest fields
   const shipping = order.shipping_address || {}
   let customerEmail: string | null = shipping.email || order.guest_email || null
 
-  // Fallback: fetch email from auth.users when not present in shipping_address or guest_email
   if (!customerEmail && order.user_id) {
     try {
       const { data: authUserData, error: authUserErr } = await supabase.auth.admin.getUserById(order.user_id)
@@ -178,7 +175,6 @@ serve(async (req) => {
 
   console.log(`[trigger-integration][${requestId}] received body`, JSON.stringify(body).substring(0, 500))
 
-  // Support simulate flag for admin tests
   if (body?.simulate) {
     console.log(`[trigger-integration][${requestId}] simulate mode — returning success without dispatching`)
     return new Response(JSON.stringify({ success: true, simulated: true }), {
@@ -187,7 +183,6 @@ serve(async (req) => {
     })
   }
 
-  // Extract event_type from various payload shapes
   const eventType: string =
     body?.event_type ||
     body?.payload?.event_type ||
@@ -202,23 +197,18 @@ serve(async (req) => {
     })
   }
 
-  console.log(`[trigger-integration][${requestId}] processing event_type:`, eventType)
+  console.log(`[trigger-integration][${requestId}] processing event_type: ${eventType}`)
 
-  // Extract order_id from various payload shapes
-  const orderId: number | null =
-    Number(body?.payload?.order_id || body?.order_id || body?.data?.order_id || 0) || null
+  const orderId: number | null = Number(body?.payload?.order_id || body?.order_id || body?.data?.order_id || 0) || null
 
-  // Build enriched payload for order events
   let outgoingPayload: any = null
   if (eventType === 'order_created' && orderId) {
     outgoingPayload = await buildOrderPayload(orderId, eventType, requestId)
     if (!outgoingPayload) {
-      console.error(`[trigger-integration][${requestId}] could not build order payload for order`, orderId)
-      // Still try to dispatch with raw body as fallback
+      console.error(`[trigger-integration][${requestId}] could not build order payload for order ${orderId}`)
       outgoingPayload = { event: eventType, timestamp: new Date().toISOString(), data: body?.payload ?? body }
     }
   } else {
-    // Generic event — wrap as-is
     outgoingPayload = {
       event: eventType,
       timestamp: new Date().toISOString(),
@@ -226,7 +216,6 @@ serve(async (req) => {
     }
   }
 
-  // Fetch n8n token from app_settings
   const { data: tokenSetting } = await supabase
     .from('app_settings')
     .select('value')
@@ -234,7 +223,6 @@ serve(async (req) => {
     .maybeSingle()
   const n8nToken: string = tokenSetting?.value || ''
 
-  // Fetch active webhook configs for this event
   const { data: configs, error: configsErr } = await supabase
     .from('webhook_configs')
     .select('id, trigger_event, target_url, is_active, api_key_header_name, api_key_value, additional_headers')
@@ -253,90 +241,82 @@ serve(async (req) => {
 
   if (!configs || configs.length === 0) {
     console.warn(`[trigger-integration][${requestId}] no active webhook configs for event "${eventType}" — nothing to dispatch`)
-    // Log this so admin can see it
     await supabase.from('integration_logs').insert({
       event_type: eventType,
       status: 'no_config',
       details: `Nenhum webhook ativo configurado para o evento "${eventType}"`,
       payload: outgoingPayload,
-      response_code: null,
-    }).catch(() => {})
-    return new Response(JSON.stringify({ success: true, dispatched: [], warning: 'no active webhook configs' }), {
+    })
+
+    return new Response(JSON.stringify({
+      success: false,
+      dispatched: 0,
+      reason: 'no_config',
+      event_type: eventType,
+    }), {
       status: 200,
       headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' },
     })
   }
 
-  const bodyToSend = JSON.stringify(outgoingPayload)
+  const results = []
 
-  // Dispatch to all configured URLs in parallel
-  const results = await Promise.allSettled(
-    configs.map(async (cfg: any) => {
-      const url: string = cfg.target_url
+  for (const config of configs) {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
 
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      }
+    if (config.api_key_header_name && config.api_key_value) {
+      headers[config.api_key_header_name] = config.api_key_value
+    }
 
-      // n8n token from app_settings
-      if (n8nToken) {
-        headers['apikey'] = n8nToken
-      }
+    if (n8nToken) {
+      headers['Authorization'] = `Bearer ${n8nToken}`
+    }
 
-      // Custom API key from webhook_config
-      if (cfg.api_key_header_name && cfg.api_key_value) {
-        headers[cfg.api_key_header_name] = cfg.api_key_value
-      }
-
-      // Additional headers from config
-      if (cfg.additional_headers && typeof cfg.additional_headers === 'object') {
-        for (const [k, v] of Object.entries(cfg.additional_headers)) {
-          if (k && typeof v === 'string') headers[k] = v
+    if (config.additional_headers && typeof config.additional_headers === 'object') {
+      for (const [key, value] of Object.entries(config.additional_headers)) {
+        if (typeof value === 'string' && value.trim()) {
+          headers[key] = value
         }
       }
+    }
 
-      console.log(`[trigger-integration][${requestId}] dispatching to ${url}`, {
-        event: eventType,
-        orderId,
-        headerNames: Object.keys(headers),
-        bodyPreview: bodyToSend.substring(0, 200),
-      })
+    const dispatchResult = await dispatchWithRetry(
+      config.target_url,
+      headers,
+      JSON.stringify(outgoingPayload),
+      3,
+      15000,
+      requestId
+    )
 
-      const result = await dispatchWithRetry(url, headers, bodyToSend, 3, 15000, requestId)
-      return { url, cfg_id: cfg.id, ...result }
+    results.push({
+      config_id: config.id,
+      target_url: config.target_url,
+      ...dispatchResult,
     })
-  )
 
-  const dispatched = results.map(r =>
-    r.status === 'fulfilled' ? r.value : { ok: false, error: String((r as any).reason) }
-  )
-
-  console.log(`[trigger-integration][${requestId}] dispatch summary`, dispatched.map(d => ({
-    url: (d as any).url,
-    ok: (d as any).ok,
-    status: (d as any).status,
-    attempts: (d as any).attempts,
-    error: (d as any).error,
-  })))
-
-  // Persist logs
-  try {
-    const logRows = dispatched.map((d: any) => ({
+    await supabase.from('integration_logs').insert({
       event_type: eventType,
-      status: d.ok ? 'sent' : 'error',
-      details: d.ok
-        ? `✅ Enviado para ${d.url} em ${d.attempts} tentativa(s)`
-        : `❌ Falha ao enviar para ${d.url}: ${d.error || d.body || 'unknown error'}`,
+      status: dispatchResult.ok ? 'success' : 'error',
       payload: outgoingPayload,
-      response_code: d.status ?? null,
-    }))
-    await supabase.from('integration_logs').insert(logRows)
-  } catch (logErr) {
-    console.error(`[trigger-integration][${requestId}] failed to persist integration_logs`, logErr)
+      response_code: dispatchResult.status ?? null,
+      details: dispatchResult.ok
+        ? `Webhook enviado para ${config.target_url}`
+        : `Falha ao enviar para ${config.target_url}: ${dispatchResult.error || 'erro desconhecido'}`,
+    })
   }
 
-  const allOk = dispatched.every((d: any) => d.ok)
-  return new Response(JSON.stringify({ success: allOk, dispatched }), {
+  const successCount = results.filter((item) => item.ok).length
+
+  return new Response(JSON.stringify({
+    success: successCount > 0,
+    event_type: eventType,
+    dispatched: results.length,
+    success_count: successCount,
+    results,
+  }), {
     status: 200,
     headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' },
   })

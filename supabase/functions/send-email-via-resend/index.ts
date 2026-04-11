@@ -258,7 +258,7 @@ serve(async (req) => {
     }
 
     const body = await req.json()
-    const { to, subject, type, code, resetLink, html } = body
+    const { to, subject, type, code, resetLink, html, newPassword } = body
 
     if (!to || !subject) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
@@ -277,7 +277,7 @@ serve(async (req) => {
           emailHtml = templates.passwordReset(resetLink || '')
           break
         case 'new_password':
-          emailHtml = templates.newPassword(code || '')
+          emailHtml = templates.newPassword(newPassword || code || '')
           break
         case 'complete_profile':
           emailHtml = templates.completeProfile(resetLink || '#', to)
@@ -319,9 +319,9 @@ serve(async (req) => {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
-  } catch (err: any) {
-    console.error('[send-email-via-resend] unexpected error', err)
-    return new Response(JSON.stringify({ error: err.message }), {
+  } catch (error) {
+    console.error('[send-email-via-resend] Unexpected error:', error)
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })

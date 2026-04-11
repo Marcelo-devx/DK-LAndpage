@@ -9,12 +9,12 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-}
+  'Vary': 'Origin',
+};
 
 serve(async (req) => {
-  // ← SEMPRE responde ao preflight OPTIONS primeiro — nunca pode falhar
   if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: corsHeaders });
+    return new Response('ok', { status: 200, headers: corsHeaders });
   }
 
   try {
@@ -41,11 +41,9 @@ serve(async (req) => {
       });
     }
 
-    // Generate 6-digit numeric code
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const expiresAt = new Date(Date.now() + (expires_in_seconds || 60 * 10) * 1000).toISOString();
 
-    // Invalidate any previous unused codes for this email+type
     await supabase
       .from('email_links')
       .update({ used: true })
@@ -53,7 +51,6 @@ serve(async (req) => {
       .eq('type', type)
       .eq('used', false);
 
-    // Insert new code — user_id is NULL because user doesn't exist yet (signup flow)
     const { error } = await supabase.from('email_links').insert([{
       email: email.toLowerCase().trim(),
       token: code,
@@ -75,7 +72,6 @@ serve(async (req) => {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-
   } catch (err: any) {
     console.error('[generate-token] unexpected', err);
     return new Response(JSON.stringify({ error: err.message }), {
@@ -83,4 +79,4 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-})
+});

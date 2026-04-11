@@ -9,12 +9,12 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-}
+  'Vary': 'Origin',
+};
 
 serve(async (req) => {
-  // ← SEMPRE responde ao preflight OPTIONS primeiro — nunca pode falhar
   if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: corsHeaders });
+    return new Response('ok', { status: 200, headers: corsHeaders });
   }
 
   try {
@@ -39,7 +39,6 @@ serve(async (req) => {
       });
     }
 
-    // Find the most recent unused code for this email
     const { data, error } = await supabase
       .from('email_links')
       .select('*')
@@ -67,7 +66,6 @@ serve(async (req) => {
       });
     }
 
-    // Mark as used
     await supabase.from('email_links').update({ used: true }).eq('id', data.id);
 
     console.log('[validate-token] code validated for', email);
@@ -75,7 +73,6 @@ serve(async (req) => {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-
   } catch (err: any) {
     console.error('[validate-token] unexpected', err);
     return new Response(JSON.stringify({ error: err.message }), {
@@ -83,4 +80,4 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-})
+});

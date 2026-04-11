@@ -9,12 +9,12 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-}
+  'Vary': 'Origin',
+};
 
 serve(async (req) => {
-  // ← SEMPRE responde ao preflight OPTIONS primeiro — nunca pode falhar
   if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: corsHeaders });
+    return new Response('ok', { status: 200, headers: corsHeaders });
   }
 
   try {
@@ -38,7 +38,6 @@ serve(async (req) => {
     const cleanEmail = email.toLowerCase().trim();
     const DEFAULT_PASSWORD = '123456';
 
-    // Check if user exists via Admin REST API (avoids listUsers() which is slow)
     const searchRes = await fetch(
       `${supabaseUrl}/auth/v1/admin/users?filter=${encodeURIComponent(cleanEmail)}&page=1&per_page=1`,
       {
@@ -61,7 +60,6 @@ serve(async (req) => {
       }
     }
 
-    // Create user with email already confirmed and default password
     const supabase = createClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
@@ -73,7 +71,6 @@ serve(async (req) => {
     });
 
     if (error) {
-      // If user already exists (race condition), treat as success
       if (error.message?.toLowerCase().includes('already') || error.message?.toLowerCase().includes('exists')) {
         console.log('[create-user] User already exists (race condition):', cleanEmail);
         return new Response(JSON.stringify({ success: true, already_exists: true }), {
@@ -93,7 +90,6 @@ serve(async (req) => {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-
   } catch (err: any) {
     console.error('[create-user] unexpected', err);
     return new Response(JSON.stringify({ error: err.message }), {
@@ -101,4 +97,4 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-})
+});

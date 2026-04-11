@@ -604,19 +604,8 @@ const CheckoutPage = () => {
       clearLocalCart();
       sessionStorage.removeItem('mp_pending_order_id');
 
-      // Aguarda o webhook ANTES de redirecionar para garantir que o robô receba o evento
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const authToken = session?.access_token;
-        const invokeOpts: any = { body: { order_id: createdOrderId, event_type: 'order_created' } };
-        if (authToken) invokeOpts.headers = { Authorization: `Bearer ${authToken}` };
-        const { error: invokeErr } = await supabase.functions.invoke('trigger-integration', invokeOpts);
-        const status = invokeErr ? 'failed' : 'sent';
-        const details = invokeErr ? String(invokeErr) : 'Dispatched via trigger-integration';
-        await supabase.functions.invoke('log-integration', { body: { event_type: 'order_created', status, details, payload: { order_id: createdOrderId } } });
-      } catch (ex) {
-        try { await supabase.functions.invoke('log-integration', { body: { event_type: 'order_created', status: 'failed', details: String(ex), payload: { order_id: createdOrderId } } }); } catch { /* ignore */ }
-      }
+      // O trigger do banco (tr_order_created_webhook_fixed) já dispara o webhook automaticamente
+      // via pg_net com anon_key hardcoded — não é necessário chamar manualmente aqui.
 
       safeNavigate(`/confirmacao-pedido/${createdOrderId}`);
     } catch (e: any) {
@@ -679,16 +668,8 @@ const CheckoutPage = () => {
       setShowMpForm(true);
       sessionStorage.setItem('mp_pending_order_id', String(orderId));
 
-      // Fire-and-forget webhook
-      (async () => {
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          const authToken = session?.access_token;
-          const invokeOpts: any = { body: { order_id: orderId, event_type: 'order_created' } };
-          if (authToken) invokeOpts.headers = { Authorization: `Bearer ${authToken}` };
-          await supabase.functions.invoke('trigger-integration', invokeOpts);
-        } catch (e) { logger.warn('[CheckoutPage] trigger-integration warning (card):', e); }
-      })();
+      // O trigger do banco (tr_order_created_webhook_fixed) já dispara o webhook automaticamente
+      // via pg_net com anon_key hardcoded — não é necessário chamar manualmente aqui.
 
     } catch (e: any) {
       dismissToast(toastId);

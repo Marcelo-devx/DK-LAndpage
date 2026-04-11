@@ -32,8 +32,9 @@ const templates = {
         .logo span { color: #0ea5e9; }
         .content { padding: 40px 20px; text-align: center; }
         .code-box { 
-          background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
-          color: white; 
+          background: #ffffff;
+          border: 2px solid #0ea5e9;
+          color: #000000; 
           padding: 25px; 
           border-radius: 12px; 
           font-size: 36px; 
@@ -41,7 +42,7 @@ const templates = {
           letter-spacing: 8px;
           margin: 30px auto;
           max-width: 300px;
-          text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+          text-shadow: none;
         }
         .info { color: #64748b; font-size: 14px; margin-top: 20px; }
         .footer { text-align: center; padding: 20px; color: #94a3b8; font-size: 12px; border-top: 1px solid #e2e8f0; margin-top: 30px; }

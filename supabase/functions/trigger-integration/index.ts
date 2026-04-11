@@ -117,10 +117,18 @@ async function buildOrderPayload(orderId: number, eventType: string, requestId =
     }
   }
 
+  const rawPhone = (shipping.phone || order.guest_phone || '').replace(/\D/g, '')
+  // Garante que o número seja enviado ao n8n com DDI 55 (Brasil),
+  // pois o WhatsApp do cliente inclui o DDI e o n8n usa esse número para validar o pedido.
+  // Evita duplicar o DDI caso o número já comece com 55 e tenha comprimento de número internacional (≥12 dígitos).
+  const formattedPhone = rawPhone
+    ? (rawPhone.startsWith('55') && rawPhone.length >= 12 ? rawPhone : '55' + rawPhone)
+    : null
+
   const customer = {
     id: order.user_id || null,
     full_name: [shipping.first_name, shipping.last_name].filter(Boolean).join(' ') || shipping.full_name || null,
-    phone: (shipping.phone || order.guest_phone || '').replace(/\D/g, '') || null,
+    phone: formattedPhone,
     email: customerEmail,
     cpf: (shipping.cpf_cnpj || order.guest_cpf_cnpj || '').replace(/\D/g, '') || null,
   }

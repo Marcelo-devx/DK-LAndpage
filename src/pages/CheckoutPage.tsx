@@ -535,6 +535,30 @@ const CheckoutPage = () => {
   };
 
   // ============================================================
+  // HELPER: Sincroniza endereço do checkout → perfil (fire-and-forget)
+  // ============================================================
+  const syncAddressToProfile = async (data: CheckoutFormData) => {
+    if (!user) return;
+    try {
+      await supabase.from('profiles').update({
+        cep: data.cep.replace(/\D/g, ''),
+        street: data.street.trim(),
+        number: data.number.trim(),
+        complement: data.complement?.trim() || null,
+        neighborhood: data.neighborhood.trim(),
+        city: data.city.trim(),
+        state: data.state.trim().toUpperCase(),
+        phone: data.phone.replace(/\D/g, ''),
+        cpf_cnpj: data.cpf_cnpj.replace(/\D/g, ''),
+        first_name: data.first_name.trim(),
+        last_name: data.last_name.trim(),
+      }).eq('id', user.id);
+    } catch (e) {
+      logger.warn('[CheckoutPage] syncAddressToProfile silently failed:', e);
+    }
+  };
+
+  // ============================================================
   // PIX WHATSAPP
   // ============================================================
   const handlePixPayment = async (data: CheckoutFormData) => {
@@ -563,21 +587,25 @@ const CheckoutPage = () => {
         if (err) throw err;
         const raw: any = (o as any)?.new_order_id ?? (o as any)?.order_id ?? (o as any)?.id ?? o;
         createdOrderId = typeof raw === 'string' ? Number(raw) : raw;
+
+        // Sincroniza endereço e dados pessoais no perfil (fire-and-forget)
+        syncAddressToProfile(data);
       } else {
-        const { data: o, error: err } = await supabase.rpc('create_guest_order', {
-          p_email: data.email,
-          p_first_name: data.first_name,
-          p_last_name: data.last_name,
-          p_phone: data.phone.replace(/\D/g, ''),
-          p_cpf_cnpj: data.cpf_cnpj.replace(/\D/g, ''),
-          p_shipping_cost: shippingCost,
-          p_shipping_address: data,
-          p_cart_items: getLocalCart(),
-          p_payment_method: 'pix',
-          p_donation_amount: donationAmount,
+        const { data: o, error: err } = await supabase.rpc('create_order', {
+          user_id_input: null,
+          cart_items_input: getLocalCart(),
+          shipping_address_input: data,
+          shipping_cost_input: shippingCost,
+          payment_method_input: 'pix',
+          donation_amount_input: donationAmount,
+          guest_email_input: data.email,
+          guest_phone_input: data.phone.replace(/\D/g, ''),
+          guest_cpf_cnpj_input: data.cpf_cnpj.replace(/\D/g, ''),
         });
         if (err) throw err;
-        const raw: any = (o as any)?.new_order_id ?? (o as any)?.order_id ?? (o as any)?.id ?? o;
+        // create_order retorna TABLE → Supabase devolve array de rows
+        const row: any = Array.isArray(o) ? o[0] : o;
+        const raw: any = row?.order_id ?? row?.new_order_id ?? row?.id ?? row;
         createdOrderId = typeof raw === 'string' ? Number(raw) : raw;
       }
 
@@ -645,21 +673,25 @@ const CheckoutPage = () => {
         if (orderError) throw new Error(orderError.message || "Erro ao criar pedido.");
         const raw: any = (orderData as any)?.new_order_id ?? (orderData as any)?.order_id ?? (orderData as any)?.id ?? orderData;
         orderId = typeof raw === 'string' ? Number(raw) : raw;
+
+        // Sincroniza endereço e dados pessoais no perfil (fire-and-forget)
+        syncAddressToProfile(data);
       } else {
-        const { data: orderData, error: orderError } = await supabase.rpc('create_guest_order', {
-          p_email: data.email,
-          p_first_name: data.first_name,
-          p_last_name: data.last_name,
-          p_phone: data.phone.replace(/\D/g, ''),
-          p_cpf_cnpj: data.cpf_cnpj.replace(/\D/g, ''),
-          p_shipping_cost: shippingCost,
-          p_shipping_address: data,
-          p_cart_items: getLocalCart(),
-          p_payment_method: 'Cartão de Crédito',
-          p_donation_amount: donationAmount,
+        const { data: orderData, error: orderError } = await supabase.rpc('create_order', {
+          user_id_input: null,
+          cart_items_input: getLocalCart(),
+          shipping_address_input: data,
+          shipping_cost_input: shippingCost,
+          payment_method_input: 'Cartão de Crédito',
+          donation_amount_input: donationAmount,
+          guest_email_input: data.email,
+          guest_phone_input: data.phone.replace(/\D/g, ''),
+          guest_cpf_cnpj_input: data.cpf_cnpj.replace(/\D/g, ''),
         });
         if (orderError) throw new Error(orderError.message || "Erro ao criar pedido.");
-        const raw: any = (orderData as any)?.new_order_id ?? (orderData as any)?.order_id ?? (orderData as any)?.id ?? orderData;
+        // create_order retorna TABLE → Supabase devolve array de rows
+        const row: any = Array.isArray(orderData) ? orderData[0] : orderData;
+        const raw: any = row?.order_id ?? row?.new_order_id ?? row?.id ?? row;
         orderId = typeof raw === 'string' ? Number(raw) : raw;
       }
 

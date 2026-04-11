@@ -122,6 +122,9 @@ const CheckoutPage = () => {
   const [deliveryType, setDeliveryType] = useState<'local' | 'correios' | null>(null);
   const [shippingCost, setShippingCost] = useState<number>(0);
   const [isFreeShippingApplied, setIsFreeShippingApplied] = useState(false);
+  const [isShippingAvailable, setIsShippingAvailable] = useState(true);
+  const [shippingErrorMessage, setShippingErrorMessage] = useState('');
+  const [isCheckingShipping, setIsCheckingShipping] = useState(false);
   const [donationAmount, setDonationAmount] = useState<number>(0);
   const [tierName, setTierName] = useState<string>('');
   const [isAddressComplete, setIsAddressComplete] = useState<boolean>(false);
@@ -452,20 +455,66 @@ const CheckoutPage = () => {
 
   useEffect(() => {
     const calculateShipping = async () => {
-      if (deliveryType === 'correios') { if (isMountedRef.current) { setShippingCost(0); setIsFreeShippingApplied(false); } return; }
-      const hasFreeShippingBenefit = selectedBenefits.some(b => b.toLowerCase().includes('frete grátis'));
-      if (hasFreeShippingBenefit) { if (isMountedRef.current) { setShippingCost(0); setIsFreeShippingApplied(true); } return; }
-      if (watchedNeighborhood && watchedCity) {
-        const { data, error } = await supabase.rpc('get_shipping_rate', { p_neighborhood: watchedNeighborhood, p_city: watchedCity });
+      if (deliveryType === 'correios') {
         if (isMountedRef.current) {
-          if (!error && data !== null) setShippingCost(Number(data));
-          else setShippingCost(0);
+          setShippingCost(0);
+          setIsFreeShippingApplied(false);
+          setIsShippingAvailable(true);
+          setShippingErrorMessage('');
         }
+        return;
+      }
+
+      const hasFreeShippingBenefit = selectedBenefits.some(b => b.toLowerCase().includes('frete grátis'));
+      const hasFreeShippingCoupon = selectedCoupon?.name?.toLowerCase().includes('frete');
+
+      if (hasFreeShippingBenefit || hasFreeShippingCoupon) {
+        if (isMountedRef.current) {
+          setShippingCost(0);
+          setIsFreeShippingApplied(true);
+          setIsShippingAvailable(true);
+          setShippingErrorMessage('');
+        }
+        return;
+      }
+
+      if (!watchedNeighborhood?.trim() || !watchedCity?.trim()) {
+        if (isMountedRef.current) {
+          setShippingCost(0);
+          setIsFreeShippingApplied(false);
+          setIsShippingAvailable(false);
+          setShippingErrorMessage('');
+        }
+        return;
+      }
+
+      if (isMountedRef.current) setIsCheckingShipping(true);
+      try {
+        const { data, error } = await supabase.rpc('get_shipping_rate', { p_neighborhood: watchedNeighborhood, p_city: watchedCity });
+        if (!isMountedRef.current) return;
+
+        if (!error && data !== null) {
+          setShippingCost(Number(data));
+          setIsShippingAvailable(true);
+          setShippingErrorMessage('');
+        } else {
+          setShippingCost(0);
+          setIsShippingAvailable(false);
+          setShippingErrorMessage('Não conseguimos calcular o frete para esse endereço. Confira o bairro e a cidade ou fale com a gente para ajudar você.');
+        }
+      } catch {
+        if (isMountedRef.current) {
+          setShippingCost(0);
+          setIsShippingAvailable(false);
+          setShippingErrorMessage('Não conseguimos calcular o frete para esse endereço. Confira o bairro e a cidade ou fale com a gente para ajudar você.');
+        }
+      } finally {
+        if (isMountedRef.current) setIsCheckingShipping(false);
       }
     };
     const timeoutId = setTimeout(calculateShipping, 500);
     return () => clearTimeout(timeoutId);
-  }, [watchedNeighborhood, watchedCity, selectedBenefits, deliveryType]);
+  }, [watchedNeighborhood, watchedCity, selectedBenefits, selectedCoupon, deliveryType]);
 
   // ============================================================
   // MOBILE: avançar da etapa 1 para a etapa 2
@@ -491,6 +540,9 @@ const CheckoutPage = () => {
   const handlePixPayment = async (data: CheckoutFormData) => {
     const toastId = showLoading("Criando seu pedido PIX...");
     try {
+      if (!isShippingAvailable && !isFreeShippingApplied) {
+        throw new Error(shippingErrorMessage || 'Não conseguimos calcular o frete para esse endereço. Confira o bairro e a cidade ou fale com a gente para ajudar você.');
+      }
       let createdOrderId: number;
 
       if (user) {
@@ -560,6 +612,10 @@ const CheckoutPage = () => {
   // ============================================================
   const handlePrepareCardPayment = async (data: CheckoutFormData) => {
     if (!isAddressComplete) { showError("Preencha todos os dados de entrega."); return; }
+    if (!isShippingAvailable && !isFreeShippingApplied) {
+      showError(shippingErrorMessage || 'Não conseguimos calcular o frete para esse endereço. Confira o bairro e a cidade ou fale com a gente para ajudar você.');
+      return;
+    }
     setIsSubmitting(true);
     const toastId = showLoading("Preparando pagamento...");
 
@@ -714,6 +770,10 @@ const CheckoutPage = () => {
 
   const onSubmit = async (data: CheckoutFormData) => {
     if (!isMountedRef.current) return;
+    if (!isShippingAvailable && !isFreeShippingApplied) {
+      showError(shippingErrorMessage || 'Não conseguimos calcular o frete para esse endereço. Confira o bairro e a cidade ou fale com a gente para ajudar você.');
+      return;
+    }
     if (data.payment_method === 'pix') {
       setIsSubmitting(true);
       await handlePixPayment(data);
@@ -901,6 +961,32 @@ const CheckoutPage = () => {
           <Label className="text-[10px] uppercase text-slate-500">Estado (sigla)</Label>
           <Input {...register('state')} placeholder="Ex: SC" maxLength={2} className="uppercase text-base md:text-sm" autoComplete="address-level1" />
           {errors.state && <p className="text-xs text-red-500 font-bold">{errors.state.message}</p>}
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Frete</p>
+              <p className="text-sm font-medium text-slate-600">
+                {isFreeShippingApplied
+                  ? 'Frete grátis aplicado'
+                  : isCheckingShipping
+                    ? 'Calculando frete...'
+                    : isShippingAvailable && shippingCost > 0
+                      ? `R$ ${shippingCost.toFixed(2).replace('.', ',')}`
+                      : 'Aguardando validação do endereço'}
+              </p>
+            </div>
+            {isFreeShippingApplied && <span className="text-xs font-black uppercase tracking-widest text-emerald-600">Grátis</span>}
+          </div>
+          {!isShippingAvailable && !isFreeShippingApplied && shippingErrorMessage && (
+            <Alert className="mt-4 border-red-200 bg-red-50">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle className="text-sm font-black uppercase">Frete indisponível</AlertTitle>
+              <AlertDescription className="text-sm text-red-700">
+                {shippingErrorMessage}
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
       </CardContent>
     </Card>

@@ -119,37 +119,28 @@ async function buildOrderPayload(orderId: number, eventType: string, requestId =
 
   const rawPhone = (shipping.phone || order.guest_phone || '').replace(/\D/g, '')
 
-  // Normaliza o número para formato internacional brasileiro (DDI 55).
-  // Remove DDI duplicado se já existir.
-  let basePhone = rawPhone
-  if (basePhone.startsWith('55') && basePhone.length >= 12) {
-    basePhone = basePhone.slice(2) // remove o 55 para trabalhar só com DDD+número
-  }
-
-  // Gera variações do número para maximizar a chance de match no n8n:
-  // O WhatsApp pode ter o número com ou sem o dígito 9 (celular brasileiro).
-  // Ex: DDD 32 + 99121-3190 (com 9) ou DDD 32 + 9121-3190 (sem 9)
+  // Gera variações com e sem o dígito 9 (celular brasileiro),
+  // pois o WhatsApp do cliente pode estar registrado com ou sem o 9.
+  // Ex: banco tem 32991213190 (com 9), WhatsApp pode ser 3291213190 (sem 9).
+  // O n8n recebe ambas as versões e pode usar phone_alt como fallback.
   let phoneWithNine: string | null = null
   let phoneWithoutNine: string | null = null
 
-  if (basePhone.length === 11) {
-    // Já tem o 9: ex 32991213190 → com9=5532991213190, sem9=553291213190
-    phoneWithNine = '55' + basePhone
-    phoneWithoutNine = '55' + basePhone.slice(0, 2) + basePhone.slice(3) // remove o 9 após o DDD
-  } else if (basePhone.length === 10) {
-    // Sem o 9: ex 3291213190 → sem9=553291213190, com9=5532991213190
-    phoneWithoutNine = '55' + basePhone
-    phoneWithNine = '55' + basePhone.slice(0, 2) + '9' + basePhone.slice(2) // insere o 9 após o DDD
+  if (rawPhone.length === 11) {
+    // Já tem o 9: ex 32991213190 → sem9=3291213190
+    phoneWithNine = rawPhone
+    phoneWithoutNine = rawPhone.slice(0, 2) + rawPhone.slice(3) // remove o 9 após o DDD
+  } else if (rawPhone.length === 10) {
+    // Sem o 9: ex 3291213190 → com9=32991213190
+    phoneWithoutNine = rawPhone
+    phoneWithNine = rawPhone.slice(0, 2) + '9' + rawPhone.slice(2) // insere o 9 após o DDD
   }
-
-  // Número principal enviado ao n8n (com 9, formato padrão atual)
-  const formattedPhone = phoneWithNine || (rawPhone ? '55' + rawPhone : null)
 
   const customer = {
     id: order.user_id || null,
     full_name: [shipping.first_name, shipping.last_name].filter(Boolean).join(' ') || shipping.full_name || null,
-    phone: formattedPhone,
-    phone_alt: phoneWithoutNine || null, // variação sem o dígito 9, para o n8n usar como fallback
+    phone: phoneWithNine || rawPhone || null,       // número com 9 (padrão atual, igual ao que sempre foi enviado)
+    phone_alt: phoneWithoutNine || null,            // variação sem o 9, para o n8n usar como fallback
     email: customerEmail,
     cpf: (shipping.cpf_cnpj || order.guest_cpf_cnpj || '').replace(/\D/g, '') || null,
   }

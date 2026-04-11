@@ -645,7 +645,6 @@ const CheckoutPage = () => {
     }
     if (!user) { showError('Sessão expirada. Faça login novamente.'); return; }
 
-    setIsSubmitting(true);
     const toastId = showLoading("Preparando pagamento...");
 
     try {
@@ -696,8 +695,6 @@ const CheckoutPage = () => {
     } catch (e: any) {
       dismissToast(toastId);
       showError(e?.message || "Erro ao preparar pagamento.");
-    } finally {
-      if (isMountedRef.current) setIsSubmitting(false);
     }
   };
 
@@ -795,8 +792,9 @@ const CheckoutPage = () => {
       await handlePixPayment(data);
       if (isMountedRef.current) setIsSubmitting(false);
     } else {
-      // Both mobile and desktop use the transparent Brick checkout
+      setIsSubmitting(true);
       await handlePrepareCardPayment(data);
+      if (isMountedRef.current) setIsSubmitting(false);
     }
   };
 
@@ -811,7 +809,6 @@ const CheckoutPage = () => {
     getValues('cep')?.trim() &&
     getValues('street')?.trim() &&
     getValues('number')?.trim() &&
-    getValues('complement')?.trim() &&
     getValues('neighborhood')?.trim() &&
     getValues('city')?.trim() &&
     getValues('state')?.trim()

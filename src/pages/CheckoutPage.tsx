@@ -811,6 +811,7 @@ const CheckoutPage = () => {
     getValues('cep')?.trim() &&
     getValues('street')?.trim() &&
     getValues('number')?.trim() &&
+    getValues('complement')?.trim() &&
     getValues('neighborhood')?.trim() &&
     getValues('city')?.trim() &&
     getValues('state')?.trim()

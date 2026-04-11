@@ -387,8 +387,9 @@ const ProfilePage = () => {
                         {errors.number && <p className="text-xs font-bold text-red-400">{errors.number.message}</p>}
                       </div>
                       <div className="md:col-span-2 space-y-3">
-                        <Label htmlFor="complement" className="text-xs font-black uppercase tracking-[0.2em] text-stone-500">Complemento (opcional)</Label>
+                        <Label htmlFor="complement" className="text-xs font-black uppercase tracking-[0.2em] text-stone-500">Complemento *</Label>
                         <Input id="complement" {...register('complement')} className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" disabled={!canEditAddress && !isAdmin} />
+                        {errors.complement && <p className="text-xs font-bold text-red-400">{errors.complement.message}</p>}
                       </div>
                     </div>
 

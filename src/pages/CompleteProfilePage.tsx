@@ -30,7 +30,7 @@ const profileSchema = z.object({
   cep: z.string().min(9, "CEP inválido"),
   street: z.string().min(1, "Rua é obrigatória"),
   number: z.string().min(1, "Número é obrigatório"),
-  complement: z.string().optional(),
+  complement: z.string().min(1, "Complemento é obrigatório"),
   neighborhood: z.string().min(1, "Bairro é obrigatório"),
   city: z.string().min(1, "Cidade é obrigatória"),
   state: z.string().min(2, "Estado inválido").max(2, "Use a sigla do estado (ex: SC)"),
@@ -209,11 +209,12 @@ const CompleteProfilePage = () => {
     const cep = watched.cep;
     const street = watched.street;
     const number = watched.number;
+    const complement = watched.complement;
     const neighborhood = watched.neighborhood;
     const city = watched.city;
     const state = watched.state;
 
-    return Boolean(f && dob && phone && phone.length >= 10 && cpf && cpf.length >= 11 && gender && cep && street && number && neighborhood && city && state);
+    return Boolean(f && dob && phone && phone.length >= 10 && cpf && cpf.length >= 11 && gender && cep && street && number && complement && complement.trim() && neighborhood && city && state);
   }, [watched]);
 
   const accepted = Boolean(watched.accepted_terms);
@@ -629,8 +630,9 @@ const CompleteProfilePage = () => {
                       {errors.number && <p className="text-xs text-red-500 font-bold">{errors.number.message}</p>}
                     </div>
                     <div className="md:col-span-2 space-y-2">
-                      <Label htmlFor="complement" className="text-charcoal-gray">Complemento (opcional)</Label>
+                      <Label htmlFor="complement" className="text-charcoal-gray">Complemento <span className="text-red-500">*</span></Label>
                       <Input id="complement" {...register('complement')} className="bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors" />
+                      {errors.complement && <p className="text-xs text-red-500 font-bold">{errors.complement.message}</p>}
                     </div>
                 </div>
                 <div className="space-y-2">

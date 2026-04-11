@@ -45,18 +45,18 @@ interface Coupon {
 }
 
 const checkoutSchema = z.object({
-  email: z.string().min(1, "E-mail é obrigatório").email("E-mail inválido"),
-  first_name: z.string().min(1, "Nome é obrigatório"),
-  last_name: z.string().min(1, "Sobrenome é obrigatório"),
-  phone: z.string().min(14, "Telefone inválido").max(15, "Telefone inválido"),
-  cpf_cnpj: z.string().min(14, "CPF inválido").max(18, "CNPJ inválido"),
-  cep: z.string().min(9, "CEP inválido"),
-  street: z.string().min(1, "Rua é obrigatória"),
-  number: z.string().min(1, "Número é obrigatório"),
+  email: z.string().trim().min(1, "Informe seu e-mail para continuarmos.").email("Digite um e-mail válido para receber seu pedido."),
+  first_name: z.string().trim().min(1, "Informe seu nome.").min(2, "Digite seu nome completo."),
+  last_name: z.string().trim().min(1, "Informe seu sobrenome.").min(2, "Digite seu nome completo."),
+  phone: z.string().min(14, "Informe um telefone válido.").max(15, "Informe um telefone válido."),
+  cpf_cnpj: z.string().min(14, "Informe seu CPF ou CNPJ.").max(18, "Informe seu CPF ou CNPJ."),
+  cep: z.string().min(9, "Informe seu CEP."),
+  street: z.string().trim().min(1, "Informe a rua do endereço."),
+  number: z.string().trim().min(1, "Informe o número do endereço."),
   complement: z.string().optional(),
-  neighborhood: z.string().min(1, "Bairro é obrigatório"),
-  city: z.string().min(1, "Cidade é obrigatória"),
-  state: z.string().min(2, "Estado inválido").max(2, "Use a sigla do estado (ex: SC)"),
+  neighborhood: z.string().trim().min(1, "Informe o bairro."),
+  city: z.string().trim().min(1, "Informe a cidade."),
+  state: z.string().trim().min(2, "Informe a sigla do estado.").max(2, "Use a sigla do estado (ex: SC)"),
   payment_method: z.enum(['mercadopago', 'pix'], { required_error: "Selecione um método de pagamento." }),
 });
 
@@ -526,7 +526,7 @@ const CheckoutPage = () => {
       'cep', 'street', 'number', 'neighborhood', 'city', 'state',
     ]);
     if (!valid) {
-      showError("Preencha todos os dados de entrega antes de continuar.");
+      showError("Confira os dados obrigatórios da entrega antes de continuar. Preencha os campos marcados com *.");
       return;
     }
     setMobileStep(2);
@@ -542,6 +542,10 @@ const CheckoutPage = () => {
     try {
       if (!isShippingAvailable && !isFreeShippingApplied) {
         throw new Error(shippingErrorMessage || 'Não conseguimos calcular o frete para esse endereço. Confira o bairro e a cidade ou fale com a gente para ajudar você.');
+      }
+      const formValid = await trigger(['email', 'first_name', 'last_name', 'phone', 'cpf_cnpj', 'cep', 'street', 'number', 'neighborhood', 'city', 'state']);
+      if (!formValid) {
+        throw new Error('Confira os campos obrigatórios marcados com * antes de finalizar o pedido.');
       }
       let createdOrderId: number;
 
@@ -614,6 +618,11 @@ const CheckoutPage = () => {
     if (!isAddressComplete) { showError("Preencha todos os dados de entrega."); return; }
     if (!isShippingAvailable && !isFreeShippingApplied) {
       showError(shippingErrorMessage || 'Não conseguimos calcular o frete para esse endereço. Confira o bairro e a cidade ou fale com a gente para ajudar você.');
+      return;
+    }
+    const formValid = await trigger(['email', 'first_name', 'last_name', 'phone', 'cpf_cnpj', 'cep', 'street', 'number', 'neighborhood', 'city', 'state']);
+    if (!formValid) {
+      showError('Confira os campos obrigatórios marcados com * antes de finalizar o pedido.');
       return;
     }
     setIsSubmitting(true);
@@ -774,6 +783,11 @@ const CheckoutPage = () => {
       showError(shippingErrorMessage || 'Não conseguimos calcular o frete para esse endereço. Confira o bairro e a cidade ou fale com a gente para ajudar você.');
       return;
     }
+    const formValid = await trigger(['email', 'first_name', 'last_name', 'phone', 'cpf_cnpj', 'cep', 'street', 'number', 'neighborhood', 'city', 'state']);
+    if (!formValid) {
+      showError('Confira os campos obrigatórios marcados com * antes de finalizar o pedido.');
+      return;
+    }
     if (data.payment_method === 'pix') {
       setIsSubmitting(true);
       await handlePixPayment(data);
@@ -872,25 +886,25 @@ const CheckoutPage = () => {
       </CardHeader>
       <CardContent className="p-5 md:p-8 space-y-4 md:space-y-6">
         <div>
-          <Label className="text-[10px] uppercase text-slate-500">E-mail</Label>
+          <Label className="text-[10px] uppercase text-slate-500">E-mail <span className="text-red-500">*</span></Label>
           <Input {...register('email')} type="email" inputMode="email" autoComplete="email" placeholder="seu@email.com" className="text-base md:text-sm" />
           {errors.email && <p className="text-xs text-red-500 font-bold">{errors.email.message}</p>}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label className="text-[10px] uppercase text-slate-500">Nome</Label>
+            <Label className="text-[10px] uppercase text-slate-500">Nome <span className="text-red-500">*</span></Label>
             <Input {...register('first_name')} autoComplete="given-name" className="text-base md:text-sm" />
             {errors.first_name && <p className="text-xs text-red-500 font-bold">{errors.first_name.message}</p>}
           </div>
           <div>
-            <Label className="text-[10px] uppercase text-slate-500">Sobrenome</Label>
+            <Label className="text-[10px] uppercase text-slate-500">Sobrenome <span className="text-red-500">*</span></Label>
             <Input {...register('last_name')} autoComplete="family-name" className="text-base md:text-sm" />
             {errors.last_name && <p className="text-xs text-red-500 font-bold">{errors.last_name.message}</p>}
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label className="text-[10px] uppercase text-slate-500">Telefone</Label>
+            <Label className="text-[10px] uppercase text-slate-500">Telefone <span className="text-red-500">*</span></Label>
             <Input
               {...register('phone')}
               inputMode="tel"
@@ -901,7 +915,7 @@ const CheckoutPage = () => {
             {errors.phone && <p className="text-xs text-red-500 font-bold">{errors.phone.message}</p>}
           </div>
           <div>
-            <Label className="text-[10px] uppercase text-slate-500">CPF/CNPJ</Label>
+            <Label className="text-[10px] uppercase text-slate-500">CPF/CNPJ <span className="text-red-500">*</span></Label>
             <Input
               {...register('cpf_cnpj')}
               inputMode="numeric"
@@ -912,7 +926,7 @@ const CheckoutPage = () => {
           </div>
         </div>
         <div>
-          <Label className="text-[10px] uppercase text-slate-400">CEP</Label>
+          <Label className="text-[10px] uppercase text-slate-400">CEP <span className="text-red-500">*</span></Label>
           <div className="flex gap-2">
             <Input
               {...register('cep')}
@@ -935,30 +949,30 @@ const CheckoutPage = () => {
         </div>
         <div className="grid grid-cols-3 gap-3 md:gap-4">
           <div className="col-span-2">
-            <Label className="text-[10px] uppercase text-slate-500">Rua</Label>
+            <Label className="text-[10px] uppercase text-slate-500">Rua <span className="text-red-500">*</span></Label>
             <Input {...register('street')} autoComplete="street-address" className="text-base md:text-sm" />
             {errors.street && <p className="text-xs text-red-500 font-bold">{errors.street.message}</p>}
           </div>
           <div>
-            <Label className="text-[10px] uppercase text-slate-500">Número</Label>
+            <Label className="text-[10px] uppercase text-slate-500">Número <span className="text-red-500">*</span></Label>
             <Input {...register('number')} inputMode="numeric" className="text-base md:text-sm" />
             {errors.number && <p className="text-xs text-red-500 font-bold">{errors.number.message}</p>}
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label className="text-[10px] uppercase text-slate-500">Bairro</Label>
+            <Label className="text-[10px] uppercase text-slate-500">Bairro <span className="text-red-500">*</span></Label>
             <Input {...register('neighborhood')} className="text-base md:text-sm" />
             {errors.neighborhood && <p className="text-xs text-red-500 font-bold">{errors.neighborhood.message}</p>}
           </div>
           <div>
-            <Label className="text-[10px] uppercase text-slate-500">Cidade</Label>
+            <Label className="text-[10px] uppercase text-slate-500">Cidade <span className="text-red-500">*</span></Label>
             <Input {...register('city')} autoComplete="address-level2" className="text-base md:text-sm" />
             {errors.city && <p className="text-xs text-red-500 font-bold">{errors.city.message}</p>}
           </div>
         </div>
         <div>
-          <Label className="text-[10px] uppercase text-slate-500">Estado (sigla)</Label>
+          <Label className="text-[10px] uppercase text-slate-500">Estado (sigla) <span className="text-red-500">*</span></Label>
           <Input {...register('state')} placeholder="Ex: SC" maxLength={2} className="uppercase text-base md:text-sm" autoComplete="address-level1" />
           {errors.state && <p className="text-xs text-red-500 font-bold">{errors.state.message}</p>}
         </div>

@@ -19,6 +19,8 @@ interface OrderItem {
   name_at_purchase: string;
   quantity: number;
   price_at_purchase: number;
+  variant_id?: string | null;
+  variant_label?: string;
 }
 
 interface Order {
@@ -140,13 +142,53 @@ const OrdersPage = () => {
       if (!ordersData || ordersData.length === 0) { setOrders([]); clearTimeout(timeoutId); if (!isBackground) setLoading(false); return; }
 
       const orderIds = ordersData.map(o => o.id);
-      const { data: itemsData } = await supabase.from('order_items').select('order_id, item_id, item_type, name_at_purchase, quantity, price_at_purchase').in('order_id', orderIds);
+      const { data: itemsData } = await supabase.from('order_items').select('order_id, item_id, item_type, name_at_purchase, quantity, price_at_purchase, variant_id').in('order_id', orderIds);
       const { data: reviewsData } = await supabase.from('reviews').select('product_id, order_id').eq('user_id', userId).in('order_id', orderIds);
+
+      // Fetch variant details for items that have a variant_id
+      const variantIds = (itemsData || [])
+        .map(item => item.variant_id)
+        .filter((id): id is string => !!id);
+
+      let variantMap: Record<string, string> = {};
+      if (variantIds.length > 0) {
+        const { data: variantsData } = await supabase
+          .from('product_variants')
+          .select('id, color, ohms, size, flavor_id')
+          .in('id', variantIds);
+
+        const flavorIds = (variantsData || [])
+          .map(v => v.flavor_id)
+          .filter((id): id is number => !!id);
+
+        let flavorMap: Record<number, string> = {};
+        if (flavorIds.length > 0) {
+          const { data: flavorsData } = await supabase
+            .from('flavors')
+            .select('id, name')
+            .in('id', flavorIds);
+          (flavorsData || []).forEach(f => { flavorMap[f.id] = f.name; });
+        }
+
+        (variantsData || []).forEach(v => {
+          const parts: string[] = [];
+          if (v.flavor_id && flavorMap[v.flavor_id]) parts.push(flavorMap[v.flavor_id]);
+          if (v.color) parts.push(v.color);
+          if (v.size) parts.push(v.size);
+          if (v.ohms) parts.push(v.ohms);
+          if (parts.length > 0) variantMap[v.id] = parts.join(' | ');
+        });
+      }
 
       const reviewedItems = reviewsData ? reviewsData.map(r => `${r.order_id}-${r.product_id}`) : [];
       const ordersWithDetails = ordersData.map(order => ({
         ...order,
-        order_items: (itemsData || []).filter(item => item.order_id === order.id),
+        order_items: (itemsData || [])
+          .filter(item => item.order_id === order.id)
+          .map(item => ({
+            ...item,
+            variant_label: item.variant_id ? variantMap[item.variant_id] : undefined,
+          })),
         reviewed_products: reviewedItems.filter(r => r.startsWith(`${order.id}-`)).map(r => parseInt(r.split('-')[1])),
       }));
 
@@ -324,6 +366,9 @@ const OrdersPage = () => {
                             <div key={`${order.id}-${item.item_id}-${item.item_type}`} className="flex justify-between items-center bg-white p-4 rounded-2xl border border-stone-200 transition-colors">
                               <div>
                                 <p className="text-charcoal-gray font-bold text-sm tracking-tight">{item.name_at_purchase}</p>
+                                {item.variant_label && (
+                                  <p className="text-xs text-sky-600 font-semibold mt-0.5">{item.variant_label}</p>
+                                )}
                                 <p className="text-xs text-stone-500 mt-1 font-semibold">{item.quantity}x R$ {Number(item.price_at_purchase ?? 0).toFixed(2).replace('.', ',')}</p>
                               </div>
                             </div>

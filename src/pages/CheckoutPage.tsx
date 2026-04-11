@@ -237,9 +237,9 @@ const CheckoutPage = () => {
   }, [safeNavigate]);
 
   const fetchUserData = useCallback(async (currentUser: any) => {
-    const [profileRes, couponsRes, ordersRes] = await Promise.all([
+    const [profileRes, userCouponsRes, ordersRes] = await Promise.all([
       supabase.from('profiles').select('*, loyalty_tiers ( name, benefits )').eq('id', currentUser.id).single(),
-      supabase.from('user_coupons').select('id, expires_at, coupons ( name, discount_value, minimum_order_value )').eq('user_id', currentUser.id).eq('is_used', false).gt('expires_at', new Date().toISOString()),
+      supabase.from('user_coupons').select('id, expires_at, coupon_id').eq('user_id', currentUser.id).eq('is_used', false).gt('expires_at', new Date().toISOString()),
       supabase.from('orders').select('created_at, benefits_used').eq('user_id', currentUser.id).neq('status', 'Cancelado').order('created_at', { ascending: false }).limit(10),
     ]);
 
@@ -261,7 +261,33 @@ const CheckoutPage = () => {
       setUserPoints(profile.points);
     }
 
-    if (couponsRes.data && isMountedRef.current) setCoupons(couponsRes.data.map((x: any) => ({ user_coupon_id: x.id, name: x.coupons.name, discount_value: x.coupons.discount_value, minimum_order_value: x.coupons.minimum_order_value, expires_at: x.expires_at })));
+    // Busca os dados dos cupons separadamente para não depender da RLS da tabela coupons
+    // (a RLS bloqueia o join quando stock_quantity = 0, mesmo que o cupom já tenha sido resgatado)
+    const rawUserCoupons = userCouponsRes.data || [];
+    if (rawUserCoupons.length > 0 && isMountedRef.current) {
+      const couponIds = rawUserCoupons.map((uc: any) => uc.coupon_id);
+      const { data: couponsData } = await supabase
+        .from('coupons')
+        .select('id, name, discount_value, minimum_order_value')
+        .in('id', couponIds);
+
+      const mergedCoupons = rawUserCoupons
+        .map((uc: any) => {
+          const coupon = (couponsData || []).find((c: any) => c.id === uc.coupon_id);
+          if (!coupon) return null;
+          return {
+            user_coupon_id: uc.id,
+            name: coupon.name,
+            discount_value: coupon.discount_value,
+            minimum_order_value: coupon.minimum_order_value,
+            expires_at: uc.expires_at,
+          };
+        })
+        .filter(Boolean) as Coupon[];
+
+      setCoupons(mergedCoupons);
+    }
+
     if (ordersRes.data && isMountedRef.current) setRecentOrders(ordersRes.data);
   }, [setValue]);
 

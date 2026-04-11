@@ -8,6 +8,11 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Vary': 'Origin',
+}
+
+if (typeof globalThis.atob !== 'function') {
+  globalThis.atob = (value: string) => Buffer.from(value, 'base64').toString('binary') as any;
 }
 
 // Email templates
@@ -132,10 +137,9 @@ const templates = {
         .logo span { color: #0ea5e9; }
         .content { padding: 40px 20px; text-align: center; }
         .password-box {
-          /* strong fallback color for clients that strip backgrounds: use dark text so it's always readable */
           background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
-          background-color: #0ea5e9; /* fallback */
-          color: #0f172a; /* change to dark so it remains visible on white backgrounds */
+          background-color: #0ea5e9;
+          color: #0f172a;
           padding: 25px 30px;
           border-radius: 12px;
           font-size: 28px;
@@ -159,27 +163,16 @@ const templates = {
         <div class="content">
           <h2 style="font-size: 24px; margin-bottom: 10px; color: #0f172a;">Sua Nova Senha</h2>
           <p style="color: #64748b;">Conforme solicitado, geramos uma nova senha para sua conta:</p>
-
-          <!-- password shown inside a styled box, but also repeated as plain dark text for email clients that strip styles -->
           <div class="password-box" style="color:#0f172a; background-color:#0ea5e9;">${password}</div>
-
-          <!-- Plain visible copy for maximum compatibility -->
           <p style="color:#0f172a; font-size:20px; font-weight:800; margin-top:10px;">Senha: ${password}</p>
-
           <p style="color: #64748b;">Use essa senha para acessar o site. Após entrar, você pode alterá-la novamente na área de segurança do seu dashboard.</p>
-
-          <div class="warning">
-            ⚠️ Por segurança, não compartilhe essa senha com ninguém. Se você não solicitou essa alteração, entre em contato conosco imediatamente.
-          </div>
+          <div class="warning">⚠️ Por segurança, não compartilhe essa senha com ninguém. Se você não solicitou essa alteração, entre em contato conosco imediatamente.</div>
         </div>
-        <div class="footer">
-          <p>© ${new Date().getFullYear()} CLUB DK. Todos os direitos reservados.</p>
-        </div>
+        <div class="footer"><p>© ${new Date().getFullYear()} CLUB DK. Todos os direitos reservados.</p></div>
       </div>
     </body>
     </html>
   `,
-  // New template for complete profile flow
   completeProfile: (completeLink: string, email: string) => `
     <!DOCTYPE html>
     <html>
@@ -194,42 +187,24 @@ const templates = {
         .logo { font-size: 32px; font-weight: 900; text-transform: uppercase; letter-spacing: -1px; }
         .logo span { color: #0ea5e9; }
         .content { padding: 40px 20px; text-align: center; }
-        .button { 
-          display: inline-block;
-          background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
-          color: white; 
-          padding: 16px 32px; 
-          border-radius: 8px; 
-          text-decoration: none;
-          font-weight: 700;
-          font-size: 16px;
-          margin: 30px 0;
-          box-shadow: 0 4px 6px rgba(14, 165, 233, 0.3);
-        }
+        .button { display: inline-block; background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); color: white; padding: 16px 32px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 16px; margin: 30px 0; box-shadow: 0 4px 6px rgba(14, 165, 233, 0.3); }
         .info { color: #64748b; font-size: 14px; margin-top: 20px; }
         .footer { text-align: center; padding: 20px; color: #94a3b8; font-size: 12px; border-top: 1px solid #e2e8f0; margin-top: 30px; }
       </style>
     </head>
     <body>
       <div class="container">
-        <div class="header">
-          <div class="logo">CLUB<span>DK</span></div>
-        </div>
+        <div class="header"><div class="logo">CLUB<span>DK</span></div></div>
         <div class="content">
           <h2 style="font-size: 24px; margin-bottom: 20px; color: #0f172a;">Complete seu Cadastro</h2>
           <p style="color: #64748b;">Olá ${email}, clique no botão abaixo para completar seu cadastro e criar sua senha:</p>
-          
           <a href="${completeLink}" class="button">Completar Cadastro</a>
-          
           <p style="color: #64748b; margin-top: 20px;">Ou copie e cole este link no seu navegador:</p>
           <p style="color: #64748b; font-size: 12px; word-break: break-all;">${completeLink}</p>
-          
           <p style="color: #64748b; margin-top: 20px;">Este link expirará em 24 horas.</p>
           <p class="info">Se você não solicitou este cadastro, pode ignorar este email.</p>
         </div>
-        <div class="footer">
-          <p>© ${new Date().getFullYear()} CLUB DK. Todos os direitos reservados.</p>
-        </div>
+        <div class="footer"><p>© ${new Date().getFullYear()} CLUB DK. Todos os direitos reservados.</p></div>
       </div>
     </body>
     </html>
@@ -248,47 +223,16 @@ const templates = {
         .logo { font-size: 32px; font-weight: 900; text-transform: uppercase; letter-spacing: -1px; }
         .logo span { color: #0ea5e9; }
         .content { padding: 40px 20px; text-align: center; }
-        .icon-box {
-          width: 72px;
-          height: 72px;
-          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin: 0 auto 24px;
-          font-size: 36px;
-        }
-        .alert-box {
-          background: #fef3c7;
-          border: 1px solid #fcd34d;
-          border-radius: 10px;
-          padding: 14px 18px;
-          color: #92400e;
-          font-size: 13px;
-          margin-top: 24px;
-          text-align: left;
-        }
-        .footer { text-align: center; padding: 20px; color: #94a3b8; font-size: 12px; border-top: 1px solid #e2e8f0; margin-top: 30px; }
+        .icon-box { width: 72px; height: 72px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; font-size: 36px; }
       </style>
     </head>
     <body>
       <div class="container">
-        <div class="header">
-          <div class="logo">CLUB<span>DK</span></div>
-        </div>
+        <div class="header"><div class="logo">CLUB<span>DK</span></div></div>
         <div class="content">
           <div class="icon-box">✓</div>
-          <h2 style="font-size: 24px; margin-bottom: 10px; color: #0f172a;">Senha Alterada com Sucesso</h2>
-          <p style="color: #64748b;">Olá${name ? ' ' + name : ''},</p>
-          <p style="color: #64748b;">Sua senha foi alterada com sucesso em <strong>${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' })}</strong>.</p>
-          <p style="color: #64748b;">Se você realizou esta alteração, pode ignorar este e-mail.</p>
-          <div class="alert-box">
-            ⚠️ <strong>Não foi você?</strong> Se você não realizou esta alteração, entre em contato com nosso suporte imediatamente pelo WhatsApp ou e-mail para proteger sua conta.
-          </div>
-        </div>
-        <div class="footer">
-          <p>© ${new Date().getFullYear()} CLUB DK. Todos os direitos reservados.</p>
+          <h2 style="font-size: 24px; margin-bottom: 10px; color: #0f172a;">Senha Alterada</h2>
+          <p style="color: #64748b;">Olá ${name}, sua senha foi alterada com sucesso.</p>
         </div>
       </div>
     </body>
@@ -297,69 +241,64 @@ const templates = {
 }
 
 serve(async (req) => {
-  // ← SEMPRE responde ao preflight OPTIONS primeiro — nunca pode falhar
   if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: corsHeaders })
+    return new Response('ok', { status: 200, headers: corsHeaders })
   }
 
-  console.log('[send-email-via-resend] Received request')
-
   try {
-    const { to, subject, html, type, code, resetLink, completeLink, newPassword, name } = await req.json()
+    const apiKey = Deno.env.get('RESEND_API_KEY')
+    const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'CLUB DK <onboarding@resend.dev>'
 
-    // Validate required fields
+    if (!apiKey) {
+      return new Response(JSON.stringify({ error: 'RESEND_API_KEY not configured' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const body = await req.json()
+    const { to, subject, type, code, resetLink, html } = body
+
     if (!to || !subject) {
-      console.error('[send-email-via-resend] Missing required fields', { to, subject })
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields: to, subject' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      )
+      return new Response(JSON.stringify({ error: 'Missing required fields' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
-    // Get environment variables
-    const resendApiKey = Deno.env.get('RESEND_API_KEY')
-    const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'noreply@clubdk.com.br'
-
-    if (!resendApiKey) {
-      console.error('[send-email-via-resend] RESEND_API_KEY not configured')
-      return new Response(
-        JSON.stringify({ error: 'RESEND_API_KEY não configurado nos secrets da Edge Function.' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      )
+    let emailHtml = html || ''
+    if (!emailHtml) {
+      switch (type) {
+        case 'otp':
+          emailHtml = templates.otp(code || '')
+          break
+        case 'password_reset':
+          emailHtml = templates.passwordReset(resetLink || '')
+          break
+        case 'new_password':
+          emailHtml = templates.newPassword(code || '')
+          break
+        case 'complete_profile':
+          emailHtml = templates.completeProfile(resetLink || '#', to)
+          break
+        case 'password_changed':
+          emailHtml = templates.passwordChanged(code || 'Usuário')
+          break
+        default:
+          emailHtml = templates.otp(code || '')
+      }
     }
 
-    console.log('[send-email-via-resend] Sending email', { to, subject, type, fromEmail })
-
-    // Use template if type is provided
-    let emailHtml = html
-    if (type === 'otp' && code) {
-      emailHtml = templates.otp(code)
-      console.log('[send-email-via-resend] Using OTP template')
-    } else if (type === 'password_reset' && resetLink) {
-      emailHtml = templates.passwordReset(resetLink)
-      console.log('[send-email-via-resend] Using password reset template')
-    } else if (type === 'complete_profile' && completeLink) {
-      emailHtml = templates.completeProfile(completeLink, to)
-      console.log('[send-email-via-resend] Using complete profile template')
-    } else if (type === 'new_password' && newPassword) {
-      emailHtml = templates.newPassword(newPassword)
-      console.log('[send-email-via-resend] Using new password template')
-    } else if (type === 'password_changed') {
-      emailHtml = templates.passwordChanged(name || '')
-      console.log('[send-email-via-resend] Using password changed template')
-    }
-
-    // Send email via Resend API
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${resendApiKey}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         from: fromEmail,
-        to: [to],
-        subject: subject,
+        to: Array.isArray(to) ? to : [to],
+        subject,
         html: emailHtml,
       }),
     })
@@ -367,26 +306,23 @@ serve(async (req) => {
     const responseData = await resendResponse.json()
 
     if (!resendResponse.ok) {
-      console.error('[send-email-via-resend] Resend API error', responseData)
-      const resendMsg = responseData?.message || responseData?.name || JSON.stringify(responseData)
-      return new Response(
-        JSON.stringify({ error: `Resend API: ${resendMsg}` }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      )
+      console.error('[send-email-via-resend] Resend API error:', responseData)
+      return new Response(JSON.stringify({ error: responseData?.message || 'Failed to send email' }), {
+        status: resendResponse.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
-    console.log('[send-email-via-resend] Email sent successfully', responseData)
-
-    return new Response(
-      JSON.stringify({ success: true, messageId: responseData.id }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-    )
-
-  } catch (error) {
-    console.error('[send-email-via-resend] Unexpected error', error)
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-    )
+    console.log('[send-email-via-resend] Email sent successfully to', to)
+    return new Response(JSON.stringify({ success: true, data: responseData }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  } catch (err: any) {
+    console.error('[send-email-via-resend] unexpected error', err)
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
   }
 })

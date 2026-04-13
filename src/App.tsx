@@ -34,8 +34,6 @@ const ReferralsPage = lazy(() => import("./pages/ReferralsPage"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const DashboardSecurity = lazy(() => import("./pages/DashboardSecurity"));
 const AdminLogistics = lazy(() => import("./pages/AdminLogistics"));
-const AdminUsers = lazy(() => import("./pages/AdminUsers"));
-const AdminResetUserPassword = lazy(() => import("./pages/AdminResetUserPassword"));
 const EmailConfirm = lazy(() => import("./pages/EmailConfirm"));
 const TestEdgeFunction = lazy(() => import("./pages/TestEdgeFunction"));
 
@@ -117,16 +115,6 @@ const AppContent = () => {
           <Route path="/admin/logistica" element={
             <ProtectedRoute requireAdmin>
               <AdminLogistics />
-            </ProtectedRoute>
-          } />
-          <Route path="/admin/usuarios" element={
-            <ProtectedRoute requireAdmin>
-              <AdminUsers />
-            </ProtectedRoute>
-          } />
-          <Route path="/admin/reset-senha" element={
-            <ProtectedRoute requireAdmin>
-              <AdminResetUserPassword />
             </ProtectedRoute>
           } />
           <Route path="/auth/confirm" element={<EmailConfirm />} />

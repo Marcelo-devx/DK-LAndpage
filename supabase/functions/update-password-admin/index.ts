@@ -80,22 +80,8 @@ serve(async (req) => {
     if (!updateRes.ok) {
       const errBody = await updateRes.json().catch(() => ({}));
       console.error('[update-password-admin] REST API error', updateRes.status, errBody);
-
-      // Trata erro de senha fraca / pwned (422)
-      if (updateRes.status === 422 && errBody?.error_code === 'weak_password') {
-        const reasons = errBody?.weak_password?.reasons || [];
-        const isPwned = reasons.includes('pwned');
-        const errorMsg = isPwned
-          ? 'Esta senha foi encontrada em vazamentos de dados. Escolha uma senha diferente e mais segura.'
-          : 'Essa senha é muito comum ou fácil de adivinhar. Por favor, escolha uma senha mais forte e única.';
-        return new Response(
-          JSON.stringify({ error: errorMsg }),
-          { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
       return new Response(
-        JSON.stringify({ error: errBody?.msg || errBody?.message || 'Falha ao atualizar a senha. Tente novamente.' }),
+        JSON.stringify({ error: errBody?.message || 'Falha ao atualizar a senha. Tente novamente.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

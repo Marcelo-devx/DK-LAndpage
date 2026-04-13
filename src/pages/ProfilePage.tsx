@@ -107,8 +107,9 @@ const ProfilePage = () => {
     try {
       const { data, error } = await supabase.functions.invoke('validate-cep', { body: { cep: cleanedCep } });
       if (error) {
-        const errorBody = JSON.parse(error.context.responseText);
-        showError(errorBody.error || "Não foi possível buscar o endereço.");
+        let msg = 'Não foi possível buscar o endereço.';
+        try { msg = JSON.parse(error.context?.responseText)?.error || msg; } catch (_) {}
+        showError(msg);
         setValue('street', ''); setValue('neighborhood', ''); setValue('city', ''); setValue('state', '');
         return;
       }

@@ -548,7 +548,7 @@ const CompleteProfilePage = () => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="phone" className="text-charcoal-gray">Telefone {requiredStar('phone') && <span className="text-red-500">*</span>}</Label>
-                    <Input id="phone" {...register('phone')} onChange={(e) => e.target.value = maskPhone(e.target.value)} placeholder="(48) 99999-9999" className="bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors" />
+                    <Input id="phone" {...register('phone')} onChange={(e) => { const masked = maskPhone(e.target.value); e.target.value = masked; setValue('phone', masked, { shouldValidate: false }); }} placeholder="(48) 99999-9999" className="bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors" />
                     {errors.phone && <p className="text-xs text-red-500 font-bold">{errors.phone.message}</p>}
                   </div>
               </div>

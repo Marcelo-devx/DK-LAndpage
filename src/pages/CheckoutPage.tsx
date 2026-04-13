@@ -1139,11 +1139,11 @@ const CheckoutPage = () => {
 
         <div className="space-y-3">
           <Label className="text-[10px] uppercase text-slate-400">Método de Pagamento</Label>
-          {!isAddressComplete && isCreditCardEnabled && (
+          {!isAddressComplete && (
             <Alert variant="destructive" className="bg-red-50 border-red-100 text-red-700">
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle className="font-bold">Endereço Incompleto</AlertTitle>
-              <AlertDescription className="text-xs">Preencha todos os seus dados de entrega para liberar o pagamento com Cartão.</AlertDescription>
+              <AlertDescription className="text-xs">Preencha todos os seus dados de entrega para liberar as opções de pagamento.</AlertDescription>
             </Alert>
           )}
           <div className="grid grid-cols-2 gap-3">
@@ -1159,6 +1159,7 @@ const CheckoutPage = () => {
             <Button
               type="button"
               onClick={() => setValue('payment_method', 'pix')}
+              disabled={!isAddressComplete}
               className={cn("h-16 flex-col gap-1 rounded-xl border", paymentMethod === 'pix' ? "bg-sky-500 text-white border-sky-400" : "bg-stone-50 text-slate-500")}
             >
               <MessageSquare className="h-4 w-4" />
@@ -1179,7 +1180,7 @@ const CheckoutPage = () => {
         {/* Botões de submit — visíveis apenas no desktop (no mobile ficam no sticky footer) */}
         <div className="hidden md:block space-y-3">
           {paymentMethod === 'pix' && (
-            <Button type="submit" disabled={isSubmitting} className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95">
+            <Button type="submit" disabled={isSubmitting || !isAddressComplete} className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95">
               {isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : "Finalizar com PIX"}
             </Button>
           )}
@@ -1257,7 +1258,7 @@ const CheckoutPage = () => {
                 {paymentMethod === 'pix' && (
                   <Button
                     type="submit"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || !isAddressComplete}
                     className="w-full h-14 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-base rounded-2xl shadow-lg transition-all active:scale-95"
                   >
                     {isSubmitting ? <Loader2 className="animate-spin h-5 w-5" /> : "Finalizar com PIX"}

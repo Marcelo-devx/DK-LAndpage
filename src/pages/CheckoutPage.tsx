@@ -891,7 +891,11 @@ const CheckoutPage = () => {
               inputMode="tel"
               autoComplete="tel"
               className="text-base md:text-sm"
-              onChange={e => e.target.value = maskPhone(e.target.value)}
+              onChange={e => {
+                const masked = maskPhone(e.target.value);
+                e.target.value = masked;
+                setValue('phone', masked, { shouldValidate: false });
+              }}
             />
             {errors.phone && <p className="text-xs text-red-500 font-bold">{errors.phone.message}</p>}
           </div>
@@ -901,7 +905,11 @@ const CheckoutPage = () => {
               {...register('cpf_cnpj')}
               inputMode="numeric"
               className="text-base md:text-sm"
-              onChange={e => e.target.value = maskCpfCnpj(e.target.value)}
+              onChange={e => {
+                const masked = maskCpfCnpj(e.target.value);
+                e.target.value = masked;
+                setValue('cpf_cnpj', masked, { shouldValidate: false });
+              }}
             />
             {errors.cpf_cnpj && <p className="text-xs text-red-500 font-bold">{errors.cpf_cnpj.message}</p>}
           </div>
@@ -917,6 +925,7 @@ const CheckoutPage = () => {
               onChange={e => {
                 const masked = maskCep(e.target.value);
                 e.target.value = masked;
+                setValue('cep', masked, { shouldValidate: false });
                 if (masked.replace(/\D/g, '').length === 8) {
                   setTimeout(() => handleCepLookup(), 100);
                 }

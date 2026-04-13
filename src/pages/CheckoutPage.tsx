@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { showError, showLoading, dismissToast, showSuccess } from '@/utils/toast';
 import { Loader2, Search, CreditCard, MessageSquare, MapPin, Gift, X, AlertTriangle, CheckCircle2, Sparkles, ChevronRight, ChevronLeft } from 'lucide-react';
 import { getLocalCart, ItemType, clearLocalCart } from '@/utils/localCart';
@@ -137,10 +138,12 @@ const CheckoutPage = () => {
   const [showMpForm, setShowMpForm] = useState(false);
   const [pendingOrderId, setPendingOrderId] = useState<number | null>(null);
   const [cardFormAmount, setCardFormAmount] = useState<number>(0);
+  const [showCouponReminderModal, setShowCouponReminderModal] = useState(false);
 
   const isMountedRef = useRef(true);
   const showMpFormRef = useRef(false);
   const pendingOrderIdRef = useRef<number | null>(null);
+  const couponSectionRef = useRef<HTMLDivElement>(null);
 
   const { register, handleSubmit, setValue, getValues, watch, trigger, formState: { errors } } = useForm<CheckoutFormData>({
     resolver: zodResolver(checkoutSchema),
@@ -777,6 +780,39 @@ const CheckoutPage = () => {
     }
   };
 
+  // ============================================================
+  // CARTÃO — Intercepta o clique para lembrar do cupom
+  // ============================================================
+  const handleCardButtonClick = () => {
+    // Se já tem cupom aplicado, ou não tem cupons disponíveis, ou não é do clube → vai direto
+    if (selectedCoupon !== null || coupons.length === 0 || !tierName) {
+      handleSubmit(onSubmit)();
+      return;
+    }
+    // Tem cupons disponíveis e não aplicou nenhum → mostra o lembrete
+    setShowCouponReminderModal(true);
+  };
+
+  const handleApplyCouponFromModal = () => {
+    setShowCouponReminderModal(false);
+    // Scroll suave até o campo de cupom
+    setTimeout(() => {
+      couponSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Destaque visual temporário
+      if (couponSectionRef.current) {
+        couponSectionRef.current.classList.add('ring-2', 'ring-sky-400', 'ring-offset-2', 'rounded-2xl');
+        setTimeout(() => {
+          couponSectionRef.current?.classList.remove('ring-2', 'ring-sky-400', 'ring-offset-2', 'rounded-2xl');
+        }, 2500);
+      }
+    }, 150);
+  };
+
+  const handleContinueWithoutCoupon = () => {
+    setShowCouponReminderModal(false);
+    handleSubmit(onSubmit)();
+  };
+
   if (loading) return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-sky-400" /></div>;
 
   // Sem usuário logado → não renderiza nada (o redirect já foi disparado no loadCheckout)
@@ -1095,7 +1131,7 @@ const CheckoutPage = () => {
           ))}
         </div>
 
-        <div className="space-y-2">
+        <div ref={couponSectionRef} className="space-y-2 transition-all duration-300">
           <Label className="text-[10px] uppercase text-slate-400">Cupom</Label>
           <Select onValueChange={handleCouponChange} value={selectedCoupon?.user_coupon_id.toString() || 'none'}>
             <SelectTrigger className="rounded-xl h-12"><SelectValue placeholder="Aplicar cupom" /></SelectTrigger>
@@ -1185,7 +1221,7 @@ const CheckoutPage = () => {
             </Button>
           )}
           {paymentMethod === 'mercadopago' && (
-            <Button type="submit" disabled={isSubmitting || !isCreditCardEnabled || !isAddressComplete} className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95">
+            <Button type="button" onClick={handleCardButtonClick} disabled={isSubmitting || !isCreditCardEnabled || !isAddressComplete} className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95">
               {isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : "Inserir Dados do Cartão →"}
             </Button>
           )}
@@ -1266,7 +1302,8 @@ const CheckoutPage = () => {
                 )}
                 {paymentMethod === 'mercadopago' && (
                   <Button
-                    type="submit"
+                    type="button"
+                    onClick={handleCardButtonClick}
                     disabled={isSubmitting || !isCreditCardEnabled || !isAddressComplete}
                     className="w-full h-14 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-base rounded-2xl shadow-lg transition-all active:scale-95"
                   >
@@ -1284,6 +1321,48 @@ const CheckoutPage = () => {
             )}
           </div>
         </form>
+
+        {/* Modal de lembrete de cupom */}
+        <Dialog open={showCouponReminderModal} onOpenChange={setShowCouponReminderModal}>
+          <DialogContent className="sm:max-w-md bg-white rounded-[2rem] shadow-2xl border-stone-200">
+            <DialogHeader className="text-center">
+              <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-50 border border-sky-100">
+                <Gift className="h-7 w-7 text-sky-500" />
+              </div>
+              <DialogTitle className="font-black text-2xl uppercase tracking-tighter italic text-charcoal-gray">
+                Você tem cupons! 🎟️
+              </DialogTitle>
+              <DialogDescription className="text-slate-600 font-medium mt-1">
+                Você tem <span className="font-black text-sky-600">{coupons.length} cupom{coupons.length > 1 ? 'ns' : ''}</span> do clube disponível{coupons.length > 1 ? 'is' : ''}. Deseja aplicar um desconto antes de pagar?
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="mt-2 space-y-2 max-h-40 overflow-y-auto">
+              {coupons.map(c => (
+                <div key={c.user_coupon_id} className="flex items-center justify-between bg-sky-50 border border-sky-100 rounded-xl px-4 py-3">
+                  <span className="text-xs font-black uppercase tracking-tight text-slate-700">{c.name}</span>
+                  <span className="text-sm font-black text-sky-600">-R$ {c.discount_value.toFixed(2).replace('.', ',')}</span>
+                </div>
+              ))}
+            </div>
+
+            <DialogFooter className="flex flex-col gap-2 mt-4 sm:flex-col">
+              <Button
+                onClick={handleApplyCouponFromModal}
+                className="w-full h-12 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest rounded-xl shadow-md"
+              >
+                Aplicar Cupom
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleContinueWithoutCoupon}
+                className="w-full h-12 font-bold text-slate-500 rounded-xl border-stone-200"
+              >
+                Continuar sem desconto
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <CouponsModal isOpen={isCouponsModalOpen} onOpenChange={setIsCouponsModalOpen} userPoints={userPoints} onRedemption={handleRedemption} />
       </div>
@@ -1305,6 +1384,49 @@ const CheckoutPage = () => {
           <SummaryAndPaymentBlock />
         </div>
       </form>
+
+      {/* Modal de lembrete de cupom */}
+      <Dialog open={showCouponReminderModal} onOpenChange={setShowCouponReminderModal}>
+        <DialogContent className="sm:max-w-md bg-white rounded-[2rem] shadow-2xl border-stone-200">
+          <DialogHeader className="text-center">
+            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-50 border border-sky-100">
+              <Gift className="h-7 w-7 text-sky-500" />
+            </div>
+            <DialogTitle className="font-black text-2xl uppercase tracking-tighter italic text-charcoal-gray">
+              Você tem cupons! 🎟️
+            </DialogTitle>
+            <DialogDescription className="text-slate-600 font-medium mt-1">
+              Você tem <span className="font-black text-sky-600">{coupons.length} cupom{coupons.length > 1 ? 'ns' : ''}</span> do clube disponível{coupons.length > 1 ? 'is' : ''}. Deseja aplicar um desconto antes de pagar?
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-2 space-y-2 max-h-40 overflow-y-auto">
+            {coupons.map(c => (
+              <div key={c.user_coupon_id} className="flex items-center justify-between bg-sky-50 border border-sky-100 rounded-xl px-4 py-3">
+                <span className="text-xs font-black uppercase tracking-tight text-slate-700">{c.name}</span>
+                <span className="text-sm font-black text-sky-600">-R$ {c.discount_value.toFixed(2).replace('.', ',')}</span>
+              </div>
+            ))}
+          </div>
+
+          <DialogFooter className="flex flex-col gap-2 mt-4 sm:flex-col">
+            <Button
+              onClick={handleApplyCouponFromModal}
+              className="w-full h-12 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest rounded-xl shadow-md"
+            >
+              Aplicar Cupom
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleContinueWithoutCoupon}
+              className="w-full h-12 font-bold text-slate-500 rounded-xl border-stone-200"
+            >
+              Continuar sem desconto
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <CouponsModal isOpen={isCouponsModalOpen} onOpenChange={setIsCouponsModalOpen} userPoints={userPoints} onRedemption={handleRedemption} />
     </div>
   );

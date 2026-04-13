@@ -13,10 +13,10 @@ import { logger } from '@/lib/logger';
 
 const translateError = (msg: string): string => {
   const m = msg.toLowerCase();
-  if (m.includes('pwned') || m.includes('vazamento') || m.includes('comprometida'))
-    return 'Esta senha foi encontrada em vazamentos de dados. Escolha uma senha diferente e mais segura.';
-  if (m.includes('weak') || m.includes('easy to guess') || m.includes('comum'))
-    return 'Essa senha é muito comum. Por favor, escolha uma senha mais forte e única.';
+  if (m.includes('pwned') || m.includes('vazamento') || m.includes('comprometida') || m.includes('found in data') || m.includes('known to be weak'))
+    return 'Esta senha foi encontrada em vazamentos de dados. Escolha uma senha diferente — tente usar palavras aleatórias, números e símbolos que só você conhece.';
+  if (m.includes('weak') || m.includes('easy to guess') || m.includes('comum') || m.includes('fácil'))
+    return 'Essa senha é muito comum ou fácil de adivinhar. Por favor, escolha uma senha mais forte e única.';
   if (m.includes('same as') || m.includes('igual'))
     return 'A nova senha não pode ser igual à senha temporária. Crie uma senha própria.';
   if (m.includes('at least') || m.includes('caracteres'))
@@ -98,13 +98,27 @@ const UpdatePassword = () => {
       const controller = new AbortController();
       const fetchTimeout = setTimeout(() => controller.abort(), 18000);
 
-      let updRes: Response;
       let updData: any = {};
       try {
         const invokeRes = await supabase.functions.invoke('update-password-admin', { body: { newPassword: password } });
-                // Normalize response shape
-                updRes = { ok: !invokeRes.error, status: invokeRes.error ? 500 : 200 } as any;
-                updData = invokeRes.data || {};
+
+        if (invokeRes.error) {
+          // Tenta ler o body do erro (FunctionsHttpError expõe via error.context)
+          let errorMsg = '';
+          try {
+            const errBody = await (invokeRes.error as any)?.context?.json?.();
+            errorMsg = errBody?.error || '';
+          } catch (_) {}
+
+          clearTimeout(watchdog);
+          dismissToast(toastId);
+          setLoading(false);
+          showError(translateError(errorMsg || invokeRes.error.message || 'Erro ao atualizar senha.'));
+          console.error('[UpdatePassword] invoke error:', invokeRes.error, updData);
+          return;
+        }
+
+        updData = invokeRes.data || {};
       } catch (fetchErr: any) {
         clearTimeout(fetchTimeout);
         clearTimeout(watchdog);
@@ -121,13 +135,13 @@ const UpdatePassword = () => {
         clearTimeout(fetchTimeout);
       }
 
-      logger.log('[UpdatePassword] Resultado update-password-admin:', { status: updRes.status, data: updData });
+      logger.log('[UpdatePassword] Resultado update-password-admin:', { data: updData });
 
-      if (!updRes.ok) {
+      if (updData?.error) {
         clearTimeout(watchdog);
         dismissToast(toastId);
         setLoading(false);
-        showError(translateError(updData?.error || `Erro ao atualizar senha (${updRes.status})`));
+        showError(translateError(updData.error));
         return;
       }
 

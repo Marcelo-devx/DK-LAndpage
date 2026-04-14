@@ -23,7 +23,6 @@ const CategoryGridCard = ({ category, onClick, className }: CategoryGridCardProp
         className="absolute inset-0 bg-cover bg-center"
         style={{ backgroundImage: `url(${category.image_url || 'https://picsum.photos/800/600'})` }}
       />
-      {/* Overlay Futurista */}
       <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent opacity-80 group-hover:opacity-60 transition-opacity" />
       <div className="absolute inset-0 bg-sky-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
       

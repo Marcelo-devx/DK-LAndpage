@@ -7,27 +7,20 @@ interface ProductImageProps {
   src: string;
   alt: string;
   className?: string;
-  // If true, load with high priority (no lazy). Default false.
   priority?: boolean;
-  // object-fit mode: 'cover' (default) or 'contain'
   fit?: 'cover' | 'contain';
-  // Maximum container width for responsive sizing
   maxWidth?: number;
-  // JPEG/WebP quality (1-100). Default 85.
   quality?: number;
-  // If true, skip all Cloudinary optimizations and use original image. Default false.
   skipOptimization?: boolean;
 }
 
 const Placeholder = ({ className }: { className?: string }) => (
   <div
-    className={cn(
-      'w-full h-full bg-stone-100',
-      className
-    )}
+    className={cn('w-full h-full bg-stone-100', className)}
     style={{
       backgroundImage: `url(${getBlurPlaceholder()})`,
       backgroundSize: 'cover',
+      backgroundPosition: 'center',
     }}
   />
 );
@@ -45,15 +38,15 @@ const FallbackImage = ({ className }: { className?: string }) => (
   </div>
 );
 
-const ProductImage = ({ 
-  src, 
-  alt, 
-  className, 
-  priority = false, 
+const ProductImage = ({
+  src,
+  alt,
+  className,
+  priority = false,
   fit = 'cover',
   maxWidth = 1200,
   quality = 85,
-  skipOptimization = false
+  skipOptimization = false,
 }: ProductImageProps) => {
   const [loaded, setLoaded] = useState(false);
   const [errored, setErrored] = useState(false);
@@ -62,115 +55,72 @@ const ProductImage = ({
   const imgRef = useRef<HTMLImageElement | null>(null);
   const { markAsLoaded, isLoaded: isImageLoaded, markAsErrored, isErrored: isImageErrored } = useImageCache();
 
-  // Check cache on mount - if image is already loaded, set loaded immediately
   useEffect(() => {
-    if (src && isImageLoaded(src)) {
-      setLoaded(true);
-    }
-    if (src && isImageErrored(src)) {
-      setErrored(true);
-    }
+    if (src && isImageLoaded(src)) setLoaded(true);
+    if (src && isImageErrored(src)) setErrored(true);
   }, [src, isImageLoaded, isImageErrored]);
 
-  // If src changes, reset state (except for cached images)
   useEffect(() => {
-    if (!src || !isImageLoaded(src)) {
-      setLoaded(false);
-    }
-    if (!src || !isImageErrored(src)) {
-      setErrored(false);
-    }
+    if (!src || !isImageLoaded(src)) setLoaded(false);
+    if (!src || !isImageErrored(src)) setErrored(false);
     setShouldLoad(priority);
   }, [src, priority, isImageLoaded, isImageErrored]);
 
-  // IntersectionObserver to start loading images before they enter viewport
   useEffect(() => {
-    if (priority) return; // already should load
+    if (priority) return;
     if (!containerRef.current) return;
 
     let obs: IntersectionObserver | null = null;
     try {
-      obs = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            if (entry.isIntersecting) {
-              setShouldLoad(true);
-              if (obs) {
-                obs.disconnect();
-                obs = null;
-              }
-            }
-          });
-        },
-        { rootMargin: '300px 0px' } // Reduced from 400px for faster loading
-      );
+      obs = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setShouldLoad(true);
+            obs?.disconnect();
+            obs = null;
+          }
+        });
+      }, { rootMargin: '300px 0px' });
       obs.observe(containerRef.current);
-    } catch (e) {
-      // If IntersectionObserver not supported, fallback to eager load
+    } catch {
       setShouldLoad(true);
     }
 
-    return () => {
-      if (obs) try { obs.disconnect(); } catch { /* noop */ }
-    };
+    return () => obs?.disconnect();
   }, [priority]);
 
-  // Preload image only when allowed to load (shouldLoad)
   useEffect(() => {
     if (!src || !shouldLoad) return;
-    
-    // Get optimized URL for preloading (use a mid-size for preloading)
     const preloadUrl = getOptimizedImageUrl(src, 600, Math.max(quality - 5, 75));
     if (!preloadUrl) return;
-    
+
     const img = new Image();
     img.src = preloadUrl;
     img.decoding = 'async';
-    img.onload = () => {
-      // preloaded, actual <img> will setLoaded on its onLoad
-    };
-    img.onerror = (e) => {
-      console.error('Preload image error', src, e);
-    };
   }, [src, shouldLoad, quality]);
 
-  // Set fetchpriority attribute directly on the DOM node
   useEffect(() => {
     const el = imgRef.current;
     if (!el) return;
-    try {
-      if (priority) {
-        el.setAttribute('fetchpriority', 'high');
-      } else {
-        el.removeAttribute('fetchpriority');
-      }
-    } catch (e) {
-      // ignore
-    }
-  }, [priority, shouldLoad]);
+    if (priority) el.setAttribute('fetchpriority', 'high');
+    else el.removeAttribute('fetchpriority');
+  }, [priority]);
 
-  // If src is missing, show a clear fallback
-  if (!src) {
-    return <FallbackImage className={className} />;
-  }
+  if (!src) return <FallbackImage className={className} />;
 
-  // For contain we also center the image so focal point appears centered
   const imgFitClass = fit === 'contain' ? 'object-contain object-center' : 'object-cover object-center';
-
-  // Get optimized image URLs with custom quality, or use original if skipOptimization is true
   const optimizedSrc = skipOptimization ? src : getOptimizedImageUrl(src, maxWidth, quality);
   const srcset = skipOptimization ? undefined : getResponsiveSrcset(src, [300, 600, 900, 1200, 1920], quality);
-  const sizes = skipOptimization ? undefined : `(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw`;
+  const sizes = skipOptimization ? undefined : '(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw';
 
   const handleLoad = () => {
     setLoaded(true);
-    if (src) markAsLoaded(src);
+    markAsLoaded(src);
   };
 
-  const handleError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    console.error('Failed to load image', src, e);
+  const handleError = () => {
     setErrored(true);
-    if (src) markAsErrored(src);
+    markAsErrored(src);
   };
 
   return (
@@ -188,22 +138,13 @@ const ProductImage = ({
           decoding="async"
           onLoad={handleLoad}
           onError={handleError}
-          className={cn(
-            'w-full h-full block transition-opacity duration-300 ease-out',
-            imgFitClass,
-            loaded ? 'opacity-100' : 'opacity-0',
-          )}
+          className={cn('w-full h-full block transition-opacity duration-300 ease-out', imgFitClass, loaded ? 'opacity-100' : 'opacity-0')}
         />
       ) : (
-        // Render an empty div until shouldLoad becomes true to avoid browser fetching
         <div aria-hidden className="w-full h-full" />
       )}
 
-      {errored && (
-        <div className="absolute inset-0">
-          <FallbackImage />
-        </div>
-      )}
+      {errored && <div className="absolute inset-0"><FallbackImage /></div>}
     </div>
   );
 };

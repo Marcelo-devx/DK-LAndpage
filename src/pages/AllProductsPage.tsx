@@ -140,19 +140,15 @@ const AllProductsPage = () => {
 
   useEffect(() => { fetchFilterOptions(); }, [fetchFilterOptions]);
 
-  const fetchProducts = useCallback(async (background = false) => {
+  const fetchProducts = useCallback(async () => {
     if (!isMountedRef.current) return;
     
-    // Always refetch when called (filter/URL changes). Avoid skipping fetch so page updates
-    // when user navigates between categories via header links.
-    
     const currentFetchId = ++fetchIdRef.current;
-    if (!background) setLoading(true);
+    setLoading(true);
 
-    // Timeout of safety — ensures loading never gets stuck
-    const safetyTimer = !background ? setTimeout(() => {
+    const safetyTimer = setTimeout(() => {
       if (isMountedRef.current && fetchIdRef.current === currentFetchId) setLoading(false);
-    }, 10000) : null;
+    }, 10000);
 
     try {
       const normalizeCategory = (s?: string) => (typeof s === 'string' ? s.trim().toLowerCase() : '');
@@ -170,9 +166,8 @@ const AllProductsPage = () => {
       const selectedCategoryNames = selectedCategories.map(normalizeString).filter(Boolean);
       const selectedBrandNames = selectedBrands.map(normalizeString).filter(Boolean);
       const selectedSubCategoryNames = selectedSubCategories.map(normalizeString).filter(Boolean);
-      const selectedFlavorNames = selectedFlavors.map(normalizeString).filter(Boolean);
 
-      // If the search term matches a flavor name, collect product IDs linked to that flavor
+      // Flavor search: collect product IDs linked to matching flavors
       let flavorMatchProductIds: number[] = [];
       if (shouldApplySearch) {
         const { data: matchedFlavors } = await supabase.from('flavors').select('id').ilike('name', `%${searchQuery}%`).eq('is_visible', true);
@@ -237,14 +232,13 @@ const AllProductsPage = () => {
         if (matchedBrandNames.length > 0) query = query.in('brand', matchedBrandNames);
       }
 
-      // Apply subcategory filter via product IDs (join table)
       if (subCategoryProductIds !== null) {
         if (subCategoryProductIds.length === 0) {
-          if (isMountedRef.current && fetchIdRef.current === currentFetchId && !background) {
+          if (isMountedRef.current && fetchIdRef.current === currentFetchId) {
             setDisplayProducts([]);
             setSubCategoryOptions([]);
           }
-          return; // finally will handle setLoading(false)
+          return;
         }
         query = query.in('id', subCategoryProductIds);
       }
@@ -272,66 +266,17 @@ const AllProductsPage = () => {
 
       if (error) {
         console.error('[AllProductsPage] Error fetching products:', error);
-        if (isMountedRef.current && fetchIdRef.current === currentFetchId && !background) {
+        if (isMountedRef.current && fetchIdRef.current === currentFetchId) {
           setDisplayProducts([]);
           setCategoryOptions([]);
           setSubCategoryOptions([]);
           setBrandOptions([]);
           setFlavorOptions([]);
         }
-        return; // finally will handle setLoading(false)
-      }
-
-      // Fast path for background updates
-      if (background) {
-        // Must fetch variants even in background to correctly set hasMultipleVariants
-        const bgProductIds = products.map((p: any) => p.id);
-        const { data: bgVariants } = bgProductIds.length > 0
-          ? await supabase.from('product_variants').select('product_id, price, pix_price, stock_quantity').in('product_id', bgProductIds).eq('is_active', true)
-          : { data: [] };
-
-        const bgVariantMap = new Map<number, any[]>();
-        (bgVariants || []).forEach((v: any) => {
-          if (!bgVariantMap.has(v.product_id)) bgVariantMap.set(v.product_id, []);
-          bgVariantMap.get(v.product_id)!.push(v);
-        });
-
-        const quickList: DisplayProduct[] = products.map((prod: any) => {
-          const prodVariants = bgVariantMap.get(prod.id) || [];
-          const hasVariants = prodVariants.length > 0;
-          const variantStock = prodVariants.reduce((acc: number, v: any) => acc + (v.stock_quantity || 0), 0);
-          const minPrice = hasVariants ? Math.min(...prodVariants.map((v: any) => v.price ?? 0)) : (prod.price ?? 0);
-          const minPixPrice = hasVariants ? Math.min(...prodVariants.map((v: any) => v.pix_price ?? v.price ?? 0)) : (prod.pix_price ?? null);
-          return {
-            id: prod.id,
-            name: prod.name,
-            price: minPrice,
-            pixPrice: minPixPrice,
-            imageUrl: prod.image_url || '',
-            // Products with variants: stock comes ONLY from variants, never from base product
-            stockQuantity: hasVariants ? variantStock : (prod.stock_quantity ?? 0),
-            hasMultipleVariants: hasVariants,
-            showAgeBadge: prod.category ? (categoriesMap[normalizeCategory(prod.category)] ?? true) : true,
-            createdAt: prod.created_at || null,
-          };
-        });
-        quickList.sort((a, b) => {
-          const aAvailable = (a.stockQuantity ?? 0) > 0;
-          const bAvailable = (b.stockQuantity ?? 0) > 0;
-          if (aAvailable && !bAvailable) return -1;
-          if (!aAvailable && bAvailable) return 1;
-          if (qSortField === 'price') {
-            return qSortOrder === 'asc' ? (a.price || 0) - (b.price || 0) : (b.price || 0) - (a.price || 0);
-          }
-          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return qSortOrder === 'asc' ? aTime - bTime : bTime - aTime;
-        });
-        if (isMountedRef.current && fetchIdRef.current === currentFetchId) setDisplayProducts(quickList);
         return;
       }
 
-      // Full path: fetch variants and compute counts
+      // Always fetch variants — needed to correctly set hasMultipleVariants and stock
       const productIds = products.map((p: any) => p.id);
 
       const { data: variants } = productIds.length > 0
@@ -340,13 +285,13 @@ const AllProductsPage = () => {
 
       const finalDisplayList: DisplayProduct[] = [];
       products.forEach((prod: any) => {
-        const prodVariants = variants?.filter((v: any) => v.product_id === prod.id) || [];
+        const prodVariants = (variants || []).filter((v: any) => v.product_id === prod.id);
         const showAge = prod.category ? (categoriesMap[normalizeCategory(prod.category)] ?? true) : true;
 
         if (prodVariants.length > 0) {
           const minPrice = Math.min(...prodVariants.map((v: any) => v.price ?? 0));
           const minPixPrice = Math.min(...prodVariants.map((v: any) => v.pix_price ?? v.price ?? 0));
-          // Stock comes ONLY from variants — never add base product stock
+          // Stock comes ONLY from variants — never from base product
           const variantStock = prodVariants.reduce((acc: number, v: any) => acc + (v.stock_quantity || 0), 0);
           finalDisplayList.push({ id: prod.id, name: prod.name, price: minPrice, pixPrice: minPixPrice, imageUrl: prod.image_url || '', stockQuantity: variantStock, hasMultipleVariants: true, showAgeBadge: showAge, createdAt: prod.created_at || null });
         } else {
@@ -478,17 +423,12 @@ const AllProductsPage = () => {
     } catch (err) {
       console.error('[AllProductsPage] fetchProducts error:', err);
     } finally {
-      if (safetyTimer) clearTimeout(safetyTimer);
-      if (!background && isMountedRef.current && fetchIdRef.current === currentFetchId) setLoading(false);
+      clearTimeout(safetyTimer);
+      if (isMountedRef.current && fetchIdRef.current === currentFetchId) setLoading(false);
     }
-  }, [debouncedSearchTerm, selectedCategories, selectedSubCategories, selectedBrands, selectedFlavors, sortBy, displayProducts.length]);
+  }, [debouncedSearchTerm, selectedCategories, selectedSubCategories, selectedBrands, selectedFlavors, sortBy, normalizeString]);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
-
-  // Re-run fetch when the URL search params change (category/sub_category/search)
-  useEffect(() => {
-    fetchProducts(false);
-  }, [searchParams.get('category'), searchParams.get('sub_category'), searchParams.get('search')]);
 
   const handleClearFilters = () => {
     setSearchTerm('');

@@ -158,6 +158,7 @@ const CheckoutPage = () => {
 
   useEffect(() => {
     isMountedRef.current = true;
+    window.scrollTo({ top: 0, behavior: 'instant' });
     return () => { isMountedRef.current = false; };
   }, []);
 

@@ -14,9 +14,6 @@ const ScrollToTop = () => {
     if (prevPathnameRef.current === pathname) return;
     prevPathnameRef.current = pathname;
 
-    // Rotas do fluxo de pagamento gerenciam o próprio scroll
-    if (pathname.startsWith('/checkout') || pathname.startsWith('/confirmacao-pedido')) return;
-
     try {
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
     } catch {

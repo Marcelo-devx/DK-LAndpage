@@ -284,17 +284,37 @@ const AllProductsPage = () => {
 
       // Fast path for background updates
       if (background) {
-        const quickList: DisplayProduct[] = products.map((prod: any) => ({
-          id: prod.id,
-          name: prod.name,
-          price: prod.price ?? 0,
-          pixPrice: prod.pix_price ?? null,
-          imageUrl: prod.image_url || '',
-          stockQuantity: prod.stock_quantity ?? 0,
-          hasMultipleVariants: false,
-          showAgeBadge: prod.category ? (categoriesMap[normalizeCategory(prod.category)] ?? true) : true,
-          createdAt: prod.created_at || null,
-        }));
+        // Must fetch variants even in background to correctly set hasMultipleVariants
+        const bgProductIds = products.map((p: any) => p.id);
+        const { data: bgVariants } = bgProductIds.length > 0
+          ? await supabase.from('product_variants').select('product_id, price, pix_price, stock_quantity').in('product_id', bgProductIds).eq('is_active', true)
+          : { data: [] };
+
+        const bgVariantMap = new Map<number, any[]>();
+        (bgVariants || []).forEach((v: any) => {
+          if (!bgVariantMap.has(v.product_id)) bgVariantMap.set(v.product_id, []);
+          bgVariantMap.get(v.product_id)!.push(v);
+        });
+
+        const quickList: DisplayProduct[] = products.map((prod: any) => {
+          const prodVariants = bgVariantMap.get(prod.id) || [];
+          const hasVariants = prodVariants.length > 0;
+          const variantStock = prodVariants.reduce((acc: number, v: any) => acc + (v.stock_quantity || 0), 0);
+          const minPrice = hasVariants ? Math.min(...prodVariants.map((v: any) => v.price ?? 0)) : (prod.price ?? 0);
+          const minPixPrice = hasVariants ? Math.min(...prodVariants.map((v: any) => v.pix_price ?? v.price ?? 0)) : (prod.pix_price ?? null);
+          return {
+            id: prod.id,
+            name: prod.name,
+            price: minPrice,
+            pixPrice: minPixPrice,
+            imageUrl: prod.image_url || '',
+            // Products with variants: stock comes ONLY from variants, never from base product
+            stockQuantity: hasVariants ? variantStock : (prod.stock_quantity ?? 0),
+            hasMultipleVariants: hasVariants,
+            showAgeBadge: prod.category ? (categoriesMap[normalizeCategory(prod.category)] ?? true) : true,
+            createdAt: prod.created_at || null,
+          };
+        });
         quickList.sort((a, b) => {
           const aAvailable = (a.stockQuantity ?? 0) > 0;
           const bAvailable = (b.stockQuantity ?? 0) > 0;
@@ -326,8 +346,9 @@ const AllProductsPage = () => {
         if (prodVariants.length > 0) {
           const minPrice = Math.min(...prodVariants.map((v: any) => v.price ?? 0));
           const minPixPrice = Math.min(...prodVariants.map((v: any) => v.pix_price ?? v.price ?? 0));
+          // Stock comes ONLY from variants — never add base product stock
           const variantStock = prodVariants.reduce((acc: number, v: any) => acc + (v.stock_quantity || 0), 0);
-          finalDisplayList.push({ id: prod.id, name: prod.name, price: minPrice, pixPrice: minPixPrice, imageUrl: prod.image_url || '', stockQuantity: (prod.stock_quantity || 0) + variantStock, hasMultipleVariants: true, showAgeBadge: showAge, createdAt: prod.created_at || null });
+          finalDisplayList.push({ id: prod.id, name: prod.name, price: minPrice, pixPrice: minPixPrice, imageUrl: prod.image_url || '', stockQuantity: variantStock, hasMultipleVariants: true, showAgeBadge: showAge, createdAt: prod.created_at || null });
         } else {
           finalDisplayList.push({ id: prod.id, name: prod.name, price: prod.price ?? 0, pixPrice: prod.pix_price ?? null, imageUrl: prod.image_url || '', stockQuantity: prod.stock_quantity || 0, hasMultipleVariants: false, showAgeBadge: showAge, createdAt: prod.created_at || null });
         }

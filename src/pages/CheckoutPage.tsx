@@ -518,7 +518,12 @@ const CheckoutPage = () => {
 
       if (isMountedRef.current) setIsCheckingShipping(true);
       try {
-        const { data, error } = await supabase.rpc('get_shipping_rate', { p_neighborhood: watchedNeighborhood, p_city: watchedCity });
+        const rawCep = getValues('cep').replace(/\D/g, '');
+        const { data, error } = await supabase.rpc('get_shipping_rate', {
+          p_neighborhood: watchedNeighborhood,
+          p_city: watchedCity,
+          p_cep: rawCep.length === 8 ? rawCep : null,
+        });
         if (!isMountedRef.current) return;
 
         if (!error && data !== null) {

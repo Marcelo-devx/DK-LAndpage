@@ -224,36 +224,64 @@ const CheckoutPage = () => {
       ? await supabase.from('flavors').select('id, name').in('id', flavorIds)
       : { data: [] };
 
-    const finalItems = localCart.map(cartItem => {
-      let details: any = null;
-      let price = 0;
-      let pixPrice: number | null = null;
-      let variant_label: string | undefined;
+    const finalItems = localCart.map((cartItem): DisplayItem | null => {
       if (cartItem.itemType === 'product') {
-        details = products?.find((p: any) => p.id === cartItem.itemId);
-        if (details) {
-          price = details.price; pixPrice = details.pix_price;
-          if (cartItem.variantId && variants) {
-            const v = variants.find((v: any) => v.id === cartItem.variantId);
-            if (v) {
-              price = v.price; pixPrice = v.pix_price;
-              const parts: string[] = [];
-              const fName = v.flavor_id ? (flavorsData || []).find((f: any) => f.id === v.flavor_id)?.name : '';
-              if (fName) parts.push(fName);
-              if (v.color) parts.push(v.color);
-              if (v.size) parts.push(v.size);
-              if (v.ohms) parts.push(v.ohms);
-              if (parts.length > 0) variant_label = parts.join(' · ');
+        const product = (productsRes as any).data?.find((p: any) => p.id === cartItem.itemId);
+        if (!product) return null;
+
+        let price = product.price ?? 0;
+        let label = '';
+
+        if (cartItem.variantId) {
+          const variant = (variantsRes as any).data?.find((v: any) => v.id === cartItem.variantId);
+          if (variant) {
+            price = variant.price ?? 0;
+
+            // Try to find flavor name if available
+            const fName = variant.flavor_id ? flavorsData?.find(f => f.id === variant.flavor_id)?.name : '';
+
+            // Build parts for a robust label: prefer explicit flavor/name + volume, otherwise try other attributes
+            const parts: string[] = [];
+            if (fName) parts.push(fName);
+            if (variant.color) parts.push(variant.color);
+            if (variant.size) parts.push(variant.size);
+            if (variant.ohms) parts.push(variant.ohms);
+
+            // Join parts with separator; fallback to a generic but explicit label if nothing meaningful found
+            const built = parts.join(' · ').trim();
+            if (built) {
+              label = built;
+            } else {
+              label = 'Variação selecionada';
             }
           }
         }
+
+        return {
+          id: cartItem.itemId,
+          itemId: cartItem.itemId,
+          itemType: cartItem.itemType,
+          quantity: cartItem.quantity,
+          name: product.name,
+          price: price,
+          pixPrice: product.pix_price ?? null,
+          image_url: product.image_url || '',
+          variant_label: label || undefined,
+        };
       } else {
-        details = promotions?.find((p: any) => p.id === cartItem.itemId);
-        if (details) { price = details.price; pixPrice = details.pix_price; }
+        const promo = (promotionsRes as any).data?.find((p: any) => p.id === cartItem.itemId);
+        if (!promo) return null;
+        return {
+          id: cartItem.itemId,
+          itemId: cartItem.itemId,
+          itemType: cartItem.itemType,
+          quantity: cartItem.quantity,
+          name: promo.name,
+          price: promo.price ?? 0,
+          pixPrice: promo.pix_price ?? null,
+          image_url: promo.image_url || '',
+        };
       }
-      return details
-        ? { id: cartItem.itemId, itemId: cartItem.itemId, itemType: cartItem.itemType, quantity: cartItem.quantity, name: details.name, price, pixPrice, image_url: details.image_url || '', variant_label }
-        : null;
     }).filter((i): i is DisplayItem => i !== null);
 
     if (isMountedRef.current) setItems(finalItems);

@@ -135,9 +135,8 @@ const Index = () => {
       setTimeout(async () => {
         if (!isMountedRef.current) return;
         
-        const [productsRes, variantsRes, promosRes, brandsRes, categoriesRes] = await Promise.all([
+        const [productsRes, promosRes, brandsRes, categoriesRes] = await Promise.all([
           timed('fetch_products', Promise.resolve(supabase.from('products').select('*').eq('is_visible', true).order('created_at', { ascending: false }).limit(12))),
-          timed('fetch_variants', Promise.resolve(supabase.from('product_variants').select('id, product_id, price, pix_price, stock_quantity').eq('is_active', true))),
           timed('fetch_promos', Promise.resolve(supabase.from('promotions').select('*').eq('is_active', true).order('created_at', { ascending: false }))),
           timed('fetch_brands', Promise.resolve(supabase.from('brands').select('*').eq('is_visible', true).order('name'))),
           timed('fetch_categories', Promise.resolve(supabase.from('categories').select('name, show_age_restriction').eq('is_visible', true).order('name'))),
@@ -147,25 +146,37 @@ const Index = () => {
           (categoriesRes.data || []).map((c: any) => [normalizeCategory(c.name), c.show_age_restriction !== false])
         );
 
+        // Fetch variants only for the products we actually got
+        const phase2ProductIds = (productsRes.data || []).map((p: any) => p.id);
+        let phase2Variants: any[] = [];
+        if (phase2ProductIds.length > 0) {
+          const { data: variantsData } = await timed('fetch_variants', Promise.resolve(
+            supabase.from('product_variants')
+              .select('id, product_id, price, pix_price, stock_quantity')
+              .in('product_id', phase2ProductIds)
+              .eq('is_active', true)
+          ));
+          phase2Variants = variantsData || [];
+        }
+
         const buildProductList = (products: any[]) => {
-          const allVariants = variantsRes.data || [];
           return products.reduce((acc: any[], prod: any) => {
-            const prodVariants = allVariants.filter((v: any) => v.product_id === prod.id);
+            const prodVariants = phase2Variants.filter((v: any) => v.product_id === prod.id);
             if (prodVariants.length > 0) {
+              // Has variants → always "Ver Opções", stock only from variants
               const totalStock = prodVariants.reduce((s: number, v: any) => s + (v.stock_quantity || 0), 0);
-              if (totalStock > 0) {
-                acc.push({
-                  id: prod.id,
-                  name: prod.name,
-                  price: Math.min(...prodVariants.map((v: any) => v.price ?? 0)),
-                  pixPrice: Math.min(...prodVariants.map((v: any) => v.pix_price ?? v.price ?? 0)),
-                  imageUrl: prod.image_url || '',
-                  stockQuantity: totalStock,
-                  hasMultipleVariants: true,
-                  showAgeBadge: prod.category ? (categoryMap.get(normalizeCategory(prod.category)) ?? true) : true,
-                });
-              }
+              acc.push({
+                id: prod.id,
+                name: prod.name,
+                price: Math.min(...prodVariants.map((v: any) => v.price ?? 0)),
+                pixPrice: Math.min(...prodVariants.map((v: any) => v.pix_price ?? v.price ?? 0)),
+                imageUrl: prod.image_url || '',
+                stockQuantity: totalStock,
+                hasMultipleVariants: true,
+                showAgeBadge: prod.category ? (categoryMap.get(normalizeCategory(prod.category)) ?? true) : true,
+              });
             } else if (prod.stock_quantity > 0) {
+              // No variants → simple product, use base stock
               acc.push({
                 id: prod.id,
                 name: prod.name,

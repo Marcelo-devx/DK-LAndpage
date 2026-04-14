@@ -64,6 +64,8 @@ const PromotionCard = memo(({ promotion }: PromotionCardProps) => {
               "w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 ease-out",
               isOutOfStock && "grayscale"
             )}
+            quality={40}
+            maxWidth={720}
           />
 
           {/* Badge de desconto */}
@@ -97,7 +99,6 @@ const PromotionCard = memo(({ promotion }: PromotionCardProps) => {
             </h3>
 
             <div className="space-y-0.5">
-              {/* Preço cheio */}
               <p className="text-[11px] md:text-[13px] xl:text-sm font-black text-slate-900 leading-none">
                 {promotion.price}
               </p>
@@ -105,7 +106,6 @@ const PromotionCard = memo(({ promotion }: PromotionCardProps) => {
                 3x de <span className="font-black">{promotion.price}</span> <span className="text-sky-600 font-black uppercase">cartão</span>
               </p>
 
-              {/* Bloco PIX */}
               <div className="pt-1.5">
                 <div className="flex items-center gap-1 mb-0.5">
                   <div className="flex items-center justify-center px-1.5 py-0.5 bg-emerald-50 text-emerald-600 rounded border border-emerald-100">
@@ -121,7 +121,6 @@ const PromotionCard = memo(({ promotion }: PromotionCardProps) => {
             </div>
           </div>
 
-          {/* Botão de ação */}
           <div className="mt-3">
             <Button
               className={cn(

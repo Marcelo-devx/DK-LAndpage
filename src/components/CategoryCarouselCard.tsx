@@ -1,4 +1,5 @@
 import { Card } from "@/components/ui/card";
+import ProductImage from '@/components/ProductImage';
 
 interface CategoryCarouselCardProps {
   category: {
@@ -14,12 +15,12 @@ const CategoryCarouselCard = ({ category, onClick }: CategoryCarouselCardProps) 
       onClick={onClick} 
       className="relative aspect-square rounded-lg overflow-hidden shadow-lg group cursor-pointer border-none"
     >
-      <img
+      <ProductImage
         src={category.imageUrl}
         alt={category.name}
-        loading="lazy"
-        decoding="async"
         className="w-full h-full object-cover"
+        quality={40}
+        maxWidth={720}
       />
       <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors duration-300 flex items-center justify-center p-2">
         <h3 className="font-serif text-xl text-white font-medium text-center" translate="no">{category.name}</h3>

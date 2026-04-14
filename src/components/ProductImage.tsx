@@ -45,7 +45,8 @@ const ProductImage = ({
   priority = false,
   fit = 'cover',
   maxWidth = 900,
-  quality = 65,
+  quality = 40,
+
   skipOptimization = false,
 }: ProductImageProps) => {
   const [loaded, setLoaded] = useState(false);

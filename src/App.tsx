@@ -27,7 +27,6 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ImageCacheProvider } from "./context/ImageCacheContext";
 import LoyaltyButton from "./components/LoyaltyButton";
 
-// Lazy loading para rotas menos críticas
 const ConfirmacaoPedido = lazy(() => import("./pages/ConfirmacaoPedido"));
 const CompleteProfilePage = lazy(() => import("./pages/CompleteProfilePage"));
 const ReferralsPage = lazy(() => import("./pages/ReferralsPage"));
@@ -37,7 +36,6 @@ const AdminLogistics = lazy(() => import("./pages/AdminLogistics"));
 const EmailConfirm = lazy(() => import("./pages/EmailConfirm"));
 const TestEdgeFunction = lazy(() => import("./pages/TestEdgeFunction"));
 
-// Componentes de layout/admin mantidos síncronos para UX imediata
 import MaintenanceScreen from "./components/MaintenanceScreen";
 import ErrorBoundary from "./components/ErrorBoundary";
 import AdminCustomizer from "./components/AdminCustomizer";
@@ -48,13 +46,12 @@ const queryClient = new QueryClient({
     queries: {
       refetchOnWindowFocus: false,
       retry: 1,
-      staleTime: 5 * 60 * 1000, // 5 minutes - data stays fresh for 5 minutes
-      gcTime: 10 * 60 * 1000, // 10 minutes - cache garbage collection time
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
     },
   },
 });
 
-// Loading component para Suspense
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-[400px]">
     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sky-500"></div>
@@ -67,8 +64,6 @@ const AppContent = () => {
   const { settings } = useTheme();
   const { isAdmin } = useAuth();
 
-  // Registra quando o usuário sai da aba para que o AgeVerificationPopup
-  // saiba que ele voltou recentemente e não exiba o popup novamente
   useEffect(() => {
     const handleVisibilityChange = () => {
       try {
@@ -85,7 +80,6 @@ const AppContent = () => {
     return <MaintenanceScreen />;
   }
 
-  // Otherwise render full app (admins and normal operation)
   return (
     <>
       <AdminCustomizer />

@@ -167,6 +167,11 @@ const AllProductsPage = () => {
         });
       }
 
+      const selectedCategoryNames = selectedCategories.map(normalizeString).filter(Boolean);
+      const selectedBrandNames = selectedBrands.map(normalizeString).filter(Boolean);
+      const selectedSubCategoryNames = selectedSubCategories.map(normalizeString).filter(Boolean);
+      const selectedFlavorNames = selectedFlavors.map(normalizeString).filter(Boolean);
+
       // If the search term matches a flavor name, collect product IDs linked to that flavor
       let flavorMatchProductIds: number[] = [];
       if (shouldApplySearch) {
@@ -184,16 +189,16 @@ const AllProductsPage = () => {
         }
       }
 
-      // If subcategory filter is active, resolve product IDs via product_sub_categories join table
+      // Resolve product IDs for selected subcategories
       let subCategoryProductIds: number[] | null = null;
-      if (selectedSubCategories.length > 0) {
-        // Find sub_category IDs matching the selected names
+      if (selectedSubCategoryNames.length > 0) {
         const { data: matchedSubs } = await supabase
           .from('sub_categories')
-          .select('id')
-          .in('name', selectedSubCategories)
+          .select('id, name')
           .eq('is_visible', true);
-        const subIds = (matchedSubs || []).map((s: any) => s.id);
+        const subIds = (matchedSubs || [])
+          .filter((s: any) => selectedSubCategoryNames.some(name => normalizeString(s.name).includes(name) || name.includes(normalizeString(s.name))))
+          .map((s: any) => s.id);
         if (subIds.length > 0) {
           const { data: pscRows } = await supabase
             .from('product_sub_categories')
@@ -201,7 +206,7 @@ const AllProductsPage = () => {
             .in('sub_category_id', subIds);
           subCategoryProductIds = [...new Set((pscRows || []).map((r: any) => r.product_id as number))];
         } else {
-          subCategoryProductIds = []; // no matches → empty result
+          subCategoryProductIds = [];
         }
       }
 
@@ -216,8 +221,21 @@ const AllProductsPage = () => {
         query = query.or(`name.ilike.${term},category.ilike.${term},brand.ilike.${term}`);
       }
 
-      if (selectedCategories.length > 0) query = query.in('category', selectedCategories);
-      if (selectedBrands.length > 0) query = query.in('brand', selectedBrands);
+      if (selectedCategoryNames.length > 0) {
+        const { data: allCategoryRows } = await supabase.from('categories').select('name').eq('is_visible', true);
+        const matchedCategoryNames = (allCategoryRows || [])
+          .map((c: any) => c.name)
+          .filter((name: string) => selectedCategoryNames.some(selected => normalizeString(name).includes(selected) || selected.includes(normalizeString(name))));
+        if (matchedCategoryNames.length > 0) query = query.in('category', matchedCategoryNames);
+      }
+
+      if (selectedBrandNames.length > 0) {
+        const { data: allBrandRows } = await supabase.from('products').select('brand').eq('is_visible', true).not('brand', 'is', null);
+        const matchedBrandNames = [...new Set((allBrandRows || [])
+          .map((p: any) => p.brand)
+          .filter((name: string) => name && selectedBrandNames.some(selected => normalizeString(name).includes(selected) || selected.includes(normalizeString(name)))))] as string[];
+        if (matchedBrandNames.length > 0) query = query.in('brand', matchedBrandNames);
+      }
 
       // Apply subcategory filter via product IDs (join table)
       if (subCategoryProductIds !== null) {

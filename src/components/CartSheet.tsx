@@ -95,14 +95,15 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
               const parts: string[] = [];
               if (fName) parts.push(fName);
               if (variant.color) parts.push(variant.color);
+              if (variant.size) parts.push(variant.size);
               if (variant.ohms) parts.push(variant.ohms);
 
               // Join parts with separator; fallback to a generic but explicit label if nothing meaningful found
-              const built = parts.join(' - ').trim();
+              const built = parts.join(' · ').trim();
               if (built) {
-                label = `Opção: ${built}`;
+                label = built;
               } else {
-                label = 'Opção selecionada';
+                label = 'Variação selecionada';
               }
             }
           }
@@ -254,7 +255,9 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-charcoal-gray text-sm truncate">{item.name}</p>
                     {item.variant_label && (
-                      <p className="text-[11px] text-sky-600 uppercase font-bold mt-1 truncate">{item.variant_label}</p>
+                      <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-sky-50 border border-sky-200 text-sky-700 text-[10px] font-black uppercase tracking-wide max-w-full truncate">
+                        🏷 {item.variant_label}
+                      </span>
                     )}
                     <p className="text-slate-900 font-extrabold text-sm mt-2">R$ {item.price.toFixed(2).replace('.', ',')}</p>
                   </div>

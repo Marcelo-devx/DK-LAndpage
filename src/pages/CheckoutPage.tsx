@@ -35,6 +35,7 @@ interface DisplayItem {
   price: number;
   pixPrice: number | null;
   image_url: string;
+  variant_label?: string;
 }
 
 interface Coupon {
@@ -209,7 +210,7 @@ const CheckoutPage = () => {
         ? supabase.from('promotions').select('id, name, price, pix_price, image_url').in('id', promotionIds)
         : Promise.resolve({ data: [] }),
       variantIds.length > 0
-        ? supabase.from('product_variants').select('id, price, pix_price').in('id', variantIds)
+        ? supabase.from('product_variants').select('id, price, pix_price, flavor_id, color, size, ohms').in('id', variantIds)
         : Promise.resolve({ data: [] }),
     ]);
 
@@ -217,17 +218,33 @@ const CheckoutPage = () => {
     const promotions = (promotionsRes as any).data;
     const variants = (variantsRes as any).data;
 
+    // Buscar nomes dos sabores
+    const flavorIds = (variants || []).filter((v: any) => v.flavor_id).map((v: any) => v.flavor_id);
+    const { data: flavorsData } = flavorIds.length > 0
+      ? await supabase.from('flavors').select('id, name').in('id', flavorIds)
+      : { data: [] };
+
     const finalItems = localCart.map(cartItem => {
       let details: any = null;
       let price = 0;
       let pixPrice: number | null = null;
+      let variant_label: string | undefined;
       if (cartItem.itemType === 'product') {
         details = products?.find((p: any) => p.id === cartItem.itemId);
         if (details) {
           price = details.price; pixPrice = details.pix_price;
           if (cartItem.variantId && variants) {
             const v = variants.find((v: any) => v.id === cartItem.variantId);
-            if (v) { price = v.price; pixPrice = v.pix_price; }
+            if (v) {
+              price = v.price; pixPrice = v.pix_price;
+              const parts: string[] = [];
+              const fName = v.flavor_id ? (flavorsData || []).find((f: any) => f.id === v.flavor_id)?.name : '';
+              if (fName) parts.push(fName);
+              if (v.color) parts.push(v.color);
+              if (v.size) parts.push(v.size);
+              if (v.ohms) parts.push(v.ohms);
+              if (parts.length > 0) variant_label = parts.join(' · ');
+            }
           }
         }
       } else {
@@ -235,7 +252,7 @@ const CheckoutPage = () => {
         if (details) { price = details.price; pixPrice = details.pix_price; }
       }
       return details
-        ? { id: cartItem.itemId, itemId: cartItem.itemId, itemType: cartItem.itemType, quantity: cartItem.quantity, name: details.name, price, pixPrice, image_url: details.image_url || '' }
+        ? { id: cartItem.itemId, itemId: cartItem.itemId, itemType: cartItem.itemType, quantity: cartItem.quantity, name: details.name, price, pixPrice, image_url: details.image_url || '', variant_label }
         : null;
     }).filter((i): i is DisplayItem => i !== null);
 
@@ -1123,7 +1140,12 @@ const CheckoutPage = () => {
                 <ProductImage src={i.image_url} alt={i.name} className="h-12 w-12 object-cover rounded-lg" />
                 <div>
                   <p className="font-black text-[10px] uppercase">{i.name}</p>
-                  <p className="text-[9px] text-slate-400 font-bold">QTD: {i.quantity}</p>
+                  {i.variant_label && (
+                    <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-sky-50 border border-sky-200 text-sky-700 text-[9px] font-black uppercase tracking-wide">
+                      🏷 {i.variant_label}
+                    </span>
+                  )}
+                  <p className="text-[9px] text-slate-400 font-bold mt-1">QTD: {i.quantity}</p>
                 </div>
               </div>
               <p className="font-black text-sky-600 text-sm">R$ {(getItemPrice(i) * i.quantity).toFixed(2)}</p>

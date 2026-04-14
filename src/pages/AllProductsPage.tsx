@@ -156,6 +156,8 @@ const AllProductsPage = () => {
 
     try {
       const normalizeCategory = (s?: string) => (typeof s === 'string' ? s.trim().toLowerCase() : '');
+      const searchQuery = debouncedSearchTerm.trim();
+      const shouldApplySearch = searchQuery.length >= 2;
 
       const { data: categoriesData } = await supabase.from('categories').select('name, show_age_restriction');
       const categoriesMap: Record<string, boolean> = {};
@@ -167,8 +169,8 @@ const AllProductsPage = () => {
 
       // If the search term matches a flavor name, collect product IDs linked to that flavor
       let flavorMatchProductIds: number[] = [];
-      if (debouncedSearchTerm) {
-        const { data: matchedFlavors } = await supabase.from('flavors').select('id').ilike('name', `%${debouncedSearchTerm}%`).eq('is_visible', true);
+      if (shouldApplySearch) {
+        const { data: matchedFlavors } = await supabase.from('flavors').select('id').ilike('name', `%${searchQuery}%`).eq('is_visible', true);
         const flavorIds = (matchedFlavors || []).map((f: any) => f.id).filter(Boolean);
         if (flavorIds.length > 0) {
           const [{ data: variantMatches }, { data: pfMatches }] = await Promise.all([
@@ -209,8 +211,8 @@ const AllProductsPage = () => {
         .select('id, name, price, pix_price, image_url, category, brand, stock_quantity, created_at')
         .eq('is_visible', true);
 
-      if (debouncedSearchTerm) {
-        const term = `%${debouncedSearchTerm}%`;
+      if (shouldApplySearch) {
+        const term = `%${searchQuery}%`;
         query = query.or(`name.ilike.${term},category.ilike.${term},brand.ilike.${term}`);
       }
 

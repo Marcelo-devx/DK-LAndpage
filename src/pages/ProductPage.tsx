@@ -189,6 +189,7 @@ const ProductPage = () => {
           if (prodVariants.length > 0) {
             const minPrice = Math.min(...prodVariants.map((v: any) => v.price ?? 0));
             const minPixPrice = Math.min(...prodVariants.map((v: any) => v.pix_price ?? v.price ?? 0));
+            // Stock comes ONLY from variants — never from base product
             const variantStock = prodVariants.reduce((acc: number, v: any) => acc + (v.stock_quantity || 0), 0);
 
             return {
@@ -197,7 +198,7 @@ const ProductPage = () => {
               price: minPrice,
               pixPrice: minPixPrice,
               imageUrl: prod.image_url || '',
-              stockQuantity: (prod.stock_quantity || 0) + variantStock,
+              stockQuantity: variantStock,
               hasMultipleVariants: true,
               showAgeBadge: true,
             } as DisplayProduct;
@@ -293,8 +294,9 @@ const ProductPage = () => {
   };
 
   const handleAddToCart = async () => {
-    if (product && variants.length > 0 && !selectedVariant) {
-      showError("Selecione uma opção (sabor/volume)");
+    // Products with variants MUST have a variant selected — base product has no real stock
+    if (variants.length > 0 && !selectedVariant) {
+      showError("Selecione uma opção (sabor/cor/tamanho)");
       return;
     }
     
@@ -346,7 +348,11 @@ const ProductPage = () => {
   const currentPixPrice = ((selectedVariant ? selectedVariant.pix_price : product.pix_price) || currentFullPrice) ?? 0;
   const installmentValue = (currentFullPrice / 3).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   
-  const currentStock = selectedVariant ? selectedVariant.stock_quantity : product.stock_quantity;
+  // When product has variants, stock is determined by selected variant only
+  // If no variant selected yet, show 0 to avoid misleading "in stock" state
+  const currentStock = variants.length > 0
+    ? (selectedVariant ? selectedVariant.stock_quantity : 0)
+    : product.stock_quantity;
   const isOutOfStock = currentStock <= 0;
 
   return (

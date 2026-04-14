@@ -140,6 +140,7 @@ const CheckoutPage = () => {
   const [pendingOrderId, setPendingOrderId] = useState<number | null>(null);
   const [cardFormAmount, setCardFormAmount] = useState<number>(0);
   const [showCouponReminderModal, setShowCouponReminderModal] = useState(false);
+  const [profileChecked, setProfileChecked] = useState(false);
 
   const isMountedRef = useRef(true);
   const showMpFormRef = useRef(false);
@@ -340,6 +341,9 @@ const CheckoutPage = () => {
     }
 
     if (ordersRes.data && isMountedRef.current) setRecentOrders(ordersRes.data);
+
+    // Marca que o perfil foi carregado — só agora é seguro avaliar profileComplete
+    if (isMountedRef.current) setProfileChecked(true);
   }, [setValue]);
 
   const getBenefitInfo = (benefit: string) => {
@@ -867,6 +871,9 @@ const CheckoutPage = () => {
 
   // Sem usuário logado → não renderiza nada (o redirect já foi disparado no loadCheckout)
   if (!user) return null;
+
+  // Aguarda os dados do perfil serem carregados antes de verificar completude
+  if (!profileChecked) return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-sky-400" /></div>;
 
   const profileComplete = Boolean(
     getValues('phone')?.replace(/\D/g, '').length >= 10 &&

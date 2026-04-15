@@ -20,6 +20,7 @@ import AgeVerificationPopup from '@/components/AgeVerificationPopup';
 import { useInfoPopup } from '@/hooks/useInfoPopup';
 import { useSEO } from '@/hooks/useSEO';
 import { timer } from '@/lib/logger';
+import MarketingCTA from '@/components/MarketingCTA';
 
 const Index = () => {
   const { settings } = useTheme();
@@ -268,6 +269,10 @@ const Index = () => {
         {settings.showInfo && (
           <InfoSection compactTop />
         )}
+
+        <ScrollAnimationWrapper>
+          <MarketingCTA />
+        </ScrollAnimationWrapper>
 
         {settings.showBrands && brands.length > 0 && (
           <ScrollAnimationWrapper>

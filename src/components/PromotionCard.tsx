@@ -64,8 +64,8 @@ const PromotionCard = memo(({ promotion }: PromotionCardProps) => {
               "w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 ease-out",
               isOutOfStock && "grayscale"
             )}
-            quality={40}
-            maxWidth={720}
+            quality={25}
+            maxWidth={480}
           />
 
           {/* Badge de desconto */}

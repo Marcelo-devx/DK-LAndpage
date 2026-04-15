@@ -44,8 +44,8 @@ const ProductImage = ({
   className,
   priority = false,
   fit = 'cover',
-  maxWidth = 900,
-  quality = 40,
+  maxWidth = 700,
+  quality = 25,
 
   skipOptimization = false,
 }: ProductImageProps) => {
@@ -92,7 +92,7 @@ const ProductImage = ({
 
   useEffect(() => {
     if (!src || !shouldLoad) return;
-    const preloadUrl = getOptimizedImageUrl(src, 480, Math.max(quality - 5, 55));
+    const preloadUrl = getOptimizedImageUrl(src, 360, Math.max(quality - 5, 20));
     if (!preloadUrl) return;
 
     const img = new Image();
@@ -111,7 +111,7 @@ const ProductImage = ({
 
   const imgFitClass = fit === 'contain' ? 'object-contain object-center' : 'object-cover object-center';
   const optimizedSrc = skipOptimization ? src : getOptimizedImageUrl(src, maxWidth, quality);
-  const srcset = skipOptimization ? undefined : getResponsiveSrcset(src, [240, 360, 480, 720, 960], quality);
+  const srcset = skipOptimization ? undefined : getResponsiveSrcset(src, [180, 280, 400, 600, 800], quality);
   const sizes = skipOptimization ? undefined : '(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw';
 
   const handleLoad = () => {

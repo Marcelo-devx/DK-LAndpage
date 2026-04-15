@@ -274,8 +274,8 @@ const PromotionPage = () => {
                 isOutOfStock && "grayscale opacity-80"
               )}
               priority={true}
-              quality={70}
-              maxWidth={1200}
+              quality={55}
+              maxWidth={900}
             />
             {/* Badge de desconto */}
             {promotion.discount_percent && promotion.discount_percent > 0 && (

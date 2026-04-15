@@ -19,8 +19,8 @@ const CategoryCarouselCard = ({ category, onClick }: CategoryCarouselCardProps) 
         src={category.imageUrl}
         alt={category.name}
         className="w-full h-full object-cover"
-        quality={25}
-        maxWidth={480}
+        quality={15}
+        maxWidth={360}
       />
       <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors duration-300 flex items-center justify-center p-2">
         <h3 className="font-serif text-xl text-white font-medium text-center" translate="no">{category.name}</h3>

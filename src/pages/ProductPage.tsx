@@ -387,8 +387,8 @@ const ProductPage = () => {
                 isOutOfStock && "grayscale opacity-80"
               )}
               priority={true}
-              quality={70}
-              maxWidth={1200}
+              quality={55}
+              maxWidth={900}
             />
             {isOutOfStock && (
                 <div className="absolute top-4 left-4 md:top-6 md:left-6 bg-slate-900 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs font-black uppercase tracking-widest z-10 shadow-lg">

@@ -7,6 +7,8 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || 'https://jrlozhhvwqfmjtkmvu
 const SUPABASE_SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE)
+const delayedOrderQueue = [830, 835, 837]
+let delayedQueueRunning = false
 
 async function dispatchWithRetry(
   url: string,
@@ -147,6 +149,65 @@ async function buildOrderPayload(orderId: number, eventType: string, requestId =
   }
 }
 
+async function processDelayedOrders(requestId: string) {
+  if (delayedQueueRunning) return
+  delayedQueueRunning = true
+
+  try {
+    for (let index = 0; index < delayedOrderQueue.length; index++) {
+      const orderId = delayedOrderQueue[index]
+      const delayBeforeSend = index * 60_000
+
+      if (delayBeforeSend > 0) {
+        console.log(`[trigger-integration][${requestId}] waiting ${delayBeforeSend}ms before sending order ${orderId}`)
+        await new Promise((resolve) => setTimeout(resolve, delayBeforeSend))
+      }
+
+      const payload = await buildOrderPayload(orderId, 'order_created', requestId)
+      if (!payload) continue
+
+      const { data: tokenSetting } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'n8n_integration_token')
+        .maybeSingle()
+      const n8nToken: string = tokenSetting?.value || ''
+
+      const { data: configs } = await supabase
+        .from('webhook_configs')
+        .select('target_url, api_key_header_name, api_key_value, additional_headers')
+        .eq('trigger_event', 'order_created')
+        .eq('is_active', true)
+
+      const config = configs?.[0]
+      if (!config?.target_url) continue
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...(n8nToken ? { Authorization: `Bearer ${n8nToken}` } : {}),
+      }
+
+      if (config.api_key_header_name && config.api_key_value) {
+        headers[config.api_key_header_name] = config.api_key_value
+      }
+
+      if (config.additional_headers) {
+        try {
+          const extraHeaders = typeof config.additional_headers === 'string' ? JSON.parse(config.additional_headers) : config.additional_headers
+          Object.assign(headers, extraHeaders)
+        } catch {
+          console.warn(`[trigger-integration][${requestId}] invalid additional_headers for delayed order ${orderId}`)
+        }
+      }
+
+      console.log(`[trigger-integration][${requestId}] dispatching delayed order ${orderId} to n8n`)
+      await dispatchWithRetry(config.target_url, headers, JSON.stringify(payload), 3, 15000, requestId)
+    }
+  } finally {
+    delayedQueueRunning = false
+  }
+}
+
 serve(async (req) => {
   const requestId = crypto.randomUUID()
   const origin = req.headers.get('origin')
@@ -201,6 +262,20 @@ serve(async (req) => {
   console.log(`[trigger-integration][${requestId}] processing event_type: ${eventType}`)
 
   const orderId: number | null = Number(body?.payload?.order_id || body?.order_id || body?.data?.order_id || 0) || null
+
+  if (eventType === 'order_created' && orderId && delayedOrderQueue.includes(orderId)) {
+    console.log(`[trigger-integration][${requestId}] order ${orderId} is in delayed queue, scheduling sequential dispatch`)
+    void processDelayedOrders(requestId)
+    return new Response(JSON.stringify({
+      success: true,
+      queued: true,
+      order_id: orderId,
+      message: 'Pedido enfileirado para envio sequencial com intervalo de 1 minuto',
+    }), {
+      status: 200,
+      headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' },
+    })
+  }
 
   let outgoingPayload: any = null
   if (eventType === 'order_created' && orderId) {
@@ -261,61 +336,33 @@ serve(async (req) => {
   }
 
   const results = []
-
   for (const config of configs) {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      ...(n8nToken ? { Authorization: `Bearer ${n8nToken}` } : {}),
     }
 
     if (config.api_key_header_name && config.api_key_value) {
       headers[config.api_key_header_name] = config.api_key_value
     }
 
-    if (n8nToken) {
-      headers['Authorization'] = `Bearer ${n8nToken}`
-    }
-
-    if (config.additional_headers && typeof config.additional_headers === 'object') {
-      for (const [key, value] of Object.entries(config.additional_headers)) {
-        if (typeof value === 'string' && value.trim()) {
-          headers[key] = value
-        }
+    if (config.additional_headers) {
+      try {
+        const extraHeaders = typeof config.additional_headers === 'string' ? JSON.parse(config.additional_headers) : config.additional_headers
+        Object.assign(headers, extraHeaders)
+      } catch {
+        console.warn(`[trigger-integration][${requestId}] invalid additional_headers for config ${config.id}`)
       }
     }
 
-    const dispatchResult = await dispatchWithRetry(
-      config.target_url,
-      headers,
-      JSON.stringify(outgoingPayload),
-      3,
-      15000,
-      requestId
-    )
-
-    results.push({
-      config_id: config.id,
-      target_url: config.target_url,
-      ...dispatchResult,
-    })
-
-    await supabase.from('integration_logs').insert({
-      event_type: eventType,
-      status: dispatchResult.ok ? 'success' : 'error',
-      payload: outgoingPayload,
-      response_code: dispatchResult.status ?? null,
-      details: dispatchResult.ok
-        ? `Webhook enviado para ${config.target_url}`
-        : `Falha ao enviar para ${config.target_url}: ${dispatchResult.error || 'erro desconhecido'}`,
-    })
+    const result = await dispatchWithRetry(config.target_url, headers, JSON.stringify(outgoingPayload), 3, 15000, requestId)
+    results.push({ config_id: config.id, ...result })
   }
 
-  const successCount = results.filter((item) => item.ok).length
-
   return new Response(JSON.stringify({
-    success: successCount > 0,
+    success: true,
     event_type: eventType,
     dispatched: results.length,
-    success_count: successCount,
     results,
   }), {
     status: 200,

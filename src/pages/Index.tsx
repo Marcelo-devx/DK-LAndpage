@@ -9,7 +9,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import CategoryCarouselCard from '@/components/CategoryCarouselCard';
 import { OutletContextType } from '@/components/MainLayout';
 import ScrollAnimationWrapper from '@/components/ScrollAnimationWrapper';
-import FooterBanner from '@/components/FooterBanner';
 import InfoSection from '@/components/InfoSection';
 import CategoryProductCarousel from '@/components/CategoryProductCarousel';
 import BrandSection from '@/components/BrandSection';
@@ -270,10 +269,6 @@ const Index = () => {
           <InfoSection compactTop />
         )}
 
-        <ScrollAnimationWrapper>
-          <MarketingCTA />
-        </ScrollAnimationWrapper>
-
         {settings.showBrands && brands.length > 0 && (
           <ScrollAnimationWrapper>
             <BrandSection brands={brands} loading={false} onBrandClick={handleBrandClick} />
@@ -364,7 +359,9 @@ const Index = () => {
         )}
       </div>
 
-      <FooterBanner />
+      <ScrollAnimationWrapper>
+        <MarketingCTA />
+      </ScrollAnimationWrapper>
     </div>
   );
 };

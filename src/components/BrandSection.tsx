@@ -38,8 +38,8 @@ const BrandSection = ({ brands, loading, onBrandClick }: BrandSectionProps) => {
           className="w-full"
         >
           <CarouselContent className="-ml-2">
-            {validBrands.map((brand) => (
-              <CarouselItem key={brand.name} className="pl-2 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/6 xl:basis-1/6 2xl:basis-[12.5%]">
+            {validBrands.map((brand, index) => (
+              <CarouselItem key={`${brand.name}-${index}`} className="pl-2 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/6 xl:basis-1/6 2xl:basis-[12.5%]">
                 <div 
                   onClick={() => onBrandClick(brand.name)}
                   className="group relative flex items-center justify-center h-14 xl:h-16 bg-gradient-to-b from-white to-slate-200 border border-white/20 rounded-2xl cursor-pointer transition-all duration-400 hover:border-sky-500/50 hover:shadow-[0_8px_30px_-10px_rgba(14,165,233,0.25)] overflow-hidden shadow-inner"

@@ -44,10 +44,12 @@ function getAllowedOrigins(): string[] {
 export function isOriginAllowed(origin: string | null): boolean {
   if (!origin) return false;
 
-  // Sempre permite localhost / 127.0.0.1 para desenvolvimento
+  // Sempre permite localhost / 127.0.0.1 para desenvolvimento (qualquer porta)
   if (
     origin.startsWith('http://localhost') ||
-    origin.startsWith('http://127.0.0.1')
+    origin.startsWith('http://127.0.0.1') ||
+    origin.startsWith('https://localhost') ||
+    origin.startsWith('https://127.0.0.1')
   ) {
     return true;
   }

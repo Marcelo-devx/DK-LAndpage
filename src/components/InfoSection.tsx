@@ -81,14 +81,14 @@ const InfoSection = ({ compactTop = false }: { compactTop?: boolean }) => {
 
   // Section class: keep mobile unchanged but reduce negative margins for md/lg/xl to avoid overlap on larger screens
   // mobile value preserved as requested
-  const sectionClass = compactTop ? '-mt-8 md:-mt-2 lg:-mt-3 xl:-mt-4' : 'py-4 md:py-10 xl:py-14';
+  const sectionClass = compactTop ? '-mt-8 md:-mt-2 lg:-mt-3 xl:-mt-4' : 'py-2 md:py-4 xl:py-6';
 
   if (loading) {
     return (
       <section className={sectionClass}>
         <div className="container mx-auto px-4 md:px-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 md:mb-12">
-            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 w-full bg-stone-200 rounded-2xl" />)}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 md:mb-6">
+            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 w-full bg-stone-200 rounded-2xl" />)}
           </div>
         </div>
       </section>
@@ -100,20 +100,20 @@ const InfoSection = ({ compactTop = false }: { compactTop?: boolean }) => {
       <div className="container mx-auto px-4 md:px-6 xl:px-8">
         {/* Info Bar Carousel (render only when we have items) */}
         {infoBarItems.length > 0 && (
-          <div className="mb-6 md:mb-10 xl:mb-12 bg-white p-3 md:p-5 xl:p-6 rounded-3xl md:rounded-[2.5rem] border border-stone-200 shadow-sm relative">
+          <div className="mb-3 md:mb-4 bg-white p-2 md:p-3 rounded-2xl md:rounded-3xl border border-stone-200 shadow-sm relative">
             <Carousel opts={{ align: "start", loop: true }} className="w-full">
               <CarouselContent className="-ml-4">
                 {infoBarItems.map((item, index) => {
                   const Icon = icons[item.icon_name];
                   return (
                     <CarouselItem key={index} className="pl-4 basis-full sm:basis-1/2 md:basis-1/4">
-                      <div className="flex flex-col md:flex-row items-center text-center md:text-left md:space-x-4 group h-full px-6 md:px-0">
-                        <div className="p-2.5 xl:p-3 bg-sky-50 rounded-xl md:rounded-2xl group-hover:bg-sky-100 transition-colors shrink-0 mb-3 md:mb-0">
-                          {Icon && <Icon className="h-6 w-6 md:h-7 md:w-7 xl:h-8 xl:w-8 text-sky-600" />}
+                      <div className="flex flex-col md:flex-row items-center text-center md:text-left md:space-x-3 group h-full px-4 md:px-0">
+                        <div className="p-2 bg-sky-50 rounded-xl group-hover:bg-sky-100 transition-colors shrink-0 mb-2 md:mb-0">
+                          {Icon && <Icon className="h-5 w-5 md:h-6 md:w-6 text-sky-600" />}
                         </div>
                         <div className="min-w-0">
-                          <p className="font-black text-xs xl:text-sm uppercase tracking-widest text-charcoal-gray leading-tight">{item.title}</p>
-                          <p className="text-[11px] md:text-sm xl:text-base text-slate-700 font-medium mt-1 leading-tight">{item.subtitle}</p>
+                          <p className="font-black text-xs uppercase tracking-widest text-charcoal-gray leading-tight">{item.title}</p>
+                          <p className="text-[11px] md:text-xs text-slate-700 font-medium mt-0.5 leading-tight">{item.subtitle}</p>
                         </div>
                       </div>
                     </CarouselItem>
@@ -127,13 +127,12 @@ const InfoSection = ({ compactTop = false }: { compactTop?: boolean }) => {
         {/* Info Cards Carousel com Pontinhos */}
         <div className="relative">
           <Carousel setApi={setApi} opts={{ align: "start", loop: true }} className="w-full">
-            <CarouselContent className="-ml-6">
+            <CarouselContent className="-ml-4">
               {infoCards.map((card, index) => (
-                <CarouselItem key={index} className="pl-6 basis-full sm:basis-1/2 md:basis-1/3">
+                <CarouselItem key={index} className="pl-4 basis-full sm:basis-1/2 md:basis-1/3">
                   <Link to={card.link_url || '#'} className="block group w-full relative">
-                    <div className="absolute -inset-1 bg-sky-500/10 rounded-[1.5rem] md:rounded-[2rem] blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <Card className="overflow-hidden rounded-[1.5rem] md:rounded-[2rem] shadow-lg border border-stone-100 relative bg-black flex items-center justify-center">
-                      {/* Imagem responsiva: mostra tudo sem cortar em qualquer tamanho */}
+                    <div className="absolute -inset-1 bg-sky-500/10 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <Card className="overflow-hidden rounded-2xl shadow-md border border-stone-100 relative bg-black flex items-center justify-center">
                       <img
                         src={card.image_url}
                         alt={`Info card ${index + 1}`}
@@ -153,15 +152,15 @@ const InfoSection = ({ compactTop = false }: { compactTop?: boolean }) => {
             </div>
           </Carousel>
 
-          <div className="flex md:hidden justify-center space-x-2 mt-6">
+          <div className="flex md:hidden justify-center space-x-2 mt-3">
             {infoCards.map((_, index) => (
               <button
                 key={index}
                 onClick={() => api?.scrollTo(index)}
                 className={cn(
-                  "h-2 w-2 rounded-full transition-all duration-300",
+                  "h-1.5 w-1.5 rounded-full transition-all duration-300",
                   current === index 
-                    ? "bg-sky-500 w-4 shadow-sm" 
+                    ? "bg-sky-500 w-3 shadow-sm" 
                     : "bg-stone-300 hover:bg-stone-400"
                 )}
                 aria-label={`Ir para o slide ${index + 1}`}

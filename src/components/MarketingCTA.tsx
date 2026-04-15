@@ -3,13 +3,13 @@ import { ArrowRight, Sparkles, Tag, Zap } from 'lucide-react';
 
 const MarketingCTA = () => {
   return (
-    <section className="container mx-auto px-4 md:px-6 xl:px-8 py-6 md:py-10">
+    <section className="container mx-auto px-4 md:px-6 xl:px-8 py-3 md:py-5">
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white shadow-2xl">
         {/* Decorative blobs */}
         <div className="absolute -top-16 -left-16 w-64 h-64 bg-sky-500/20 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-16 -right-16 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6 px-6 py-8 md:px-12 md:py-12">
+        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-4 px-5 py-6 md:px-10 md:py-8">
           {/* Left: text */}
           <div className="flex-1 text-center md:text-left">
             <div className="inline-flex items-center gap-2 bg-sky-500/20 border border-sky-400/30 text-sky-300 text-[10px] md:text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full mb-4">

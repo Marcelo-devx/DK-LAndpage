@@ -278,9 +278,9 @@ const Index = () => {
         {settings.showPromotions && promotions.length > 0 && (
           <ScrollAnimationWrapper>
             <section className="container mx-auto px-4 md:px-6 xl:px-8">
-              <div className="flex flex-col md:flex-row items-start md:items-end justify-between mb-2 md:mb-3 xl:mb-4 gap-2">
+              <div className="flex flex-col md:flex-row items-start md:items-end justify-between mb-2 md:mb-3 gap-2">
                 <div>
-                  <h3 className="text-xl md:text-3xl xl:text-4xl font-black tracking-tighter italic uppercase text-charcoal-gray" translate="no">OFERTAS EXCLUSIVAS</h3>
+                  <h3 className="text-xl md:text-2xl xl:text-3xl font-black tracking-tighter italic uppercase text-charcoal-gray" translate="no">OFERTAS EXCLUSIVAS</h3>
                 </div>
               </div>
               <Carousel opts={{ align: "start", loop: promotions.length > 3 }} className="w-full">
@@ -307,9 +307,9 @@ const Index = () => {
 
         <ScrollAnimationWrapper>
           <section className="container mx-auto px-4 md:px-6 xl:px-8">
-            <div className="flex flex-col md:flex-row items-start md:items-end justify-between mb-2 md:mb-3 xl:mb-4 gap-2">
+            <div className="flex flex-col md:flex-row items-start md:items-end justify-between mb-2 md:mb-3 gap-2">
                 <div>
-                    <h3 className="text-xl md:text-3xl xl:text-4xl font-black tracking-tighter italic uppercase text-charcoal-gray" translate="no">NEW DROPS</h3>
+                    <h3 className="text-xl md:text-2xl xl:text-3xl font-black tracking-tighter italic uppercase text-charcoal-gray" translate="no">NEW DROPS</h3>
                 </div>
                 <Link to="/produtos" className="text-[10px] xl:text-xs font-bold uppercase tracking-widest hover:text-sky-500 transition-colors text-slate-600">Ver todos →</Link>
             </div>
@@ -345,9 +345,9 @@ const Index = () => {
 
         {featuredProducts.length > 0 && (
           <ScrollAnimationWrapper>
-            <section className="bg-white py-4 md:py-8 xl:py-10 rounded-[3rem] mx-4 md:mx-6 xl:mx-8 shadow-sm border border-stone-100">
+            <section className="bg-white py-4 md:py-6 rounded-[2rem] mx-4 md:mx-6 xl:mx-8 shadow-sm border border-stone-100">
               <div className="container mx-auto px-4 md:px-6 xl:px-8">
-                <h2 className="text-[10px] md:text-xs xl:text-sm font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-3 md:mb-4 xl:mb-6 text-center">Seleção Premium</h2>
+                <h2 className="text-[10px] md:text-xs font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-2 md:mb-3 text-center">Seleção Premium</h2>
                 <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-1 md:gap-2">
                   {featuredProducts.map((p, idx) => (
                     <ProductCard key={`${p.id}-${idx}`} product={{ id: p.id, name: p.name, price: p.price, pixPrice: p.pixPrice, imageUrl: p.imageUrl, stockQuantity: p.stockQuantity, variantId: p.variantId, hasMultipleVariants: p.hasMultipleVariants, showAgeBadge: p.showAgeBadge }} />

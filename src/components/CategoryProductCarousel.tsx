@@ -122,10 +122,10 @@ const CategoryProductCarousel = memo(({ categoryName, showAgeBadge = true }: Cat
   if (!loading && products.length === 0) return null;
 
   return (
-    <section className="container mx-auto px-4 md:px-6 xl:px-8 py-6 md:py-12 xl:py-16">
-      <div className="flex items-end justify-between mb-6 md:mb-10 xl:mb-12">
+    <section className="container mx-auto px-4 md:px-6 xl:px-8 py-3 md:py-5 xl:py-6">
+      <div className="">
         <div>
-          <h3 className="text-2xl md:text-4xl xl:text-5xl font-black tracking-tighter italic" translate="no">
+          <h3 className="text-lg md:text-2xl xl:text-3xl font-black tracking-tighter italic" translate="no">
             {categoryName}
           </h3>
         </div>

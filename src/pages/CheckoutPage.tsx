@@ -1215,6 +1215,14 @@ const CheckoutPage = () => {
               <SelectItem value="none">Nenhum</SelectItem>
             </SelectContent>
           </Select>
+
+          {/* Aviso de valor mínimo de compra */}
+          <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mt-2">
+            <span className="text-amber-500 text-base leading-none mt-0.5">⚠️</span>
+            <p className="text-[11px] text-amber-700 font-medium leading-snug">
+              O valor mínimo de compra é calculado sobre os <span className="font-black">produtos</span>, não incluindo o valor do frete.
+            </p>
+          </div>
         </div>
 
         <div className="space-y-3 bg-stone-50 p-5 md:p-6 rounded-2xl border border-stone-100">

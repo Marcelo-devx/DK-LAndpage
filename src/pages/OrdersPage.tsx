@@ -423,9 +423,9 @@ const OrdersPage = () => {
                         {isPending && (
                           <div className="space-y-4">
                             {!isPix && (
-                              <OrderTimer 
-                                createdAt={order.created_at} 
-                                onExpire={() => fetchOrders()}
+                              <OrderTimer
+                                createdAt={order.created_at}
+                                onExpire={() => fetchOrders(true)}
                                 className="bg-sky-50 border-sky-200"
                               />
                             )}

@@ -23,7 +23,7 @@ import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
 import { useProductRotation } from '@/hooks/useProductRotation';
 
-const ROTATION_INTERVAL = 20000; // 20 segundos
+const ROTATION_INTERVAL = 4000; // 4 segundos
 
 const Index = () => {
   const { settings } = useTheme();
@@ -31,7 +31,6 @@ const Index = () => {
   const isMountedRef = useRef(true);
   const hasFetchedRef = useRef(false);
 
-  // Pools completos (todos os dados carregados)
   const [allProducts, setAllProducts] = useState<any[]>([]);
   const [allPromotions, setAllPromotions] = useState<any[]>([]);
   const [allFeatured, setAllFeatured] = useState<any[]>([]);
@@ -43,10 +42,9 @@ const Index = () => {
   const [categories, setCategories] = useState<any[]>([]);
   const [categoriesVisible, setCategoriesVisible] = useState(false);
 
-  // Rotação automática de cada seção
   const { visible: displayedProducts, fade: fadeProducts } = useProductRotation(allProducts, 8, ROTATION_INTERVAL);
-  const { visible: displayedPromotions, fade: fadePromotions } = useProductRotation(allPromotions, 6, ROTATION_INTERVAL + 5000);
-  const { visible: featuredProducts, fade: fadeFeatured } = useProductRotation(allFeatured, 8, ROTATION_INTERVAL + 10000);
+  const { visible: displayedPromotions, fade: fadePromotions } = useProductRotation(allPromotions, 6, ROTATION_INTERVAL);
+  const { visible: featuredProducts, fade: fadeFeatured } = useProductRotation(allFeatured, 8, ROTATION_INTERVAL);
 
   const { handleBrandClick } = useOutletContext<OutletContextType>();
   const { infoPopup, isOpen: isInfoPopupOpen, onClose: handleInfoPopupClose } = useInfoPopup();
@@ -109,6 +107,7 @@ const Index = () => {
             const prodVariants = variants.filter((v: any) => v.product_id === prod.id);
             if (prodVariants.length > 0) {
               const totalStock = prodVariants.reduce((s: number, v: any) => s + (v.stock_quantity || 0), 0);
+              // Só inclui se tiver estoque
               if (totalStock > 0) {
                 acc.push({
                   id: prod.id, name: prod.name,
@@ -120,6 +119,7 @@ const Index = () => {
                 });
               }
             } else if (prod.stock_quantity > 0) {
+              // Produto sem variante: só inclui se tiver estoque
               acc.push({
                 id: prod.id, name: prod.name,
                 price: prod.price ?? 0, pixPrice: prod.pix_price ?? null,
@@ -166,15 +166,19 @@ const Index = () => {
             const prodVariants = phase2Variants.filter((v: any) => v.product_id === prod.id);
             if (prodVariants.length > 0) {
               const totalStock = prodVariants.reduce((s: number, v: any) => s + (v.stock_quantity || 0), 0);
-              acc.push({
-                id: prod.id, name: prod.name,
-                price: Math.min(...prodVariants.map((v: any) => v.price ?? 0)),
-                pixPrice: Math.min(...prodVariants.map((v: any) => v.pix_price ?? v.price ?? 0)),
-                imageUrl: prod.image_url || '', stockQuantity: totalStock,
-                hasMultipleVariants: true,
-                showAgeBadge: prod.category ? (categoryMap.get(normalizeCategory(prod.category)) ?? true) : true,
-              });
+              // Só inclui se tiver estoque
+              if (totalStock > 0) {
+                acc.push({
+                  id: prod.id, name: prod.name,
+                  price: Math.min(...prodVariants.map((v: any) => v.price ?? 0)),
+                  pixPrice: Math.min(...prodVariants.map((v: any) => v.pix_price ?? v.price ?? 0)),
+                  imageUrl: prod.image_url || '', stockQuantity: totalStock,
+                  hasMultipleVariants: true,
+                  showAgeBadge: prod.category ? (categoryMap.get(normalizeCategory(prod.category)) ?? true) : true,
+                });
+              }
             } else if (prod.stock_quantity > 0) {
+              // Produto sem variante: só inclui se tiver estoque
               acc.push({
                 id: prod.id, name: prod.name,
                 price: prod.price ?? 0, pixPrice: prod.pix_price ?? null,
@@ -186,9 +190,13 @@ const Index = () => {
             return acc;
           }, []);
 
+        // Promoções: só inclui se tiver estoque (null = sem controle de estoque, deixa passar)
+        const buildPromotions = (promos: any[]) =>
+          promos.filter((p) => p.stock_quantity === null || p.stock_quantity === undefined || p.stock_quantity > 0);
+
         if (isMountedRef.current) {
           setAllProducts(buildProducts(productsRes.data || []));
-          setAllPromotions(promosRes.data || []);
+          setAllPromotions(buildPromotions(promosRes.data || []));
           setBrands(brandsRes.data || []);
           setCategories(categoriesRes.data || []);
           setLoadingProducts(false);
@@ -270,10 +278,7 @@ const Index = () => {
                   OFERTAS EXCLUSIVAS
                 </h3>
               </div>
-              <div
-                className="transition-opacity duration-300"
-                style={{ opacity: fadePromotions ? 1 : 0 }}
-              >
+              <div className="transition-opacity duration-300" style={{ opacity: fadePromotions ? 1 : 0 }}>
                 <Carousel opts={{ align: "start", loop: displayedPromotions.length > 3 }} className="w-full">
                   <CarouselContent className="-ml-1 md:-ml-2">
                     {displayedPromotions.map((promo) => (
@@ -309,10 +314,7 @@ const Index = () => {
               </Link>
             </div>
 
-            <div
-              className="transition-opacity duration-300"
-              style={{ opacity: fadeProducts ? 1 : 0 }}
-            >
+            <div className="transition-opacity duration-300" style={{ opacity: fadeProducts ? 1 : 0 }}>
               <Carousel opts={{ align: "start", loop: displayedProducts.length > 4 }} className="w-full">
                 <CarouselContent className="-ml-1 md:-ml-2">
                   {loadingProducts ? Array.from({ length: 4 }).map((_, i) => (
@@ -364,10 +366,7 @@ const Index = () => {
                 <h2 className="text-[10px] md:text-xs font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-2 md:mb-3 text-center">
                   Seleção Premium
                 </h2>
-                <div
-                  className="transition-opacity duration-300"
-                  style={{ opacity: fadeFeatured ? 1 : 0 }}
-                >
+                <div className="transition-opacity duration-300" style={{ opacity: fadeFeatured ? 1 : 0 }}>
                   <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-1 md:gap-2">
                     {featuredProducts.map((p, idx) => (
                       <ProductCard key={`${p.id}-${idx}`} product={{ id: p.id, name: p.name, price: p.price, pixPrice: p.pixPrice, imageUrl: p.imageUrl, stockQuantity: p.stockQuantity, variantId: p.variantId, hasMultipleVariants: p.hasMultipleVariants, showAgeBadge: p.showAgeBadge }} />

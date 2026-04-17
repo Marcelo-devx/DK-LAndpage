@@ -11,21 +11,20 @@ function shuffle<T>(arr: T[]): T[] {
 
 /**
  * Embaralha um pool de itens e rotaciona automaticamente um slice visível.
- * @param pool - todos os itens disponíveis
+ * @param pool - todos os itens disponíveis (já filtrados, sem esgotados)
  * @param pageSize - quantos itens mostrar por vez
- * @param intervalMs - intervalo de rotação em ms (padrão: 20000)
+ * @param intervalMs - intervalo de rotação em ms (padrão: 4000)
  */
 export function useProductRotation<T>(
   pool: T[],
   pageSize: number,
-  intervalMs = 20000
+  intervalMs = 4000
 ) {
   const shuffledRef = useRef<T[]>([]);
   const indexRef = useRef(0);
   const [visible, setVisible] = useState<T[]>([]);
   const [fade, setFade] = useState(true);
 
-  // Quando o pool muda (dados carregados), embaralha e mostra o primeiro slice
   useEffect(() => {
     if (pool.length === 0) return;
     const shuffled = shuffle(pool);
@@ -37,7 +36,7 @@ export function useProductRotation<T>(
 
   const rotate = useCallback(() => {
     const arr = shuffledRef.current;
-    if (arr.length <= pageSize) return; // pool pequeno demais, não rotaciona
+    if (arr.length <= pageSize) return;
     setFade(false);
     setTimeout(() => {
       const next = (indexRef.current + pageSize) % arr.length;
@@ -48,7 +47,7 @@ export function useProductRotation<T>(
       }
       setVisible(slice);
       setFade(true);
-    }, 300); // tempo do fade-out antes de trocar
+    }, 300);
   }, [pageSize]);
 
   useEffect(() => {

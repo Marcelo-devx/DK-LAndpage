@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { showError, showSuccess, showLoading, dismissToast } from '@/utils/toast';
 import { Loader2, Mail, ShieldCheck, KeyRound, Lock, Check, X } from 'lucide-react';
 import { logger } from '@/lib/logger';
+import { isProfileComplete } from '@/lib/profileUtils';
 
 const DashboardSecurity = () => {
   const [loading, setLoading] = useState(false);
@@ -178,10 +179,9 @@ const DashboardSecurity = () => {
         .eq('id', userId)
         .single();
 
-      const isProfileComplete = !!(profile &&
-        profile.first_name && profile.last_name);
+      const profileComplete = isProfileComplete(profile);
 
-      logger.log('[DashboardSecurity] Perfil completo?', { isProfileComplete });
+      logger.log('[DashboardSecurity] Perfil completo?', { profileComplete });
 
       // Limpar campos
       setCurrentPassword('');
@@ -189,7 +189,7 @@ const DashboardSecurity = () => {
       setConfirmNewPassword('');
       setManualMode(false);
 
-      if (!isProfileComplete) {
+      if (!profileComplete) {
         // Perfil incompleto → redirecionar para completar cadastro
         logger.log('[DashboardSecurity] Redirecionando para complete-profile');
         navigate('/complete-profile');

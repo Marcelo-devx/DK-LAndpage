@@ -6,6 +6,7 @@ import { Loader2, AlertCircle } from "lucide-react";
 import { useTheme } from "@/context/ThemeContext";
 import { logger } from '@/lib/logger';
 import { supabase } from '@/integrations/supabase/client';
+import { isProfileComplete } from '@/lib/profileUtils';
 
 const EmailConfirm: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -46,11 +47,7 @@ const EmailConfirm: React.FC = () => {
               .eq('id', session.user.id)
               .single();
 
-            const isProfileComplete = profile &&
-              profile.first_name &&
-              profile.last_name;
-
-            if (!isProfileComplete) {
+            if (!isProfileComplete(profile)) {
               navigate('/complete-profile', { replace: true });
             } else {
               navigate('/', { replace: true });

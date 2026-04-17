@@ -19,6 +19,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checkbox } from '@/components/ui/checkbox';
 import { logger } from '@/lib/logger';
 import InformationalPopup from '@/components/InformationalPopup';
+import { isProfileComplete } from '@/lib/profileUtils';
 
 const profileSchema = z.object({
   first_name: z.string().min(1, "Nome é obrigatório"),
@@ -126,19 +127,7 @@ const CompleteProfilePage = () => {
 
         if (cancelled) return;
 
-        const isProfileComplete = profile &&
-          profile.first_name &&
-          profile.last_name &&
-          profile.phone &&
-          profile.cpf_cnpj &&
-          profile.cep &&
-          profile.street &&
-          profile.number &&
-          profile.neighborhood &&
-          profile.city &&
-          profile.state;
-
-        if (isProfileComplete) {
+        if (isProfileComplete(profile)) {
           navigate('/', { replace: true });
           return;
         }

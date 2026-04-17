@@ -13,6 +13,7 @@ import OtpInput from '@/components/OtpInput';
 import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { invokeWithRetry } from '@/lib/invokeWithRetry';
+import { isProfileComplete as profileIsComplete } from '@/lib/profileUtils';
 
 type CustomView = 'sign_in' | 'sign_up' | 'forgot_password';
 
@@ -191,8 +192,7 @@ const Login = () => {
         return;
       }
 
-      const isProfileComplete = profile &&
-        profile.first_name && profile.last_name;
+      const isProfileComplete = profileIsComplete(profile);
 
       logger.log('[Login] isProfileComplete:', isProfileComplete, '→ redirecionando para:', !isProfileComplete ? '/complete-profile' : from);
 
@@ -213,23 +213,6 @@ const Login = () => {
     // para evitar race conditions com múltiplos listeners
   }, [redirectAfterLogin]);
 
-  // ── Warm-up das edge functions críticas ao entrar na tela de login ──
-  // Faz um ping silencioso para acordar as funções do cold start ANTES
-  // do usuário clicar em "Esqueci minha senha", evitando o FunctionsFetchError.
-  useEffect(() => {
-    const warmUp = async () => {
-      try {
-        await fetch('https://jrlozhhvwqfmjtkmvukf.supabase.co/functions/v1/forgot-password', {
-          method: 'OPTIONS',
-          headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpybG96aGh2d3FmbWp0a212dWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzNDU2NjQsImV4cCI6MjA2NzkyMTY2NH0.Do5c1-TKqpyZTJeX_hLbw1SU40CbwXfCIC-pPpcD_JM' },
-        });
-        logger.log('[Login] warm-up forgot-password concluído');
-      } catch {
-        // silencioso — apenas um ping preventivo
-      }
-    };
-    warmUp();
-  }, []);
 
   // Cooldown timer
   useEffect(() => {

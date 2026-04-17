@@ -20,13 +20,17 @@ import { useInfoPopup } from '@/hooks/useInfoPopup';
 import { useSEO } from '@/hooks/useSEO';
 import { timer } from '@/lib/logger';
 import MarketingCTA from '@/components/MarketingCTA';
+import { Button } from '@/components/ui/button';
+import { RefreshCw } from 'lucide-react';
 
 const Index = () => {
   const { settings } = useTheme();
   const navigate = useNavigate();
   const isMountedRef = useRef(true);
+  const hasFetchedRef = useRef(false);
   const [displayedProducts, setDisplayedProducts] = useState<any[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const [heroSlides, setHeroSlides] = useState<any[]>([]);
   const [promotions, setPromotions] = useState<any[]>([]);
   const [brands, setBrands] = useState<any[]>([]);
@@ -44,8 +48,6 @@ const Index = () => {
     description: 'Curadoria exclusiva dos melhores produtos. Encontre promoções, novidades e muito mais na DKCWB - sua loja favorita.',
     url: 'https://dkcwb.com'
   });
-
-  // Scroll to top is handled globally by ScrollToTop in App.tsx
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -66,6 +68,7 @@ const Index = () => {
 
   const fetchData = useCallback(async (background = false) => {
     try {
+      setFetchError(false);
       if (!background && isMountedRef.current) setLoadingProducts(true);
 
       const normalizeCategory = (s?: string) => (typeof s === 'string' ? s.trim().toLowerCase() : '');
@@ -163,7 +166,6 @@ const Index = () => {
           return products.reduce((acc: any[], prod: any) => {
             const prodVariants = phase2Variants.filter((v: any) => v.product_id === prod.id);
             if (prodVariants.length > 0) {
-              // Has variants → always "Ver Opções", stock only from variants
               const totalStock = prodVariants.reduce((s: number, v: any) => s + (v.stock_quantity || 0), 0);
               acc.push({
                 id: prod.id,
@@ -176,7 +178,6 @@ const Index = () => {
                 showAgeBadge: prod.category ? (categoryMap.get(normalizeCategory(prod.category)) ?? true) : true,
               });
             } else if (prod.stock_quantity > 0) {
-              // No variants → simple product, use base stock
               acc.push({
                 id: prod.id,
                 name: prod.name,
@@ -197,24 +198,26 @@ const Index = () => {
           setPromotions(promosRes.data || []);
           setBrands(brandsRes.data || []);
           setCategories(categoriesRes.data || []);
+          setLoadingProducts(false);
           // Ativa os carrosséis de categoria com um pequeno delay adicional
-          // para não disparar todas as queries ao mesmo tempo
           setTimeout(() => {
             if (isMountedRef.current) setCategoriesVisible(true);
           }, 400);
         }
-      }, 800); // Aumentado de 200ms para 800ms — hero e produtos carregam primeiro
+      }, 800);
 
     } catch (error) {
       console.error("Erro ao carregar dados da Home:", error);
-    } finally {
-      if (!background && isMountedRef.current) setLoadingProducts(false);
+      if (isMountedRef.current) {
+        setFetchError(true);
+        setLoadingProducts(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    // Não re-executar se já tiver dados carregados
-    if (displayedProducts.length > 0) return;
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
     fetchData();
   }, [fetchData]);
 
@@ -231,7 +234,6 @@ const Index = () => {
       )}
 
       {settings.showHero && heroSlides.length > 0 && (
-        // Hero banner com altura reduzida
         <section className="relative w-full overflow-hidden h-[180px] md:h-[260px] lg:h-[420px] xl:h-[500px] 2xl:h-[600px]">
           <Carousel plugins={[Autoplay({ delay: 5000 })]} className="w-full h-full">
             <CarouselContent>
@@ -241,7 +243,6 @@ const Index = () => {
                     to={slide.button_url || '#'}
                     className="block relative w-full h-full"
                   >
-                    {/* Use cover so the image fills the hero area and doesn't leave letterbox gaps */}
                     <ProductImage
                       src={slide.image_url}
                       alt={slide.title || "Banner Principal"}
@@ -252,7 +253,6 @@ const Index = () => {
                       maxWidth={1920}
                       skipOptimization={true}
                     />
-                    {/* reduced gradient to avoid visible off-white band under the hero */}
                     <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-transparent" />
                   </Link>
                 </CarouselItem>
@@ -262,7 +262,6 @@ const Index = () => {
         </section>
       )}
 
-      {/* Compact spacing under hero */}
       <div className="-mt-6 md:mt-0 lg:mt-0 xl:mt-0">
         
         {settings.showInfo && (
@@ -325,7 +324,19 @@ const Index = () => {
                     <CarouselItem key={`${p.id}-${idx}`} className="pl-1 md:pl-2 basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/5">
                       <ProductCard product={{ id: p.id, name: p.name, price: p.price, pixPrice: p.pixPrice, imageUrl: p.imageUrl, stockQuantity: p.stockQuantity, variantId: p.variantId, hasMultipleVariants: p.hasMultipleVariants, showAgeBadge: p.showAgeBadge }} />
                     </CarouselItem>
-                  )) : (
+                  )) : fetchError ? (
+                    <div className="flex flex-col items-center gap-3 py-8 w-full">
+                      <p className="text-stone-400 italic text-sm">Não foi possível carregar os produtos.</p>
+                      <Button
+                        onClick={() => { hasFetchedRef.current = false; fetchData(); }}
+                        variant="outline"
+                        size="sm"
+                        className="border-stone-300 text-charcoal-gray hover:bg-stone-100"
+                      >
+                        <RefreshCw className="mr-2 h-4 w-4" /> Tentar novamente
+                      </Button>
+                    </div>
+                  ) : (
                     <div className="px-4 py-8 text-center w-full text-stone-400 italic">Nenhum produto em destaque no momento.</div>
                   )
                 }

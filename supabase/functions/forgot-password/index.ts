@@ -11,7 +11,7 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 }
 
-// Gera senha forte
+// Gera senha temporária forte (sem chamadas externas)
 const generatePassword = (): string => {
   const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
   const lower = 'abcdefghjkmnpqrstuvwxyz';
@@ -29,39 +29,7 @@ const generatePassword = (): string => {
   return pwd.split('').sort(() => Math.random() - 0.5).join('');
 }
 
-// Verifica se a senha apareceu em vazamentos usando o serviço HaveIBeenPwned k-anonymity
-async function isPwned(password: string): Promise<boolean> {
-  try {
-    const enc = new TextEncoder().encode(password);
-    const hashBuffer = await crypto.subtle.digest('SHA-1', enc);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const sha1 = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
-    const prefix = sha1.slice(0, 5);
-    const suffix = sha1.slice(5);
-
-    const res = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`);
-    if (!res.ok) {
-      console.warn('[forgot-password] HIBP lookup failed, assuming not pwned', { status: res.status });
-      return false;
-    }
-
-    const text = await res.text();
-    const lines = text.split('\n');
-    for (const line of lines) {
-      const [hashSuffix] = line.split(':');
-      if (hashSuffix && hashSuffix.trim().toUpperCase() === suffix) {
-        return true;
-      }
-    }
-    return false;
-  } catch (e) {
-    console.warn('[forgot-password] HIBP check error, assuming not pwned', e);
-    return false;
-  }
-}
-
 serve(async (req) => {
-  // ← SEMPRE responde ao preflight OPTIONS primeiro — nunca pode falhar
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
@@ -77,9 +45,9 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-    const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
 
     if (!supabaseUrl || !serviceRoleKey) {
+      console.error('[forgot-password] Missing env vars');
       return new Response(JSON.stringify({ error: 'Server not configured' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -106,56 +74,13 @@ serve(async (req) => {
       );
     }
 
-    const user = { id: userId };
-    console.log('[forgot-password] usuário encontrado, id:', user.id);
+    console.log('[forgot-password] usuário encontrado, id:', userId);
 
-    // Gera nova senha que NÃO esteja em vazamentos
-    let newPassword = '';
-    const MAX_ATTEMPTS = 8;
-
-    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-      const candidate = generatePassword();
-      const breached = await isPwned(candidate);
-      if (breached) {
-        console.log('[forgot-password] candidate pwned, regenerating (attempt', attempt + 1, ')');
-        continue;
-      }
-
-      if (anonKey) {
-        try {
-          const authResp = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'apikey': anonKey,
-              'Authorization': `Bearer ${anonKey}`,
-            },
-            body: JSON.stringify({ email: cleanEmail, password: candidate }),
-          });
-
-          if (authResp.ok) {
-            console.log('[forgot-password] generated password collides with current password, regenerating (attempt', attempt + 1, ')');
-            continue;
-          }
-        } catch (e) {
-          console.warn('[forgot-password] auth check failed, proceeding assuming no collision', e);
-        }
-      }
-
-      newPassword = candidate;
-      break;
-    }
-
-    if (!newPassword) {
-      console.error('[forgot-password] failed to generate non-pwned password after attempts');
-      return new Response(JSON.stringify({ error: 'Erro ao gerar nova senha. Tente novamente.' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    // Gera nova senha temporária (sem verificações externas para evitar timeout)
+    const newPassword = generatePassword();
 
     // Atualiza senha via REST API direta
-    const updateRes = await fetch(`${supabaseUrl}/auth/v1/admin/users/${user.id}`, {
+    const updateRes = await fetch(`${supabaseUrl}/auth/v1/admin/users/${userId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -174,19 +99,21 @@ serve(async (req) => {
       });
     }
 
+    console.log('[forgot-password] senha atualizada para user:', userId);
+
     // Seta must_change_password = true no perfil do usuário
     const { error: profileError } = await supabase
       .from('profiles')
       .update({ must_change_password: true })
-      .eq('id', user.id);
+      .eq('id', userId);
 
     if (profileError) {
       console.warn('[forgot-password] failed to set must_change_password flag:', profileError);
     } else {
-      console.log('[forgot-password] must_change_password=true setado para user:', user.id);
+      console.log('[forgot-password] must_change_password=true setado para user:', userId);
     }
 
-    // Envia e-mail com nova senha
+    // Envia e-mail com nova senha via send-email-via-resend
     const sendResp = await fetch(`${supabaseUrl}/functions/v1/send-email-via-resend`, {
       method: 'POST',
       headers: {
@@ -195,7 +122,7 @@ serve(async (req) => {
         'apikey': serviceRoleKey,
       },
       body: JSON.stringify({
-        to: email,
+        to: cleanEmail,
         subject: 'Sua nova senha temporária - DKCWB',
         type: 'new_password',
         newPassword,
@@ -204,8 +131,8 @@ serve(async (req) => {
 
     const sendData = await sendResp.json().catch(() => ({}));
     if (!sendResp.ok) {
-      console.error('[forgot-password] send-email error', sendResp.status, sendData);
-      return new Response(JSON.stringify({ error: 'Senha atualizada, mas erro ao enviar e-mail' }), {
+      console.error('[forgot-password] send-email error', sendResp.status, JSON.stringify(sendData));
+      return new Response(JSON.stringify({ error: 'Senha atualizada, mas erro ao enviar e-mail. Tente novamente.' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -218,8 +145,8 @@ serve(async (req) => {
     });
 
   } catch (err: any) {
-    console.error('[forgot-password] unexpected', err);
-    return new Response(JSON.stringify({ error: err.message }), {
+    console.error('[forgot-password] unexpected error:', err?.message || err);
+    return new Response(JSON.stringify({ error: err.message || 'Erro interno' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

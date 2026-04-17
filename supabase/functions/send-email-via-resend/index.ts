@@ -250,7 +250,10 @@ serve(async (req) => {
     const apiKey = Deno.env.get('RESEND_API_KEY')
     const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'CLUB DK <onboarding@resend.dev>'
 
+    console.log('[send-email-via-resend] from:', fromEmail, 'apiKey configured:', !!apiKey)
+
     if (!apiKey) {
+      console.error('[send-email-via-resend] RESEND_API_KEY not configured')
       return new Response(JSON.stringify({ error: 'RESEND_API_KEY not configured' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

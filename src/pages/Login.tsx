@@ -294,8 +294,16 @@ const Login = () => {
         new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000)),
       ]) as any;
 
+      // Extrai mensagem de erro do FunctionsHttpError ou do body
+      const getErrMsg = (res: any) => {
+        if (res?.error?.context?.json) {
+          try { return res.error.context.json()?.then?.((j: any) => j?.error) || res.error.message; } catch { /**/ }
+        }
+        return res?.error?.message || res?.data?.error || 'Erro desconhecido';
+      };
+
       if (gen.error || !gen.data?.code) {
-        const errMsg = gen.error?.message || gen.data?.error || 'Erro ao gerar código';
+        const errMsg = gen.data?.error || gen.error?.message || 'Erro ao gerar código';
         logger.error('[Login] generate-token error:', errMsg, gen);
         setSignUpError(translateAuthError(errMsg));
         return;
@@ -303,19 +311,17 @@ const Login = () => {
 
       const code = gen.data.code;
 
-      // Use supabase.functions.invoke instead of direct fetch with SUPABASE_URL/SUPABASE_ANON_KEY
       const emailInvoke = await supabase.functions.invoke('send-email-via-resend', {
         body: { to: email, subject: 'Seu código de verificação - DKCWB', type: 'otp', code },
       });
 
       if (emailInvoke.error) {
-        const errMsg = emailInvoke.error.message || 'Erro ao enviar e-mail';
+        const errMsg = emailInvoke.data?.error || emailInvoke.error?.message || 'Erro ao enviar e-mail';
         logger.error('[Login] send-email-via-resend error:', errMsg, emailInvoke);
         setSignUpError(translateAuthError(errMsg));
         return;
       }
 
-      // Verifica se o data contém erro (Resend retorna 4xx com body de erro)
       if (emailInvoke.data?.error) {
         const errMsg = emailInvoke.data.error || 'Erro ao enviar e-mail';
         logger.error('[Login] send-email-via-resend data error:', errMsg, emailInvoke.data);

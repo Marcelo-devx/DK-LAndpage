@@ -53,6 +53,15 @@ serve(async (req) => {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
 
+  // Health check — mantém a função aquecida
+  const url = new URL(req.url)
+  if (req.method === 'GET' && url.pathname.endsWith('/health')) {
+    return new Response(JSON.stringify({ status: 'ok', function: 'find-order-by-phone', ts: Date.now() }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    })
+  }
+
   try {
     // ── Autenticação ──────────────────────────────────────────────────────────
     const authHeader = req.headers.get('Authorization') || req.headers.get('authorization');

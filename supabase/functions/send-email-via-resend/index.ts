@@ -307,14 +307,17 @@ serve(async (req) => {
     const responseData = await resendResponse.json()
 
     if (!resendResponse.ok) {
-      console.error('[send-email-via-resend] Resend API error:', responseData)
-      return new Response(JSON.stringify({ error: responseData?.message || 'Failed to send email' }), {
+      console.error('[send-email-via-resend] Resend API error:', JSON.stringify(responseData), 'status:', resendResponse.status, 'from:', fromEmail, 'to:', to)
+      const errName = responseData?.name || ''
+      const errMsg = responseData?.message || 'Failed to send email'
+      // Retorna o nome do erro para facilitar diagnóstico no frontend
+      return new Response(JSON.stringify({ error: errMsg, errorName: errName, statusCode: resendResponse.status }), {
         status: resendResponse.status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    console.log('[send-email-via-resend] Email sent successfully to', to)
+    console.log('[send-email-via-resend] Email sent successfully to', to, 'from:', fromEmail)
     return new Response(JSON.stringify({ success: true, data: responseData }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -49,7 +49,7 @@ const translateAuthError = (error: string): { message: string; hint?: string } =
       hint: 'Use pelo menos 6 caracteres.',
     };
   }
-  if (e.includes('rate limit') || e.includes('too many requests') || e.includes('over_email_send_rate_limit')) {
+  if (e.includes('rate limit') || e.includes('too many requests') || e.includes('over_email_send_rate_limit') || e.includes('rate_limit')) {
     return {
       message: 'Muitas tentativas em pouco tempo.',
       hint: 'Aguarde alguns minutos antes de tentar novamente.',
@@ -71,6 +71,13 @@ const translateAuthError = (error: string): { message: string; hint?: string } =
     return {
       message: 'E-mail inválido.',
       hint: 'Digite um endereço de e-mail válido (ex: nome@email.com).',
+    };
+  }
+  // Erros específicos do Resend
+  if (e.includes('testing emails') || e.includes('own email address') || e.includes('validation_error') || e.includes('domain') || e.includes('not verified')) {
+    return {
+      message: 'Serviço de e-mail temporariamente indisponível.',
+      hint: 'Estamos com uma instabilidade no envio de e-mails. Por favor, tente novamente em alguns minutos ou entre em contato com o suporte.',
     };
   }
 
@@ -288,7 +295,9 @@ const Login = () => {
       ]) as any;
 
       if (gen.error || !gen.data?.code) {
-        setSignUpError(translateAuthError(gen.error?.message || 'Erro ao gerar código'));
+        const errMsg = gen.error?.message || gen.data?.error || 'Erro ao gerar código';
+        logger.error('[Login] generate-token error:', errMsg, gen);
+        setSignUpError(translateAuthError(errMsg));
         return;
       }
 
@@ -300,7 +309,17 @@ const Login = () => {
       });
 
       if (emailInvoke.error) {
-        setSignUpError(translateAuthError(emailInvoke.error.message || 'Erro ao enviar e-mail'));
+        const errMsg = emailInvoke.error.message || 'Erro ao enviar e-mail';
+        logger.error('[Login] send-email-via-resend error:', errMsg, emailInvoke);
+        setSignUpError(translateAuthError(errMsg));
+        return;
+      }
+
+      // Verifica se o data contém erro (Resend retorna 4xx com body de erro)
+      if (emailInvoke.data?.error) {
+        const errMsg = emailInvoke.data.error || 'Erro ao enviar e-mail';
+        logger.error('[Login] send-email-via-resend data error:', errMsg, emailInvoke.data);
+        setSignUpError(translateAuthError(errMsg));
         return;
       }
 
@@ -310,6 +329,7 @@ const Login = () => {
       showSuccess(`Código enviado para ${email}!`);
 
     } catch (err: any) {
+      logger.error('[Login] sendCode unexpected error:', err);
       setSignUpError(translateAuthError(err?.message || 'Erro inesperado'));
     } finally {
       setIsSendingCode(false);
@@ -433,6 +453,7 @@ const Login = () => {
       const res = await supabase.functions.invoke('forgot-password', { body: { email } });
       if (res.error) {
         const errMsg = res.error.message || '';
+        logger.error('[Login] forgot-password error:', errMsg, res);
         if (errMsg.toLowerCase().includes('not found') || errMsg.toLowerCase().includes('no user')) {
           setForgotError({
             message: 'Nenhuma conta encontrada com este e-mail.',
@@ -444,10 +465,26 @@ const Login = () => {
         return;
       }
 
+      // Verifica se o data contém erro
+      if (res.data?.error) {
+        const errMsg = res.data.error || '';
+        logger.error('[Login] forgot-password data error:', errMsg, res.data);
+        if (errMsg.toLowerCase().includes('not found') || errMsg.toLowerCase().includes('no user') || errMsg.toLowerCase().includes('nenhuma conta')) {
+          setForgotError({
+            message: 'Nenhuma conta encontrada com este e-mail.',
+            hint: 'Verifique o e-mail digitado ou crie uma conta nova na aba "Criar Conta".',
+          });
+        } else {
+          setForgotError(translateAuthError(errMsg));
+        }
+        return;
+      }
+
       setForgotSent(true);
       showSuccess('Nova senha enviada para seu e-mail!');
 
     } catch (err: any) {
+      logger.error('[Login] handleForgotPassword unexpected error:', err);
       setForgotError(translateAuthError(err?.message || 'Erro inesperado'));
     } finally {
       setIsSendingForgot(false);

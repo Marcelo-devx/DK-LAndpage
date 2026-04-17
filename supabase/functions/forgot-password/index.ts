@@ -2,7 +2,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 // @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
-// v2 - redeploy trigger
+// v3 - retry interno no send-email
 
 declare const Deno: any;
 
@@ -12,25 +12,44 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 }
 
+// Retry com backoff para chamadas fetch internas (ex: send-email-via-resend em cold start)
+const fetchWithRetry = async (url: string, options: RequestInit, maxAttempts = 3, baseDelayMs = 1500): Promise<Response> => {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const res = await fetch(url, options);
+      // 404 = função em cold start / ainda não deployada — retenta
+      if (res.status === 404 && attempt < maxAttempts) {
+        console.warn(`[forgot-password] fetchWithRetry tentativa ${attempt}/${maxAttempts} retornou 404, aguardando ${baseDelayMs * attempt}ms...`);
+        await new Promise(r => setTimeout(r, baseDelayMs * attempt));
+        continue;
+      }
+      return res;
+    } catch (err) {
+      lastError = err;
+      console.warn(`[forgot-password] fetchWithRetry tentativa ${attempt}/${maxAttempts} exception:`, err);
+      if (attempt < maxAttempts) {
+        await new Promise(r => setTimeout(r, baseDelayMs * attempt));
+      }
+    }
+  }
+  throw lastError ?? new Error('fetchWithRetry: todas as tentativas falharam');
+};
+
 // Gera senha temporária APENAS com letras e números (sem símbolos especiais)
-// Símbolos como !@#$% podem ser codificados por clientes de email (ex: ! → %21)
-// causando falha no login quando o usuário copia a senha do email.
 const generatePassword = (): string => {
-  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // sem I e O (confusos)
-  const lower = 'abcdefghjkmnpqrstuvwxyz';  // sem i, l, o (confusos)
-  const numbers = '23456789';               // sem 0 e 1 (confusos)
+  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const lower = 'abcdefghjkmnpqrstuvwxyz';
+  const numbers = '23456789';
   const all = upper + lower + numbers;
 
   let pwd = '';
-  // Garante pelo menos 1 maiúscula, 1 minúscula, 1 número
   pwd += upper[Math.floor(Math.random() * upper.length)];
   pwd += lower[Math.floor(Math.random() * lower.length)];
   pwd += numbers[Math.floor(Math.random() * numbers.length)];
-  // Completa até 10 caracteres
   for (let i = 3; i < 10; i++) {
     pwd += all[Math.floor(Math.random() * all.length)];
   }
-  // Embaralha
   return pwd.split('').sort(() => Math.random() - 0.5).join('');
 }
 
@@ -66,7 +85,6 @@ serve(async (req) => {
     const cleanEmail = email.toLowerCase().trim();
     console.log('[forgot-password] buscando usuário com email:', cleanEmail);
 
-    // Busca direta em auth.users via RPC com SECURITY DEFINER
     const { data: userId, error: userIdError } = await supabase.rpc('get_auth_user_id_by_email', {
       p_email: cleanEmail,
     });
@@ -81,11 +99,9 @@ serve(async (req) => {
 
     console.log('[forgot-password] usuário encontrado, id:', userId);
 
-    // Gera nova senha temporária (apenas alfanumérica — sem símbolos que emails codificam)
     const newPassword = generatePassword();
     console.log('[forgot-password] nova senha gerada (length):', newPassword.length);
 
-    // Atualiza senha via REST API direta
     const updateRes = await fetch(`${supabaseUrl}/auth/v1/admin/users/${userId}`, {
       method: 'PUT',
       headers: {
@@ -107,7 +123,6 @@ serve(async (req) => {
 
     console.log('[forgot-password] senha atualizada para user:', userId);
 
-    // Seta must_change_password = true no perfil do usuário
     const { error: profileError } = await supabase
       .from('profiles')
       .update({ must_change_password: true })
@@ -119,21 +134,25 @@ serve(async (req) => {
       console.log('[forgot-password] must_change_password=true setado para user:', userId);
     }
 
-    // Envia e-mail com nova senha via send-email-via-resend
-    const sendResp = await fetch(`${supabaseUrl}/functions/v1/send-email-via-resend`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${serviceRoleKey}`,
-        'apikey': serviceRoleKey,
-      },
-      body: JSON.stringify({
-        to: cleanEmail,
-        subject: 'Sua nova senha temporária - DKCWB',
-        type: 'new_password',
-        newPassword,
-      }),
-    });
+    // Envia e-mail com retry automático (send-email-via-resend pode estar em cold start)
+    console.log('[forgot-password] enviando e-mail via send-email-via-resend (com retry)...');
+    const sendResp = await fetchWithRetry(
+      `${supabaseUrl}/functions/v1/send-email-via-resend`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${serviceRoleKey}`,
+          'apikey': serviceRoleKey,
+        },
+        body: JSON.stringify({
+          to: cleanEmail,
+          subject: 'Sua nova senha temporária - DKCWB',
+          type: 'new_password',
+          newPassword,
+        }),
+      }
+    );
 
     const sendData = await sendResp.json().catch(() => ({}));
     if (!sendResp.ok) {

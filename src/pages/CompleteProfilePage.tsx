@@ -128,11 +128,7 @@ const CompleteProfilePage = () => {
 
         const isProfileComplete = profile &&
           profile.first_name &&
-          profile.last_name &&
-          profile.date_of_birth &&
-          profile.phone &&
-          profile.cpf_cnpj &&
-          profile.gender;
+          profile.last_name;
 
         if (isProfileComplete) {
           navigate('/', { replace: true });

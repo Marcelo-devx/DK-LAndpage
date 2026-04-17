@@ -179,8 +179,7 @@ const DashboardSecurity = () => {
         .single();
 
       const isProfileComplete = !!(profile &&
-        profile.first_name && profile.last_name && profile.phone &&
-        profile.cpf_cnpj && profile.gender && profile.date_of_birth);
+        profile.first_name && profile.last_name);
 
       logger.log('[DashboardSecurity] Perfil completo?', { isProfileComplete });
 

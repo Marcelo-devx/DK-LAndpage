@@ -12,9 +12,9 @@ const WhatsAppButton: React.FC = () => {
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Falar pelo WhatsApp"
-      className="fixed bottom-6 right-6 z-50 flex items-center justify-center w-14 h-14 rounded-full shadow-lg bg-[#25D366] hover:bg-[#1ebe5d] active:scale-95 transition-all duration-200"
+      style={{ zIndex: 999999 }}
+      className="fixed bottom-[88px] right-6 flex items-center justify-center w-14 h-14 rounded-full shadow-xl bg-[#25D366] hover:bg-[#1ebe5d] active:scale-95 transition-all duration-200"
     >
-      {/* WhatsApp SVG icon */}
       <svg
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 32 32"

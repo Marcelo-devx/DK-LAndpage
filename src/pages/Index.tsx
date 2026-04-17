@@ -28,6 +28,8 @@ const Index = () => {
   const navigate = useNavigate();
   const isMountedRef = useRef(true);
   const hasFetchedRef = useRef(false);
+  const allProductsPoolRef = useRef<any[]>([]);
+  const rotationIndexRef = useRef(0);
   const [displayedProducts, setDisplayedProducts] = useState<any[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [fetchError, setFetchError] = useState(false);
@@ -52,6 +54,30 @@ const Index = () => {
   useEffect(() => {
     isMountedRef.current = true;
     return () => { isMountedRef.current = false; };
+  }, []);
+
+  // Embaralha array sem mutar o original
+  const shuffle = (arr: any[]) => {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  };
+
+  // Avança para o próximo slice de 8 produtos do pool
+  const rotateProducts = useCallback(() => {
+    const pool = allProductsPoolRef.current;
+    if (pool.length === 0) return;
+    const PAGE_SIZE = 8;
+    const start = rotationIndexRef.current % pool.length;
+    const slice = [];
+    for (let i = 0; i < PAGE_SIZE; i++) {
+      slice.push(pool[(start + i) % pool.length]);
+    }
+    rotationIndexRef.current = (start + PAGE_SIZE) % pool.length;
+    setDisplayedProducts(slice);
   }, []);
 
   const timed = async (label: string, promise: Promise<any>) => {
@@ -139,7 +165,7 @@ const Index = () => {
         if (!isMountedRef.current) return;
         
         const [productsRes, promosRes, brandsRes, categoriesRes] = await Promise.all([
-          timed('fetch_products', Promise.resolve(supabase.from('products').select('*').eq('is_visible', true).order('created_at', { ascending: false }).limit(12))),
+          timed('fetch_products', Promise.resolve(supabase.from('products').select('*').eq('is_visible', true).order('created_at', { ascending: false }).limit(30))),
           timed('fetch_promos', Promise.resolve(supabase.from('promotions').select('*').eq('is_active', true).order('created_at', { ascending: false }))),
           timed('fetch_brands', Promise.resolve(supabase.from('brands').select('*').eq('is_visible', true).order('name'))),
           timed('fetch_categories', Promise.resolve(supabase.from('categories').select('name, show_age_restriction').eq('is_visible', true).order('name'))),
@@ -194,7 +220,11 @@ const Index = () => {
         };
 
         if (isMountedRef.current) {
-          setDisplayedProducts(buildProductList(productsRes.data || []));
+          const allProducts = shuffle(buildProductList(productsRes.data || []));
+          allProductsPoolRef.current = allProducts;
+          rotationIndexRef.current = 0;
+          // Mostra os primeiros 8 produtos embaralhados
+          setDisplayedProducts(allProducts.slice(0, 8));
           setPromotions(promosRes.data || []);
           setBrands(brandsRes.data || []);
           setCategories(categoriesRes.data || []);
@@ -220,6 +250,17 @@ const Index = () => {
     hasFetchedRef.current = true;
     fetchData();
   }, [fetchData]);
+
+  // Rotaciona os produtos a cada 30 segundos
+  useEffect(() => {
+    if (loadingProducts) return;
+    const interval = setInterval(() => {
+      if (isMountedRef.current && allProductsPoolRef.current.length > 8) {
+        rotateProducts();
+      }
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [loadingProducts, rotateProducts]);
 
   return (
     <div className="bg-off-white overflow-x-hidden text-charcoal-gray w-full transition-colors duration-500">

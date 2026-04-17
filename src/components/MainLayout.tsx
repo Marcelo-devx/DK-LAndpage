@@ -7,6 +7,7 @@ import { CartSheet } from "./CartSheet";
 import Footer from "./Footer";
 import DeliveryTimerBar from "./DeliveryTimerBar";
 import NetworkErrorBanner from "./NetworkErrorBanner";
+import WhatsAppButton from "./WhatsAppButton";
 
 // Lazy load de componentes não-críticos — tira framer-motion do bundle inicial
 const SocialProofPopup = lazy(() => import("./SocialProofPopup"));
@@ -68,6 +69,8 @@ const MainLayout = () => {
       </Suspense>
       {/* Banner de erro de conexão — aparece automaticamente se o WiFi bloquear o Supabase */}
       <NetworkErrorBanner />
+      {/* Botão flutuante do WhatsApp */}
+      <WhatsAppButton />
     </div>
   );
 };

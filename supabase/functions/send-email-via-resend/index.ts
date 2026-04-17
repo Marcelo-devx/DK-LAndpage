@@ -11,10 +11,6 @@ const corsHeaders = {
   'Vary': 'Origin',
 }
 
-if (typeof globalThis.atob !== 'function') {
-  globalThis.atob = (value: string) => Buffer.from(value, 'base64').toString('binary') as any;
-}
-
 // Email templates
 const templates = {
   otp: (code: string) => `

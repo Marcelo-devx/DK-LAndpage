@@ -21,7 +21,7 @@ import { timer } from '@/lib/logger';
 import MarketingCTA from '@/components/MarketingCTA';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
-import { useProductRotation } from '@/hooks/useProductRotation';
+import { useProductRotation, useBackgroundRefresh } from '@/hooks/useProductRotation';
 
 const ROTATION_INTERVAL = 10000; // 10 segundos
 
@@ -221,6 +221,9 @@ const Index = () => {
     fetchData();
   }, [fetchData]);
 
+  // Atualiza os dados silenciosamente a cada 6 horas (sem recarregar a página)
+  useBackgroundRefresh(() => fetchData(true));
+
   return (
     <div className="bg-off-white overflow-x-hidden text-charcoal-gray w-full transition-colors duration-500">
       <AgeVerificationPopup />
@@ -278,7 +281,7 @@ const Index = () => {
                   OFERTAS EXCLUSIVAS
                 </h3>
               </div>
-              <div className="transition-opacity duration-300" style={{ opacity: fadePromotions ? 1 : 0 }}>
+              <div className="transition-opacity duration-500" style={{ opacity: fadePromotions ? 1 : 0 }}>
                 <Carousel opts={{ align: "start", loop: displayedPromotions.length > 3 }} className="w-full">
                   <CarouselContent className="-ml-1 md:-ml-2">
                     {displayedPromotions.map((promo) => (
@@ -314,7 +317,7 @@ const Index = () => {
               </Link>
             </div>
 
-            <div className="transition-opacity duration-300" style={{ opacity: fadeProducts ? 1 : 0 }}>
+            <div className="transition-opacity duration-500" style={{ opacity: fadeProducts ? 1 : 0 }}>
               <Carousel opts={{ align: "start", loop: displayedProducts.length > 4 }} className="w-full">
                 <CarouselContent className="-ml-1 md:-ml-2">
                   {loadingProducts ? Array.from({ length: 4 }).map((_, i) => (
@@ -366,7 +369,7 @@ const Index = () => {
                 <h2 className="text-[10px] md:text-xs font-black tracking-[0.3em] md:tracking-[0.5em] text-sky-500 uppercase mb-2 md:mb-3 text-center">
                   Seleção Premium
                 </h2>
-                <div className="transition-opacity duration-300" style={{ opacity: fadeFeatured ? 1 : 0 }}>
+                <div className="transition-opacity duration-500" style={{ opacity: fadeFeatured ? 1 : 0 }}>
                   <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-1 md:gap-2">
                     {featuredProducts.map((p, idx) => (
                       <ProductCard key={`${p.id}-${idx}`} product={{ id: p.id, name: p.name, price: p.price, pixPrice: p.pixPrice, imageUrl: p.imageUrl, stockQuantity: p.stockQuantity, variantId: p.variantId, hasMultipleVariants: p.hasMultipleVariants, showAgeBadge: p.showAgeBadge }} />

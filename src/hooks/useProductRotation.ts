@@ -9,13 +9,26 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
+// Pré-carrega imagens em background para evitar flash ao trocar
+function preloadImages(items: any[]) {
+  items.forEach((item) => {
+    const url = item?.imageUrl || item?.image_url;
+    if (url) {
+      const img = new Image();
+      img.src = url;
+    }
+  });
+}
+
 /**
- * Embaralha um pool de itens e rotaciona automaticamente um slice visível.
- * @param pool - todos os itens disponíveis (já filtrados, sem esgotados)
- * @param pageSize - quantos itens mostrar por vez
- * @param intervalMs - intervalo de rotação em ms (padrão: 4000)
+ * Embaralha um pool de itens, rotaciona automaticamente um slice visível
+ * e pré-carrega as imagens do próximo slice antes de exibir.
+ *
+ * @param pool       - todos os itens disponíveis (já filtrados, sem esgotados)
+ * @param pageSize   - quantos itens mostrar por vez
+ * @param intervalMs - intervalo de rotação em ms (padrão: 10000)
  */
-export function useProductRotation<T>(
+export function useProductRotation<T extends Record<string, any>>(
   pool: T[],
   pageSize: number,
   intervalMs = 10000
@@ -25,29 +38,46 @@ export function useProductRotation<T>(
   const [visible, setVisible] = useState<T[]>([]);
   const [fade, setFade] = useState(true);
 
+  // Quando o pool muda (dados carregados ou atualizados pelo cron), embaralha
   useEffect(() => {
     if (pool.length === 0) return;
     const shuffled = shuffle(pool);
     shuffledRef.current = shuffled;
     indexRef.current = 0;
-    setVisible(shuffled.slice(0, pageSize));
+    const first = shuffled.slice(0, pageSize);
+    setVisible(first);
     setFade(true);
+    // Pré-carrega o segundo slice imediatamente
+    const second = shuffled.slice(pageSize, pageSize * 2);
+    preloadImages(second);
   }, [pool, pageSize]);
 
   const rotate = useCallback(() => {
     const arr = shuffledRef.current;
     if (arr.length <= pageSize) return;
+
+    // Calcula o próximo slice
+    const next = (indexRef.current + pageSize) % arr.length;
+    const slice: T[] = [];
+    for (let i = 0; i < pageSize; i++) {
+      slice.push(arr[(next + i) % arr.length]);
+    }
+
+    // Pré-carrega o slice DEPOIS do próximo (2 slices à frente)
+    const afterNext = (next + pageSize) % arr.length;
+    const preloadSlice: T[] = [];
+    for (let i = 0; i < pageSize; i++) {
+      preloadSlice.push(arr[(afterNext + i) % arr.length]);
+    }
+    preloadImages(preloadSlice);
+
+    // Fade out → troca → fade in
     setFade(false);
     setTimeout(() => {
-      const next = (indexRef.current + pageSize) % arr.length;
       indexRef.current = next;
-      const slice: T[] = [];
-      for (let i = 0; i < pageSize; i++) {
-        slice.push(arr[(next + i) % arr.length]);
-      }
       setVisible(slice);
       setFade(true);
-    }, 300);
+    }, 500); // 500ms de fade-out suave
   }, [pageSize]);
 
   useEffect(() => {
@@ -57,4 +87,26 @@ export function useProductRotation<T>(
   }, [pool, pageSize, intervalMs, rotate]);
 
   return { visible, fade };
+}
+
+const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+
+/**
+ * Executa um callback de re-fetch silencioso a cada 6 horas,
+ * sem recarregar a página.
+ *
+ * @param onRefresh - função assíncrona que busca dados frescos e atualiza o estado
+ */
+export function useBackgroundRefresh(onRefresh: () => Promise<void>) {
+  const callbackRef = useRef(onRefresh);
+  callbackRef.current = onRefresh;
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      callbackRef.current().catch(() => {
+        // falha silenciosa — não interrompe a experiência do usuário
+      });
+    }, SIX_HOURS_MS);
+    return () => clearInterval(id);
+  }, []);
 }

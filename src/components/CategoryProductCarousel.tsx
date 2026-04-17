@@ -128,7 +128,7 @@ const CategoryProductCarousel = memo(({ categoryName, showAgeBadge = true }: Cat
             </CarouselContent>
           </Carousel>
         ) : products.length > 0 ? (
-          <div className="transition-opacity duration-300" style={{ opacity: fade ? 1 : 0 }}>
+          <div className="transition-opacity duration-500" style={{ opacity: fade ? 1 : 0 }}>
             <Carousel opts={{ align: "start", loop: products.length > 4 }} className="w-full">
               <CarouselContent className="-ml-1 md:-ml-2">
                 {products.map((p, idx) => (

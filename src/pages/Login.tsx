@@ -366,6 +366,18 @@ const Login = () => {
             message: 'Código expirado.',
             hint: 'O código tem validade de 10 minutos. Clique em "Reenviar" para receber um novo.',
           });
+        } else if (msg.toLowerCase().includes('já foi utilizado') || msg.toLowerCase().includes('already used')) {
+          setSignUpError({
+            message: 'Código já utilizado.',
+            hint: msg.includes('mais recente')
+              ? 'Um código mais recente foi enviado — use o último e-mail recebido. Se necessário, clique em "Reenviar".'
+              : 'Este código já foi usado. Clique em "Reenviar" para receber um novo código.',
+          });
+        } else if (msg.toLowerCase().includes('nenhum código') || msg.toLowerCase().includes('no token')) {
+          setSignUpError({
+            message: 'Nenhum código encontrado.',
+            hint: 'Clique em "Reenviar" para receber um novo código no seu e-mail.',
+          });
         } else {
           setSignUpError({
             message: 'Código incorreto.',

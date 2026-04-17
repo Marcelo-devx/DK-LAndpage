@@ -1,83 +1,135 @@
-// @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-// @ts-ignore
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-
-declare const Deno: any;
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Vary': 'Origin',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
 };
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { status: 200, headers: corsHeaders });
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-    if (!supabaseUrl || !supabaseKey) {
-      return new Response(JSON.stringify({ error: 'Server not configured' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
-
     const { email, code } = await req.json();
+
     if (!email || !code) {
-      return new Response(JSON.stringify({ error: 'email and code required' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({ success: false, error: "Email e código são obrigatórios" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    const { data, error } = await supabase
-      .from('email_links')
-      .select('*')
-      .eq('email', email.toLowerCase().trim())
-      .eq('token', String(code).trim())
-      .eq('used', false)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
 
-    if (error || !data) {
-      console.error('[validate-token] not found', { email, code, error });
-      return new Response(JSON.stringify({ success: false, error: 'Código inválido ou expirado.' }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanCode = code.trim();
+
+    console.log("[validate-token] validating code for email:", cleanEmail);
+
+    // Busca o token mais recente para este email (independente de estar usado ou não)
+    const { data: allTokens, error: fetchError } = await supabase
+      .from("email_links")
+      .select("*")
+      .eq("email", cleanEmail)
+      .eq("type", "signup_otp")
+      .order("created_at", { ascending: false })
+      .limit(5);
+
+    if (fetchError) {
+      console.error("[validate-token] error fetching tokens:", fetchError);
+      return new Response(
+        JSON.stringify({ success: false, error: "Erro ao buscar código" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    const expiresAt = new Date(data.expires_at);
-    if (expiresAt.getTime() < Date.now()) {
-      console.error('[validate-token] expired', { email, code });
-      return new Response(JSON.stringify({ success: false, error: 'Código expirado. Solicite um novo.' }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    if (!allTokens || allTokens.length === 0) {
+      console.log("[validate-token] no tokens found for email:", cleanEmail);
+      return new Response(
+        JSON.stringify({ success: false, error: "Nenhum código encontrado para este e-mail. Solicite um novo código." }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    await supabase.from('email_links').update({ used: true }).eq('id', data.id);
+    // Verifica se o código digitado existe entre os tokens
+    const matchingToken = allTokens.find((t) => t.token === cleanCode);
 
-    console.log('[validate-token] code validated for', email);
-    return new Response(JSON.stringify({ success: true, email: data.email, type: data.type }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  } catch (err: any) {
-    console.error('[validate-token] unexpected', err);
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    if (!matchingToken) {
+      console.log("[validate-token] code not found:", cleanCode, "for email:", cleanEmail);
+      return new Response(
+        JSON.stringify({ success: false, error: "Código incorreto. Verifique os 6 dígitos digitados." }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Verifica se o token já foi usado
+    if (matchingToken.used) {
+      // Verifica se há um token mais recente válido
+      const newerValidToken = allTokens.find(
+        (t) => !t.used && new Date(t.expires_at) > new Date() && t.id !== matchingToken.id
+      );
+
+      if (newerValidToken) {
+        console.log("[validate-token] code already used, newer valid token exists");
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "Este código já foi utilizado. Um código mais recente foi enviado para seu e-mail — use o último código recebido.",
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log("[validate-token] code already used, no newer valid token");
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Este código já foi utilizado. Clique em \"Reenviar\" para receber um novo código.",
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Verifica se o token expirou
+    if (new Date(matchingToken.expires_at) < new Date()) {
+      console.log("[validate-token] code expired for email:", cleanEmail);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "expired",
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Token válido! Marca como usado
+    const { error: updateError } = await supabase
+      .from("email_links")
+      .update({ used: true })
+      .eq("id", matchingToken.id);
+
+    if (updateError) {
+      console.error("[validate-token] error marking token as used:", updateError);
+      // Não falha aqui — o token é válido, apenas não conseguimos marcar como usado
+    }
+
+    console.log("[validate-token] code validated successfully for email:", cleanEmail);
+
+    return new Response(
+      JSON.stringify({ success: true }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (err) {
+    console.error("[validate-token] unexpected error:", err);
+    return new Response(
+      JSON.stringify({ success: false, error: "Erro interno ao validar código" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 });

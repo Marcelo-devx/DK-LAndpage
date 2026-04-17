@@ -17,7 +17,7 @@ interface CategoryProductCarouselProps {
   showAgeBadge?: boolean;
 }
 
-const ROTATION_INTERVAL = 10000; // 10 segundos
+const ROTATION_INTERVAL = 15000; // 15 segundos
 
 const CategoryProductCarousel = memo(({ categoryName, showAgeBadge = true }: CategoryProductCarouselProps) => {
   const [pool, setPool] = useState<any[]>([]);

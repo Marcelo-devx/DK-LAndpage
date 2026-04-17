@@ -23,7 +23,7 @@ import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
 import { useProductRotation, useBackgroundRefresh } from '@/hooks/useProductRotation';
 
-const ROTATION_INTERVAL = 10000; // 10 segundos
+const ROTATION_INTERVAL = 15000; // 15 segundos
 
 const Index = () => {
   const { settings } = useTheme();

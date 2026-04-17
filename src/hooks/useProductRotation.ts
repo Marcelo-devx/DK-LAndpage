@@ -31,7 +31,7 @@ function preloadImages(items: any[]) {
 export function useProductRotation<T extends Record<string, any>>(
   pool: T[],
   pageSize: number,
-  intervalMs = 10000
+  intervalMs = 15000
 ) {
   const shuffledRef = useRef<T[]>([]);
   const indexRef = useRef(0);

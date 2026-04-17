@@ -343,8 +343,11 @@ const CheckoutPage = () => {
 
     if (ordersRes.data && isMountedRef.current) setRecentOrders(ordersRes.data);
 
-    // Marca que o perfil foi carregado — só agora é seguro avaliar profileComplete
-    if (isMountedRef.current) setProfileChecked(true);
+    // Marca que o perfil foi carregado — usa setTimeout para garantir que todos os
+    // setValue() já foram processados pelo React antes de avaliar profileComplete
+    if (isMountedRef.current) setTimeout(() => {
+      if (isMountedRef.current) setProfileChecked(true);
+    }, 100);
   }, [setValue]);
 
   const getBenefitInfo = (benefit: string) => {

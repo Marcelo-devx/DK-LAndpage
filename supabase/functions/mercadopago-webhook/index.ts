@@ -22,6 +22,15 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders })
   }
 
+  // Health check — mantém a função aquecida
+  const url = new URL(req.url)
+  if (req.method === 'GET' && url.pathname.endsWith('/health')) {
+    return new Response(JSON.stringify({ status: 'ok', function: 'mercadopago-webhook', ts: Date.now() }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    })
+  }
+
   // Always return 200 to acknowledge receipt (MP retries if it gets non-200)
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ received: true }), {

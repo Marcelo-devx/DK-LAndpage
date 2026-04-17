@@ -211,11 +211,21 @@ async function processDelayedOrders(requestId: string) {
 serve(async (req) => {
   const requestId = crypto.randomUUID()
   const origin = req.headers.get('origin')
-  console.log(`[trigger-integration][${requestId}] ${req.method} ${req.url}`, { origin })
 
   if (req.method === 'OPTIONS') {
     return createPreflightResponse(origin)
   }
+
+  // Health check — mantém a função aquecida
+  const url = new URL(req.url)
+  if (req.method === 'GET' && url.pathname.endsWith('/health')) {
+    return new Response(JSON.stringify({ status: 'ok', function: 'trigger-integration', ts: Date.now() }), {
+      headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' },
+      status: 200,
+    })
+  }
+
+  console.log(`[trigger-integration][${requestId}] ${req.method} ${req.url}`, { origin })
 
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {

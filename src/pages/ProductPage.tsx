@@ -342,7 +342,25 @@ const ProductPage = () => {
   };
 
   if (loading) return <div className="container mx-auto px-4 md:px-6 xl:px-8 py-4 md:py-10"><Skeleton className="w-full h-[500px] rounded-3xl bg-gray-200" /></div>;
-  if (!product) return null;
+  if (!product) return (
+    <div className="min-h-screen bg-off-white flex flex-col items-center justify-center px-4 text-center">
+      <div className="bg-stone-100 rounded-full p-6 mb-6">
+        <ShoppingBag className="h-12 w-12 text-stone-400" />
+      </div>
+      <h2 className="font-black text-2xl uppercase tracking-tighter italic text-charcoal-gray mb-2">
+        Produto não encontrado
+      </h2>
+      <p className="text-slate-500 text-sm font-medium max-w-xs mb-6">
+        Este produto não está mais disponível ou o link está incorreto.
+      </p>
+      <button
+        onClick={() => navigate('/produtos')}
+        className="px-6 py-3 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-xs rounded-2xl transition-all active:scale-95"
+      >
+        Ver todos os produtos
+      </button>
+    </div>
+  );
 
   const currentFullPrice = (selectedVariant ? selectedVariant.price : product.price) ?? 0;
   const currentPixPrice = ((selectedVariant ? selectedVariant.pix_price : product.pix_price) || currentFullPrice) ?? 0;

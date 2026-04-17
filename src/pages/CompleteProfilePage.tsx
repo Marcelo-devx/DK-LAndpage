@@ -128,11 +128,28 @@ const CompleteProfilePage = () => {
 
         const isProfileComplete = profile &&
           profile.first_name &&
-          profile.last_name;
+          profile.last_name &&
+          profile.phone &&
+          profile.cpf_cnpj &&
+          profile.cep &&
+          profile.street &&
+          profile.number &&
+          profile.neighborhood &&
+          profile.city &&
+          profile.state;
 
         if (isProfileComplete) {
           navigate('/', { replace: true });
           return;
+        }
+
+        // Pre-fill existing data so user doesn't have to retype
+        if (profile) {
+          if (profile.first_name) setValue('first_name', profile.first_name);
+          if (profile.last_name) setValue('last_name', profile.last_name);
+          if (profile.phone) setValue('phone', maskPhone(profile.phone));
+          if (profile.cpf_cnpj) setValue('cpf_cnpj', maskCpfCnpj(profile.cpf_cnpj));
+          if (profile.gender) setValue('gender', profile.gender);
         }
 
         setLoading(false);

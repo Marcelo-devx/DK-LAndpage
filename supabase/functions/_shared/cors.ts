@@ -6,26 +6,22 @@
 const ALLOWED_ORIGINS = [
   'https://www.dkcwb.com',
   'https://dkcwb.com',
-  'http://localhost:5173',
-  'http://localhost:3000',
-  'http://localhost:8000',
-  'http://127.0.0.1:5173',
-  'http://127.0.0.1:3000',
 ];
 
 export function isOriginAllowed(origin: string | null): boolean {
-  if (!origin) return false;
+  if (!origin) return true; // sem origin = server-to-server, permite
 
+  // Qualquer localhost ou 127.0.0.1 em qualquer porta é permitido (dev)
   if (
     origin.startsWith('http://localhost') ||
-    origin.startsWith('http://127.0.0.1') ||
     origin.startsWith('https://localhost') ||
+    origin.startsWith('http://127.0.0.1') ||
     origin.startsWith('https://127.0.0.1')
   ) {
     return true;
   }
 
-  // Também verifica variável de ambiente ALLOWED_ORIGINS
+  // Variável de ambiente ALLOWED_ORIGINS (opcional)
   // @ts-ignore
   const envVar = (typeof Deno !== 'undefined' ? Deno.env.get('ALLOWED_ORIGINS') : undefined) || '';
   const fromEnv = envVar.split(',').map((s: string) => s.trim()).filter((s: string) => s.length > 0);
@@ -35,11 +31,10 @@ export function isOriginAllowed(origin: string | null): boolean {
 
 /**
  * Gera headers CORS. Se a origem for permitida, retorna ela.
- * Caso contrário, usa '*' para não quebrar o preflight (o browser ainda bloqueará
- * requisições com credenciais, mas o preflight passará).
+ * Caso contrário, usa '*'.
  */
 export function getCorsHeaders(origin: string | null): Record<string, string> {
-  const allowedOrigin = isOriginAllowed(origin) ? (origin as string) : '*';
+  const allowedOrigin = isOriginAllowed(origin) ? (origin ?? '*') : '*';
 
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
@@ -50,10 +45,11 @@ export function getCorsHeaders(origin: string | null): Record<string, string> {
 }
 
 /**
- * Retorna Response preflight OPTIONS com status 200 (garantido OK)
+ * Retorna Response preflight OPTIONS — DEVE ter status 200 e body não-nulo
+ * para passar na verificação do browser.
  */
 export function createPreflightResponse(origin: string | null): Response {
-  return new Response(null, {
+  return new Response('ok', {
     status: 200,
     headers: getCorsHeaders(origin),
   });

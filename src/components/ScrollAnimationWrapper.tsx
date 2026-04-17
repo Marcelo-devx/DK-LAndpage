@@ -15,6 +15,13 @@ const ScrollAnimationWrapper = ({ children, delay = 0, className }: ScrollAnimat
     const el = ref.current;
     if (!el) return;
 
+    // Fallback para browsers sem IntersectionObserver (Android antigo, iOS 11-)
+    // Sem isso, a seção ficava com opacity:0 para sempre nesses devices
+    if (typeof IntersectionObserver === 'undefined') {
+      setVisible(true);
+      return;
+    }
+
     const obs = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -22,7 +29,13 @@ const ScrollAnimationWrapper = ({ children, delay = 0, className }: ScrollAnimat
           obs.disconnect();
         }
       },
-      { threshold: 0, rootMargin: "0px 0px -40px 0px" }
+      {
+        threshold: 0,
+        // rootMargin negativo (-40px) causava problema no iOS/Android:
+        // seções próximas ao fim da tela nunca disparavam e ficavam invisíveis.
+        // Usando 0px garante que dispara assim que qualquer pixel entra na tela.
+        rootMargin: "0px 0px 0px 0px",
+      }
     );
 
     obs.observe(el);

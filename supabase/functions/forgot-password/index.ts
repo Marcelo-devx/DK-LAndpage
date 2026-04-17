@@ -11,21 +11,25 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 }
 
-// Gera senha temporária forte (sem chamadas externas)
+// Gera senha temporária APENAS com letras e números (sem símbolos especiais)
+// Símbolos como !@#$% podem ser codificados por clientes de email (ex: ! → %21)
+// causando falha no login quando o usuário copia a senha do email.
 const generatePassword = (): string => {
-  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-  const lower = 'abcdefghjkmnpqrstuvwxyz';
-  const numbers = '23456789';
-  const symbols = '!@#$%';
-  const all = upper + lower + numbers + symbols;
+  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // sem I e O (confusos)
+  const lower = 'abcdefghjkmnpqrstuvwxyz';  // sem i, l, o (confusos)
+  const numbers = '23456789';               // sem 0 e 1 (confusos)
+  const all = upper + lower + numbers;
+
   let pwd = '';
+  // Garante pelo menos 1 maiúscula, 1 minúscula, 1 número
   pwd += upper[Math.floor(Math.random() * upper.length)];
   pwd += lower[Math.floor(Math.random() * lower.length)];
   pwd += numbers[Math.floor(Math.random() * numbers.length)];
-  pwd += symbols[Math.floor(Math.random() * symbols.length)];
-  for (let i = 4; i < 10; i++) {
+  // Completa até 10 caracteres
+  for (let i = 3; i < 10; i++) {
     pwd += all[Math.floor(Math.random() * all.length)];
   }
+  // Embaralha
   return pwd.split('').sort(() => Math.random() - 0.5).join('');
 }
 
@@ -76,8 +80,9 @@ serve(async (req) => {
 
     console.log('[forgot-password] usuário encontrado, id:', userId);
 
-    // Gera nova senha temporária (sem verificações externas para evitar timeout)
+    // Gera nova senha temporária (apenas alfanumérica — sem símbolos que emails codificam)
     const newPassword = generatePassword();
+    console.log('[forgot-password] nova senha gerada (length):', newPassword.length);
 
     // Atualiza senha via REST API direta
     const updateRes = await fetch(`${supabaseUrl}/auth/v1/admin/users/${userId}`, {

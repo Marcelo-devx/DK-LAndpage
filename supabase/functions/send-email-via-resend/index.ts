@@ -138,22 +138,24 @@ const templates = {
         .logo span { color: #0ea5e9; }
         .content { padding: 40px 20px; text-align: center; }
         .password-box {
-          background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
-          background-color: #0ea5e9;
+          background-color: #f0f9ff;
+          border: 2px solid #0ea5e9;
           color: #0f172a;
-          padding: 25px 30px;
+          padding: 20px 30px;
           border-radius: 12px;
-          font-size: 28px;
-          font-weight: 800;
-          letter-spacing: 4px;
-          margin: 30px auto;
+          font-size: 32px;
+          font-weight: 900;
+          letter-spacing: 2px;
+          margin: 24px auto;
           max-width: 320px;
-          text-shadow: 1px 1px 3px rgba(0,0,0,0.02);
+          font-family: 'Courier New', Courier, monospace;
           word-break: break-all;
         }
         .info { color: #64748b; font-size: 14px; margin-top: 20px; }
-        .warning { background: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; padding: 12px 16px; color: #92400e; font-size: 13px; margin-top: 20px; }
+        .warning { background: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; padding: 12px 16px; color: #92400e; font-size: 13px; margin-top: 20px; text-align: left; }
         .footer { text-align: center; padding: 20px; color: #94a3b8; font-size: 12px; border-top: 1px solid #e2e8f0; margin-top: 30px; }
+        .step { background: #f8fafc; border-radius: 8px; padding: 12px 16px; margin: 8px 0; text-align: left; font-size: 14px; color: #334155; }
+        .step strong { color: #0ea5e9; }
       </style>
     </head>
     <body>
@@ -162,12 +164,23 @@ const templates = {
           <div class="logo">CLUB<span>DK</span></div>
         </div>
         <div class="content">
-          <h2 style="font-size: 24px; margin-bottom: 10px; color: #0f172a;">Sua Nova Senha</h2>
+          <h2 style="font-size: 24px; margin-bottom: 10px; color: #0f172a;">Sua Nova Senha Temporária</h2>
           <p style="color: #64748b;">Conforme solicitado, geramos uma nova senha para sua conta:</p>
-          <div class="password-box" style="color:#0f172a; background-color:#0ea5e9;">${password}</div>
-          <p style="color:#0f172a; font-size:20px; font-weight:800; margin-top:10px;">Senha: ${password}</p>
-          <p style="color: #64748b;">Use essa senha para acessar o site. Após entrar, você pode alterá-la novamente na área de segurança do seu dashboard.</p>
-          <div class="warning">⚠️ Por segurança, não compartilhe essa senha com ninguém. Se você não solicitou essa alteração, entre em contato conosco imediatamente.</div>
+          
+          <div class="password-box">${password}</div>
+          
+          <p style="color: #475569; font-size: 13px; margin-bottom: 16px;">Digite exatamente como aparece acima (respeitando maiúsculas e minúsculas)</p>
+          
+          <div style="text-align: left; margin: 20px 0;">
+            <p style="font-weight: 700; color: #0f172a; margin-bottom: 8px;">Como usar:</p>
+            <div class="step"><strong>1.</strong> Acesse <a href="https://www.dkcwb.com/login" style="color: #0ea5e9;">dkcwb.com/login</a></div>
+            <div class="step"><strong>2.</strong> Digite seu e-mail e a senha acima</div>
+            <div class="step"><strong>3.</strong> Você será solicitado a criar uma nova senha</div>
+          </div>
+          
+          <div class="warning">
+            <strong>Atenção:</strong> Esta senha é temporária. Após o login, você deverá criar uma nova senha pessoal. Se você não solicitou esta alteração, entre em contato com o suporte imediatamente.
+          </div>
         </div>
         <div class="footer"><p>© ${new Date().getFullYear()} CLUB DK. Todos os direitos reservados.</p></div>
       </div>

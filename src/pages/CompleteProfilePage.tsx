@@ -132,13 +132,7 @@ const CompleteProfilePage = () => {
           profile.date_of_birth &&
           profile.phone &&
           profile.cpf_cnpj &&
-          profile.gender &&
-          profile.cep &&
-          profile.street &&
-          profile.number &&
-          profile.neighborhood &&
-          profile.city &&
-          profile.state;
+          profile.gender;
 
         if (isProfileComplete) {
           navigate('/', { replace: true });

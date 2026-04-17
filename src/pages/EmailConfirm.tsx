@@ -46,19 +46,13 @@ const EmailConfirm: React.FC = () => {
               .eq('id', session.user.id)
               .single();
 
-            const isProfileComplete = profile && 
-              profile.first_name && 
-              profile.last_name && 
-              profile.phone && 
+            const isProfileComplete = profile &&
+              profile.first_name &&
+              profile.last_name &&
+              profile.phone &&
               profile.cpf_cnpj &&
               profile.gender &&
-              profile.date_of_birth &&
-              profile.cep &&
-              profile.street &&
-              profile.number &&
-              profile.neighborhood &&
-              profile.city &&
-              profile.state;
+              profile.date_of_birth;
 
             if (!isProfileComplete) {
               navigate('/complete-profile', { replace: true });

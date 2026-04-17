@@ -180,9 +180,7 @@ const DashboardSecurity = () => {
 
       const isProfileComplete = !!(profile &&
         profile.first_name && profile.last_name && profile.phone &&
-        profile.cpf_cnpj && profile.gender && profile.date_of_birth &&
-        profile.cep && profile.street && profile.number &&
-        profile.neighborhood && profile.city && profile.state);
+        profile.cpf_cnpj && profile.gender && profile.date_of_birth);
 
       logger.log('[DashboardSecurity] Perfil completo?', { isProfileComplete });
 

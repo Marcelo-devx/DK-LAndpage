@@ -12,6 +12,7 @@ import { showSuccess } from '@/utils/toast';
 import OtpInput from '@/components/OtpInput';
 import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
+import { invokeWithRetry } from '@/lib/invokeWithRetry';
 
 type CustomView = 'sign_in' | 'sign_up' | 'forgot_password';
 
@@ -211,6 +212,24 @@ const Login = () => {
     // O redirectAfterLogin é chamado diretamente após login bem-sucedido
     // para evitar race conditions com múltiplos listeners
   }, [redirectAfterLogin]);
+
+  // ── Warm-up das edge functions críticas ao entrar na tela de login ──
+  // Faz um ping silencioso para acordar as funções do cold start ANTES
+  // do usuário clicar em "Esqueci minha senha", evitando o FunctionsFetchError.
+  useEffect(() => {
+    const warmUp = async () => {
+      try {
+        await fetch('https://jrlozhhvwqfmjtkmvukf.supabase.co/functions/v1/forgot-password', {
+          method: 'OPTIONS',
+          headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpybG96aGh2d3FmbWp0a212dWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzNDU2NjQsImV4cCI6MjA2NzkyMTY2NH0.Do5c1-TKqpyZTJeX_hLbw1SU40CbwXfCIC-pPpcD_JM' },
+        });
+        logger.log('[Login] warm-up forgot-password concluído');
+      } catch {
+        // silencioso — apenas um ping preventivo
+      }
+    };
+    warmUp();
+  }, []);
 
   // Cooldown timer
   useEffect(() => {
@@ -465,7 +484,10 @@ const Login = () => {
 
     setIsSendingForgot(true);
     try {
-      const res = await supabase.functions.invoke('forgot-password', { body: { email } });
+      const res = await invokeWithRetry('forgot-password', { body: { email } });
+      if (res.attempts > 1) {
+        logger.warn('[Login] forgot-password precisou de', res.attempts, 'tentativas (cold start recuperado)');
+      }
       if (res.error) {
         const errMsg = res.error.message || '';
         logger.error('[Login] forgot-password error:', errMsg, res);
@@ -481,8 +503,9 @@ const Login = () => {
       }
 
       // Verifica se o data contém erro
-      if (res.data?.error) {
-        const errMsg = res.data.error || '';
+      const resData = res.data as Record<string, unknown> | null;
+      if (resData?.error) {
+        const errMsg = String(resData.error) || '';
         logger.error('[Login] forgot-password data error:', errMsg, res.data);
         if (errMsg.toLowerCase().includes('not found') || errMsg.toLowerCase().includes('no user') || errMsg.toLowerCase().includes('nenhuma conta')) {
           setForgotError({

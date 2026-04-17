@@ -630,6 +630,12 @@ const CheckoutPage = () => {
   const handlePixPayment = async (data: CheckoutFormData) => {
     const toastId = showLoading("Criando seu pedido PIX...");
     try {
+      // Validação: carrinho não pode estar vazio ao finalizar
+      const cartItems = getLocalCart();
+      if (cartItems.length === 0) {
+        throw new Error('Seu carrinho está vazio. Adicione produtos antes de finalizar o pedido.');
+      }
+
       if (!isShippingAvailable && !isFreeShippingApplied) {
         throw new Error(shippingErrorMessage || 'Não conseguimos calcular o frete para esse endereço. Confira o bairro e a cidade ou fale com a gente para ajudar você.');
       }
@@ -678,6 +684,13 @@ const CheckoutPage = () => {
   // CARTÃO DESKTOP — Passo 1: criar pedido e mostrar form do MP
   // ============================================================
   const handlePrepareCardPayment = async (data: CheckoutFormData) => {
+    // Validação: carrinho não pode estar vazio ao finalizar
+    const cartItems = getLocalCart();
+    if (cartItems.length === 0) {
+      showError('Seu carrinho está vazio. Adicione produtos antes de finalizar o pedido.');
+      return;
+    }
+
     if (!isAddressComplete) { showError("Preencha todos os dados de entrega."); return; }
     if (!isShippingAvailable && !isFreeShippingApplied) {
       showError(shippingErrorMessage || 'Não conseguimos calcular o frete para esse endereço. Confira o bairro e a cidade ou fale com a gente para ajudar você.');

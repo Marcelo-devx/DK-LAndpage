@@ -51,7 +51,6 @@ serve(async (req) => {
   // 1. Query string: ?id=123&topic=payment (modern format)
   // 2. Body: { data: { id: "123" }, type: "payment" }
   // 3. Body: { id: "123", topic: "payment" }
-  const url = new URL(req.url)
   const queryId = url.searchParams.get('id') || url.searchParams.get('data.id')
   const queryTopic = url.searchParams.get('topic') || url.searchParams.get('type')
 

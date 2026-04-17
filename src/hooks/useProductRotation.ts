@@ -18,7 +18,7 @@ function shuffle<T>(arr: T[]): T[] {
 export function useProductRotation<T>(
   pool: T[],
   pageSize: number,
-  intervalMs = 4000
+  intervalMs = 10000
 ) {
   const shuffledRef = useRef<T[]>([]);
   const indexRef = useRef(0);

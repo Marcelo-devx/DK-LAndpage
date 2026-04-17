@@ -1,39 +1,39 @@
 import { useEffect, useState, memo } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { 
-  Carousel, 
-  CarouselContent, 
-  CarouselItem, 
-  CarouselNext, 
-  CarouselPrevious 
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious
 } from "@/components/ui/carousel";
 import ProductCard from './ProductCard';
 import { Skeleton } from './ui/skeleton';
+import { useProductRotation } from '@/hooks/useProductRotation';
 
 interface CategoryProductCarouselProps {
   categoryName: string;
-  // Optional: pass the age restriction flag from parent to avoid extra DB query
   showAgeBadge?: boolean;
 }
 
+const ROTATION_INTERVAL = 25000; // 25 segundos (offset para não sincronizar com a home)
+
 const CategoryProductCarousel = memo(({ categoryName, showAgeBadge = true }: CategoryProductCarouselProps) => {
-  const [products, setProducts] = useState<any[]>([]);
+  const [pool, setPool] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const { visible: products, fade } = useProductRotation(pool, 6, ROTATION_INTERVAL);
 
   useEffect(() => {
     let mounted = true;
-    
+
     const fetchProducts = async () => {
       setLoading(true);
       try {
         const cat = (categoryName || '').trim();
-        if (!cat) {
-          setProducts([]);
-          return;
-        }
+        if (!cat) { setPool([]); return; }
 
-        // Fetch more products to compensate for later filtering by stock
         const [productsRes] = await Promise.all([
           supabase
             .from('products')
@@ -41,20 +41,18 @@ const CategoryProductCarousel = memo(({ categoryName, showAgeBadge = true }: Cat
             .eq('category', cat.trim())
             .eq('is_visible', true)
             .order('created_at', { ascending: false })
-            .limit(24), // Reduced from 48 to 24 for better performance
+            .limit(30),
         ]);
 
         if (!mounted) return;
 
         const parentProducts = productsRes.data || [];
         if (productsRes.error || parentProducts.length === 0) {
-          // No products found for this category
-          setProducts([]);
+          setPool([]);
           return;
         }
 
         const productIds = parentProducts.map((p: any) => p.id);
-
         const { data: variants } = await supabase
           .from('product_variants')
           .select('id, product_id, price, pix_price, stock_quantity')
@@ -70,56 +68,37 @@ const CategoryProductCarousel = memo(({ categoryName, showAgeBadge = true }: Cat
             const totalStock = prodVariants.reduce((s: number, v: any) => s + (v.stock_quantity || 0), 0);
             if (totalStock > 0) {
               finalList.push({
-                id: prod.id,
-                name: prod.name,
+                id: prod.id, name: prod.name,
                 price: Math.min(...prodVariants.map((v: any) => v.price ?? 0)),
                 pixPrice: Math.min(...prodVariants.map((v: any) => v.pix_price ?? v.price ?? 0)),
-                imageUrl: prod.image_url || '',
-                stockQuantity: totalStock,
-                hasMultipleVariants: true,
-                showAgeBadge,
+                imageUrl: prod.image_url || '', stockQuantity: totalStock,
+                hasMultipleVariants: true, showAgeBadge,
               });
             }
           } else if (prod.stock_quantity > 0) {
             finalList.push({
-              id: prod.id,
-              name: prod.name,
-              price: prod.price ?? 0,
-              pixPrice: prod.pix_price ?? null,
-              imageUrl: prod.image_url || '',
-              stockQuantity: prod.stock_quantity,
-              hasMultipleVariants: false,
-              showAgeBadge,
+              id: prod.id, name: prod.name,
+              price: prod.price ?? 0, pixPrice: prod.pix_price ?? null,
+              imageUrl: prod.image_url || '', stockQuantity: prod.stock_quantity,
+              hasMultipleVariants: false, showAgeBadge,
             });
           }
         });
 
-        if (mounted) {
-          // Always show up to 6 products on the landing carousel
-          const visible = finalList.slice(0, 6);
-          setProducts(visible);
-        }
+        if (mounted) setPool(finalList);
       } catch (err) {
         console.error('[CategoryProductCarousel] error:', err);
-        if (mounted) {
-          setProducts([]);
-        }
+        if (mounted) setPool([]);
       } finally {
-        if (mounted) {
-          setLoading(false);
-        }
+        if (mounted) setLoading(false);
       }
     };
 
     fetchProducts();
-    
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [categoryName, showAgeBadge]);
 
-  // Se terminou de carregar e não há produtos com estoque, oculta a seção inteira
-  if (!loading && products.length === 0) return null;
+  if (!loading && pool.length === 0) return null;
 
   return (
     <section className="container mx-auto px-4 md:px-6 xl:px-8 py-3 md:py-5 xl:py-6">
@@ -129,8 +108,10 @@ const CategoryProductCarousel = memo(({ categoryName, showAgeBadge = true }: Cat
             {categoryName}
           </h3>
         </div>
-        {/* Always show "Ver tudo" and make it visible on mobile as well */}
-        <Link to={`/produtos?category=${encodeURIComponent(categoryName)}`} className="text-[10px] xl:text-xs font-bold uppercase tracking-widest hover:text-sky-400 transition-colors">
+        <Link
+          to={`/produtos?category=${encodeURIComponent(categoryName)}`}
+          className="text-[10px] xl:text-xs font-bold uppercase tracking-widest hover:text-sky-400 transition-colors"
+        >
           Ver tudo →
         </Link>
       </div>
@@ -147,29 +128,26 @@ const CategoryProductCarousel = memo(({ categoryName, showAgeBadge = true }: Cat
             </CarouselContent>
           </Carousel>
         ) : products.length > 0 ? (
-          <Carousel opts={{ align: "start", loop: products.length > 4 }} className="w-full">
-            <CarouselContent className="-ml-1 md:-ml-2">
-              {products.map((p, idx) => (
-                <CarouselItem key={`${p.id}-${idx}`} className="pl-1 md:pl-2 basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/5">
-                  <ProductCard product={{ 
-                    id: p.id, 
-                    name: p.name, 
-                    price: p.price, 
-                    pixPrice: p.pixPrice, 
-                    imageUrl: p.imageUrl,
-                    stockQuantity: p.stockQuantity,
-                    variantId: p.variantId,
-                    hasMultipleVariants: p.hasMultipleVariants,
-                    showAgeBadge: p.showAgeBadge
-                  }} imagePriority={idx < 2} />
-                </CarouselItem>
-              ))}
-            </CarouselContent>
-            <div className="hidden md:block">
-              <CarouselPrevious className="bg-slate-900 border-white/10 text-white hover:bg-sky-500" />
-              <CarouselNext className="bg-slate-900 border-white/10 text-white hover:bg-sky-500" />
-            </div>
-          </Carousel>
+          <div className="transition-opacity duration-300" style={{ opacity: fade ? 1 : 0 }}>
+            <Carousel opts={{ align: "start", loop: products.length > 4 }} className="w-full">
+              <CarouselContent className="-ml-1 md:-ml-2">
+                {products.map((p, idx) => (
+                  <CarouselItem key={`${p.id}-${idx}`} className="pl-1 md:pl-2 basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/5">
+                    <ProductCard product={{
+                      id: p.id, name: p.name, price: p.price, pixPrice: p.pixPrice,
+                      imageUrl: p.imageUrl, stockQuantity: p.stockQuantity,
+                      variantId: p.variantId, hasMultipleVariants: p.hasMultipleVariants,
+                      showAgeBadge: p.showAgeBadge
+                    }} imagePriority={idx < 2} />
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+              <div className="hidden md:block">
+                <CarouselPrevious className="bg-slate-900 border-white/10 text-white hover:bg-sky-500" />
+                <CarouselNext className="bg-slate-900 border-white/10 text-white hover:bg-sky-500" />
+              </div>
+            </Carousel>
+          </div>
         ) : (
           <div className="h-10 md:h-20" />
         )}

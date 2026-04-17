@@ -19,7 +19,7 @@ const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE)
 serve(async (req) => {
   // Respond to preflight
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return new Response('ok', { status: 200, headers: corsHeaders })
   }
 
   // Health check — mantém a função aquecida

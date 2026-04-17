@@ -6,6 +6,7 @@ import BrandProductsModal from "./BrandProductsModal";
 import { CartSheet } from "./CartSheet";
 import Footer from "./Footer";
 import DeliveryTimerBar from "./DeliveryTimerBar";
+import NetworkErrorBanner from "./NetworkErrorBanner";
 
 // Lazy load de componentes não-críticos — tira framer-motion do bundle inicial
 const SocialProofPopup = lazy(() => import("./SocialProofPopup"));
@@ -65,6 +66,8 @@ const MainLayout = () => {
       <Suspense fallback={null}>
         <SocialProofPopup />
       </Suspense>
+      {/* Banner de erro de conexão — aparece automaticamente se o WiFi bloquear o Supabase */}
+      <NetworkErrorBanner />
     </div>
   );
 };

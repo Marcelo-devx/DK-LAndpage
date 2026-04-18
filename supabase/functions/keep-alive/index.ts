@@ -21,6 +21,7 @@ const FUNCTIONS_TO_WARM = [
   'reset-user-password',
   'health-check',
   // Pedidos / pagamento
+  'process-mercadopago-payment',
   'create-mercadopago-preference',
   'create-mercadopago-pix',
   'get-mercadopago-status',

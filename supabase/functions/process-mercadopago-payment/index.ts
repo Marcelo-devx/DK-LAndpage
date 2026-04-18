@@ -1,4 +1,4 @@
-// redeploy: 2026-04-17T20:25:00Z — cors fix preflight body
+// redeploy: 2026-04-18T02:30:00Z — force redeploy v2
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 // @ts-ignore

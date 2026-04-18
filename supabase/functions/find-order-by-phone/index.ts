@@ -48,6 +48,7 @@ function normalizePhone(raw: string): string[] {
   return Array.from(variants);
 }
 
+// redeploy: v2
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { status: 200, headers: corsHeaders });

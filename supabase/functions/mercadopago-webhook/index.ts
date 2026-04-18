@@ -16,6 +16,7 @@ const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 
 const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE)
 
+// redeploy: v2
 serve(async (req) => {
   // Respond to preflight
   if (req.method === 'OPTIONS') {

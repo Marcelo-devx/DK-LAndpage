@@ -11,6 +11,7 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 }
 
+// redeploy: v2
 serve(async (req) => {
   // ← SEMPRE responde ao preflight OPTIONS primeiro — nunca pode falhar
   if (req.method === 'OPTIONS') {

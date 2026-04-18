@@ -9,6 +9,7 @@ const SUPABASE_SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 // Use service role to bypass RLS and insert logs
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE)
 
+// redeploy: v2
 serve(async (req) => {
   const requestId = crypto.randomUUID()
   const origin = req.headers.get('origin')

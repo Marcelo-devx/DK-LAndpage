@@ -10,6 +10,7 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 }
 
+// redeploy: v2
 serve(async (req: Request) => {
   // Preflight — DEVE responder 200 imediatamente, antes de qualquer lógica
   if (req.method === 'OPTIONS') {

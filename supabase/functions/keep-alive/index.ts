@@ -11,7 +11,7 @@ const corsHeaders = {
 
 // Todas as edge functions que precisam ficar aquecidas
 const FUNCTIONS_TO_WARM = [
-  // Auth / cadastro / email — críticas para o fluxo de usuário
+  // Auth / cadastro / email
   'generate-token',
   'validate-token',
   'send-email-via-resend',
@@ -19,15 +19,20 @@ const FUNCTIONS_TO_WARM = [
   'forgot-password',
   'notify-password-change',
   'reset-user-password',
+  'update-password-admin',
   'health-check',
   // Pedidos / pagamento
   'process-mercadopago-payment',
   'create-mercadopago-preference',
+  'create-mp-preference',
   'create-mercadopago-pix',
   'get-mercadopago-status',
+  'mercadopago-webhook',
   'mp-webhook',
   'update-order-status',
   'get-order-details',
+  'get-order-public',
+  'find-order-by-phone',
   'admin-get-order-history',
   'admin-update-order',
   'admin-cancel-order',
@@ -41,12 +46,14 @@ const FUNCTIONS_TO_WARM = [
   'n8n-receive-order',
   'dispatch-webhook',
   'trigger-integration',
+  'log-integration',
   // Cloudinary
   'cloudinary-upload',
   'cloudinary-list-images',
   'cloudinary-delete-image',
   'cloudinary-usage',
   // Outros
+  'chat-proxy',
   'catalog-api',
   'analytics-bi',
   'actionable-insights',

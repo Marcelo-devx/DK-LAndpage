@@ -1,5 +1,6 @@
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
+// redeploy: v2
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',

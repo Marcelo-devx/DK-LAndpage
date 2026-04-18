@@ -1,4 +1,5 @@
-// redeploy: 2026-04-17T20:25:00Z — cors fix preflight body
+// redeploy: 2026-04-18T02:20:00Z — force redeploy
+// @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 import { getCorsHeaders, createPreflightResponse } from '../_shared/cors.ts'

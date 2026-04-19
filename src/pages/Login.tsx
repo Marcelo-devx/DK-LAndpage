@@ -285,14 +285,11 @@ const Login = () => {
 
     setIsSendingCode(true);
     try {
-      // ── VERIFICAÇÃO: email já cadastrado? ──
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('email', email)
-        .maybeSingle();
+      // ── VERIFICAÇÃO: email já cadastrado? (via RPC para contornar RLS) ──
+      const { data: emailExists, error: rpcError } = await supabase
+        .rpc('check_email_exists', { email_input: email });
 
-      if (existingProfile) {
+      if (!rpcError && emailExists === true) {
         setEmailAlreadyExists(true);
         return;
       }

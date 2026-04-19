@@ -5,25 +5,76 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { Loader2, Lock, ShieldCheck, Check, X, AlertTriangle } from 'lucide-react';
+import { showSuccess, showLoading, dismissToast } from '@/utils/toast';
+import { Loader2, Lock, ShieldCheck, Check, X, AlertTriangle, ShieldAlert, ShieldX } from 'lucide-react';
 import { logger } from '@/lib/logger';
 
 // const SUPABASE_URL moved to env; we now use supabase.functions.invoke where possible
 
-const translateError = (msg: string): string => {
+const translateError = (msg: string): { message: string; hint?: string; code?: string } => {
   const m = msg.toLowerCase();
-  if (m.includes('pwned') || m.includes('vazamento') || m.includes('comprometida'))
-    return 'Esta senha foi encontrada em vazamentos de dados. Escolha uma senha diferente e mais segura.';
-  if (m.includes('weak') || m.includes('easy to guess') || m.includes('comum'))
-    return 'Essa senha é muito comum. Por favor, escolha uma senha mais forte e única.';
-  if (m.includes('same as') || m.includes('igual'))
-    return 'A nova senha não pode ser igual à senha temporária. Crie uma senha própria.';
-  if (m.includes('at least') || m.includes('caracteres'))
-    return 'A senha deve ter pelo menos 8 caracteres.';
-  if (m.includes('session') || m.includes('sessão') || m.includes('token'))
-    return 'Sessão expirada. Por favor, faça login novamente.';
-  return msg;
+  if (m.includes('pwned') || m.includes('vazamento') || m.includes('comprometida') || m.includes('leaked') || m.includes('breached')) {
+    return {
+      code: 'pwned',
+      message: 'Senha encontrada em vazamentos de dados!',
+      hint: 'Esta senha já foi exposta em vazamentos públicos e não pode ser usada. Crie uma senha única que você nunca usou antes.',
+    };
+  }
+  if (m.includes('weak') || m.includes('easy to guess') || m.includes('comum') || m.includes('common') || m.includes('fraca')) {
+    return {
+      code: 'weak',
+      message: 'Senha muito fraca ou comum.',
+      hint: 'Evite senhas óbvias como "123456" ou "senha". Use uma combinação de letras maiúsculas, minúsculas, números e símbolos.',
+    };
+  }
+  if (m.includes('same as') || m.includes('igual') || m.includes('previous')) {
+    return { message: 'A nova senha não pode ser igual à senha anterior. Crie uma senha diferente.' };
+  }
+  if (m.includes('at least') || m.includes('caracteres') || m.includes('minimum')) {
+    return { message: 'A senha deve ter pelo menos 8 caracteres.' };
+  }
+  if (m.includes('session') || m.includes('sessão') || m.includes('token')) {
+    return { message: 'Sessão expirada. Por favor, faça login novamente.' };
+  }
+  return { message: msg };
+};
+
+// Componente de erro inline
+const PasswordErrorAlert = ({ code, message, hint }: { code?: string; message: string; hint?: string }) => {
+  const isPwned = code === 'pwned';
+  const isWeak = code === 'weak';
+  return (
+    <div className={`flex gap-3 rounded-xl p-4 border animate-in fade-in slide-in-from-top-1 duration-200 ${
+      isPwned
+        ? 'bg-red-500/10 border-red-500/30'
+        : isWeak
+        ? 'bg-orange-500/10 border-orange-500/30'
+        : 'bg-red-500/10 border-red-500/30'
+    }`}>
+      <div className="shrink-0 mt-0.5">
+        {isPwned
+          ? <ShieldX className="h-5 w-5 text-red-400" />
+          : isWeak
+          ? <ShieldAlert className="h-5 w-5 text-orange-400" />
+          : <AlertTriangle className="h-5 w-5 text-red-400" />}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className={`text-sm font-bold ${isPwned ? 'text-red-300' : isWeak ? 'text-orange-300' : 'text-red-300'}`}>
+          {message}
+        </p>
+        {hint && (
+          <p className={`text-xs mt-1 leading-relaxed ${isPwned ? 'text-red-400/80' : isWeak ? 'text-orange-400/80' : 'text-red-400/80'}`}>
+            {hint}
+          </p>
+        )}
+        {(isPwned || isWeak) && (
+          <p className="text-xs mt-2 font-semibold text-slate-400">
+            💡 Dica: tente algo como <span className="font-mono text-slate-300">MinhaLoja@2025!</span>
+          </p>
+        )}
+      </div>
+    </div>
+  );
 };
 
 const UpdatePassword = () => {
@@ -35,6 +86,7 @@ const UpdatePassword = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
+  const [passwordError, setPasswordError] = useState<{ code?: string; message: string; hint?: string } | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -57,21 +109,21 @@ const UpdatePassword = () => {
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    setPasswordError(null);
 
-    if (!checks.length) { showError('A senha deve ter pelo menos 8 caracteres.'); return; }
-    if (!checks.upper) { showError('A senha deve conter pelo menos 1 letra maiúscula.'); return; }
-    if (!checks.number) { showError('A senha deve conter pelo menos 1 número.'); return; }
-    if (!checks.special) { showError('A senha deve conter pelo menos 1 caractere especial (!@#$%...).'); return; }
-    if (!checks.match) { showError('As senhas não coincidem.'); return; }
+    if (!checks.length) { setPasswordError({ message: 'A senha deve ter pelo menos 8 caracteres.' }); return; }
+    if (!checks.upper) { setPasswordError({ message: 'A senha deve conter pelo menos 1 letra maiúscula.' }); return; }
+    if (!checks.number) { setPasswordError({ message: 'A senha deve conter pelo menos 1 número.' }); return; }
+    if (!checks.special) { setPasswordError({ message: 'A senha deve conter pelo menos 1 caractere especial (!@#$%...).' }); return; }
+    if (!checks.match) { setPasswordError({ message: 'As senhas não coincidem.' }); return; }
 
     setLoading(true);
     const toastId = showLoading('Criando sua senha...');
 
-    // Watchdog: garante que o loading nunca trava para sempre
     const watchdog = setTimeout(() => {
       dismissToast(toastId);
       setLoading(false);
-      showError('A operação demorou demais. Tente novamente.');
+      setPasswordError({ message: 'A operação demorou demais. Tente novamente.' });
       console.error('[UpdatePassword] watchdog disparado — updateUser travou');
     }, 20000);
 
@@ -83,37 +135,37 @@ const UpdatePassword = () => {
         clearTimeout(watchdog);
         dismissToast(toastId);
         setLoading(false);
-        showError('Sessão expirada. Por favor, faça login novamente.');
+        setPasswordError({ message: 'Sessão expirada. Por favor, faça login novamente.' });
         navigate('/login', { replace: true });
         return;
       }
 
-      const accessToken = session.access_token;
-      const userId = session.user.id;
-      const userEmail = session.user.email || '';
-
       logger.log('[UpdatePassword] Chamando update-password-admin via edge function...');
 
-      // Usar a edge function com service role — bypassa HaveIBeenPwned e evita travamento
       const controller = new AbortController();
       const fetchTimeout = setTimeout(() => controller.abort(), 18000);
 
-      let updRes: Response;
+      let updRes: { ok: boolean; status: number };
       let updData: any = {};
       try {
         const invokeRes = await supabase.functions.invoke('update-password-admin', { body: { newPassword: password } });
-                // Normalize response shape
-                updRes = { ok: !invokeRes.error, status: invokeRes.error ? 500 : 200 } as any;
-                updData = invokeRes.data || {};
+        updRes = { ok: !invokeRes.error && !invokeRes.data?.error, status: invokeRes.error ? 500 : 200 };
+        updData = invokeRes.data || {};
+
+        // Se a edge function retornou erro HTTP (invokeRes.error), tenta extrair a mensagem
+        if (invokeRes.error) {
+          const errMsg = invokeRes.error?.message || '';
+          updData = { error: errMsg };
+        }
       } catch (fetchErr: any) {
         clearTimeout(fetchTimeout);
         clearTimeout(watchdog);
         dismissToast(toastId);
         setLoading(false);
         if (fetchErr?.name === 'AbortError') {
-          showError('A operação demorou demais. Tente novamente.');
+          setPasswordError({ message: 'A operação demorou demais. Tente novamente.' });
         } else {
-          showError('Erro de conexão. Verifique sua internet e tente novamente.');
+          setPasswordError({ message: 'Erro de conexão. Verifique sua internet e tente novamente.' });
         }
         console.error('[UpdatePassword] fetch error:', fetchErr);
         return;
@@ -123,21 +175,20 @@ const UpdatePassword = () => {
 
       logger.log('[UpdatePassword] Resultado update-password-admin:', { status: updRes.status, data: updData });
 
-      if (!updRes.ok) {
+      if (!updRes.ok || updData?.error) {
         clearTimeout(watchdog);
         dismissToast(toastId);
         setLoading(false);
-        showError(translateError(updData?.error || `Erro ao atualizar senha (${updRes.status})`));
+        const errMsg = updData?.error || 'Erro ao atualizar senha';
+        setPasswordError(translateError(errMsg));
         return;
       }
 
-      // must_change_password é limpo pela edge function update-password-admin via service role
       clearTimeout(watchdog);
       dismissToast(toastId);
       setLoading(false);
       showSuccess('Senha criada com sucesso! Faça login com sua nova senha.');
 
-      // Fazer signOut para limpar tokens antigos antes de redirecionar
       await supabase.auth.signOut();
       setTimeout(() => {
         navigate('/login', { replace: true, state: { passwordChanged: true } });
@@ -149,10 +200,10 @@ const UpdatePassword = () => {
       setLoading(false);
 
       if (err?.name === 'AbortError') {
-        showError('A operação demorou demais. Tente novamente.');
+        setPasswordError({ message: 'A operação demorou demais. Tente novamente.' });
         console.error('[UpdatePassword] fetch abortado por timeout');
       } else {
-        showError(translateError(err?.message || 'Erro inesperado. Tente novamente.'));
+        setPasswordError(translateError(err?.message || 'Erro inesperado. Tente novamente.'));
         console.error('[UpdatePassword] erro inesperado:', err);
       }
     }
@@ -204,6 +255,16 @@ const UpdatePassword = () => {
 
         <CardContent className="p-8 pt-4 space-y-6">
           <form onSubmit={handleUpdatePassword} className="space-y-4">
+
+            {/* Erro inline */}
+            {passwordError && (
+              <PasswordErrorAlert
+                code={passwordError.code}
+                message={passwordError.message}
+                hint={passwordError.hint}
+              />
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="password" className="text-slate-300">
                 {isMandatory ? 'Sua Nova Senha' : 'Nova Senha'}
@@ -214,7 +275,7 @@ const UpdatePassword = () => {
                   id="password"
                   type="password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => { setPassword(e.target.value); setPasswordError(null); }}
                   className="pl-10 h-12 bg-slate-950 border-white/10 text-white rounded-xl focus:border-sky-500 transition-colors"
                   placeholder="••••••••"
                   required
@@ -241,7 +302,7 @@ const UpdatePassword = () => {
                   id="confirmPassword"
                   type="password"
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onChange={(e) => { setConfirmPassword(e.target.value); setPasswordError(null); }}
                   className="pl-10 h-12 bg-slate-950 border-white/10 text-white rounded-xl focus:border-sky-500 transition-colors"
                   placeholder="••••••••"
                   required

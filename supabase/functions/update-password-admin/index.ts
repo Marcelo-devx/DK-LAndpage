@@ -80,10 +80,30 @@ serve(async (req) => {
 
     if (!updateRes.ok) {
       const errBody = await updateRes.json().catch(() => ({}));
+      const rawMsg = (errBody?.message || errBody?.error_description || errBody?.error || '').toLowerCase();
       console.error('[update-password-admin] REST API error', updateRes.status, errBody);
+
+      // Detectar senha fraca / vazada e retornar mensagem amigável
+      let friendlyError = 'Falha ao atualizar a senha. Tente novamente.';
+      let errorCode = 'unknown';
+
+      if (rawMsg.includes('pwned') || rawMsg.includes('haveibeenpwned') || rawMsg.includes('leaked') || rawMsg.includes('breached')) {
+        friendlyError = 'Esta senha foi encontrada em vazamentos de dados públicos. Por segurança, escolha uma senha diferente e mais segura.';
+        errorCode = 'password_pwned';
+      } else if (rawMsg.includes('weak') || rawMsg.includes('easy to guess') || rawMsg.includes('too common') || rawMsg.includes('common')) {
+        friendlyError = 'Essa senha é muito fraca ou comum. Escolha uma senha mais forte com letras, números e símbolos.';
+        errorCode = 'password_weak';
+      } else if (rawMsg.includes('same as') || rawMsg.includes('different from') || rawMsg.includes('previous')) {
+        friendlyError = 'A nova senha não pode ser igual à senha anterior. Crie uma senha diferente.';
+        errorCode = 'password_same';
+      } else if (rawMsg.includes('at least') || rawMsg.includes('minimum') || rawMsg.includes('characters')) {
+        friendlyError = 'A senha deve ter pelo menos 8 caracteres.';
+        errorCode = 'password_too_short';
+      }
+
       return new Response(
-        JSON.stringify({ error: errBody?.message || 'Falha ao atualizar a senha. Tente novamente.' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: friendlyError, code: errorCode }),
+        { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 

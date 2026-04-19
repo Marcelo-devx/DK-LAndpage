@@ -73,6 +73,15 @@
   }
 }
 
+/* Esconde scrollbar mantendo scroll funcional */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 .glass-effect {
   @apply bg-white/60 backdrop-blur-xl border border-white/40;
 }

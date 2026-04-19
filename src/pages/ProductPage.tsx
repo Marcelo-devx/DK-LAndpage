@@ -68,6 +68,7 @@ const ProductPage = () => {
   const [quantity, setQuantity] = useState(1);
   const [recommendedProducts, setRecommendedProducts] = useState<DisplayProduct[]>([]);
   const [loadingRecommended, setLoadingRecommended] = useState(true);
+  const [descExpanded, setDescExpanded] = useState(false);
 
   const { handleAddToCart, isAdding } = useAddToCart();
 
@@ -589,15 +590,32 @@ const ProductPage = () => {
                   Detalhes do Produto.
                 </h2>
               </div>
-              
-              <div className="prose prose-stone prose-base md:prose-lg xl:prose-xl max-w-none text-slate-600 leading-relaxed font-medium">
+
+              {/* Mobile: colapsável */}
+              <div className="md:hidden">
+                <div className={cn(
+                  "prose prose-stone prose-sm max-w-none text-slate-600 leading-relaxed font-medium overflow-hidden transition-all duration-300",
+                  descExpanded ? "max-h-[2000px]" : "max-h-[120px] [mask-image:linear-gradient(to_bottom,black_60%,transparent_100%)]"
+                )}>
+                  <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(product.description || 'Sem descrição disponível.') }} />
+                </div>
+                <button
+                  onClick={() => setDescExpanded(v => !v)}
+                  className="mt-3 text-sky-500 font-black text-xs uppercase tracking-widest flex items-center gap-1"
+                >
+                  {descExpanded ? 'Ver menos ▲' : 'Ver mais ▼'}
+                </button>
+              </div>
+
+              {/* Desktop: completo */}
+              <div className="hidden md:block prose prose-stone prose-base md:prose-lg xl:prose-xl max-w-none text-slate-600 leading-relaxed font-medium">
                 <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(product.description || 'Sem descrição disponível.') }} />
               </div>
             </CardContent>
           </Card>
         </div>
         
-        {/* Produtos Recomendados - SEMPRE MOSTRAR (compact) */}
+        {/* Produtos Recomendados */}
         <div className="w-full mt-6 md:mt-8 xl:mt-10">
           <Card className="bg-white border-none shadow-[0_10px_30px_-18px_rgba(0,0,0,0.06)] rounded-[1.25rem] overflow-hidden">
             <CardContent className="p-4 md:p-6 xl:p-8">
@@ -611,34 +629,70 @@ const ProductPage = () => {
               </div>
 
               {loadingRecommended ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-                  {Array.from({ length: 3 }).map((_, index) => (
-                    <div key={index} className="flex flex-col space-y-2">
-                      <Skeleton className="w-full rounded-2xl aspect-[4/5] bg-stone-200" />
-                      <Skeleton className="h-3 w-3/4 rounded-lg bg-stone-200" />
-                      <Skeleton className="h-3 w-1/2 rounded-lg bg-stone-200" />
-                    </div>
-                  ))}
-                </div>
+                <>
+                  {/* Mobile skeleton carrossel */}
+                  <div className="md:hidden flex gap-3 overflow-hidden">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <div key={i} className="flex flex-col space-y-2 min-w-[160px]">
+                        <Skeleton className="w-full rounded-2xl h-[180px] bg-stone-200" />
+                        <Skeleton className="h-3 w-3/4 rounded-lg bg-stone-200" />
+                        <Skeleton className="h-3 w-1/2 rounded-lg bg-stone-200" />
+                      </div>
+                    ))}
+                  </div>
+                  {/* Desktop skeleton grid */}
+                  <div className="hidden md:grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                    {Array.from({ length: 3 }).map((_, index) => (
+                      <div key={index} className="flex flex-col space-y-2">
+                        <Skeleton className="w-full rounded-2xl aspect-[4/5] bg-stone-200" />
+                        <Skeleton className="h-3 w-3/4 rounded-lg bg-stone-200" />
+                        <Skeleton className="h-3 w-1/2 rounded-lg bg-stone-200" />
+                      </div>
+                    ))}
+                  </div>
+                </>
               ) : recommendedProducts.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-                  {recommendedProducts.map((p) => (
-                    <div key={p.id} className="transform-gpu scale-95 origin-top">
-                      <ProductCard
-                        product={{
-                          id: p.id,
-                          name: p.name,
-                          price: p.price,
-                          pixPrice: p.pixPrice,
-                          imageUrl: p.imageUrl,
-                          stockQuantity: p.stockQuantity,
-                          hasMultipleVariants: p.hasMultipleVariants,
-                          showAgeBadge: p.showAgeBadge,
-                        }}
-                      />
-                    </div>
-                  ))}
-                </div>
+                <>
+                  {/* Mobile: carrossel horizontal */}
+                  <div className="md:hidden flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide -mx-4 px-4">
+                    {recommendedProducts.map((p) => (
+                      <div key={p.id} className="snap-start shrink-0 w-[160px]">
+                        <ProductCard
+                          product={{
+                            id: p.id,
+                            name: p.name,
+                            price: p.price,
+                            pixPrice: p.pixPrice,
+                            imageUrl: p.imageUrl,
+                            stockQuantity: p.stockQuantity,
+                            hasMultipleVariants: p.hasMultipleVariants,
+                            showAgeBadge: p.showAgeBadge,
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Desktop: grid */}
+                  <div className="hidden md:grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                    {recommendedProducts.map((p) => (
+                      <div key={p.id} className="transform-gpu scale-95 origin-top">
+                        <ProductCard
+                          product={{
+                            id: p.id,
+                            name: p.name,
+                            price: p.price,
+                            pixPrice: p.pixPrice,
+                            imageUrl: p.imageUrl,
+                            stockQuantity: p.stockQuantity,
+                            hasMultipleVariants: p.hasMultipleVariants,
+                            showAgeBadge: p.showAgeBadge,
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </>
               ) : (
                 <div className="text-center py-6">
                   <p className="text-slate-500 text-sm font-medium">

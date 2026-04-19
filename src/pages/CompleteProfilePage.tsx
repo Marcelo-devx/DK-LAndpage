@@ -181,23 +181,19 @@ const CompleteProfilePage = () => {
         currentUserId = session?.user?.id || '';
       }
 
-      // Busca pelo CPF limpo (sem máscara) — padrão do banco
-      const { data: existingClean } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('cpf_cnpj', clean)
-        .neq('id', currentUserId)
-        .maybeSingle();
+      // Usa função RPC com SECURITY DEFINER — bypassa RLS para verificar duplicata
+      const { data: cpfExists, error } = await supabase.rpc('check_cpf_exists', {
+        cpf_input: clean,
+        exclude_user_id: currentUserId || null,
+      });
 
-      // Busca também pelo CPF com máscara (caso antigo)
-      const { data: existingMasked } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('cpf_cnpj', raw)
-        .neq('id', currentUserId)
-        .maybeSingle();
+      if (error) {
+        console.error('[CompleteProfilePage] check_cpf_exists error:', error);
+        setCpfError('Não foi possível verificar o CPF. Tente novamente.');
+        return;
+      }
 
-      if (existingClean || existingMasked) {
+      if (cpfExists === true) {
         setCpfError('Este CPF/CNPJ já está cadastrado em outra conta.');
         setCpfValidated(false);
       } else {
@@ -205,7 +201,6 @@ const CompleteProfilePage = () => {
       }
     } catch (e) {
       console.error('[CompleteProfilePage] checkCpfDuplicate error', e);
-      setCpfValidated(false);
       setCpfError('Não foi possível verificar o CPF. Tente novamente.');
     } finally {
       clearTimeout(watchdog);
@@ -375,24 +370,14 @@ const CompleteProfilePage = () => {
       }
 
       const cleanCpf = data.cpf_cnpj.replace(/\D/g, '');
-      const rawCpf = data.cpf_cnpj;
 
-      // ── Verificação final de CPF duplicado antes de salvar ──
-      const { data: cpfConflictClean } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('cpf_cnpj', cleanCpf)
-        .neq('id', currentUserId)
-        .maybeSingle();
+      // ── Verificação final de CPF duplicado antes de salvar (usa RPC para bypassar RLS) ──
+      const { data: cpfExists } = await supabase.rpc('check_cpf_exists', {
+        cpf_input: cleanCpf,
+        exclude_user_id: currentUserId || null,
+      });
 
-      const { data: cpfConflictMasked } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('cpf_cnpj', rawCpf)
-        .neq('id', currentUserId)
-        .maybeSingle();
-
-      if (cpfConflictClean || cpfConflictMasked) {
+      if (cpfExists === true) {
         dismissToast(toastId);
         showError('Este CPF/CNPJ já está cadastrado em outra conta.');
         setCpfError('Este CPF/CNPJ já está cadastrado em outra conta.');

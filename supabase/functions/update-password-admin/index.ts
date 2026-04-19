@@ -18,27 +18,34 @@ const ok = (data: object) =>
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 
-const friendlyPasswordError = (rawMsg: string): { error: string; code: string } => {
-  const m = rawMsg.toLowerCase();
-  if (m.includes('pwned') || m.includes('haveibeenpwned') || m.includes('leaked') || m.includes('breached')) {
+const friendlyPasswordError = (errBody: any): { error: string; code: string } => {
+  // Supabase retorna: { error_code: "weak_password", msg: "...", weak_password: { reasons: ["pwned"] } }
+  const errorCode = errBody?.error_code || '';
+  const reasons: string[] = errBody?.weak_password?.reasons || [];
+  const rawMsg = (errBody?.msg || errBody?.message || errBody?.error_description || errBody?.error || '').toLowerCase();
+
+  const isPwned = reasons.includes('pwned') || rawMsg.includes('pwned') || rawMsg.includes('haveibeenpwned') || rawMsg.includes('leaked');
+  const isWeak = errorCode === 'weak_password' || rawMsg.includes('weak') || rawMsg.includes('easy to guess') || rawMsg.includes('too common');
+
+  if (isPwned) {
     return {
       error: 'Esta senha foi encontrada em vazamentos de dados públicos. Por segurança, escolha uma senha diferente e mais segura.',
       code: 'password_pwned',
     };
   }
-  if (m.includes('weak') || m.includes('easy to guess') || m.includes('too common') || m.includes('common')) {
+  if (isWeak) {
     return {
       error: 'Essa senha é muito fraca ou comum. Escolha uma senha mais forte com letras, números e símbolos.',
       code: 'password_weak',
     };
   }
-  if (m.includes('same as') || m.includes('different from') || m.includes('previous')) {
+  if (rawMsg.includes('same as') || rawMsg.includes('different from') || rawMsg.includes('previous')) {
     return {
       error: 'A nova senha não pode ser igual à senha anterior. Crie uma senha diferente.',
       code: 'password_same',
     };
   }
-  if (m.includes('at least') || m.includes('minimum') || m.includes('characters')) {
+  if (rawMsg.includes('at least') || rawMsg.includes('minimum') || rawMsg.includes('characters')) {
     return {
       error: 'A senha deve ter pelo menos 8 caracteres.',
       code: 'password_too_short',
@@ -50,7 +57,7 @@ const friendlyPasswordError = (rawMsg: string): { error: string; code: string } 
   };
 };
 
-// redeploy: v3
+// redeploy: v4
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { status: 200, headers: corsHeaders });
@@ -107,9 +114,8 @@ serve(async (req) => {
 
     if (!updateRes.ok) {
       const errBody = await updateRes.json().catch(() => ({}));
-      const rawMsg = errBody?.message || errBody?.error_description || errBody?.error || '';
       console.error('[update-password-admin] REST API error', updateRes.status, errBody);
-      return ok({ success: false, ...friendlyPasswordError(rawMsg) });
+      return ok({ success: false, ...friendlyPasswordError(errBody) });
     }
 
     console.log('[update-password-admin] senha atualizada com sucesso para userId:', userId);

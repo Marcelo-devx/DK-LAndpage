@@ -156,6 +156,7 @@ const Login = () => {
   const [isVerifying, setIsVerifying] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [signUpError, setSignUpError] = useState<{ message: string; hint?: string } | null>(null);
+  const [emailAlreadyExists, setEmailAlreadyExists] = useState(false);
 
   // ── FORGOT PASSWORD state ──
   const [forgotEmail, setForgotEmail] = useState('');
@@ -185,7 +186,6 @@ const Login = () => {
 
       logger.log('[Login] perfil recebido:', { profile, profileError });
 
-      // Prioridade 1: Usuário precisa trocar a senha temporária
       if (profile?.must_change_password) {
         logger.log('[Login] must_change_password=true → /update-password');
         navigate('/update-password', { replace: true, state: { mandatory: true } });
@@ -193,7 +193,6 @@ const Login = () => {
       }
 
       const isProfileComplete = profileIsComplete(profile);
-
       logger.log('[Login] isProfileComplete:', isProfileComplete, '→ redirecionando para:', !isProfileComplete ? '/complete-profile' : from);
 
       if (!isProfileComplete) {
@@ -209,10 +208,7 @@ const Login = () => {
 
   useEffect(() => {
     // Listener removido - o AuthContext agora gerencia o estado de autenticação
-    // O redirectAfterLogin é chamado diretamente após login bem-sucedido
-    // para evitar race conditions com múltiplos listeners
   }, [redirectAfterLogin]);
-
 
   // Cooldown timer
   useEffect(() => {
@@ -253,7 +249,6 @@ const Login = () => {
       if (error) {
         setSignInError(translateAuthError(error.message));
       } else if (data.session) {
-        // Call directly — don't depend on onAuthStateChange to avoid race conditions
         await redirectAfterLogin(data.session);
       }
     } catch (err: any) {
@@ -263,15 +258,20 @@ const Login = () => {
     }
   };
 
-  // ── SIGN UP: enviar código ──
-  const fetchWithTimeout = (url: string, options: RequestInit, ms = 15000) => {
-    const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), ms);
-    return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(id));
+  // ── Ir para Esqueci minha senha com email pré-preenchido ──
+  const goToForgotPassword = (email: string) => {
+    setForgotEmail(email);
+    setEmailAlreadyExists(false);
+    setSignUpError(null);
+    setCodeSent(false);
+    setOtp('');
+    setView('forgot_password');
   };
 
+  // ── SIGN UP: enviar código ──
   const sendCode = async () => {
     setSignUpError(null);
+    setEmailAlreadyExists(false);
     const email = emailForSignup.trim().toLowerCase();
 
     if (!email) {
@@ -285,6 +285,18 @@ const Login = () => {
 
     setIsSendingCode(true);
     try {
+      // ── VERIFICAÇÃO: email já cadastrado? ──
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (existingProfile) {
+        setEmailAlreadyExists(true);
+        return;
+      }
+
       const genPromise = supabase.functions.invoke('generate-token', {
         body: { email, type: 'signup_otp', expires_in_seconds: 60 * 10 },
       });
@@ -292,14 +304,6 @@ const Login = () => {
         genPromise,
         new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000)),
       ]) as any;
-
-      // Extrai mensagem de erro do FunctionsHttpError ou do body
-      const getErrMsg = (res: any) => {
-        if (res?.error?.context?.json) {
-          try { return res.error.context.json()?.then?.((j: any) => j?.error) || res.error.message; } catch { /**/ }
-        }
-        return res?.error?.message || res?.data?.error || 'Erro desconhecido';
-      };
 
       if (gen.error || !gen.data?.code) {
         const errMsg = gen.data?.error || gen.error?.message || 'Erro ao gerar código';
@@ -328,7 +332,6 @@ const Login = () => {
         return;
       }
 
-      // success
       setCodeSent(true);
       setResendCooldown(60);
       showSuccess(`Código enviado para ${email}!`);
@@ -361,27 +364,13 @@ const Login = () => {
       if (val.error || !val.data?.success) {
         const msg = val.data?.error || 'invalid';
         if (msg.toLowerCase().includes('expir') || msg.toLowerCase().includes('expired')) {
-          setSignUpError({
-            message: 'Código expirado.',
-            hint: 'O código tem validade de 10 minutos. Clique em "Reenviar" para receber um novo.',
-          });
+          setSignUpError({ message: 'Código expirado.', hint: 'O código tem validade de 10 minutos. Clique em "Reenviar" para receber um novo.' });
         } else if (msg.toLowerCase().includes('já foi utilizado') || msg.toLowerCase().includes('already used')) {
-          setSignUpError({
-            message: 'Código já utilizado.',
-            hint: msg.includes('mais recente')
-              ? 'Um código mais recente foi enviado — use o último e-mail recebido. Se necessário, clique em "Reenviar".'
-              : 'Este código já foi usado. Clique em "Reenviar" para receber um novo código.',
-          });
+          setSignUpError({ message: 'Código já utilizado.', hint: msg.includes('mais recente') ? 'Um código mais recente foi enviado — use o último e-mail recebido. Se necessário, clique em "Reenviar".' : 'Este código já foi usado. Clique em "Reenviar" para receber um novo código.' });
         } else if (msg.toLowerCase().includes('nenhum código') || msg.toLowerCase().includes('no token')) {
-          setSignUpError({
-            message: 'Nenhum código encontrado.',
-            hint: 'Clique em "Reenviar" para receber um novo código no seu e-mail.',
-          });
+          setSignUpError({ message: 'Nenhum código encontrado.', hint: 'Clique em "Reenviar" para receber um novo código no seu e-mail.' });
         } else {
-          setSignUpError({
-            message: 'Código incorreto.',
-            hint: 'Verifique os 6 dígitos digitados. Se necessário, clique em "Reenviar" para um novo código.',
-          });
+          setSignUpError({ message: 'Código incorreto.', hint: 'Verifique os 6 dígitos digitados. Se necessário, clique em "Reenviar" para um novo código.' });
         }
         return;
       }
@@ -394,20 +383,15 @@ const Login = () => {
         ]);
       } catch (timeoutErr: any) {
         const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          await redirectAfterLogin(session);
-          return;
-        }
+        if (session) { await redirectAfterLogin(session); return; }
         throw timeoutErr;
       }
 
       if (createRes.error || !createRes.data?.success) {
         const errMsg = createRes.data?.error || createRes.error?.message || '';
         if (errMsg.toLowerCase().includes('already') || errMsg.toLowerCase().includes('registered')) {
-          setSignUpError({
-            message: 'Este e-mail já possui uma conta.',
-            hint: 'Vá para a aba "Entrar" e faça login. Se esqueceu a senha, use "Esqueci minha senha".',
-          });
+          setEmailAlreadyExists(true);
+          setCodeSent(false);
         } else {
           setSignUpError(translateAuthError(errMsg || 'Erro ao criar conta'));
         }
@@ -415,36 +399,24 @@ const Login = () => {
       }
 
       const { data: { session: existingSession } } = await supabase.auth.getSession();
-      if (existingSession) {
-        await redirectAfterLogin(existingSession);
-        return;
-      }
+      if (existingSession) { await redirectAfterLogin(existingSession); return; }
 
       const DEFAULT_PASSWORD = '123456';
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password: DEFAULT_PASSWORD });
 
       if (signInError) {
-        setSignUpError({
-          message: 'Este e-mail já possui cadastro com senha personalizada.',
-          hint: 'Vá para a aba "Entrar" e faça login com sua senha.',
-        });
+        setSignUpError({ message: 'Este e-mail já possui cadastro com senha personalizada.', hint: 'Vá para a aba "Entrar" e faça login com sua senha.' });
         setView('sign_in');
         return;
       }
 
-      if (signInData?.session) {
-        await redirectAfterLogin(signInData.session);
-        return;
-      }
+      if (signInData?.session) { await redirectAfterLogin(signInData.session); return; }
 
       showSuccess('Código verificado! Redirecionando...');
 
     } catch (err: any) {
       const { data: { session } } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
-      if (session) {
-        await redirectAfterLogin(session);
-        return;
-      }
+      if (session) { await redirectAfterLogin(session); return; }
       setSignUpError(translateAuthError(err?.message || 'Erro ao verificar código'));
     } finally {
       setIsVerifying(false);
@@ -468,33 +440,22 @@ const Login = () => {
     setIsSendingForgot(true);
     try {
       const res = await invokeWithRetry('forgot-password', { body: { email } });
-      if (res.attempts > 1) {
-        logger.warn('[Login] forgot-password precisou de', res.attempts, 'tentativas (cold start recuperado)');
-      }
+      if (res.attempts > 1) logger.warn('[Login] forgot-password precisou de', res.attempts, 'tentativas');
       if (res.error) {
         const errMsg = res.error.message || '';
-        logger.error('[Login] forgot-password error:', errMsg, res);
         if (errMsg.toLowerCase().includes('not found') || errMsg.toLowerCase().includes('no user')) {
-          setForgotError({
-            message: 'Nenhuma conta encontrada com este e-mail.',
-            hint: 'Verifique o e-mail digitado ou crie uma conta nova na aba "Criar Conta".',
-          });
+          setForgotError({ message: 'Nenhuma conta encontrada com este e-mail.', hint: 'Verifique o e-mail digitado ou crie uma conta nova na aba "Criar Conta".' });
         } else {
           setForgotError(translateAuthError(errMsg || 'Erro ao enviar nova senha'));
         }
         return;
       }
 
-      // Verifica se o data contém erro
       const resData = res.data as Record<string, unknown> | null;
       if (resData?.error) {
         const errMsg = String(resData.error) || '';
-        logger.error('[Login] forgot-password data error:', errMsg, res.data);
         if (errMsg.toLowerCase().includes('not found') || errMsg.toLowerCase().includes('no user') || errMsg.toLowerCase().includes('nenhuma conta')) {
-          setForgotError({
-            message: 'Nenhuma conta encontrada com este e-mail.',
-            hint: 'Verifique o e-mail digitado ou crie uma conta nova na aba "Criar Conta".',
-          });
+          setForgotError({ message: 'Nenhuma conta encontrada com este e-mail.', hint: 'Verifique o e-mail digitado ou crie uma conta nova na aba "Criar Conta".' });
         } else {
           setForgotError(translateAuthError(errMsg));
         }
@@ -519,6 +480,7 @@ const Login = () => {
     setSignInError(null);
     setSignUpError(null);
     setForgotError(null);
+    setEmailAlreadyExists(false);
     setCodeSent(false);
     setOtp('');
     setEmailForSignup('');
@@ -560,7 +522,6 @@ const Login = () => {
                 ══════════════════════════════════════ */}
                 {view === 'sign_up' ? (
                   <div className="flex flex-col gap-4">
-                    {/* Banner de indicação */}
                     {referralCode && (
                       <div className="bg-gradient-to-r from-sky-500 to-sky-600 rounded-2xl p-4 text-white flex items-start gap-3">
                         <div className="bg-white/20 rounded-xl p-2 shrink-0">
@@ -580,7 +541,61 @@ const Login = () => {
                       </div>
                     )}
 
-                    {!codeSent ? (
+                    {/* ── AVISO: EMAIL JÁ CADASTRADO ── */}
+                    {emailAlreadyExists ? (
+                      <div className="flex flex-col gap-4">
+                        <div className="text-center space-y-1">
+                          <div className="mx-auto w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center mb-3">
+                            <UserPlus className="h-6 w-6 text-amber-500" />
+                          </div>
+                          <p className="text-base font-black text-charcoal-gray">Este e-mail já tem cadastro!</p>
+                          <p className="text-sm text-slate-500 leading-relaxed">
+                            O e-mail <span className="font-bold text-sky-600">{emailForSignup}</span> já está registrado na nossa loja.
+                          </p>
+                        </div>
+
+                        {/* Card de destaque - Esqueci minha senha */}
+                        <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 space-y-3">
+                          <div className="flex items-center gap-2">
+                            <KeyRound className="h-4 w-4 text-amber-600 shrink-0" />
+                            <p className="text-xs font-black uppercase tracking-widest text-amber-700">Esqueceu sua senha?</p>
+                          </div>
+                          <p className="text-xs text-amber-700 leading-relaxed">
+                            Clique abaixo e enviaremos uma nova senha para o seu e-mail em segundos.
+                          </p>
+                          <Button
+                            onClick={() => goToForgotPassword(emailForSignup)}
+                            className="w-full h-11 bg-amber-500 hover:bg-amber-400 text-white font-black uppercase tracking-widest text-xs rounded-xl shadow-md transition-all active:scale-95"
+                          >
+                            <KeyRound className="h-4 w-4 mr-2" />
+                            Recuperar minha senha
+                          </Button>
+                        </div>
+
+                        <div className="relative">
+                          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-stone-200" /></div>
+                          <div className="relative flex justify-center"><span className="bg-white px-3 text-[10px] text-slate-400 font-bold uppercase tracking-widest">ou</span></div>
+                        </div>
+
+                        <Button
+                          onClick={() => { switchView('sign_in'); setSignInEmail(emailForSignup); }}
+                          variant="outline"
+                          className="w-full h-11 font-black uppercase tracking-widest text-xs rounded-xl border-2 border-stone-200 hover:border-sky-400 hover:text-sky-600 transition-all"
+                        >
+                          <LogIn className="h-4 w-4 mr-2" />
+                          Entrar com este e-mail
+                        </Button>
+
+                        <button
+                          type="button"
+                          onClick={() => { setEmailAlreadyExists(false); setEmailForSignup(''); }}
+                          className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-sky-500 transition-colors text-center"
+                        >
+                          Usar outro e-mail
+                        </button>
+                      </div>
+
+                    ) : !codeSent ? (
                       <>
                         <div className="text-center space-y-1">
                           <div className="mx-auto w-12 h-12 bg-sky-50 rounded-2xl flex items-center justify-center mb-3">
@@ -601,7 +616,7 @@ const Login = () => {
                             type="email"
                             placeholder="seu@email.com"
                             value={emailForSignup}
-                            onChange={(e) => { setEmailForSignup(e.target.value); setSignUpError(null); }}
+                            onChange={(e) => { setEmailForSignup(e.target.value); setSignUpError(null); setEmailAlreadyExists(false); }}
                             onKeyDown={(e) => e.key === 'Enter' && sendCode()}
                             className={cn(
                               "w-full h-12 px-4 rounded-xl border bg-white text-sm text-slate-900 focus:outline-none focus:ring-2 transition-all",
@@ -616,7 +631,7 @@ const Login = () => {
                           disabled={isSendingCode}
                         >
                           {isSendingCode ? (
-                            <><Loader2 className="animate-spin h-4 w-4 mr-2" /> Enviando...</>
+                            <><Loader2 className="animate-spin h-4 w-4 mr-2" /> Verificando...</>
                           ) : (
                             'Enviar Código por E-mail'
                           )}
@@ -725,7 +740,7 @@ const Login = () => {
                         <Button
                           onClick={handleForgotPassword}
                           disabled={isSendingForgot}
-                          className="h-12 uppercase font-black tracking-widest gap-2 w-full"
+                          className="h-12 uppercase font-black tracking-widest gap-2 w-full bg-amber-500 hover:bg-amber-400 text-white"
                         >
                           {isSendingForgot ? (
                             <><Loader2 className="animate-spin h-4 w-4" /> Enviando...</>
@@ -778,7 +793,7 @@ const Login = () => {
                   </div>
 
                 /* ══════════════════════════════════════
-                    ENTRAR (formulário próprio)
+                    ENTRAR
                 ══════════════════════════════════════ */
                 ) : (
                   <form onSubmit={handleSignIn} className="flex flex-col gap-4" noValidate>
@@ -807,13 +822,6 @@ const Login = () => {
                         <Label htmlFor="signin-password" className="text-[10px] uppercase tracking-widest text-slate-400 font-black">
                           Senha
                         </Label>
-                        <button
-                          type="button"
-                          onClick={() => { setView('forgot_password'); setSignInError(null); }}
-                          className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-sky-500 transition-colors"
-                        >
-                          Esqueci minha senha
-                        </button>
                       </div>
                       <div className="relative">
                         <Input
@@ -850,6 +858,16 @@ const Login = () => {
                         'Acessar Conta'
                       )}
                     </Button>
+
+                    {/* Esqueci minha senha — destaque maior */}
+                    <button
+                      type="button"
+                      onClick={() => { setView('forgot_password'); setSignInError(null); setForgotEmail(signInEmail); }}
+                      className="w-full flex items-center justify-center gap-2 h-11 rounded-xl border-2 border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 font-black uppercase tracking-widest text-[10px] transition-all active:scale-95"
+                    >
+                      <KeyRound className="h-3.5 w-3.5" />
+                      Esqueci minha senha
+                    </button>
 
                     <div className="text-center pt-1">
                       <button

@@ -24,7 +24,12 @@ import { isProfileComplete } from '@/lib/profileUtils';
 const profileSchema = z.object({
   first_name: z.string().min(1, "Nome é obrigatório"),
   last_name: z.string().min(1, "Sobrenome é obrigatório"),
-  date_of_birth: z.date({ required_error: "Data de nascimento é obrigatória." }),
+  date_of_birth: z.date({ required_error: "Data de nascimento é obrigatória." })
+    .refine((date) => {
+      const today = new Date();
+      const minAge = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+      return date <= minAge;
+    }, { message: "Você precisa ter pelo menos 18 anos para se cadastrar." }),
   phone: z.string().min(14, "Telefone inválido").max(15, "Telefone inválido"),
   cpf_cnpj: z.string().min(11, "CPF/CNPJ inválido").max(18, "CPF/CNPJ inválido"),
   gender: z.string({ required_error: "Gênero é obrigatório" }).min(1, "Selecione um gênero"),
@@ -222,7 +227,15 @@ const CompleteProfilePage = () => {
     const city = watched.city;
     const state = watched.state;
 
-    return Boolean(f && dob && phone && phone.length >= 10 && cpf && cpf.length >= 11 && gender && cep && street && number && complement && complement.trim() && neighborhood && city && state);
+    // Validação de idade mínima de 18 anos
+    let isOldEnough = false;
+    if (dob) {
+      const today = new Date();
+      const minAge = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+      isOldEnough = dob <= minAge;
+    }
+
+    return Boolean(f && dob && isOldEnough && phone && phone.length >= 10 && cpf && cpf.length >= 11 && gender && cep && street && number && complement && complement.trim() && neighborhood && city && state);
   }, [watched]);
 
   const accepted = Boolean(watched.accepted_terms);
@@ -443,6 +456,11 @@ const CompleteProfilePage = () => {
     }
     if (fieldName === 'state' && val) {
       return String(val).trim().length < 2;
+    }
+    if (fieldName === 'date_of_birth' && val instanceof Date) {
+      const today = new Date();
+      const minAge = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+      return val > minAge; // asterisco se menor de 18
     }
     return missing;
   };

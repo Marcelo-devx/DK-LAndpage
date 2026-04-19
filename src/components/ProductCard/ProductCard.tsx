@@ -1,12 +1,12 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
-import { addToCart } from "@/utils/cart";
 import { ShoppingCart, Loader2, Eye } from "lucide-react";
-import { useState, memo } from "react";
+import { memo } from "react";
 import { ProductCardProps } from "./ProductCard.types";
 import { cn } from "@/lib/utils";
 import ProductImage from "@/components/ProductImage";
+import { useAddToCart } from "@/hooks/useAddToCart";
 
 const PixIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
@@ -16,15 +16,13 @@ const PixIcon = ({ className }: { className?: string }) => (
 );
 
 const ProductCard = memo(({ product, imagePriority }: ProductCardProps & { imagePriority?: boolean }) => {
-  const [isAdding, setIsAdding] = useState(false);
+  const { handleAddToCart, isAdding } = useAddToCart();
   const navigate = useNavigate();
 
-  const handleAddToCart = async (e: React.MouseEvent) => {
+  const handleAddToCartClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsAdding(true);
-    await addToCart(product.id, 1, 'product', product.variantId);
-    setIsAdding(false);
+    await handleAddToCart(product.id, 1, 'product', product.variantId);
   };
 
   const handleViewOptions = (e: React.MouseEvent) => {
@@ -126,7 +124,7 @@ const ProductCard = memo(({ product, imagePriority }: ProductCardProps & { image
                     "w-full font-black uppercase text-[9px] md:text-[10px] xl:text-[11px] tracking-widest h-9 md:h-10 xl:h-11 rounded-xl transition-all duration-300 whitespace-nowrap",
                     isOutOfStock ? "bg-stone-200 text-stone-500 cursor-not-allowed hover:bg-stone-200" : "bg-slate-950 hover:bg-sky-500 text-white"
                 )}
-                onClick={handleAddToCart}
+                onClick={handleAddToCartClick}
                 disabled={isAdding || isOutOfStock}
               >
                 {isAdding ? <Loader2 className="animate-spin h-3.5 w-3.5" /> : (

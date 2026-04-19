@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Plus, Minus, ChevronLeft, Loader2, FileText, ShoppingCart, Zap, Palette, Droplets, ArrowLeft, ShoppingBag } from "lucide-react";
-import { addToCart } from '@/utils/cart';
+import { useAddToCart } from '@/hooks/useAddToCart';
 import { cn } from '@/lib/utils';
 import { showError } from '@/utils/toast';
 import { Card, CardContent } from "@/components/ui/card";
@@ -65,10 +65,11 @@ const ProductPage = () => {
   const [variants, setVariants] = useState<Variant[]>([]);
   const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isAdding, setIsAdding] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [recommendedProducts, setRecommendedProducts] = useState<DisplayProduct[]>([]);
   const [loadingRecommended, setLoadingRecommended] = useState(true);
+
+  const { handleAddToCart, isAdding } = useAddToCart();
 
   // SEO — computed at top level (no hook inside useEffect)
   const seoTitle = product ? `${product.name} | DKCWB` : 'DKCWB';
@@ -293,7 +294,7 @@ const ProductPage = () => {
     setSearchParams({ variant: variant.id }, { replace: true });
   };
 
-  const handleAddToCart = async () => {
+  const handleAddToCartClick = async () => {
     // Products with variants MUST have a variant selected — base product has no real stock
     if (variants.length > 0 && !selectedVariant) {
       showError("Selecione uma opção (sabor/cor/tamanho)");
@@ -308,9 +309,7 @@ const ProductPage = () => {
 
     if (!product) return;
     
-    setIsAdding(true);
-    await addToCart(product.id, quantity, 'product', selectedVariant?.id);
-    setIsAdding(false);
+    await handleAddToCart(product.id, quantity, 'product', selectedVariant?.id);
   };
 
   const getVariantLabel = (v: Variant) => {
@@ -542,7 +541,7 @@ const ProductPage = () => {
                 <Button
                   size="lg"
                   variant={isOutOfStock ? "secondary" : "default"}
-                  onClick={handleAddToCart}
+                  onClick={handleAddToCartClick}
                   className={cn(
                     "w-full font-black uppercase tracking-[0.2em] h-14 xl:h-16 text-lg xl:text-xl rounded-[1.5rem] shadow-xl transition-all active:scale-95",
                     !isOutOfStock && "bg-sky-500 hover:bg-sky-400 text-white",
@@ -690,7 +689,7 @@ const ProductPage = () => {
 
           {/* Botão Adicionar */}
           <button
-            onClick={handleAddToCart}
+            onClick={handleAddToCartClick}
             disabled={isAdding || isOutOfStock}
             className={cn(
               "flex-1 h-12 rounded-xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg",

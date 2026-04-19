@@ -16,65 +16,75 @@ const Footer = () => {
 
   return (
     <footer className="bg-white text-slate-700 border-t border-slate-200">
-      <div className="container mx-auto px-4 py-6 md:px-6 md:py-8 xl:px-8 xl:py-10 2xl:px-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 md:gap-8">
-          <div className="md:col-span-1">
-            <h3 className="text-xl text-sky-500 mb-3 uppercase font-black italic tracking-tighter" translate="no">DKCWB.</h3>
-            <p className="text-sm leading-relaxed text-slate-800">
+      <div className="container mx-auto px-4 py-4 md:px-6 md:py-8 xl:px-8 xl:py-10 2xl:px-12">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
+
+          {/* Logo + descrição — ocupa 2 colunas no mobile */}
+          <div className="col-span-2 md:col-span-1">
+            <h3 className="text-lg md:text-xl text-sky-500 mb-1.5 md:mb-3 uppercase font-black italic tracking-tighter" translate="no">DKCWB.</h3>
+            <p className="text-xs md:text-sm leading-relaxed text-slate-800 line-clamp-2 md:line-clamp-none">
               Curadoria exclusiva e inovação em cada detalhe. A sua fonte definitiva para a melhor experiência premium.
             </p>
           </div>
+
+          {/* Navegação */}
           <div>
-            <h4 className="font-bold text-slate-900 uppercase text-xs tracking-[0.2em] mb-3">Navegação</h4>
-            <ul className="space-y-2 text-sm font-medium">
+            <h4 className="font-bold text-slate-900 uppercase text-[10px] md:text-xs tracking-[0.2em] mb-2 md:mb-3">Navegação</h4>
+            <ul className="space-y-1.5 md:space-y-2 text-xs md:text-sm font-medium">
               <li><Link to="/" className="hover:text-sky-500 transition-colors">Início</Link></li>
               <li><Link to="/produtos" className="hover:text-sky-500 transition-colors">Produtos</Link></li>
-              <li><Link to="/como-funciona" className="hover:text-sky-500 transition-colors">Como Funciona o Clube</Link></li>
-              <li><Link to="/informacoes" className="hover:text-sky-500 transition-colors">Informações da Loja</Link></li>
+              <li><Link to="/como-funciona" className="hover:text-sky-500 transition-colors">Como Funciona</Link></li>
+              <li><Link to="/informacoes" className="hover:text-sky-500 transition-colors">Informações</Link></li>
               <li>
                 {user ? (
                   <Link to="/dashboard" className="hover:text-sky-500 transition-colors">Minha Conta</Link>
                 ) : (
-                  <Link to="/login" className="hover:text-sky-500 transition-colors">Entrar / Minha Conta</Link>
+                  <Link to="/login" className="hover:text-sky-500 transition-colors">Entrar</Link>
                 )}
               </li>
             </ul>
           </div>
+
+          {/* Atendimento */}
           <div>
-            <h4 className="font-bold text-slate-900 uppercase text-xs tracking-[0.2em] mb-3">Atendimento</h4>
-            <ul className="space-y-2 text-sm font-medium">
+            <h4 className="font-bold text-slate-900 uppercase text-[10px] md:text-xs tracking-[0.2em] mb-2 md:mb-3">Atendimento</h4>
+            <ul className="space-y-1.5 md:space-y-2 text-xs md:text-sm font-medium">
               <li className="flex flex-col">
-                <span className="text-[10px] xl:text-xs text-slate-400 uppercase tracking-widest mb-1">Horário</span>
-                <p>Seg - Sex: 10:00 - 18:00</p>
-                <p>Sábados: 10:00 - 17:00</p>
+                <span className="text-[9px] md:text-[10px] text-slate-400 uppercase tracking-widest mb-0.5">Horário</span>
+                <p>Seg-Sex: 10-18h</p>
+                <p>Sáb: 10-17h</p>
               </li>
               <li className="flex flex-col">
-                <span className="text-[10px] xl:text-xs text-slate-400 uppercase tracking-widest mb-1">E-mail</span>
-                <p>
-                  <a href={`mailto:${contactEmail}`} className="hover:text-sky-500 transition-colors">{contactEmail}</a>
-                </p>
+                <span className="text-[9px] md:text-[10px] text-slate-400 uppercase tracking-widest mb-0.5">E-mail</span>
+                <a href={`mailto:${contactEmail}`} className="hover:text-sky-500 transition-colors truncate">{contactEmail}</a>
               </li>
               <li className="flex flex-col">
-                <span className="text-[10px] xl:text-xs text-slate-400 uppercase tracking-widest mb-1">Telefone</span>
-                <p>
-                  <a href={`tel:${contactPhone.replace(/\s+/g, '')}`} className="hover:text-sky-500 transition-colors">{contactPhone}</a>
-                </p>
+                <span className="text-[9px] md:text-[10px] text-slate-400 uppercase tracking-widest mb-0.5">Telefone</span>
+                <a href={`tel:${contactPhone.replace(/\s+/g, '')}`} className="hover:text-sky-500 transition-colors">{contactPhone}</a>
               </li>
             </ul>
           </div>
-          <div className="flex flex-col">
+
+          {/* Siga-nos — só desktop (no mobile fica junto com atendimento visualmente) */}
+          <div className="hidden md:flex flex-col">
             <h4 className="font-bold text-slate-900 uppercase text-xs tracking-[0.2em] mb-3">Siga-nos</h4>
-            <div className="flex items-center justify-between w-full">
-              <div className="flex items-center justify-center md:justify-start">
-                <a href={CORRECT_INSTAGRAM_URL} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-pink-600 transition-all hover:scale-110">
-                  <Instagram size={24} />
-                </a>
-              </div>
-            </div>
+            <a href={CORRECT_INSTAGRAM_URL} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-pink-600 transition-all hover:scale-110 w-fit">
+              <Instagram size={24} />
+            </a>
           </div>
+
+          {/* Siga-nos — mobile inline com ícone pequeno */}
+          <div className="col-span-2 md:hidden flex items-center gap-3 pt-1 border-t border-slate-100">
+            <span className="font-bold text-slate-900 uppercase text-[10px] tracking-[0.2em]">Siga-nos</span>
+            <a href={CORRECT_INSTAGRAM_URL} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-pink-600 transition-all">
+              <Instagram size={18} />
+            </a>
+          </div>
+
         </div>
-        <div className="mt-6 md:mt-8 pt-5 border-t border-slate-100 text-center">
-          <p className="text-[10px] xl:text-xs uppercase tracking-[0.3em] text-slate-400">
+
+        <div className="mt-4 md:mt-8 pt-3 md:pt-5 border-t border-slate-100 text-center">
+          <p className="text-[9px] md:text-[10px] xl:text-xs uppercase tracking-[0.3em] text-slate-400">
             &copy; {new Date().getFullYear()} DKCWB. Todos os direitos reservados.
           </p>
         </div>

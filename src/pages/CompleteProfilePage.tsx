@@ -194,7 +194,7 @@ const CompleteProfilePage = () => {
       }
 
       if (cpfExists === true) {
-        setCpfError('Este CPF/CNPJ já está cadastrado em outra conta.');
+        setCpfError('Este CPF/CNPJ não pode ser utilizado no nosso sistema.');
         setCpfValidated(false);
       } else {
         setCpfValidated(true);
@@ -379,8 +379,8 @@ const CompleteProfilePage = () => {
 
       if (cpfExists === true) {
         dismissToast(toastId);
-        showError('Este CPF/CNPJ já está cadastrado em outra conta.');
-        setCpfError('Este CPF/CNPJ já está cadastrado em outra conta.');
+        showError('Este CPF/CNPJ não pode ser utilizado no nosso sistema.');
+        setCpfError('Este CPF/CNPJ não pode ser utilizado no nosso sistema.');
         setCpfValidated(false);
         return;
       }

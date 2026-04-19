@@ -170,16 +170,25 @@ const CompleteProfilePage = () => {
     const watchdog = setTimeout(() => {
       logger.warn('[CompleteProfilePage] checkCpfDuplicate watchdog cleared');
       setIsCheckingCpf(false);
-      setCpfValidated(true); // don't block user on timeout
+      setCpfValidated(true);
     }, 20000);
 
     try {
+      // Garante que temos o ID do usuário atual (evita falso positivo)
+      let currentUserId = user?.id || '';
+      if (!currentUserId) {
+        const { data: { session } } = await supabase.auth.getSession();
+        currentUserId = session?.user?.id || '';
+      }
+
+      // Busca por CPF limpo (sem máscara) OU com máscara — cobre os dois formatos de armazenamento
       const { data: existing } = await supabase
         .from('profiles')
         .select('id')
-        .eq('cpf_cnpj', clean)
-        .neq('id', user?.id || '')
+        .or(`cpf_cnpj.eq.${clean},cpf_cnpj.eq.${raw}`)
+        .neq('id', currentUserId)
         .maybeSingle();
+
       if (existing) {
         setCpfError('Este CPF/CNPJ já está cadastrado em outra conta.');
         setCpfValidated(false);
@@ -188,8 +197,9 @@ const CompleteProfilePage = () => {
       }
     } catch (e) {
       console.error('[CompleteProfilePage] checkCpfDuplicate error', e);
-      // Don't block user on network error — allow submit without duplicate check
-      setCpfValidated(true);
+      // Em caso de erro de rede, não bloqueia mas também não valida
+      setCpfValidated(false);
+      setCpfError('Não foi possível verificar o CPF. Tente novamente.');
     } finally {
       clearTimeout(watchdog);
       setIsCheckingCpf(false);
@@ -348,12 +358,33 @@ const CompleteProfilePage = () => {
 
     try {
       let emailToSet = user?.email || null;
-      if (!emailToSet) {
+      let currentUserId = user?.id || '';
+      if (!emailToSet || !currentUserId) {
         const { data: { session } } = await supabase.auth.getSession();
-        if (session) emailToSet = session.user.email as string;
+        if (session) {
+          emailToSet = emailToSet || session.user.email as string;
+          currentUserId = currentUserId || session.user.id;
+        }
       }
 
       const cleanCpf = data.cpf_cnpj.replace(/\D/g, '');
+      const rawCpf = data.cpf_cnpj;
+
+      // ── Verificação final de CPF duplicado antes de salvar ──
+      const { data: cpfConflict } = await supabase
+        .from('profiles')
+        .select('id')
+        .or(`cpf_cnpj.eq.${cleanCpf},cpf_cnpj.eq.${rawCpf}`)
+        .neq('id', currentUserId)
+        .maybeSingle();
+
+      if (cpfConflict) {
+        dismissToast(toastId);
+        showError('Este CPF/CNPJ já está cadastrado em outra conta.');
+        setCpfError('Este CPF/CNPJ já está cadastrado em outra conta.');
+        setCpfValidated(false);
+        return;
+      }
 
       // Remove accepted_terms from payload — it's not a DB column
       const { accepted_terms, ...rest } = data;
@@ -369,7 +400,7 @@ const CompleteProfilePage = () => {
       };
 
       const { error } = await supabase.from('profiles').upsert({
-        id: user?.id || undefined,
+        id: currentUserId || undefined,
         ...profilePayload,
       }, { onConflict: 'id' });
 

@@ -11,30 +11,22 @@ import { logger } from '@/lib/logger';
 
 // const SUPABASE_URL moved to env; we now use supabase.functions.invoke where possible
 
-const translateError = (msg: string): { message: string; hint?: string; code?: string } => {
-  const m = msg.toLowerCase();
-  if (m.includes('pwned') || m.includes('vazamento') || m.includes('comprometida') || m.includes('leaked') || m.includes('breached')) {
+const translateError = (msg: string, code?: string): { message: string; hint?: string; code?: string } => {
+  // Usar o code da edge function quando disponível
+  const c = code || '';
+  if (c === 'password_pwned' || msg.toLowerCase().includes('vazamento') || msg.toLowerCase().includes('pwned')) {
     return {
       code: 'pwned',
       message: 'Senha encontrada em vazamentos de dados!',
       hint: 'Esta senha já foi exposta em vazamentos públicos e não pode ser usada. Crie uma senha única que você nunca usou antes.',
     };
   }
-  if (m.includes('weak') || m.includes('easy to guess') || m.includes('comum') || m.includes('common') || m.includes('fraca')) {
+  if (c === 'password_weak' || msg.toLowerCase().includes('fraca') || msg.toLowerCase().includes('comum')) {
     return {
       code: 'weak',
       message: 'Senha muito fraca ou comum.',
       hint: 'Evite senhas óbvias como "123456" ou "senha". Use uma combinação de letras maiúsculas, minúsculas, números e símbolos.',
     };
-  }
-  if (m.includes('same as') || m.includes('igual') || m.includes('previous')) {
-    return { message: 'A nova senha não pode ser igual à senha anterior. Crie uma senha diferente.' };
-  }
-  if (m.includes('at least') || m.includes('caracteres') || m.includes('minimum')) {
-    return { message: 'A senha deve ter pelo menos 8 caracteres.' };
-  }
-  if (m.includes('session') || m.includes('sessão') || m.includes('token')) {
-    return { message: 'Sessão expirada. Por favor, faça login novamente.' };
   }
   return { message: msg };
 };
@@ -175,12 +167,13 @@ const UpdatePassword = () => {
 
       logger.log('[UpdatePassword] Resultado update-password-admin:', { status: updRes.status, data: updData });
 
-      if (!updRes.ok || updData?.error) {
+      if (!updRes.ok || updData?.error || updData?.success === false) {
         clearTimeout(watchdog);
         dismissToast(toastId);
         setLoading(false);
         const errMsg = updData?.error || 'Erro ao atualizar senha';
-        setPasswordError(translateError(errMsg));
+        const errCode = updData?.code || '';
+        setPasswordError(translateError(errMsg, errCode));
         return;
       }
 

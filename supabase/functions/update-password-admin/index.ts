@@ -11,9 +11,47 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 }
 
-// redeploy: v2
+// Sempre retorna 200 para o SDK não lançar "non-2xx status code"
+const ok = (data: object) =>
+  new Response(JSON.stringify(data), {
+    status: 200,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+
+const friendlyPasswordError = (rawMsg: string): { error: string; code: string } => {
+  const m = rawMsg.toLowerCase();
+  if (m.includes('pwned') || m.includes('haveibeenpwned') || m.includes('leaked') || m.includes('breached')) {
+    return {
+      error: 'Esta senha foi encontrada em vazamentos de dados públicos. Por segurança, escolha uma senha diferente e mais segura.',
+      code: 'password_pwned',
+    };
+  }
+  if (m.includes('weak') || m.includes('easy to guess') || m.includes('too common') || m.includes('common')) {
+    return {
+      error: 'Essa senha é muito fraca ou comum. Escolha uma senha mais forte com letras, números e símbolos.',
+      code: 'password_weak',
+    };
+  }
+  if (m.includes('same as') || m.includes('different from') || m.includes('previous')) {
+    return {
+      error: 'A nova senha não pode ser igual à senha anterior. Crie uma senha diferente.',
+      code: 'password_same',
+    };
+  }
+  if (m.includes('at least') || m.includes('minimum') || m.includes('characters')) {
+    return {
+      error: 'A senha deve ter pelo menos 8 caracteres.',
+      code: 'password_too_short',
+    };
+  }
+  return {
+    error: 'Falha ao atualizar a senha. Tente novamente.',
+    code: 'unknown',
+  };
+};
+
+// redeploy: v3
 serve(async (req) => {
-  // ← SEMPRE responde ao preflight OPTIONS primeiro — nunca pode falhar
   if (req.method === 'OPTIONS') {
     return new Response('ok', { status: 200, headers: corsHeaders });
   }
@@ -22,43 +60,32 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     if (!supabaseUrl || !serviceRoleKey) {
-      return new Response(JSON.stringify({ error: 'Server not configured' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      console.error('[update-password-admin] Missing env vars');
+      return ok({ success: false, error: 'Servidor não configurado. Contate o suporte.', code: 'server_error' });
     }
 
     const authHeader = req.headers.get('authorization') || '';
     const token = authHeader.replace('Bearer ', '').trim();
     if (!token) {
-      return new Response(JSON.stringify({ error: 'Missing Authorization token' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      console.error('[update-password-admin] Missing Authorization token');
+      return ok({ success: false, error: 'Sessão inválida. Faça login novamente.', code: 'unauthorized' });
     }
 
     const body = await req.json().catch(() => ({}));
     const newPassword = body?.newPassword;
     if (!newPassword) {
-      return new Response(JSON.stringify({ error: 'newPassword required' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return ok({ success: false, error: 'Senha não informada.', code: 'missing_password' });
     }
 
-    // Create supabase client with service role
     const supabase = createClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    // Verify user's token
+    // Verificar token do usuário
     const { data: userData, error: userErr } = await supabase.auth.getUser(token);
     if (userErr || !userData?.user) {
       console.error('[update-password-admin] token verification failed', userErr);
-      return new Response(JSON.stringify({ error: 'Invalid token' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return ok({ success: false, error: 'Sessão expirada. Faça login novamente.', code: 'invalid_token' });
     }
 
     const userId = userData.user.id;
@@ -67,7 +94,7 @@ serve(async (req) => {
 
     console.log('[update-password-admin] atualizando senha para userId:', userId);
 
-    // Usar a API REST direta do Supabase Auth com service role key
+    // Atualizar senha via REST Admin API
     const updateRes = await fetch(`${supabaseUrl}/auth/v1/admin/users/${userId}`, {
       method: 'PUT',
       headers: {
@@ -80,36 +107,14 @@ serve(async (req) => {
 
     if (!updateRes.ok) {
       const errBody = await updateRes.json().catch(() => ({}));
-      const rawMsg = (errBody?.message || errBody?.error_description || errBody?.error || '').toLowerCase();
+      const rawMsg = errBody?.message || errBody?.error_description || errBody?.error || '';
       console.error('[update-password-admin] REST API error', updateRes.status, errBody);
-
-      // Detectar senha fraca / vazada e retornar mensagem amigável
-      let friendlyError = 'Falha ao atualizar a senha. Tente novamente.';
-      let errorCode = 'unknown';
-
-      if (rawMsg.includes('pwned') || rawMsg.includes('haveibeenpwned') || rawMsg.includes('leaked') || rawMsg.includes('breached')) {
-        friendlyError = 'Esta senha foi encontrada em vazamentos de dados públicos. Por segurança, escolha uma senha diferente e mais segura.';
-        errorCode = 'password_pwned';
-      } else if (rawMsg.includes('weak') || rawMsg.includes('easy to guess') || rawMsg.includes('too common') || rawMsg.includes('common')) {
-        friendlyError = 'Essa senha é muito fraca ou comum. Escolha uma senha mais forte com letras, números e símbolos.';
-        errorCode = 'password_weak';
-      } else if (rawMsg.includes('same as') || rawMsg.includes('different from') || rawMsg.includes('previous')) {
-        friendlyError = 'A nova senha não pode ser igual à senha anterior. Crie uma senha diferente.';
-        errorCode = 'password_same';
-      } else if (rawMsg.includes('at least') || rawMsg.includes('minimum') || rawMsg.includes('characters')) {
-        friendlyError = 'A senha deve ter pelo menos 8 caracteres.';
-        errorCode = 'password_too_short';
-      }
-
-      return new Response(
-        JSON.stringify({ error: friendlyError, code: errorCode }),
-        { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return ok({ success: false, ...friendlyPasswordError(rawMsg) });
     }
 
     console.log('[update-password-admin] senha atualizada com sucesso para userId:', userId);
 
-    // Limpar must_change_password via service role (bypassa RLS — garantido)
+    // Limpar must_change_password
     const { error: profileUpdateError } = await supabase
       .from('profiles')
       .update({ must_change_password: false })
@@ -121,7 +126,7 @@ serve(async (req) => {
       console.log('[update-password-admin] must_change_password=false limpo com sucesso para userId:', userId);
     }
 
-    // Notificar usuário por e-mail (não bloqueia o fluxo)
+    // Notificar por e-mail (não bloqueia o fluxo)
     try {
       const notifyRes = await fetch(`${supabaseUrl}/functions/v1/notify-password-change`, {
         method: 'POST',
@@ -132,8 +137,7 @@ serve(async (req) => {
         body: JSON.stringify({ email: userEmail, name: userName }),
       });
       if (!notifyRes.ok) {
-        const errBody = await notifyRes.text().catch(() => '');
-        console.error('[update-password-admin] notify-password-change failed', notifyRes.status, errBody);
+        console.error('[update-password-admin] notify-password-change failed', notifyRes.status);
       } else {
         console.log('[update-password-admin] email de notificação enviado para', userEmail);
       }
@@ -141,16 +145,10 @@ serve(async (req) => {
       console.error('[update-password-admin] notify error', e);
     }
 
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return ok({ success: true });
 
   } catch (err: any) {
-    console.error('[update-password-admin] unexpected', err);
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    console.error('[update-password-admin] unexpected error', err);
+    return ok({ success: false, error: 'Erro inesperado. Tente novamente.', code: 'unexpected' });
   }
 })

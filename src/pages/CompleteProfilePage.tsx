@@ -660,11 +660,10 @@ const CompleteProfilePage = () => {
                   <Input
                     id="street"
                     {...register('street')}
-                    readOnly={cepSearched && !!watched.street}
-                    tabIndex={cepSearched && !!watched.street ? -1 : undefined}
-                    placeholder={cepSearched && !watched.street ? "Digite sua rua" : "Preenchido automaticamente pelo CEP"}
+                    disabled={cepSearched && !!watched.street}
+                    placeholder="Preenchido automaticamente pelo CEP"
                     className={cepSearched && !!watched.street
-                      ? "bg-stone-100 border-stone-200 h-12 rounded-xl text-stone-600 cursor-not-allowed select-none"
+                      ? "bg-stone-100 border-stone-200 h-12 rounded-xl text-stone-500 cursor-not-allowed opacity-70"
                       : "bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors"}
                   />
                   {errors.street && <p className="text-xs text-red-500 font-bold">{errors.street.message}</p>}
@@ -686,11 +685,10 @@ const CompleteProfilePage = () => {
                   <Input
                     id="neighborhood"
                     {...register('neighborhood')}
-                    readOnly={cepSearched && !!watched.neighborhood}
-                    tabIndex={cepSearched && !!watched.neighborhood ? -1 : undefined}
-                    placeholder={cepSearched && !watched.neighborhood ? "Digite seu bairro" : "Preenchido automaticamente pelo CEP"}
+                    disabled={cepSearched && !!watched.neighborhood}
+                    placeholder="Preenchido automaticamente pelo CEP"
                     className={cepSearched && !!watched.neighborhood
-                      ? "bg-stone-100 border-stone-200 h-12 rounded-xl text-stone-600 cursor-not-allowed select-none"
+                      ? "bg-stone-100 border-stone-200 h-12 rounded-xl text-stone-500 cursor-not-allowed opacity-70"
                       : "bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors"}
                   />
                   {errors.neighborhood && <p className="text-xs text-red-500 font-bold">{errors.neighborhood.message}</p>}
@@ -701,11 +699,10 @@ const CompleteProfilePage = () => {
                       <Input
                         id="city"
                         {...register('city')}
-                        readOnly={cepSearched && !!watched.city}
-                        tabIndex={cepSearched && !!watched.city ? -1 : undefined}
-                        placeholder={cepSearched && !watched.city ? "Digite sua cidade" : "Preenchido automaticamente pelo CEP"}
+                        disabled={cepSearched && !!watched.city}
+                        placeholder="Preenchido automaticamente pelo CEP"
                         className={cepSearched && !!watched.city
-                          ? "bg-stone-100 border-stone-200 h-12 rounded-xl text-stone-600 cursor-not-allowed select-none"
+                          ? "bg-stone-100 border-stone-200 h-12 rounded-xl text-stone-500 cursor-not-allowed opacity-70"
                           : "bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors"}
                       />
                       {errors.city && <p className="text-xs text-red-500 font-bold">{errors.city.message}</p>}
@@ -715,11 +712,10 @@ const CompleteProfilePage = () => {
                       <Input
                         id="state"
                         {...register('state')}
-                        readOnly={cepSearched && !!watched.state}
-                        tabIndex={cepSearched && !!watched.state ? -1 : undefined}
-                        placeholder={cepSearched && !watched.state ? "UF" : "UF"}
+                        disabled={cepSearched && !!watched.state}
+                        placeholder="UF"
                         className={cepSearched && !!watched.state
-                          ? "bg-stone-100 border-stone-200 h-12 rounded-xl text-stone-600 cursor-not-allowed select-none"
+                          ? "bg-stone-100 border-stone-200 h-12 rounded-xl text-stone-500 cursor-not-allowed opacity-70"
                           : "bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors"}
                       />
                       {errors.state && <p className="text-xs text-red-500 font-bold">{errors.state.message}</p>}

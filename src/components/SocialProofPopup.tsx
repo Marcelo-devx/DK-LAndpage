@@ -115,17 +115,11 @@ const SocialProofPopup = () => {
           </div>
           
           <div className="flex-1 min-w-0">
-            <p className="text-[10px] text-sky-400 font-black uppercase tracking-widest mb-1">
-              Nova Venda!
-            </p>
             <p className="text-sm font-black text-white truncate">
               {currentItem.customer_name}
             </p>
             <p className="text-[11px] text-slate-300 line-clamp-2 mt-0.5 leading-tight">
               {currentItem.product_name}
-            </p>
-            <p className="text-[9px] text-slate-600 font-bold uppercase mt-1">
-              há {currentItem.time_ago}
             </p>
           </div>
 

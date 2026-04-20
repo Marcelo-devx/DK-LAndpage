@@ -547,7 +547,12 @@ const CheckoutPage = () => {
         return;
       }
 
-      if (!watchedNeighborhood?.trim() || !watchedCity?.trim()) {
+      const rawCep = (getValues('cep') || '').replace(/\D/g, '');
+      const hasValidCep = rawCep.length === 8;
+      const hasCity = !!watchedCity?.trim();
+
+      // Precisa ao menos de cidade OU CEP válido pra tentar calcular
+      if (!hasCity && !hasValidCep) {
         if (isMountedRef.current) {
           setShippingCost(0);
           setIsFreeShippingApplied(false);
@@ -559,28 +564,34 @@ const CheckoutPage = () => {
 
       if (isMountedRef.current) setIsCheckingShipping(true);
       try {
-        const rawCep = getValues('cep').replace(/\D/g, '');
         const { data, error } = await supabase.rpc('get_shipping_rate', {
-          p_neighborhood: watchedNeighborhood,
-          p_city: watchedCity,
-          p_cep: rawCep.length === 8 ? rawCep : null,
+          p_neighborhood: watchedNeighborhood || '',
+          p_city: watchedCity || '',
+          p_cep: hasValidCep ? rawCep : null,
         });
         if (!isMountedRef.current) return;
 
-        if (!error && data !== null) {
+        if (!error && data !== null && data !== undefined) {
           setShippingCost(Number(data));
           setIsShippingAvailable(true);
           setShippingErrorMessage('');
         } else {
+          // Banco não encontrou o frete. Não trava o checkout — avisa o cliente
+          // e deixa prosseguir. O valor final será confirmado pelo atendimento.
           setShippingCost(0);
-          setIsShippingAvailable(false);
-          setShippingErrorMessage('Não conseguimos calcular o frete para esse endereço. Confira o bairro e a cidade ou fale com a gente para ajudar você.');
+          setIsShippingAvailable(true); // <-- NÃO TRAVA MAIS O BOTÃO
+          setShippingErrorMessage(
+            'Ainda não temos uma taxa fixa para este endereço. Você pode seguir normalmente — nosso time confirma o valor do frete pelo WhatsApp antes da entrega.'
+          );
         }
       } catch {
         if (isMountedRef.current) {
+          // Falha técnica (ex: rede). Também não trava o cliente.
           setShippingCost(0);
-          setIsShippingAvailable(false);
-          setShippingErrorMessage('Não conseguimos calcular o frete para esse endereço. Confira o bairro e a cidade ou fale com a gente para ajudar você.');
+          setIsShippingAvailable(true);
+          setShippingErrorMessage(
+            'Não foi possível calcular o frete automaticamente. Você pode seguir normalmente — nosso time confirma o valor pelo WhatsApp.'
+          );
         }
       } finally {
         if (isMountedRef.current) setIsCheckingShipping(false);
@@ -1158,18 +1169,20 @@ const CheckoutPage = () => {
                   ? 'Frete grátis aplicado'
                   : isCheckingShipping
                     ? 'Calculando frete...'
-                    : isShippingAvailable && shippingCost > 0
+                    : shippingCost > 0
                       ? `R$ ${shippingCost.toFixed(2).replace('.', ',')}`
-                      : 'Aguardando validação do endereço'}
+                      : shippingErrorMessage
+                        ? 'A confirmar pelo atendimento'
+                        : 'Aguardando validação do endereço'}
               </p>
             </div>
             {isFreeShippingApplied && <span className="text-xs font-black uppercase tracking-widest text-emerald-600">Grátis</span>}
           </div>
-          {!isShippingAvailable && !isFreeShippingApplied && shippingErrorMessage && (
-            <Alert className="mt-4 border-red-200 bg-red-50">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertTitle className="text-sm font-black uppercase">Frete indisponível</AlertTitle>
-              <AlertDescription className="text-sm text-red-700">
+          {shippingErrorMessage && !isFreeShippingApplied && (
+            <Alert className="mt-4 border-amber-200 bg-amber-50">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <AlertTitle className="text-sm font-black uppercase text-amber-800">Frete a confirmar</AlertTitle>
+              <AlertDescription className="text-sm text-amber-700">
                 {shippingErrorMessage}
               </AlertDescription>
             </Alert>

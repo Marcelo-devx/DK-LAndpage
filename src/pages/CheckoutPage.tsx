@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { showError, showLoading, dismissToast, showSuccess } from '@/utils/toast';
-import { Loader2, Search, CreditCard, MessageSquare, MapPin, Gift, X, AlertTriangle, CheckCircle2, Sparkles, ChevronRight, ChevronLeft, Lock } from 'lucide-react';
+import { Loader2, Search, CreditCard, MessageSquare, MapPin, Gift, X, AlertTriangle, CheckCircle2, Sparkles, ChevronRight, ChevronLeft, Lock, Truck, Star, Package, Headphones, Calendar, Repeat2, ShoppingBag, Zap, Crown, type LucideIcon } from 'lucide-react';
 import { getLocalCart, ItemType, clearLocalCart } from '@/utils/localCart';
 import { maskCep, maskPhone, maskCpfCnpj } from '@/utils/masks';
 import CouponsModal from '@/components/CouponsModal';
@@ -78,6 +78,20 @@ const isPassiveBenefit = (benefit: string) => {
 const isSelectableBenefit = (benefit: string) => {
   const b = benefit.toLowerCase();
   return b.includes('frete');
+};
+
+const getBenefitIcon = (benefit: string): LucideIcon => {
+  const b = benefit.toLowerCase();
+  if (b.includes('frete')) return Truck;
+  if (b.includes('ponto')) return Star;
+  if (b.includes('brinde')) return Package;
+  if (b.includes('atendimento') || b.includes('suporte')) return Headphones;
+  if (b.includes('aniversário') || b.includes('aniversario')) return Calendar;
+  if (b.includes('recorrente') || b.includes('fidelidade')) return Repeat2;
+  if (b.includes('pré-venda') || b.includes('pre-venda') || b.includes('acesso')) return Zap;
+  if (b.includes('exclusiv') || b.includes('vip')) return Crown;
+  if (b.includes('produto') || b.includes('desconto')) return ShoppingBag;
+  return Gift;
 };
 
 // ─── Barra de progresso mobile ───────────────────────────────────────────────
@@ -1218,23 +1232,23 @@ const CheckoutPage = () => {
     <>
       {tierBenefits.length > 0 && (
         <div className="bg-slate-950 border border-white/10 rounded-2xl overflow-hidden">
-          {/* Header compacto */}
+          {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
-            <div className="flex items-center gap-2.5">
-              <Gift className="h-4 w-4 text-sky-400 shrink-0" />
-              <span className="font-black text-sm uppercase tracking-tight italic text-white">Privilégios {tierName}</span>
-              <span className="text-[9px] font-black text-sky-500 uppercase tracking-widest hidden sm:inline">· Clube DK</span>
+            <div className="flex items-center gap-2">
+              <Crown className="h-3.5 w-3.5 text-sky-400 shrink-0" />
+              <span className="font-black text-xs uppercase tracking-widest text-white">Privilégios {tierName}</span>
             </div>
-            <Sparkles className="h-4 w-4 text-sky-500/40" />
+            <span className="text-[8px] font-black text-sky-500/70 uppercase tracking-widest">Clube DK</span>
           </div>
 
-          {/* Lista compacta de benefícios */}
-          <div className="p-3 space-y-1.5">
+          {/* Grid de benefícios */}
+          <div className="p-3 grid grid-cols-1 gap-1.5">
             {tierBenefits.map(benefit => {
               const selectable = isSelectableBenefit(benefit);
               const info = getBenefitInfo(benefit);
               const isUsed = info.status === 'used';
               const isSelected = selectedBenefits.includes(benefit);
+              const Icon = getBenefitIcon(benefit);
 
               if (selectable) {
                 return (
@@ -1242,14 +1256,36 @@ const CheckoutPage = () => {
                     key={benefit}
                     htmlFor={benefit}
                     className={cn(
-                      "flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all cursor-pointer",
+                      "flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all duration-200",
                       isUsed
-                        ? "opacity-40 border-white/5 bg-white/[0.02] cursor-not-allowed"
+                        ? "opacity-35 border-white/5 bg-white/[0.02] cursor-not-allowed"
                         : isSelected
-                          ? "border-sky-500/50 bg-sky-500/10"
-                          : "border-white/8 bg-white/[0.03] hover:bg-white/[0.06] hover:border-white/15"
+                          ? "border-sky-500/40 bg-sky-500/10 cursor-pointer"
+                          : "border-white/8 bg-white/[0.03] hover:bg-white/[0.06] hover:border-sky-500/20 cursor-pointer"
                     )}
                   >
+                    {/* Ícone */}
+                    <div className={cn(
+                      "w-7 h-7 rounded-lg flex items-center justify-center shrink-0",
+                      isUsed ? "bg-white/5" : isSelected ? "bg-sky-500/20" : "bg-white/5"
+                    )}>
+                      <Icon className={cn("h-3.5 w-3.5", isUsed ? "text-slate-600" : isSelected ? "text-sky-400" : "text-slate-400")} />
+                    </div>
+
+                    {/* Texto */}
+                    <span className={cn(
+                      "text-[11px] font-black uppercase tracking-tight flex-1 leading-none",
+                      isUsed ? "text-slate-600" : isSelected ? "text-sky-300" : "text-slate-300"
+                    )}>
+                      {benefit}
+                    </span>
+
+                    {/* Badge status */}
+                    <span className={cn("text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border shrink-0", info.color)}>
+                      {info.label}
+                    </span>
+
+                    {/* Checkbox */}
                     <Checkbox
                       id={benefit}
                       checked={isSelected}
@@ -1259,29 +1295,24 @@ const CheckoutPage = () => {
                       }}
                       className="h-4 w-4 shrink-0 border-white/20 data-[state=checked]:bg-sky-500 data-[state=checked]:border-sky-500"
                     />
-                    <span className={cn(
-                      "text-[11px] font-black uppercase tracking-tight flex-1 leading-none",
-                      isUsed ? "text-slate-500" : isSelected ? "text-sky-300" : "text-slate-200"
-                    )}>
-                      {benefit}
-                    </span>
-                    <span className={cn("text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border shrink-0", info.color)}>
-                      {info.label}
-                    </span>
                   </label>
                 );
               }
 
               return (
                 <div key={benefit} className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-white/5 bg-white/[0.02]">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                  {/* Ícone */}
+                  <div className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
+                    <Icon className="h-3.5 w-3.5 text-emerald-400" />
+                  </div>
                   <span className="text-[11px] font-bold text-slate-300 uppercase tracking-tight leading-none flex-1">{benefit}</span>
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500/60 shrink-0" />
                 </div>
               );
             })}
           </div>
 
-          <p className="text-[8px] text-slate-600 font-medium uppercase tracking-widest text-center pb-2.5">
+          <p className="text-[8px] text-slate-700 font-medium uppercase tracking-widest text-center pb-2.5">
             Benefícios do seu nível de fidelidade
           </p>
         </div>

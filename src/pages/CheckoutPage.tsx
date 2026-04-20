@@ -159,6 +159,7 @@ const CheckoutPage = () => {
   const paymentMethod = watch('payment_method');
   const watchedNeighborhood = watch('neighborhood');
   const watchedCity = watch('city');
+  const watchedCep = watch('cep');
   const watchedAddressFields = watch(['email', 'first_name', 'last_name', 'phone', 'cpf_cnpj', 'cep', 'street', 'number', 'neighborhood', 'city', 'state', 'complement']);
 
   useEffect(() => {
@@ -551,12 +552,15 @@ const CheckoutPage = () => {
       const hasValidCep = rawCep.length === 8;
       const hasCity = !!watchedCity?.trim();
 
-      // Precisa ao menos de cidade OU CEP válido pra tentar calcular
+      // Precisa ao menos de cidade OU CEP válido pra tentar calcular.
+      // Enquanto os campos ainda estão carregando (ex: perfil sendo preenchido),
+      // NÃO travar o checkout — mantemos isShippingAvailable=true para o botão
+      // seguir habilitado. O valor real será calculado assim que os watched* atualizarem.
       if (!hasCity && !hasValidCep) {
         if (isMountedRef.current) {
           setShippingCost(0);
           setIsFreeShippingApplied(false);
-          setIsShippingAvailable(false);
+          setIsShippingAvailable(true); // <-- não trava o botão durante o load
           setShippingErrorMessage('');
         }
         return;
@@ -599,7 +603,7 @@ const CheckoutPage = () => {
     };
     const timeoutId = setTimeout(calculateShipping, 500);
     return () => clearTimeout(timeoutId);
-  }, [watchedNeighborhood, watchedCity, selectedBenefits, selectedCoupon, deliveryType]);
+  }, [watchedNeighborhood, watchedCity, watchedCep, selectedBenefits, selectedCoupon, deliveryType]);
 
   // ============================================================
   // MOBILE: avançar da etapa 1 para a etapa 2

@@ -986,10 +986,10 @@ const CheckoutPage = () => {
           <Lock className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-black uppercase tracking-widest text-amber-700 mb-1">
-              Dados pessoais bloqueados
+              Dados cadastrais bloqueados
             </p>
             <p className="text-[11px] text-amber-800 font-medium leading-snug mb-3">
-              Por segurança, seu nome, e-mail, telefone e CPF/CNPJ não podem ser alterados aqui. Se precisar atualizar, fale com nosso suporte.
+              Por segurança, seus dados pessoais e endereço não podem ser alterados aqui. Se precisar atualizar, fale com nosso suporte.
             </p>
             <a
               href={SUPPORT_WHATSAPP_URL}
@@ -1073,18 +1073,18 @@ const CheckoutPage = () => {
               {...register('cep')}
               inputMode="numeric"
               autoComplete="postal-code"
-              className="text-base md:text-sm"
-              onChange={e => {
-                const masked = maskCep(e.target.value);
-                e.target.value = masked;
-                setValue('cep', masked, { shouldValidate: false });
-                if (masked.replace(/\D/g, '').length === 8) {
-                  setTimeout(() => handleCepLookup(), 100);
-                }
-              }}
+              readOnly
+              tabIndex={-1}
+              className="text-base md:text-sm bg-stone-100 text-slate-500 cursor-not-allowed focus-visible:ring-0 focus-visible:ring-offset-0"
             />
-            <Button type="button" size="icon" onClick={handleCepLookup} className="bg-sky-500 h-10 w-12 shrink-0">
-              {isFetchingCep ? <Loader2 className="animate-spin h-4 w-4" /> : <Search className="h-4 w-4" />}
+            <Button
+              type="button"
+              size="icon"
+              disabled
+              tabIndex={-1}
+              className="bg-stone-200 text-slate-400 hover:bg-stone-200 h-10 w-12 shrink-0 cursor-not-allowed"
+            >
+              <Search className="h-4 w-4" />
             </Button>
           </div>
           {errors.cep && <p className="text-xs text-red-500 font-bold">{errors.cep.message}</p>}
@@ -1092,30 +1092,61 @@ const CheckoutPage = () => {
         <div className="grid grid-cols-3 gap-3 md:gap-4">
           <div className="col-span-2">
             <Label className="text-[10px] uppercase text-slate-500">Rua <span className="text-red-500">*</span></Label>
-            <Input {...register('street')} autoComplete="street-address" className="text-base md:text-sm" />
+            <Input
+              {...register('street')}
+              autoComplete="street-address"
+              readOnly
+              tabIndex={-1}
+              className="text-base md:text-sm bg-stone-100 text-slate-500 cursor-not-allowed focus-visible:ring-0 focus-visible:ring-offset-0"
+            />
             {errors.street && <p className="text-xs text-red-500 font-bold">{errors.street.message}</p>}
           </div>
           <div>
             <Label className="text-[10px] uppercase text-slate-500">Número <span className="text-red-500">*</span></Label>
-            <Input {...register('number')} inputMode="numeric" className="text-base md:text-sm" />
+            <Input
+              {...register('number')}
+              inputMode="numeric"
+              readOnly
+              tabIndex={-1}
+              className="text-base md:text-sm bg-stone-100 text-slate-500 cursor-not-allowed focus-visible:ring-0 focus-visible:ring-offset-0"
+            />
             {errors.number && <p className="text-xs text-red-500 font-bold">{errors.number.message}</p>}
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <Label className="text-[10px] uppercase text-slate-500">Bairro <span className="text-red-500">*</span></Label>
-            <Input {...register('neighborhood')} className="text-base md:text-sm" />
+            <Input
+              {...register('neighborhood')}
+              readOnly
+              tabIndex={-1}
+              className="text-base md:text-sm bg-stone-100 text-slate-500 cursor-not-allowed focus-visible:ring-0 focus-visible:ring-offset-0"
+            />
             {errors.neighborhood && <p className="text-xs text-red-500 font-bold">{errors.neighborhood.message}</p>}
           </div>
           <div>
             <Label className="text-[10px] uppercase text-slate-500">Cidade <span className="text-red-500">*</span></Label>
-            <Input {...register('city')} autoComplete="address-level2" className="text-base md:text-sm" />
+            <Input
+              {...register('city')}
+              autoComplete="address-level2"
+              readOnly
+              tabIndex={-1}
+              className="text-base md:text-sm bg-stone-100 text-slate-500 cursor-not-allowed focus-visible:ring-0 focus-visible:ring-offset-0"
+            />
             {errors.city && <p className="text-xs text-red-500 font-bold">{errors.city.message}</p>}
           </div>
         </div>
         <div>
           <Label className="text-[10px] uppercase text-slate-500">Estado (sigla) <span className="text-red-500">*</span></Label>
-          <Input {...register('state')} placeholder="Ex: SC" maxLength={2} className="uppercase text-base md:text-sm" autoComplete="address-level1" />
+          <Input
+            {...register('state')}
+            placeholder="Ex: SC"
+            maxLength={2}
+            readOnly
+            tabIndex={-1}
+            autoComplete="address-level1"
+            className="uppercase text-base md:text-sm bg-stone-100 text-slate-500 cursor-not-allowed focus-visible:ring-0 focus-visible:ring-offset-0"
+          />
           {errors.state && <p className="text-xs text-red-500 font-bold">{errors.state.message}</p>}
         </div>
         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">

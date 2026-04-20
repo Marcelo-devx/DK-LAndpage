@@ -524,10 +524,14 @@ const CheckoutPage = () => {
     } catch { showError("Erro ao buscar CEP."); } finally { if (isMountedRef.current) setIsFetchingCep(false); }
   };
 
+  // Ref para guardar o frete base calculado pelo banco (sem considerar frete grátis por valor)
+  const baseShippingCostRef = useRef<number>(0);
+
   useEffect(() => {
     const calculateShipping = async () => {
       if (deliveryType === 'correios') {
         if (isMountedRef.current) {
+          baseShippingCostRef.current = 0;
           setShippingCost(0);
           setIsFreeShippingApplied(false);
           setIsShippingAvailable(true);
@@ -553,15 +557,12 @@ const CheckoutPage = () => {
       const hasValidCep = rawCep.length === 8;
       const hasCity = !!watchedCity?.trim();
 
-      // Precisa ao menos de cidade OU CEP válido pra tentar calcular.
-      // Enquanto os campos ainda estão carregando (ex: perfil sendo preenchido),
-      // NÃO travar o checkout — mantemos isShippingAvailable=true para o botão
-      // seguir habilitado. O valor real será calculado assim que os watched* atualizarem.
       if (!hasCity && !hasValidCep) {
         if (isMountedRef.current) {
+          baseShippingCostRef.current = 0;
           setShippingCost(0);
           setIsFreeShippingApplied(false);
-          setIsShippingAvailable(true); // <-- não trava o botão durante o load
+          setIsShippingAvailable(true);
           setShippingErrorMessage('');
         }
         return;
@@ -569,8 +570,6 @@ const CheckoutPage = () => {
 
       if (isMountedRef.current) {
         setIsCheckingShipping(true);
-        // Limpa mensagens antigas para não piscar alerta laranja de um cálculo anterior
-        // enquanto o novo cálculo está em andamento.
         setShippingErrorMessage('');
       }
       try {
@@ -582,12 +581,12 @@ const CheckoutPage = () => {
         if (!isMountedRef.current) return;
 
         if (!error && data !== null && data !== undefined && Number(data) > 0) {
-          setShippingCost(Number(data));
+          baseShippingCostRef.current = Number(data);
           setIsShippingAvailable(true);
           setShippingErrorMessage('');
+          // A aplicação do frete grátis por valor é feita no efeito abaixo
         } else {
-          // Banco não encontrou uma taxa válida. TRAVA o checkout — não permitimos
-          // pedidos com frete zero fora de frete grátis oficial.
+          baseShippingCostRef.current = 0;
           setShippingCost(0);
           setIsShippingAvailable(false);
           setShippingErrorMessage(
@@ -596,7 +595,7 @@ const CheckoutPage = () => {
         }
       } catch {
         if (isMountedRef.current) {
-          // Falha técnica (ex: rede). TRAVA o checkout para não aceitar frete zero.
+          baseShippingCostRef.current = 0;
           setShippingCost(0);
           setIsShippingAvailable(false);
           setShippingErrorMessage(
@@ -610,6 +609,36 @@ const CheckoutPage = () => {
     const timeoutId = setTimeout(calculateShipping, 500);
     return () => clearTimeout(timeoutId);
   }, [watchedNeighborhood, watchedCity, watchedCep, selectedBenefits, selectedCoupon, deliveryType]);
+
+  // Efeito separado: aplica frete grátis por valor de compra (reage ao subtotal em tempo real)
+  useEffect(() => {
+    const base = baseShippingCostRef.current;
+    if (base <= 0) return; // frete ainda não calculado ou indisponível
+
+    const hasFreeShippingBenefit = selectedBenefits.some(b => b.toLowerCase().includes('frete grátis'));
+    const hasFreeShippingCoupon = selectedCoupon?.name?.toLowerCase().includes('frete');
+    if (hasFreeShippingBenefit || hasFreeShippingCoupon) return; // já tratado no efeito acima
+
+    const applyFreeShippingByValue = async () => {
+      const { data } = await supabase
+        .from('free_shipping_rules')
+        .select('shipping_price, min_order_value')
+        .eq('is_active', true);
+
+      if (!isMountedRef.current || !data) return;
+
+      const rule = data.find((r: any) => Math.abs(r.shipping_price - base) < 0.01);
+      if (rule && subtotal >= rule.min_order_value) {
+        setShippingCost(0);
+        setIsFreeShippingApplied(true);
+      } else {
+        setShippingCost(base);
+        setIsFreeShippingApplied(false);
+      }
+    };
+
+    applyFreeShippingByValue();
+  }, [subtotal, selectedBenefits, selectedCoupon]);
 
   // ============================================================
   // MOBILE: avançar da etapa 1 para a etapa 2

@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { showError, showLoading, dismissToast, showSuccess } from '@/utils/toast';
-import { Loader2, Search, CreditCard, MessageSquare, MapPin, Gift, X, AlertTriangle, CheckCircle2, Sparkles, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Loader2, Search, CreditCard, MessageSquare, MapPin, Gift, X, AlertTriangle, CheckCircle2, Sparkles, ChevronRight, ChevronLeft, Lock } from 'lucide-react';
 import { getLocalCart, ItemType, clearLocalCart } from '@/utils/localCart';
 import { maskCep, maskPhone, maskCpfCnpj } from '@/utils/masks';
 import CouponsModal from '@/components/CouponsModal';
@@ -25,6 +25,11 @@ import { ptBR } from 'date-fns/locale';
 import ProductImage from '@/components/ProductImage';
 import MercadoPagoCardForm from '@/components/MercadoPagoCardForm';
 import { useIsMobile } from '@/hooks/use-mobile';
+
+// ─── Contato de suporte (mesmo do botão flutuante do WhatsApp) ───────────────
+const SUPPORT_WHATSAPP_NUMBER = '595985981046';
+const SUPPORT_UPDATE_MESSAGE = 'Olá! Gostaria de atualizar meus dados cadastrais (nome, e-mail, telefone ou CPF/CNPJ). 📋';
+const SUPPORT_WHATSAPP_URL = `https://wa.me/${SUPPORT_WHATSAPP_NUMBER}?text=${encodeURIComponent(SUPPORT_UPDATE_MESSAGE)}`;
 
 interface DisplayItem {
   id: number;
@@ -976,20 +981,63 @@ const CheckoutPage = () => {
         </div>
       </CardHeader>
       <CardContent className="p-5 md:p-8 space-y-4 md:space-y-6">
+        {/* Aviso: dados pessoais bloqueados */}
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 flex items-start gap-3">
+          <Lock className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] font-black uppercase tracking-widest text-amber-700 mb-1">
+              Dados pessoais bloqueados
+            </p>
+            <p className="text-[11px] text-amber-800 font-medium leading-snug mb-3">
+              Por segurança, seu nome, e-mail, telefone e CPF/CNPJ não podem ser alterados aqui. Se precisar atualizar, fale com nosso suporte.
+            </p>
+            <a
+              href={SUPPORT_WHATSAPP_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 h-9 px-4 rounded-xl bg-[#25D366] hover:bg-[#1ebe5d] text-white text-[10px] font-black uppercase tracking-widest transition-colors active:scale-95"
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+              Falar com o suporte
+            </a>
+          </div>
+        </div>
+
         <div>
           <Label className="text-[10px] uppercase text-slate-500">E-mail <span className="text-red-500">*</span></Label>
-          <Input {...register('email')} type="email" inputMode="email" autoComplete="email" placeholder="seu@email.com" className="text-base md:text-sm" />
+          <Input
+            {...register('email')}
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            placeholder="seu@email.com"
+            readOnly
+            tabIndex={-1}
+            className="text-base md:text-sm bg-stone-100 text-slate-500 cursor-not-allowed focus-visible:ring-0 focus-visible:ring-offset-0"
+          />
           {errors.email && <p className="text-xs text-red-500 font-bold">{errors.email.message}</p>}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <Label className="text-[10px] uppercase text-slate-500">Nome <span className="text-red-500">*</span></Label>
-            <Input {...register('first_name')} autoComplete="given-name" className="text-base md:text-sm" />
+            <Input
+              {...register('first_name')}
+              autoComplete="given-name"
+              readOnly
+              tabIndex={-1}
+              className="text-base md:text-sm bg-stone-100 text-slate-500 cursor-not-allowed focus-visible:ring-0 focus-visible:ring-offset-0"
+            />
             {errors.first_name && <p className="text-xs text-red-500 font-bold">{errors.first_name.message}</p>}
           </div>
           <div>
             <Label className="text-[10px] uppercase text-slate-500">Sobrenome <span className="text-red-500">*</span></Label>
-            <Input {...register('last_name')} autoComplete="family-name" className="text-base md:text-sm" />
+            <Input
+              {...register('last_name')}
+              autoComplete="family-name"
+              readOnly
+              tabIndex={-1}
+              className="text-base md:text-sm bg-stone-100 text-slate-500 cursor-not-allowed focus-visible:ring-0 focus-visible:ring-offset-0"
+            />
             {errors.last_name && <p className="text-xs text-red-500 font-bold">{errors.last_name.message}</p>}
           </div>
         </div>
@@ -1000,12 +1048,9 @@ const CheckoutPage = () => {
               {...register('phone')}
               inputMode="tel"
               autoComplete="tel"
-              className="text-base md:text-sm"
-              onChange={e => {
-                const masked = maskPhone(e.target.value);
-                e.target.value = masked;
-                setValue('phone', masked, { shouldValidate: false });
-              }}
+              readOnly
+              tabIndex={-1}
+              className="text-base md:text-sm bg-stone-100 text-slate-500 cursor-not-allowed focus-visible:ring-0 focus-visible:ring-offset-0"
             />
             {errors.phone && <p className="text-xs text-red-500 font-bold">{errors.phone.message}</p>}
           </div>
@@ -1014,12 +1059,9 @@ const CheckoutPage = () => {
             <Input
               {...register('cpf_cnpj')}
               inputMode="numeric"
-              className="text-base md:text-sm"
-              onChange={e => {
-                const masked = maskCpfCnpj(e.target.value);
-                e.target.value = masked;
-                setValue('cpf_cnpj', masked, { shouldValidate: false });
-              }}
+              readOnly
+              tabIndex={-1}
+              className="text-base md:text-sm bg-stone-100 text-slate-500 cursor-not-allowed focus-visible:ring-0 focus-visible:ring-offset-0"
             />
             {errors.cpf_cnpj && <p className="text-xs text-red-500 font-bold">{errors.cpf_cnpj.message}</p>}
           </div>

@@ -1,12 +1,25 @@
-import { useState } from 'react';
-import { Info, Truck, Calendar, Shield, Lock, FileText, Globe, Key, AlertCircle, CheckCircle, XCircle, Clock, ArrowRight, ChevronDown } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Info, Truck, Calendar, Shield, Lock, FileText, Globe, Key, AlertCircle, CheckCircle, XCircle, Clock, ArrowRight, ChevronDown, Gift, Star } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
 import { useSEO } from '@/hooks/useSEO';
+import { supabase } from '@/integrations/supabase/client';
 
 const InformacoesPage = () => {
   const [showFullPrivacy, setShowFullPrivacy] = useState(false);
+  const [freeShippingRules, setFreeShippingRules] = useState<{ shipping_price: number; min_order_value: number }[]>([]);
+
+  useEffect(() => {
+    supabase
+      .from('free_shipping_rules')
+      .select('shipping_price, min_order_value')
+      .eq('is_active', true)
+      .order('shipping_price')
+      .then(({ data }) => {
+        if (data) setFreeShippingRules(data as any);
+      });
+  }, []);
 
   // SEO - Informações Page
   useSEO({
@@ -130,7 +143,111 @@ const InformacoesPage = () => {
             </AccordionContent>
           </AccordionItem>
 
-          {/* ACORDEÃO 2: GARANTIA E POLÍTICA DE TROCAS */}
+          {/* ACORDEÃO 2: FRETE GRÁTIS */}
+          <AccordionItem value="frete-gratis" className="border border-green-500/20 bg-gradient-to-br from-slate-900 to-black rounded-2xl overflow-hidden">
+            <AccordionTrigger className="px-6 md:px-8 py-6 hover:no-underline hover:bg-white/5 transition-all group">
+              <div className="flex items-center gap-4">
+                <div className="bg-green-500/10 p-3 rounded-xl border border-green-500/20 group-hover:bg-green-500/20 transition-colors">
+                  <Gift className="h-6 w-6 text-green-400" />
+                </div>
+                <div className="text-left">
+                  <h2 className="text-xl md:text-2xl font-black uppercase tracking-widest text-white">
+                    Frete Grátis
+                  </h2>
+                  <p className="text-green-400 text-xs font-bold uppercase tracking-wider mt-1">
+                    Economize no frete comprando mais
+                  </p>
+                </div>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="px-6 md:px-8 pb-8">
+              <div className="space-y-6 mt-4">
+
+                {/* Explicação geral */}
+                <div className="bg-gradient-to-br from-green-900/20 to-slate-900 border border-green-500/20 p-6 rounded-xl">
+                  <div className="flex items-start gap-3 mb-4">
+                    <Star className="h-5 w-5 text-green-400 shrink-0 mt-0.5" />
+                    <div>
+                      <h3 className="text-white font-black uppercase tracking-widest text-sm mb-2">Como funciona?</h3>
+                      <p className="text-slate-300 text-sm leading-relaxed">
+                        O frete grátis é aplicado <strong className="text-white">automaticamente</strong> no checkout quando o valor total dos seus produtos atingir o mínimo exigido para a sua região. Você não precisa inserir nenhum cupom — o sistema reconhece e zera o frete sozinho!
+                      </p>
+                    </div>
+                  </div>
+                  <div className="bg-green-500/10 border border-green-500/20 p-4 rounded-lg">
+                    <p className="text-green-300 text-sm font-medium">
+                      💡 O valor mínimo é calculado apenas sobre os <strong>produtos</strong> do carrinho, sem contar o frete.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Tabela de regras */}
+                {freeShippingRules.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="text-white font-black uppercase tracking-widest text-sm px-1">Tabela de Frete Grátis</h3>
+                    <div className="grid gap-3">
+                      {freeShippingRules.map((rule, idx) => (
+                        <div
+                          key={idx}
+                          className="bg-slate-800/60 border border-white/5 rounded-xl p-4 flex items-center justify-between gap-4"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="bg-green-500/10 border border-green-500/20 p-2.5 rounded-lg shrink-0">
+                              <Truck className="h-5 w-5 text-green-400" />
+                            </div>
+                            <div>
+                              <p className="text-white font-bold text-sm">
+                                Frete de <span className="text-green-400">R$ {Number(rule.shipping_price).toFixed(2).replace('.', ',')}</span>
+                              </p>
+                              <p className="text-slate-400 text-xs mt-0.5">
+                                Regiões com essa taxa de entrega
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-1">Mínimo p/ grátis</p>
+                            <span className="bg-green-500 text-black font-black text-sm px-3 py-1 rounded-full">
+                              R$ {Number(rule.min_order_value).toFixed(2).replace('.', ',')}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Passo a passo */}
+                <div className="space-y-3">
+                  <h3 className="text-white font-black uppercase tracking-widest text-sm px-1">Passo a Passo</h3>
+                  <div className="space-y-2">
+                    {[
+                      { step: '1', text: 'Adicione os produtos ao carrinho normalmente.' },
+                      { step: '2', text: 'Vá para o checkout e informe seu endereço de entrega.' },
+                      { step: '3', text: 'O sistema calcula o frete da sua região automaticamente.' },
+                      { step: '4', text: 'Se o valor dos produtos atingir o mínimo, o frete é zerado na hora!' },
+                    ].map((item) => (
+                      <div key={item.step} className="flex items-start gap-3 bg-slate-800/40 border border-white/5 p-4 rounded-xl">
+                        <span className="bg-green-500 text-black font-black text-xs w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5">
+                          {item.step}
+                        </span>
+                        <p className="text-slate-300 text-sm leading-relaxed">{item.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Aviso */}
+                <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-xl">
+                  <p className="text-amber-300 text-sm leading-relaxed">
+                    <span className="font-black">⚠️ Atenção:</span> O frete grátis é válido apenas para entregas dentro das regiões atendidas pela loja. Regiões sem taxa de entrega cadastrada não se enquadram nesta política.
+                  </p>
+                </div>
+
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* ACORDEÃO 3: GARANTIA E POLÍTICA DE TROCAS */}
           <AccordionItem value="garantia" className="border border-emerald-500/20 bg-slate-900 rounded-2xl overflow-hidden">
             <AccordionTrigger className="px-6 md:px-8 py-6 hover:no-underline hover:bg-white/5 transition-all group">
               <div className="flex items-center gap-4">
@@ -257,7 +374,7 @@ const InformacoesPage = () => {
             </AccordionContent>
           </AccordionItem>
 
-          {/* ACORDEÃO 3: POLÍTICA DE PRIVACIDADE */}
+          {/* ACORDEÃO 4: POLÍTICA DE PRIVACIDADE */}
           <AccordionItem value="privacidade" className="border border-purple-500/20 bg-gradient-to-br from-slate-900 to-black rounded-2xl overflow-hidden">
             <AccordionTrigger className="px-6 md:px-8 py-6 hover:no-underline hover:bg-white/5 transition-all group">
               <div className="flex items-center gap-4">

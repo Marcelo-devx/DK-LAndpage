@@ -580,26 +580,26 @@ const CheckoutPage = () => {
         });
         if (!isMountedRef.current) return;
 
-        if (!error && data !== null && data !== undefined) {
+        if (!error && data !== null && data !== undefined && Number(data) > 0) {
           setShippingCost(Number(data));
           setIsShippingAvailable(true);
           setShippingErrorMessage('');
         } else {
-          // Banco não encontrou o frete. Não trava o checkout — avisa o cliente
-          // e deixa prosseguir. O valor final será confirmado pelo atendimento.
+          // Banco não encontrou uma taxa válida. TRAVA o checkout — não permitimos
+          // pedidos com frete zero fora de frete grátis oficial.
           setShippingCost(0);
-          setIsShippingAvailable(true); // <-- NÃO TRAVA MAIS O BOTÃO
+          setIsShippingAvailable(false);
           setShippingErrorMessage(
-            'Ainda não temos uma taxa fixa para este endereço. Você pode seguir normalmente — nosso time confirma o valor do frete pelo WhatsApp antes da entrega.'
+            'Ainda não temos uma taxa de frete cadastrada para este endereço. Fale com a gente pelo WhatsApp para confirmar o valor antes de finalizar a compra.'
           );
         }
       } catch {
         if (isMountedRef.current) {
-          // Falha técnica (ex: rede). Também não trava o cliente.
+          // Falha técnica (ex: rede). TRAVA o checkout para não aceitar frete zero.
           setShippingCost(0);
-          setIsShippingAvailable(true);
+          setIsShippingAvailable(false);
           setShippingErrorMessage(
-            'Não foi possível calcular o frete automaticamente. Você pode seguir normalmente — nosso time confirma o valor pelo WhatsApp.'
+            'Não foi possível calcular o frete automaticamente. Recarregue a página ou fale com a gente pelo WhatsApp.'
           );
         }
       } finally {
@@ -1163,16 +1163,16 @@ const CheckoutPage = () => {
                     : shippingCost > 0
                       ? `R$ ${shippingCost.toFixed(2).replace('.', ',')}`
                       : shippingErrorMessage
-                        ? 'A confirmar pelo atendimento'
+                        ? 'Indisponível para este endereço'
                         : 'Aguardando validação do endereço'}
               </p>
             </div>
             {isFreeShippingApplied && <span className="text-xs font-black uppercase tracking-widest text-emerald-600">Grátis</span>}
           </div>
-          {shippingErrorMessage && !isFreeShippingApplied && shippingCost <= 0 && !isCheckingShipping && (
+          {shippingErrorMessage && !isFreeShippingApplied && !isCheckingShipping && (
             <Alert className="mt-4 border-amber-200 bg-amber-50">
               <AlertTriangle className="h-4 w-4 text-amber-600" />
-              <AlertTitle className="text-sm font-black uppercase text-amber-800">Frete a confirmar</AlertTitle>
+              <AlertTitle className="text-sm font-black uppercase text-amber-800">Frete não disponível</AlertTitle>
               <AlertDescription className="text-sm text-amber-700">
                 {shippingErrorMessage}
               </AlertDescription>
@@ -1380,12 +1380,12 @@ const CheckoutPage = () => {
         {/* Botões de submit — visíveis apenas no desktop (no mobile ficam no sticky footer) */}
         <div className="hidden md:block space-y-3">
           {paymentMethod === 'pix' && (
-            <Button type="submit" disabled={isSubmitting || !isAddressComplete} className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95">
+            <Button type="submit" disabled={isSubmitting || !isAddressComplete || (!isShippingAvailable && !isFreeShippingApplied)} className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95">
               {isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : "Finalizar com PIX"}
             </Button>
           )}
           {paymentMethod === 'mercadopago' && (
-            <Button type="button" onClick={handleCardButtonClick} disabled={isSubmitting || !isCreditCardEnabled || !isAddressComplete} className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95">
+            <Button type="button" onClick={handleCardButtonClick} disabled={isSubmitting || !isCreditCardEnabled || !isAddressComplete || (!isShippingAvailable && !isFreeShippingApplied)} className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95">
               {isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : "Inserir Dados do Cartão →"}
             </Button>
           )}
@@ -1458,7 +1458,7 @@ const CheckoutPage = () => {
                 {paymentMethod === 'pix' && (
                   <Button
                     type="submit"
-                    disabled={isSubmitting || !isAddressComplete}
+                    disabled={isSubmitting || !isAddressComplete || (!isShippingAvailable && !isFreeShippingApplied)}
                     className="w-full h-14 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-base rounded-2xl shadow-lg transition-all active:scale-95"
                   >
                     {isSubmitting ? <Loader2 className="animate-spin h-5 w-5" /> : "Finalizar com PIX"}
@@ -1468,7 +1468,7 @@ const CheckoutPage = () => {
                   <Button
                     type="button"
                     onClick={handleCardButtonClick}
-                    disabled={isSubmitting || !isCreditCardEnabled || !isAddressComplete}
+                    disabled={isSubmitting || !isCreditCardEnabled || !isAddressComplete || (!isShippingAvailable && !isFreeShippingApplied)}
                     className="w-full h-14 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-base rounded-2xl shadow-lg transition-all active:scale-95"
                   >
                     {isSubmitting ? <Loader2 className="animate-spin h-5 w-5" /> : "Inserir Dados do Cartão →"}

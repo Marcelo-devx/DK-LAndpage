@@ -1217,75 +1217,74 @@ const CheckoutPage = () => {
   const BenefitsBlock = () => (
     <>
       {tierBenefits.length > 0 && (
-        <Card className="bg-slate-950 border-white/10 shadow-2xl rounded-[2.5rem] overflow-hidden">
-          <CardHeader className="bg-white/5 border-b border-white/5 p-6 md:p-8">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="p-3 bg-sky-500/20 rounded-2xl border border-sky-500/30">
-                  <Gift className="h-6 w-6 text-sky-400" />
-                </div>
-                <div>
-                  <CardTitle className="font-black text-xl md:text-2xl uppercase tracking-tighter italic text-white">Privilégios {tierName}.</CardTitle>
-                  <p className="text-[10px] font-black text-sky-500 uppercase tracking-[0.2em] mt-1">Clube DK Exclusive</p>
-                </div>
-              </div>
-              <Sparkles className="h-6 w-6 text-sky-500/40" />
+        <div className="bg-slate-950 border border-white/10 rounded-2xl overflow-hidden">
+          {/* Header compacto */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+            <div className="flex items-center gap-2.5">
+              <Gift className="h-4 w-4 text-sky-400 shrink-0" />
+              <span className="font-black text-sm uppercase tracking-tight italic text-white">Privilégios {tierName}</span>
+              <span className="text-[9px] font-black text-sky-500 uppercase tracking-widest hidden sm:inline">· Clube DK</span>
             </div>
-          </CardHeader>
-          <CardContent className="p-6 md:p-8 space-y-6">
-            <div className="grid gap-4">
-              {tierBenefits.map(benefit => {
-                const selectable = isSelectableBenefit(benefit);
-                const info = getBenefitInfo(benefit);
-                const isUsed = info.status === 'used';
+            <Sparkles className="h-4 w-4 text-sky-500/40" />
+          </div>
 
-                if (selectable) {
-                  return (
-                    <div key={benefit} className={cn(
-                      "group relative flex items-start space-x-5 p-5 rounded-2xl border transition-all duration-300",
-                      isUsed ? "bg-white/5 border-white/5 opacity-40" : "bg-white/5 border-white/10 hover:border-sky-500/50 hover:bg-white/[0.08] cursor-pointer"
-                    )}>
-                      <div className="pt-1">
-                        <Checkbox
-                          id={benefit}
-                          checked={selectedBenefits.includes(benefit)}
-                          disabled={isUsed}
-                          onCheckedChange={(checked) => {
-                            setSelectedBenefits(prev => checked ? [...prev, benefit] : prev.filter(b => b !== benefit));
-                          }}
-                          className="h-5 w-5 border-white/20 data-[state=checked]:bg-sky-500 data-[state=checked]:border-sky-500"
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <Label htmlFor={benefit} className={cn("text-sm font-black uppercase tracking-tight cursor-pointer block mb-1.5 transition-colors", isUsed ? "text-slate-500" : "text-white group-hover:text-sky-400")}>
-                          {benefit}
-                        </Label>
-                        <div className="flex items-center gap-2">
-                          <div className={cn("px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border", info.color)}>{info.label}</div>
-                        </div>
-                      </div>
-                      {!isUsed && <div className="absolute top-4 right-4 w-2 h-2 bg-sky-500 rounded-full animate-pulse" />}
-                    </div>
-                  );
-                }
+          {/* Lista compacta de benefícios */}
+          <div className="p-3 space-y-1.5">
+            {tierBenefits.map(benefit => {
+              const selectable = isSelectableBenefit(benefit);
+              const info = getBenefitInfo(benefit);
+              const isUsed = info.status === 'used';
+              const isSelected = selectedBenefits.includes(benefit);
 
+              if (selectable) {
                 return (
-                  <div key={benefit} className="flex items-center space-x-4 bg-white/[0.03] p-4 rounded-2xl border border-white/5">
-                    <div className="p-2 bg-emerald-500/10 rounded-lg">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                    </div>
-                    <span className="text-xs font-bold text-slate-300 uppercase tracking-wide">{benefit}</span>
-                  </div>
+                  <label
+                    key={benefit}
+                    htmlFor={benefit}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all cursor-pointer",
+                      isUsed
+                        ? "opacity-40 border-white/5 bg-white/[0.02] cursor-not-allowed"
+                        : isSelected
+                          ? "border-sky-500/50 bg-sky-500/10"
+                          : "border-white/8 bg-white/[0.03] hover:bg-white/[0.06] hover:border-white/15"
+                    )}
+                  >
+                    <Checkbox
+                      id={benefit}
+                      checked={isSelected}
+                      disabled={isUsed}
+                      onCheckedChange={(checked) => {
+                        setSelectedBenefits(prev => checked ? [...prev, benefit] : prev.filter(b => b !== benefit));
+                      }}
+                      className="h-4 w-4 shrink-0 border-white/20 data-[state=checked]:bg-sky-500 data-[state=checked]:border-sky-500"
+                    />
+                    <span className={cn(
+                      "text-[11px] font-black uppercase tracking-tight flex-1 leading-none",
+                      isUsed ? "text-slate-500" : isSelected ? "text-sky-300" : "text-slate-200"
+                    )}>
+                      {benefit}
+                    </span>
+                    <span className={cn("text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border shrink-0", info.color)}>
+                      {info.label}
+                    </span>
+                  </label>
                 );
-              })}
-            </div>
-            <div className="pt-4">
-              <p className="text-[9px] text-slate-500 font-medium uppercase tracking-widest text-center">
-                Benefícios aplicados automaticamente com base no seu nível de fidelidade.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+              }
+
+              return (
+                <div key={benefit} className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-white/5 bg-white/[0.02]">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                  <span className="text-[11px] font-bold text-slate-300 uppercase tracking-tight leading-none flex-1">{benefit}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          <p className="text-[8px] text-slate-600 font-medium uppercase tracking-widest text-center pb-2.5">
+            Benefícios do seu nível de fidelidade
+          </p>
+        </div>
       )}
     </>
   );

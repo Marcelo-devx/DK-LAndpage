@@ -9,9 +9,12 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
-// Todas as edge functions que precisam ficar aquecidas
-const FUNCTIONS_TO_WARM = [
-  // Auth / cadastro / email
+// Todas as edge functions que precisam ficar aquecidas.
+// Mantemos aqui TODAS as funções existentes no projeto Supabase — mesmo que
+// algumas não estejam no código atual deste repo, elas estão deployadas
+// no projeto e precisam ficar quentes para resposta rápida.
+const FUNCTIONS_TO_WARM = Array.from(new Set([
+  // ── Auth / cadastro / email ───────────────────────────────────────────
   'generate-token',
   'validate-token',
   'send-email-via-resend',
@@ -21,7 +24,8 @@ const FUNCTIONS_TO_WARM = [
   'reset-user-password',
   'update-password-admin',
   'health-check',
-  // Pedidos / pagamento
+
+  // ── Pedidos / pagamento ───────────────────────────────────────────────
   'process-mercadopago-payment',
   'create-mercadopago-preference',
   'create-mp-preference',
@@ -36,30 +40,39 @@ const FUNCTIONS_TO_WARM = [
   'admin-get-order-history',
   'admin-update-order',
   'admin-cancel-order',
-  // Usuários / admin
+  'admin-delete-order',
+  'admin-validate-order',
+
+  // ── Usuários / admin ──────────────────────────────────────────────────
   'get-users',
   'admin-create-user',
   'admin-delete-user',
+  'admin-list-users',
+  'admin-block-user',
   'bulk-add-points',
-  // Integrações
+  'bulk-import-clients',
+
+  // ── Integrações / webhooks ────────────────────────────────────────────
   'n8n-webhook',
   'n8n-receive-order',
   'dispatch-webhook',
   'trigger-integration',
   'log-integration',
-  // Cloudinary
+
+  // ── Cloudinary ────────────────────────────────────────────────────────
   'cloudinary-upload',
   'cloudinary-list-images',
   'cloudinary-delete-image',
   'cloudinary-usage',
-  // Outros
+
+  // ── Outros ────────────────────────────────────────────────────────────
   'chat-proxy',
   'catalog-api',
   'analytics-bi',
   'actionable-insights',
   'generate-sales-popups',
   'validate-cep',
-];
+]));
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {

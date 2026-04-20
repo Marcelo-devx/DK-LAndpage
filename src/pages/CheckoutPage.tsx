@@ -909,33 +909,15 @@ const CheckoutPage = () => {
   // Sem usuário logado → não renderiza nada (o redirect já foi disparado no loadCheckout)
   if (!user) return null;
 
-  // Aguarda os dados do perfil serem carregados antes de verificar completude
+  // Aguarda os dados do perfil serem carregados antes de renderizar
   if (!profileChecked) return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-sky-400" /></div>;
 
-  const profileComplete = Boolean(
-    getValues('phone')?.replace(/\D/g, '').length >= 10 &&
-    getValues('cpf_cnpj')?.replace(/\D/g, '').length >= 11 &&
-    getValues('cep')?.trim() &&
-    getValues('street')?.trim() &&
-    getValues('number')?.trim() &&
-    getValues('neighborhood')?.trim() &&
-    getValues('city')?.trim() &&
-    getValues('state')?.trim()
-  );
-  if (!profileComplete) {
-    return (
-      <div className="flex min-h-screen items-center justify-center p-4">
-        <div className="max-w-2xl w-full rounded-2xl border bg-white p-6 md:p-8 shadow-lg">
-          <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tighter">Complete seu cadastro</h1>
-          <p className="mt-3 text-sm text-slate-600">Antes de finalizar o pedido, precisamos do seu telefone e dos demais dados obrigatórios.</p>
-          <div className="mt-6 flex flex-col gap-3 md:flex-row">
-            <Button className="w-full md:w-auto" onClick={() => navigate('/complete-profile')}>Completar cadastro</Button>
-            <Button variant="outline" className="w-full md:w-auto" onClick={() => navigate('/')}>Voltar para a loja</Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // ⚠️ TRAVA DE "COMPLETE SEU CADASTRO" REMOVIDA TEMPORARIAMENTE
+  // Muitos clientes com cadastro correto estavam sendo bloqueados indevidamente.
+  // A validação dos campos obrigatórios continua acontecendo via Zod no submit
+  // (trigger() em handlePixPayment / handlePrepareCardPayment / onSubmit),
+  // então nenhum pedido incompleto consegue ser criado.
+  // TODO: reimplementar essa trava depois, com critérios mais robustos.
 
   // ============================================================
   // TELA DO FORMULÁRIO DE CARTÃO (após criar o pedido)

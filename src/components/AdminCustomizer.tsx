@@ -125,6 +125,7 @@ const AdminCustomizer = () => {
   // Estado para feriados
   const [holidays, setHolidays] = useState<string[]>([]);
   const [holidayMessage, setHolidayMessage] = useState('Hoje é feriado! Seu pedido será enviado no próximo dia útil.');
+  const [eveMessage, setEveMessage] = useState('Amanhã é feriado! Pedidos feitos agora serão enviados após o feriado.');
   const [newHoliday, setNewHoliday] = useState('');
   const [loadingHolidays, setLoadingHolidays] = useState(false);
   const [savingHolidays, setSavingHolidays] = useState(false);
@@ -310,15 +311,19 @@ const AdminCustomizer = () => {
       if (map['timer_holiday_message']) {
         setHolidayMessage(map['timer_holiday_message']);
       }
+      if (map['timer_eve_message']) {
+        setEveMessage(map['timer_eve_message']);
+      }
     }
     setLoadingHolidays(false);
   };
 
-  const saveHolidays = async (list: string[], msg: string) => {
+  const saveHolidays = async (list: string[], msg: string, eve: string) => {
     setSavingHolidays(true);
     await supabase.from('app_settings').upsert([
       { key: 'timer_holidays', value: list.join(',') },
       { key: 'timer_holiday_message', value: msg },
+      { key: 'timer_eve_message', value: eve },
     ], { onConflict: 'key' });
     setSavingHolidays(false);
     showSuccess('Feriados salvos!');
@@ -330,13 +335,13 @@ const AdminCustomizer = () => {
     const updated = [...holidays, newHoliday].sort();
     setHolidays(updated);
     setNewHoliday('');
-    saveHolidays(updated, holidayMessage);
+    saveHolidays(updated, holidayMessage, eveMessage);
   };
 
   const removeHoliday = (date: string) => {
     const updated = holidays.filter(d => d !== date);
     setHolidays(updated);
-    saveHolidays(updated, holidayMessage);
+    saveHolidays(updated, holidayMessage, eveMessage);
   };
 
   useEffect(() => {
@@ -799,7 +804,7 @@ const AdminCustomizer = () => {
                   <div className="space-y-4">
                     {/* Mensagem do feriado */}
                     <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm space-y-2">
-                      <Label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Mensagem exibida no feriado</Label>
+                      <Label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Mensagem no dia do feriado</Label>
                       <div className="flex gap-2">
                         <Input
                           value={holidayMessage}
@@ -810,12 +815,35 @@ const AdminCustomizer = () => {
                         <Button
                           size="sm"
                           className="bg-rose-500 hover:bg-rose-600 text-white h-10 px-3 shrink-0"
-                          onClick={() => saveHolidays(holidays, holidayMessage)}
+                          onClick={() => saveHolidays(holidays, holidayMessage, eveMessage)}
                           disabled={savingHolidays}
                         >
                           {savingHolidays ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
                         </Button>
                       </div>
+                      <p className="text-[10px] text-slate-400">Exibida <strong>no próprio dia</strong> do feriado, sem timer.</p>
+                    </div>
+
+                    {/* Mensagem de véspera */}
+                    <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm space-y-2">
+                      <Label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Mensagem na véspera do feriado</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          value={eveMessage}
+                          onChange={(e) => setEveMessage(e.target.value)}
+                          placeholder="Amanhã é feriado! Pedidos feitos agora serão enviados após o feriado."
+                          className="text-sm flex-1"
+                        />
+                        <Button
+                          size="sm"
+                          className="bg-rose-500 hover:bg-rose-600 text-white h-10 px-3 shrink-0"
+                          onClick={() => saveHolidays(holidays, holidayMessage, eveMessage)}
+                          disabled={savingHolidays}
+                        >
+                          {savingHolidays ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                        </Button>
+                      </div>
+                      <p className="text-[10px] text-slate-400">Exibida <strong>após o horário de corte</strong> do dia anterior ao feriado.</p>
                     </div>
 
                     {/* Adicionar feriado */}

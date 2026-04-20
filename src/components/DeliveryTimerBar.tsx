@@ -9,16 +9,16 @@ const defaultMessages = {
   saturday_after: "Fazendo o pedido após as 12:30h será enviado na próxima rota!",
   sunday: "Hoje é Domingo. Seu pedido será enviado no próximo dia útil!",
   holiday: "Hoje é feriado! Seu pedido será enviado no próximo dia útil.",
+  eve: "Amanhã é feriado! Pedidos feitos agora serão enviados após o feriado.",
 };
 
 type Messages = typeof defaultMessages;
 
 // Retorna a data local no formato YYYY-MM-DD
-const getTodayString = () => {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  const d = String(now.getDate()).padStart(2, '0');
+const getDateString = (date: Date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
 };
 
@@ -41,6 +41,7 @@ const DeliveryTimerBar = () => {
         'timer_sunday',
         'timer_holidays',
         'timer_holiday_message',
+        'timer_eve_message',
       ])
       .then(({ data }) => {
         if (data && data.length > 0) {
@@ -54,9 +55,9 @@ const DeliveryTimerBar = () => {
             saturday_after: map['timer_saturday_after'] || defaultMessages.saturday_after,
             sunday: map['timer_sunday'] || defaultMessages.sunday,
             holiday: map['timer_holiday_message'] || defaultMessages.holiday,
+            eve: map['timer_eve_message'] || defaultMessages.eve,
           });
 
-          // Feriados: string separada por vírgula ex: "2025-04-21,2025-05-01"
           if (map['timer_holidays']) {
             const list = map['timer_holidays']
               .split(',')
@@ -71,10 +72,17 @@ const DeliveryTimerBar = () => {
   useEffect(() => {
     const updateTimer = () => {
       const now = new Date();
-      const today = getTodayString();
-      const isHoliday = holidays.includes(today);
+      const today = getDateString(now);
 
-      // Feriado → sem timer, mensagem especial
+      // Amanhã
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = getDateString(tomorrow);
+
+      const isHoliday = holidays.includes(today);
+      const isTomorrowHoliday = holidays.includes(tomorrowStr);
+
+      // Feriado hoje → sem timer, mensagem de feriado
       if (isHoliday) {
         setMessage(messages.holiday);
         setShowTimer(false);
@@ -88,27 +96,46 @@ const DeliveryTimerBar = () => {
       let msg = '';
 
       if (day >= 1 && day <= 5) {
+        // Seg–Sex
         deadline = new Date();
         deadline.setHours(14, 0, 0, 0);
+
         if (now.getTime() <= deadline.getTime()) {
+          // Antes das 14h: timer normal (mesmo que amanhã seja feriado, ainda dá pra enviar hoje)
           isTimerVisible = true;
           msg = messages.weekday_before;
         } else {
-          msg = messages.weekday_after;
+          // Após as 14h: verifica se amanhã é feriado
+          if (isTomorrowHoliday) {
+            msg = messages.eve;
+          } else {
+            msg = messages.weekday_after;
+          }
           isTimerVisible = false;
         }
       } else if (day === 6) {
+        // Sábado
         deadline = new Date();
         deadline.setHours(12, 30, 0, 0);
+
         if (now.getTime() <= deadline.getTime()) {
           isTimerVisible = true;
           msg = messages.saturday_before;
         } else {
-          msg = messages.saturday_after;
+          if (isTomorrowHoliday) {
+            msg = messages.eve;
+          } else {
+            msg = messages.saturday_after;
+          }
           isTimerVisible = false;
         }
       } else {
-        msg = messages.sunday;
+        // Domingo
+        if (isTomorrowHoliday) {
+          msg = messages.eve;
+        } else {
+          msg = messages.sunday;
+        }
         isTimerVisible = false;
       }
 

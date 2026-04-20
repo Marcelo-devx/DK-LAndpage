@@ -27,7 +27,8 @@ import {
   Timer,
   Truck,
   Plus,
-  PencilLine
+  PencilLine,
+  CalendarX
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -120,6 +121,13 @@ const AdminCustomizer = () => {
   const [loadingFreeShipping, setLoadingFreeShipping] = useState(false);
   const [savingRuleId, setSavingRuleId] = useState<number | 'new' | null>(null);
   const [newRule, setNewRule] = useState<{ shipping_price: string; min_order_value: string } | null>(null);
+
+  // Estado para feriados
+  const [holidays, setHolidays] = useState<string[]>([]);
+  const [holidayMessage, setHolidayMessage] = useState('Hoje é feriado! Seu pedido será enviado no próximo dia útil.');
+  const [newHoliday, setNewHoliday] = useState('');
+  const [loadingHolidays, setLoadingHolidays] = useState(false);
+  const [savingHolidays, setSavingHolidays] = useState(false);
 
   // Helper: wrap a promise with a timeout so UI doesn't hang indefinitely
   const withTimeout = async <T,>(promise: Promise<T>, ms = 10000): Promise<T> => {
@@ -287,17 +295,60 @@ const AdminCustomizer = () => {
     setLoadingTimer(false);
   };
 
+  const fetchHolidays = async () => {
+    setLoadingHolidays(true);
+    const { data } = await supabase
+      .from('app_settings')
+      .select('key, value')
+      .in('key', ['timer_holidays', 'timer_holiday_message']);
+    if (data) {
+      const map: Record<string, string> = {};
+      data.forEach((row: any) => { map[row.key] = row.value; });
+      if (map['timer_holidays']) {
+        setHolidays(map['timer_holidays'].split(',').map((d: string) => d.trim()).filter(Boolean));
+      }
+      if (map['timer_holiday_message']) {
+        setHolidayMessage(map['timer_holiday_message']);
+      }
+    }
+    setLoadingHolidays(false);
+  };
+
+  const saveHolidays = async (list: string[], msg: string) => {
+    setSavingHolidays(true);
+    await supabase.from('app_settings').upsert([
+      { key: 'timer_holidays', value: list.join(',') },
+      { key: 'timer_holiday_message', value: msg },
+    ], { onConflict: 'key' });
+    setSavingHolidays(false);
+    showSuccess('Feriados salvos!');
+  };
+
+  const addHoliday = () => {
+    if (!newHoliday) return;
+    if (holidays.includes(newHoliday)) { showError('Data já cadastrada.'); return; }
+    const updated = [...holidays, newHoliday].sort();
+    setHolidays(updated);
+    setNewHoliday('');
+    saveHolidays(updated, holidayMessage);
+  };
+
+  const removeHoliday = (date: string) => {
+    const updated = holidays.filter(d => d !== date);
+    setHolidays(updated);
+    saveHolidays(updated, holidayMessage);
+  };
+
   useEffect(() => {
     const loadAdminData = async () => {
-      // O isAdmin já vem do useAuth(), não precisamos verificar novamente
       if (isAdmin || isGerenteGeral) {
         fetchWebhooks();
         fetchCategories();
         fetchTimerMessages();
         fetchFreeShippingRules();
+        fetchHolidays();
       }
     };
-
     loadAdminData();
   }, [isAdmin, isGerenteGeral]);
 
@@ -506,6 +557,7 @@ const AdminCustomizer = () => {
                 <TabsTrigger value="login" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-indigo-500 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><LogIn className="h-3.5 w-3.5" /> Login</TabsTrigger>
                 <TabsTrigger value="maintenance" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-orange-600 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><Wrench className="h-3.5 w-3.5" /> Manutenção</TabsTrigger>
                 <TabsTrigger value="timerbar" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-sky-500 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><Timer className="h-3.5 w-3.5" /> Barra Azul</TabsTrigger>
+                <TabsTrigger value="feriados" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-rose-500 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><CalendarX className="h-3.5 w-3.5" /> Feriados</TabsTrigger>
                 {canManageShipping && (
                   <TabsTrigger value="frete" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-green-600 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><Truck className="h-3.5 w-3.5" /> Frete</TabsTrigger>
                 )}
@@ -725,6 +777,111 @@ const AdminCustomizer = () => {
                   </p>
                   <MpPublicKeyField />
                 </div>
+              </TabsContent>
+
+              {/* --- ABA FERIADOS --- */}
+              <TabsContent value="feriados" className="space-y-6 mt-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="bg-rose-50 border border-rose-100 p-4 rounded-xl">
+                  <div className="flex items-center gap-3 mb-2">
+                    <CalendarX className="h-5 w-5 text-rose-600" />
+                    <h3 className="font-bold text-rose-900 text-sm">Feriados — Sem Timer</h3>
+                  </div>
+                  <p className="text-xs text-rose-700 font-medium">
+                    Nos dias cadastrados aqui, a barra amarela exibe a mensagem de feriado e <strong>não mostra o timer</strong> de contagem regressiva.
+                  </p>
+                </div>
+
+                {loadingHolidays ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Mensagem do feriado */}
+                    <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm space-y-2">
+                      <Label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Mensagem exibida no feriado</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          value={holidayMessage}
+                          onChange={(e) => setHolidayMessage(e.target.value)}
+                          placeholder="Hoje é feriado! Seu pedido será enviado no próximo dia útil."
+                          className="text-sm flex-1"
+                        />
+                        <Button
+                          size="sm"
+                          className="bg-rose-500 hover:bg-rose-600 text-white h-10 px-3 shrink-0"
+                          onClick={() => saveHolidays(holidays, holidayMessage)}
+                          disabled={savingHolidays}
+                        >
+                          {savingHolidays ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Adicionar feriado */}
+                    <div className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm space-y-2">
+                      <Label className="text-xs font-bold text-slate-600 uppercase tracking-wider">Adicionar data de feriado</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          type="date"
+                          value={newHoliday}
+                          onChange={(e) => setNewHoliday(e.target.value)}
+                          className="flex-1 text-sm"
+                        />
+                        <Button
+                          size="sm"
+                          className="bg-rose-500 hover:bg-rose-600 text-white h-10 px-3 shrink-0"
+                          onClick={addHoliday}
+                          disabled={!newHoliday}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Lista de feriados */}
+                    <div className="space-y-2">
+                      {holidays.length === 0 ? (
+                        <div className="text-center py-6 text-slate-400 text-xs font-bold uppercase tracking-wider">
+                          Nenhum feriado cadastrado
+                        </div>
+                      ) : (
+                        holidays.map((date) => {
+                          const [y, m, d] = date.split('-');
+                          const formatted = `${d}/${m}/${y}`;
+                          const isToday = date === new Date().toISOString().split('T')[0];
+                          const isPast = date < new Date().toISOString().split('T')[0];
+                          return (
+                            <div key={date} className={`flex items-center justify-between bg-white border rounded-xl px-4 py-3 shadow-sm ${isToday ? 'border-rose-300 bg-rose-50' : isPast ? 'border-slate-100 opacity-50' : 'border-slate-100'}`}>
+                              <div className="flex items-center gap-3">
+                                <CalendarX className={`h-4 w-4 ${isToday ? 'text-rose-500' : 'text-slate-400'}`} />
+                                <div>
+                                  <p className="font-bold text-sm text-slate-900">{formatted}</p>
+                                  {isToday && <p className="text-[10px] text-rose-500 font-black uppercase tracking-wider">Hoje</p>}
+                                  {isPast && !isToday && <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Passado</p>}
+                                </div>
+                              </div>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 text-red-400 hover:bg-red-50 hover:text-red-600"
+                                onClick={() => removeHoliday(date)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
+                      <p className="text-[10px] text-amber-700 font-medium leading-relaxed">
+                        <span className="font-black">💡 Dica:</span> Datas passadas podem ser removidas para manter a lista limpa. O formato da data é <strong>AAAA-MM-DD</strong>.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </TabsContent>
 
               {/* --- ABA BARRA AZUL (TIMER) --- */}

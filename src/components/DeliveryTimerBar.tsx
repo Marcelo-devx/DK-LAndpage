@@ -8,12 +8,23 @@ const defaultMessages = {
   saturday_before: "Faça seu pedido antes das 12:30h para ser enviado ainda hoje! Tempo restante:",
   saturday_after: "Fazendo o pedido após as 12:30h será enviado na próxima rota!",
   sunday: "Hoje é Domingo. Seu pedido será enviado no próximo dia útil!",
+  holiday: "Hoje é feriado! Seu pedido será enviado no próximo dia útil.",
 };
 
 type Messages = typeof defaultMessages;
 
+// Retorna a data local no formato YYYY-MM-DD
+const getTodayString = () => {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 const DeliveryTimerBar = () => {
   const [messages, setMessages] = useState<Messages>(defaultMessages);
+  const [holidays, setHolidays] = useState<string[]>([]);
   const [message, setMessage] = useState('');
   const [timeLeft, setTimeLeft] = useState<string | null>(null);
   const [showTimer, setShowTimer] = useState(false);
@@ -28,18 +39,31 @@ const DeliveryTimerBar = () => {
         'timer_saturday_before',
         'timer_saturday_after',
         'timer_sunday',
+        'timer_holidays',
+        'timer_holiday_message',
       ])
       .then(({ data }) => {
         if (data && data.length > 0) {
           const map: Record<string, string> = {};
           data.forEach((row: any) => { map[row.key] = row.value; });
+
           setMessages({
             weekday_before: map['timer_weekday_before'] || defaultMessages.weekday_before,
             weekday_after: map['timer_weekday_after'] || defaultMessages.weekday_after,
             saturday_before: map['timer_saturday_before'] || defaultMessages.saturday_before,
             saturday_after: map['timer_saturday_after'] || defaultMessages.saturday_after,
             sunday: map['timer_sunday'] || defaultMessages.sunday,
+            holiday: map['timer_holiday_message'] || defaultMessages.holiday,
           });
+
+          // Feriados: string separada por vírgula ex: "2025-04-21,2025-05-01"
+          if (map['timer_holidays']) {
+            const list = map['timer_holidays']
+              .split(',')
+              .map((d) => d.trim())
+              .filter(Boolean);
+            setHolidays(list);
+          }
         }
       });
   }, []);
@@ -47,10 +71,21 @@ const DeliveryTimerBar = () => {
   useEffect(() => {
     const updateTimer = () => {
       const now = new Date();
+      const today = getTodayString();
+      const isHoliday = holidays.includes(today);
+
+      // Feriado → sem timer, mensagem especial
+      if (isHoliday) {
+        setMessage(messages.holiday);
+        setShowTimer(false);
+        setTimeLeft(null);
+        return;
+      }
+
       const day = now.getDay();
       let deadline = new Date();
       let isTimerVisible = false;
-      let msg = "";
+      let msg = '';
 
       if (day >= 1 && day <= 5) {
         deadline = new Date();
@@ -94,7 +129,7 @@ const DeliveryTimerBar = () => {
     updateTimer();
     const interval = setInterval(updateTimer, 1000);
     return () => clearInterval(interval);
-  }, [messages]);
+  }, [messages, holidays]);
 
   return (
     <div className="w-full py-2.5 md:py-3 xl:py-3.5 px-4 flex justify-center items-center text-center font-black uppercase tracking-widest shadow-lg relative z-50 bg-yellow-400 text-slate-900">

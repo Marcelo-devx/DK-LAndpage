@@ -1,10 +1,37 @@
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
-// redeploy: v2
+// redeploy: v3 — fallback de bairro por faixa de CEP (Centro de Curitiba e afins)
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+/**
+ * Quando o ViaCEP devolve `bairro` vazio (acontece em muitos CEPs genéricos
+ * do Centro de Curitiba, tipo 80010-000, 80020-000, 80060-000...), inferimos
+ * o bairro pela faixa do CEP com base na divisão oficial dos Correios.
+ *
+ * Faixa do Centro de Curitiba: 80010-000 a 80060-999
+ * Centro Cívico: 80030-000 a 80035-999 (fica dentro da faixa acima, mas tem
+ * CEPs específicos — como o ViaCEP já identifica esses, só caímos aqui no
+ * fallback quando realmente não veio bairro).
+ */
+function inferNeighborhoodFromCep(cleanedCep: string, city: string, uf: string): string {
+  if (uf !== 'PR') return ''
+  const normalizedCity = (city || '').trim().toLowerCase()
+  if (normalizedCity !== 'curitiba') return ''
+
+  const cepNum = parseInt(cleanedCep, 10)
+  if (!Number.isFinite(cepNum)) return ''
+
+  // Centro Cívico: 80030-000 a 80035-999
+  if (cepNum >= 80030000 && cepNum <= 80035999) return 'Centro Cívico'
+
+  // Centro (faixa geral): 80010-000 a 80060-999
+  if (cepNum >= 80010000 && cepNum <= 80060999) return 'Centro'
+
+  return ''
 }
 
 serve(async (req) => {
@@ -45,7 +72,7 @@ serve(async (req) => {
       })
     }
 
-    console.log('[validate-cep] endereço encontrado:', addressData.localidade, '/', addressData.uf)
+    console.log('[validate-cep] endereço encontrado:', addressData.localidade, '/', addressData.uf, '| bairro:', addressData.bairro || '(vazio)')
 
     // Regra de Negócio: Apenas Paraná
     if (addressData.uf !== 'PR') {
@@ -54,6 +81,20 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
       })
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Fallback do bairro: o ViaCEP frequentemente devolve "bairro" vazio
+    // para CEPs genéricos do Centro de Curitiba. Sem bairro, o checkout
+    // não consegue casar com a tabela shipping_rates e o frete não é
+    // calculado, mesmo com o cliente estando em um bairro atendido.
+    // ─────────────────────────────────────────────────────────────────
+    if (!addressData.bairro || String(addressData.bairro).trim() === '') {
+      const inferred = inferNeighborhoodFromCep(cleanedCep, addressData.localidade, addressData.uf)
+      if (inferred) {
+        console.log('[validate-cep] bairro vazio no ViaCEP -> inferido pela faixa de CEP:', inferred)
+        addressData.bairro = inferred
+      }
     }
 
     // Identificar tipo de entrega sugerido

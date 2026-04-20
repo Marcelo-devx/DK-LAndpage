@@ -566,7 +566,12 @@ const CheckoutPage = () => {
         return;
       }
 
-      if (isMountedRef.current) setIsCheckingShipping(true);
+      if (isMountedRef.current) {
+        setIsCheckingShipping(true);
+        // Limpa mensagens antigas para não piscar alerta laranja de um cálculo anterior
+        // enquanto o novo cálculo está em andamento.
+        setShippingErrorMessage('');
+      }
       try {
         const { data, error } = await supabase.rpc('get_shipping_rate', {
           p_neighborhood: watchedNeighborhood || '',
@@ -1164,7 +1169,7 @@ const CheckoutPage = () => {
             </div>
             {isFreeShippingApplied && <span className="text-xs font-black uppercase tracking-widest text-emerald-600">Grátis</span>}
           </div>
-          {shippingErrorMessage && !isFreeShippingApplied && (
+          {shippingErrorMessage && !isFreeShippingApplied && shippingCost <= 0 && !isCheckingShipping && (
             <Alert className="mt-4 border-amber-200 bg-amber-50">
               <AlertTriangle className="h-4 w-4 text-amber-600" />
               <AlertTitle className="text-sm font-black uppercase text-amber-800">Frete a confirmar</AlertTitle>

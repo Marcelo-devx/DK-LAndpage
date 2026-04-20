@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Truck, Clock } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 const defaultMessages = {
   weekday_before: "Faça seu pedido antes das 14h para ser enviado ainda hoje! Tempo restante:",
@@ -9,10 +10,39 @@ const defaultMessages = {
   sunday: "Hoje é Domingo. Seu pedido será enviado no próximo dia útil!",
 };
 
+type Messages = typeof defaultMessages;
+
 const DeliveryTimerBar = () => {
+  const [messages, setMessages] = useState<Messages>(defaultMessages);
   const [message, setMessage] = useState('');
   const [timeLeft, setTimeLeft] = useState<string | null>(null);
   const [showTimer, setShowTimer] = useState(false);
+
+  useEffect(() => {
+    supabase
+      .from('app_settings')
+      .select('key, value')
+      .in('key', [
+        'timer_weekday_before',
+        'timer_weekday_after',
+        'timer_saturday_before',
+        'timer_saturday_after',
+        'timer_sunday',
+      ])
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          const map: Record<string, string> = {};
+          data.forEach((row: any) => { map[row.key] = row.value; });
+          setMessages({
+            weekday_before: map['timer_weekday_before'] || defaultMessages.weekday_before,
+            weekday_after: map['timer_weekday_after'] || defaultMessages.weekday_after,
+            saturday_before: map['timer_saturday_before'] || defaultMessages.saturday_before,
+            saturday_after: map['timer_saturday_after'] || defaultMessages.saturday_after,
+            sunday: map['timer_sunday'] || defaultMessages.sunday,
+          });
+        }
+      });
+  }, []);
 
   useEffect(() => {
     const updateTimer = () => {
@@ -27,9 +57,9 @@ const DeliveryTimerBar = () => {
         deadline.setHours(14, 0, 0, 0);
         if (now.getTime() <= deadline.getTime()) {
           isTimerVisible = true;
-          msg = defaultMessages.weekday_before;
+          msg = messages.weekday_before;
         } else {
-          msg = defaultMessages.weekday_after;
+          msg = messages.weekday_after;
           isTimerVisible = false;
         }
       } else if (day === 6) {
@@ -37,13 +67,13 @@ const DeliveryTimerBar = () => {
         deadline.setHours(12, 30, 0, 0);
         if (now.getTime() <= deadline.getTime()) {
           isTimerVisible = true;
-          msg = defaultMessages.saturday_before;
+          msg = messages.saturday_before;
         } else {
-          msg = defaultMessages.saturday_after;
+          msg = messages.saturday_after;
           isTimerVisible = false;
         }
       } else {
-        msg = defaultMessages.sunday;
+        msg = messages.sunday;
         isTimerVisible = false;
       }
 
@@ -64,7 +94,7 @@ const DeliveryTimerBar = () => {
     updateTimer();
     const interval = setInterval(updateTimer, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [messages]);
 
   return (
     <div className="w-full py-2.5 md:py-3 xl:py-3.5 px-4 flex justify-center items-center text-center font-black uppercase tracking-widest shadow-lg relative z-50 bg-yellow-400 text-slate-900">

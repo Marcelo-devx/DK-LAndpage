@@ -10,6 +10,7 @@ import { showError } from '@/utils/toast';
 import { getLocalCart, updateLocalCartItemQuantity, removeFromLocalCart, ItemType, getCartCreatedAt } from '@/utils/localCart';
 import OrderTimer from './OrderTimer';
 import ProductImage from '@/components/ProductImage';
+import FreeShippingBanner from '@/components/FreeShippingBanner';
 
 interface DisplayItem {
   id: number;
@@ -36,6 +37,29 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
   const [cartStartTime, setCartStartTime] = useState<string | null>(null);
+  const [userShippingCost, setUserShippingCost] = useState(0);
+
+  // Busca o frete do bairro/cidade do perfil do usuário logado
+  useEffect(() => {
+    if (!isOpen) return;
+    const fetchUserShipping = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('neighborhood, city')
+        .eq('id', session.user.id)
+        .single();
+      if (!profile?.city) return;
+      const { data } = await supabase.rpc('get_shipping_rate', {
+        p_neighborhood: profile.neighborhood || '',
+        p_city: profile.city || '',
+        p_cep: null,
+      });
+      if (data && Number(data) > 0) setUserShippingCost(Number(data));
+    };
+    fetchUserShipping();
+  }, [isOpen]);
 
   const fetchCartItems = useCallback(async () => {
     setLoading(true);
@@ -311,6 +335,11 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
         {items.length > 0 && (
           <SheetFooter className="mt-auto pt-6 border-t border-stone-200 flex flex-col">
             <div className="w-full space-y-4">
+              <FreeShippingBanner
+                subtotal={total}
+                baseShippingCost={userShippingCost}
+                isFreeShippingByBenefitOrCoupon={false}
+              />
               <div className="flex justify-between font-black text-xl italic uppercase">
                 <span className="text-slate-800">Total</span>
                 <span className="text-sky-600">R$ {total.toFixed(2).replace('.', ',')}</span>

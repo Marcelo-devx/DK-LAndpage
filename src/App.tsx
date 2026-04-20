@@ -34,7 +34,6 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const DashboardSecurity = lazy(() => import("./pages/DashboardSecurity"));
 const AdminLogistics = lazy(() => import("./pages/AdminLogistics"));
 const EmailConfirm = lazy(() => import("./pages/EmailConfirm"));
-const TestEdgeFunction = lazy(() => import("./pages/TestEdgeFunction"));
 
 import MaintenanceScreen from "./components/MaintenanceScreen";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -76,7 +75,8 @@ const AppContent = () => {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
-  if (settings.maintenanceMode && !isAdmin) {
+  const { isGerenteGeral } = useAuth();
+  if (settings.maintenanceMode && !isAdmin && !isGerenteGeral) {
     return <MaintenanceScreen />;
   }
 
@@ -112,7 +112,6 @@ const AppContent = () => {
             </ProtectedRoute>
           } />
           <Route path="/auth/confirm" element={<EmailConfirm />} />
-          <Route path="/test-edge-function" element={<TestEdgeFunction />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>

@@ -12,13 +12,13 @@ interface FreeShippingRule {
 
 interface FreeShippingBannerProps {
   subtotal: number;
-  shippingCost: number;
-  isFreeShippingApplied: boolean;
+  baseShippingCost: number; // frete base calculado pelo banco (nunca zero por frete grátis)
+  isFreeShippingByBenefitOrCoupon: boolean; // grátis por benefício/cupom → não exibe banner
 }
 
 let cachedRules: FreeShippingRule[] | null = null;
 
-const FreeShippingBanner = ({ subtotal, shippingCost, isFreeShippingApplied }: FreeShippingBannerProps) => {
+const FreeShippingBanner = ({ subtotal, baseShippingCost, isFreeShippingByBenefitOrCoupon }: FreeShippingBannerProps) => {
   const [rules, setRules] = useState<FreeShippingRule[]>(cachedRules ?? []);
 
   useEffect(() => {
@@ -35,10 +35,14 @@ const FreeShippingBanner = ({ subtotal, shippingCost, isFreeShippingApplied }: F
       });
   }, []);
 
-  if (isFreeShippingApplied) return null;
-  if (shippingCost <= 0) return null;
+  // Não exibe se grátis por benefício/cupom (já tem outro aviso para isso)
+  if (isFreeShippingByBenefitOrCoupon) return null;
 
-  const rule = rules.find(r => Math.abs(r.shipping_price - shippingCost) < 0.01);
+  // Não exibe se o frete ainda não foi calculado
+  if (baseShippingCost <= 0) return null;
+
+  // Encontra a regra que corresponde ao frete base
+  const rule = rules.find(r => Math.abs(r.shipping_price - baseShippingCost) < 0.01);
   if (!rule) return null;
 
   const remaining = rule.min_order_value - subtotal;

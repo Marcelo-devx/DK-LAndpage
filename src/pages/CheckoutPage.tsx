@@ -1359,8 +1359,11 @@ const CheckoutPage = () => {
 
         <FreeShippingBanner
           subtotal={subtotal}
-          shippingCost={shippingCost}
-          isFreeShippingApplied={isFreeShippingApplied}
+          baseShippingCost={baseShippingCostRef.current}
+          isFreeShippingByBenefitOrCoupon={
+            selectedBenefits.some(b => b.toLowerCase().includes('frete grátis')) ||
+            (selectedCoupon?.name?.toLowerCase().includes('frete') ?? false)
+          }
         />
 
         <div className="space-y-3">

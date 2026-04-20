@@ -35,13 +35,9 @@ const FreeShippingBanner = ({ subtotal, shippingCost, isFreeShippingApplied }: F
       });
   }, []);
 
-  // Não exibe se frete grátis já está aplicado por outro motivo
   if (isFreeShippingApplied) return null;
-
-  // Não exibe se o frete ainda não foi calculado
   if (shippingCost <= 0) return null;
 
-  // Encontra a regra que corresponde ao frete atual
   const rule = rules.find(r => Math.abs(r.shipping_price - shippingCost) < 0.01);
   if (!rule) return null;
 
@@ -66,16 +62,16 @@ const FreeShippingBanner = ({ subtotal, shippingCost, isFreeShippingApplied }: F
   }
 
   return (
-    <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3.5 space-y-2.5">
+    <div className="bg-sky-50 border border-sky-200 rounded-2xl px-4 py-3.5 space-y-2.5">
       <div className="flex items-start gap-3">
-        <Truck className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+        <Truck className="h-5 w-5 text-sky-500 shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
-          <p className="text-[11px] font-black uppercase tracking-widest text-amber-700">
+          <p className="text-[11px] font-black uppercase tracking-widest text-sky-700">
             Frete grátis a partir de R$ {rule.min_order_value.toFixed(2).replace('.', ',')}
           </p>
-          <p className="text-xs text-amber-600 font-medium mt-0.5">
+          <p className="text-xs text-sky-600 font-medium mt-0.5">
             Faltam{' '}
-            <span className="font-black text-amber-800">
+            <span className="font-black text-sky-800">
               R$ {remaining.toFixed(2).replace('.', ',')}
             </span>{' '}
             em produtos para você ganhar frete grátis!
@@ -85,18 +81,18 @@ const FreeShippingBanner = ({ subtotal, shippingCost, isFreeShippingApplied }: F
 
       {/* Barra de progresso */}
       <div className="space-y-1">
-        <div className="w-full bg-amber-200 rounded-full h-2 overflow-hidden">
+        <div className="w-full bg-sky-100 rounded-full h-2 overflow-hidden">
           <div
             className={cn(
               "h-2 rounded-full transition-all duration-500",
-              progress >= 80 ? "bg-emerald-500" : "bg-amber-500"
+              progress >= 80 ? "bg-emerald-500" : "bg-sky-500"
             )}
             style={{ width: `${progress}%` }}
           />
         </div>
-        <div className="flex justify-between text-[9px] font-black uppercase tracking-widest text-amber-500">
+        <div className="flex justify-between text-[9px] font-black uppercase tracking-widest text-sky-400">
           <span>R$ 0</span>
-          <span className={cn(progress >= 80 && "text-emerald-600")}>{progress}%</span>
+          <span className={cn(progress >= 80 && "text-emerald-500")}>{progress}%</span>
           <span>R$ {rule.min_order_value.toFixed(0)}</span>
         </div>
       </div>

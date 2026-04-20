@@ -3,12 +3,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { logger } from '@/lib/logger';
-import { 
-  Settings, 
-  Save, 
-  Globe, 
-  Home, 
-  LogIn, 
+import {
+  Settings,
+  Save,
+  Globe,
+  Home,
+  LogIn,
   LayoutTemplate,
   Network,
   Webhook,
@@ -24,7 +24,10 @@ import {
   Package,
   Wrench,
   AlertTriangle,
-  Timer
+  Timer,
+  Truck,
+  Plus,
+  PencilLine
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -90,8 +93,16 @@ const MpPublicKeyField = () => {
   );
 };
 
+interface FreeShippingRule {
+  id: number;
+  shipping_price: number;
+  min_order_value: number;
+  is_active: boolean;
+}
+
 const AdminCustomizer = () => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isGerenteGeral } = useAuth();
+  const canManageShipping = isAdmin || isGerenteGeral;
   const { settings, updateSetting, refreshSettings, saveAllSettings } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
@@ -103,6 +114,12 @@ const AdminCustomizer = () => {
   // NOVO: Estado para gerenciar categorias
   const [categories, setCategories] = useState<any[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(false);
+
+  // Estado para regras de frete grátis
+  const [freeShippingRules, setFreeShippingRules] = useState<FreeShippingRule[]>([]);
+  const [loadingFreeShipping, setLoadingFreeShipping] = useState(false);
+  const [savingRuleId, setSavingRuleId] = useState<number | 'new' | null>(null);
+  const [newRule, setNewRule] = useState<{ shipping_price: string; min_order_value: string } | null>(null);
 
   // Helper: wrap a promise with a timeout so UI doesn't hang indefinitely
   const withTimeout = async <T,>(promise: Promise<T>, ms = 10000): Promise<T> => {
@@ -177,6 +194,59 @@ const AdminCustomizer = () => {
   const [loadingTimer, setLoadingTimer] = useState(false);
   const [savingTimer, setSavingTimer] = useState(false);
 
+  const fetchFreeShippingRules = async () => {
+    setLoadingFreeShipping(true);
+    const { data } = await supabase
+      .from('free_shipping_rules')
+      .select('id, shipping_price, min_order_value, is_active')
+      .order('shipping_price');
+    if (data) setFreeShippingRules(data as FreeShippingRule[]);
+    setLoadingFreeShipping(false);
+  };
+
+  const saveFreeShippingRule = async (rule: FreeShippingRule) => {
+    setSavingRuleId(rule.id);
+    const { error } = await supabase
+      .from('free_shipping_rules')
+      .update({ shipping_price: rule.shipping_price, min_order_value: rule.min_order_value, is_active: rule.is_active })
+      .eq('id', rule.id);
+    setSavingRuleId(null);
+    if (error) showError('Erro ao salvar regra.');
+    else showSuccess('Regra salva!');
+  };
+
+  const deleteFreeShippingRule = async (id: number) => {
+    const { error } = await supabase.from('free_shipping_rules').delete().eq('id', id);
+    if (error) showError('Erro ao excluir regra.');
+    else {
+      setFreeShippingRules(prev => prev.filter(r => r.id !== id));
+      showSuccess('Regra excluída!');
+    }
+  };
+
+  const addFreeShippingRule = async () => {
+    if (!newRule) return;
+    const sp = parseFloat(newRule.shipping_price);
+    const mo = parseFloat(newRule.min_order_value);
+    if (isNaN(sp) || isNaN(mo) || sp <= 0 || mo <= 0) {
+      showError('Informe valores válidos maiores que zero.');
+      return;
+    }
+    setSavingRuleId('new');
+    const { data, error } = await supabase
+      .from('free_shipping_rules')
+      .insert({ shipping_price: sp, min_order_value: mo, is_active: true })
+      .select()
+      .single();
+    setSavingRuleId(null);
+    if (error) showError('Erro ao adicionar regra.');
+    else {
+      setFreeShippingRules(prev => [...prev, data as FreeShippingRule].sort((a, b) => a.shipping_price - b.shipping_price));
+      setNewRule(null);
+      showSuccess('Regra adicionada!');
+    }
+  };
+
   const fetchCategories = async () => {
     setLoadingCategories(true);
     const { data } = await supabase
@@ -220,15 +290,16 @@ const AdminCustomizer = () => {
   useEffect(() => {
     const loadAdminData = async () => {
       // O isAdmin já vem do useAuth(), não precisamos verificar novamente
-      if (isAdmin) {
+      if (isAdmin || isGerenteGeral) {
         fetchWebhooks();
         fetchCategories();
         fetchTimerMessages();
+        fetchFreeShippingRules();
       }
     };
 
     loadAdminData();
-  }, [isAdmin]);
+  }, [isAdmin, isGerenteGeral]);
 
   const updateWebhook = (event: string, url: string) => {
     setWebhooks(prev => ({ ...prev, [event]: url }));
@@ -389,7 +460,7 @@ const AdminCustomizer = () => {
     else if (path === '/dashboard' || path === '/perfil') setActiveTab('dashboard');
   }, [location.pathname]);
 
-  if (!isAdmin) return null;
+  if (!isAdmin && !isGerenteGeral) return null;
 
   return (
     <Sheet>
@@ -435,6 +506,9 @@ const AdminCustomizer = () => {
                 <TabsTrigger value="login" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-indigo-500 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><LogIn className="h-3.5 w-3.5" /> Login</TabsTrigger>
                 <TabsTrigger value="maintenance" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-orange-600 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><Wrench className="h-3.5 w-3.5" /> Manutenção</TabsTrigger>
                 <TabsTrigger value="timerbar" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-sky-500 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><Timer className="h-3.5 w-3.5" /> Barra Azul</TabsTrigger>
+                {canManageShipping && (
+                  <TabsTrigger value="frete" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-green-600 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><Truck className="h-3.5 w-3.5" /> Frete</TabsTrigger>
+                )}
               </TabsList>
             </div>
 
@@ -716,6 +790,176 @@ const AdminCustomizer = () => {
                   </div>
                 )}
               </TabsContent>
+
+              {/* --- ABA FRETE GRÁTIS --- */}
+              {canManageShipping && (
+                <TabsContent value="frete" className="space-y-6 mt-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <div className="bg-green-50 border border-green-100 p-4 rounded-xl">
+                    <div className="flex items-center gap-3 mb-2">
+                      <Truck className="h-5 w-5 text-green-600" />
+                      <h3 className="font-bold text-green-900 text-sm">Política de Frete Grátis</h3>
+                    </div>
+                    <p className="text-xs text-green-700 font-medium">
+                      Configure o valor mínimo de compra (em produtos, sem contar o frete) para cada faixa de frete. Quando o cliente atingir o valor mínimo, o frete é zerado automaticamente.
+                    </p>
+                  </div>
+
+                  {loadingFreeShipping ? (
+                    <div className="flex justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {/* Cabeçalho */}
+                      <div className="grid grid-cols-[1fr_1fr_auto_auto] gap-2 px-3">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Valor do Frete</span>
+                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Mínimo p/ Grátis</span>
+                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Ativo</span>
+                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Ações</span>
+                      </div>
+
+                      {/* Regras existentes */}
+                      {freeShippingRules.map(rule => (
+                        <div key={rule.id} className="bg-white border border-slate-100 rounded-xl p-3 shadow-sm">
+                          <div className="grid grid-cols-[1fr_1fr_auto_auto] gap-2 items-center">
+                            {/* Valor do frete */}
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">R$</span>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={rule.shipping_price}
+                                onChange={e => setFreeShippingRules(prev =>
+                                  prev.map(r => r.id === rule.id ? { ...r, shipping_price: parseFloat(e.target.value) || 0 } : r)
+                                )}
+                                className="pl-8 h-9 text-sm font-bold bg-slate-50"
+                              />
+                            </div>
+                            {/* Valor mínimo */}
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">R$</span>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={rule.min_order_value}
+                                onChange={e => setFreeShippingRules(prev =>
+                                  prev.map(r => r.id === rule.id ? { ...r, min_order_value: parseFloat(e.target.value) || 0 } : r)
+                                )}
+                                className="pl-8 h-9 text-sm font-bold bg-slate-50"
+                              />
+                            </div>
+                            {/* Toggle ativo */}
+                            <Switch
+                              checked={rule.is_active}
+                              onCheckedChange={checked => {
+                                const updated = { ...rule, is_active: checked };
+                                setFreeShippingRules(prev => prev.map(r => r.id === rule.id ? updated : r));
+                                saveFreeShippingRule(updated);
+                              }}
+                            />
+                            {/* Ações */}
+                            <div className="flex items-center gap-1">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 text-green-600 hover:bg-green-50"
+                                onClick={() => saveFreeShippingRule(rule)}
+                                disabled={savingRuleId === rule.id}
+                                title="Salvar"
+                              >
+                                {savingRuleId === rule.id
+                                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  : <Save className="h-3.5 w-3.5" />}
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 text-red-400 hover:bg-red-50 hover:text-red-600"
+                                onClick={() => deleteFreeShippingRule(rule.id)}
+                                title="Excluir"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                          {/* Label informativo */}
+                          <p className="text-[9px] text-slate-400 font-medium mt-2 px-1">
+                            Frete R$ {rule.shipping_price.toFixed(2).replace('.', ',')} → grátis a partir de R$ {rule.min_order_value.toFixed(2).replace('.', ',')} em produtos
+                          </p>
+                        </div>
+                      ))}
+
+                      {/* Formulário de nova regra */}
+                      {newRule !== null ? (
+                        <div className="bg-green-50 border border-green-200 rounded-xl p-3 space-y-3">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-green-700">Nova Regra</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">R$</span>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="Valor do frete"
+                                value={newRule.shipping_price}
+                                onChange={e => setNewRule(prev => prev ? { ...prev, shipping_price: e.target.value } : null)}
+                                className="pl-8 h-9 text-sm bg-white"
+                              />
+                            </div>
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">R$</span>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="Mínimo p/ grátis"
+                                value={newRule.min_order_value}
+                                onChange={e => setNewRule(prev => prev ? { ...prev, min_order_value: e.target.value } : null)}
+                                className="pl-8 h-9 text-sm bg-white"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              className="flex-1 bg-green-600 hover:bg-green-700 text-white h-9 text-xs font-bold"
+                              onClick={addFreeShippingRule}
+                              disabled={savingRuleId === 'new'}
+                            >
+                              {savingRuleId === 'new' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-1" />}
+                              Salvar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-9 text-xs font-bold"
+                              onClick={() => setNewRule(null)}
+                            >
+                              Cancelar
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          className="w-full border-dashed border-green-300 text-green-700 hover:bg-green-50 h-10 text-xs font-bold uppercase tracking-wider"
+                          onClick={() => setNewRule({ shipping_price: '', min_order_value: '' })}
+                        >
+                          <Plus className="h-4 w-4 mr-2" /> Adicionar Regra
+                        </Button>
+                      )}
+
+                      <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
+                        <p className="text-[10px] text-amber-700 font-medium leading-relaxed">
+                          <span className="font-black">⚠️ Atenção:</span> O valor mínimo é calculado sobre os <span className="font-black">produtos</span> do carrinho, sem incluir o valor do frete. Após salvar, o banner no checkout é atualizado automaticamente.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </TabsContent>
+              )}
 
               {/* --- OUTRAS ABAS --- */}
               <TabsContent value="global" className="space-y-6 mt-0">

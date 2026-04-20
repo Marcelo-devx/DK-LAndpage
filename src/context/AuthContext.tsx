@@ -32,6 +32,7 @@ interface AuthContextType {
   profile: Profile | null;
   loading: boolean;
   isAdmin: boolean;
+  isGerenteGeral: boolean;
   refresh: () => Promise<void>;
 }
 
@@ -47,6 +48,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isGerenteGeral, setIsGerenteGeral] = useState(false);
   const [initializing, setInitializing] = useState(true);
 
   // Ref to track current user ID and avoid stale closure issues
@@ -87,16 +89,19 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         const userId = session?.user?.id || currentUser.id;
         const userProfile = await fetchProfile(userId);
         const isAdminUser = userProfile?.role === 'adm';
+        const isGerenteGeralUser = userProfile?.role === 'gerente_geral';
 
         setSession(session);
         setUser(currentUser);
         setProfile(userProfile);
         setIsAdmin(isAdminUser);
+        setIsGerenteGeral(isGerenteGeralUser);
       } else {
         setSession(null);
         setUser(null);
         setProfile(null);
         setIsAdmin(false);
+        setIsGerenteGeral(false);
       }
     } catch (error) {
       console.error('[AuthContext] Error refreshing auth state:', error);
@@ -125,6 +130,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
               if (mounted && userProfile) {
                 setProfile(userProfile);
                 setIsAdmin(userProfile.role === 'adm');
+                setIsGerenteGeral(userProfile.role === 'gerente_geral');
               }
             } catch (profileError) {
               logger.warn('[AuthContext] Failed to fetch profile during initialization - continuing without profile', profileError);
@@ -132,6 +138,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
               if (mounted) {
                 setProfile(null);
                 setIsAdmin(false);
+                setIsGerenteGeral(false);
               }
             }
           }
@@ -172,18 +179,21 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             if (mounted) {
               setProfile(userProfile);
               setIsAdmin(userProfile?.role === 'adm' || false);
+              setIsGerenteGeral(userProfile?.role === 'gerente_geral' || false);
             }
           } catch (profileError) {
             logger.warn('[AuthContext] Failed to fetch profile on SIGNED_IN - continuing without profile', profileError);
             if (mounted) {
               setProfile(null);
               setIsAdmin(false);
+              setIsGerenteGeral(false);
             }
           }
         } else if (event === 'SIGNED_OUT') {
           if (mounted) {
             setProfile(null);
             setIsAdmin(false);
+            setIsGerenteGeral(false);
           }
         } else if (event === 'USER_UPDATED' && currentSession?.user) {
           try {
@@ -191,6 +201,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             if (mounted) {
               setProfile(userProfile);
               setIsAdmin(userProfile?.role === 'adm' || false);
+              setIsGerenteGeral(userProfile?.role === 'gerente_geral' || false);
             }
           } catch (profileError) {
             logger.warn('[AuthContext] Failed to fetch profile on USER_UPDATED - continuing without profile', profileError);
@@ -224,6 +235,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     profile,
     loading: loading || initializing,
     isAdmin,
+    isGerenteGeral,
     refresh,
   };
 

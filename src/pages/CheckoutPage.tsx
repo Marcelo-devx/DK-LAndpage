@@ -25,6 +25,7 @@ import { ptBR } from 'date-fns/locale';
 import ProductImage from '@/components/ProductImage';
 import MercadoPagoCardForm from '@/components/MercadoPagoCardForm';
 import { useIsMobile } from '@/hooks/use-mobile';
+import FreeShippingBanner from '@/components/FreeShippingBanner';
 
 // ─── Contato de suporte (mesmo do botão flutuante do WhatsApp) ───────────────
 const SUPPORT_WHATSAPP_NUMBER = '595985981046';
@@ -1326,6 +1327,12 @@ const CheckoutPage = () => {
           <Separator />
           <div className="flex justify-between font-black text-2xl md:text-3xl italic uppercase tracking-tighter"><span>Total</span><span className="text-sky-600">R$ {total.toFixed(2).replace('.', ',')}</span></div>
         </div>
+
+        <FreeShippingBanner
+          subtotal={subtotal}
+          shippingCost={shippingCost}
+          isFreeShippingApplied={isFreeShippingApplied}
+        />
 
         <div className="space-y-3">
           <Label className="text-[10px] uppercase text-slate-400">Doação Solidária</Label>

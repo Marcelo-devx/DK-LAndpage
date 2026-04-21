@@ -645,8 +645,9 @@ const CheckoutPage = () => {
       if (!isMountedRef.current || !data) return;
 
       const rule = data.find((r: any) => Math.abs(r.shipping_price - base) < 0.01);
-      // Frete grátis é baseado no subtotal bruto dos produtos (sem desconto de cupom)
-      if (rule && subtotal >= rule.min_order_value) {
+      // Base para frete grátis = subtotal dos produtos menos desconto do cupom
+      const effectiveSubtotal = Math.max(0, subtotal - discount);
+      if (rule && effectiveSubtotal >= rule.min_order_value) {
         setShippingCost(0);
         setIsFreeShippingApplied(true);
       } else {
@@ -1393,6 +1394,7 @@ const CheckoutPage = () => {
 
         <FreeShippingBanner
           subtotal={subtotal}
+          discount={discount}
           baseShippingCost={baseShippingCostRef.current}
           isFreeShippingByBenefitOrCoupon={
             selectedBenefits.some(b => b.toLowerCase().includes('frete grátis')) ||

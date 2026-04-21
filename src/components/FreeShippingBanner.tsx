@@ -11,14 +11,15 @@ interface FreeShippingRule {
 }
 
 interface FreeShippingBannerProps {
-  subtotal: number;         // subtotal bruto dos produtos (sem desconto de cupom)
+  subtotal: number;         // subtotal bruto dos produtos (sem desconto)
+  discount?: number;        // desconto do cupom (default 0)
   baseShippingCost: number; // frete base calculado pelo banco (nunca zero por frete grátis)
-  isFreeShippingByBenefitOrCoupon: boolean; // grátis por benefício/cupom → não exibe banner
+  isFreeShippingByBenefitOrCoupon: boolean;
 }
 
 let cachedRules: FreeShippingRule[] | null = null;
 
-const FreeShippingBanner = ({ subtotal, baseShippingCost, isFreeShippingByBenefitOrCoupon }: FreeShippingBannerProps) => {
+const FreeShippingBanner = ({ subtotal, discount = 0, baseShippingCost, isFreeShippingByBenefitOrCoupon }: FreeShippingBannerProps) => {
   const [rules, setRules] = useState<FreeShippingRule[]>(cachedRules ?? []);
 
   useEffect(() => {
@@ -35,19 +36,16 @@ const FreeShippingBanner = ({ subtotal, baseShippingCost, isFreeShippingByBenefi
       });
   }, []);
 
-  // Não exibe se grátis por benefício/cupom (já tem outro aviso para isso)
   if (isFreeShippingByBenefitOrCoupon) return null;
-
-  // Não exibe se o frete ainda não foi calculado
   if (baseShippingCost <= 0) return null;
 
-  // Encontra a regra que corresponde ao frete base
   const rule = rules.find(r => Math.abs(r.shipping_price - baseShippingCost) < 0.01);
   if (!rule) return null;
 
-  // Frete grátis é baseado no subtotal bruto dos produtos (desconto de cupom não conta)
-  const remaining = rule.min_order_value - subtotal;
-  const progress = Math.min(100, Math.round((subtotal / rule.min_order_value) * 100));
+  // Base efetiva = subtotal dos produtos menos desconto do cupom
+  const effectiveSubtotal = Math.max(0, subtotal - discount);
+  const remaining = rule.min_order_value - effectiveSubtotal;
+  const progress = Math.min(100, Math.round((effectiveSubtotal / rule.min_order_value) * 100));
   const achieved = remaining <= 0;
 
   if (achieved) {
@@ -84,7 +82,6 @@ const FreeShippingBanner = ({ subtotal, baseShippingCost, isFreeShippingByBenefi
         </div>
       </div>
 
-      {/* Barra de progresso */}
       <div className="space-y-1">
         <div className="w-full bg-sky-100 rounded-full h-2 overflow-hidden">
           <div

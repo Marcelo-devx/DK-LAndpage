@@ -622,7 +622,10 @@ const CheckoutPage = () => {
     };
     const timeoutId = setTimeout(calculateShipping, 500);
     return () => clearTimeout(timeoutId);
-  }, [watchedNeighborhood, watchedCity, watchedCep, selectedBenefits, selectedCoupon, deliveryType]);
+  // selectedCoupon removido das dependências: o cupom não afeta o cálculo do frete base.
+  // O segundo useEffect (applyFreeShippingByValue) já cuida de reaplicar o frete grátis quando o cupom muda.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedNeighborhood, watchedCity, watchedCep, selectedBenefits, deliveryType]);
 
   // Efeito separado: aplica frete grátis por valor de compra (reage ao subtotal em tempo real)
   useEffect(() => {
@@ -642,6 +645,7 @@ const CheckoutPage = () => {
       if (!isMountedRef.current || !data) return;
 
       const rule = data.find((r: any) => Math.abs(r.shipping_price - base) < 0.01);
+      // Frete grátis é baseado no subtotal bruto dos produtos (sem desconto de cupom)
       if (rule && subtotal >= rule.min_order_value) {
         setShippingCost(0);
         setIsFreeShippingApplied(true);

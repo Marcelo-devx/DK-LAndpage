@@ -11,7 +11,7 @@ interface FreeShippingRule {
 }
 
 interface FreeShippingBannerProps {
-  subtotal: number;
+  subtotal: number;         // subtotal bruto dos produtos (sem desconto de cupom)
   baseShippingCost: number; // frete base calculado pelo banco (nunca zero por frete grátis)
   isFreeShippingByBenefitOrCoupon: boolean; // grátis por benefício/cupom → não exibe banner
 }
@@ -45,6 +45,7 @@ const FreeShippingBanner = ({ subtotal, baseShippingCost, isFreeShippingByBenefi
   const rule = rules.find(r => Math.abs(r.shipping_price - baseShippingCost) < 0.01);
   if (!rule) return null;
 
+  // Frete grátis é baseado no subtotal bruto dos produtos (desconto de cupom não conta)
   const remaining = rule.min_order_value - subtotal;
   const progress = Math.min(100, Math.round((subtotal / rule.min_order_value) * 100));
   const achieved = remaining <= 0;

@@ -467,15 +467,16 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
                     </div>
                   </div>
 
-                  {/* Street + Number — ambos editáveis */}
+                  {/* Street + Number — rua readonly (preenchida pelo CEP), número editável */}
                   <div className="grid grid-cols-3 gap-2">
                     <div className="col-span-2">
                       <Label className="text-[10px] uppercase text-slate-500 font-black tracking-widest">Rua <span className="text-red-500">*</span></Label>
                       <Input
                         value={newStreet}
                         onChange={e => setNewStreet(e.target.value)}
-                        placeholder="Nome da rua"
-                        className="text-base rounded-xl h-12 mt-1"
+                        placeholder="Busque pelo CEP"
+                        readOnly
+                        className="text-base rounded-xl h-12 mt-1 bg-stone-100 text-slate-500 cursor-not-allowed focus-visible:ring-0 focus-visible:ring-offset-0"
                       />
                     </div>
                     <div>
@@ -490,7 +491,7 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
                     </div>
                   </div>
 
-                  {/* Complement */}
+                  {/* Complement — editável */}
                   <div>
                     <Label className="text-[10px] uppercase text-slate-500 font-black tracking-widest">Complemento <span className="text-slate-400 font-medium normal-case">(opcional)</span></Label>
                     <Input
@@ -501,15 +502,16 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
                     />
                   </div>
 
-                  {/* Neighborhood + City — ambos editáveis */}
+                  {/* Neighborhood + City — readonly (preenchidos pelo CEP) */}
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <Label className="text-[10px] uppercase text-slate-500 font-black tracking-widest">Bairro <span className="text-red-500">*</span></Label>
                       <Input
                         value={newNeighborhood}
                         onChange={e => setNewNeighborhood(e.target.value)}
-                        placeholder="Bairro"
-                        className="text-base rounded-xl h-12 mt-1"
+                        placeholder="Busque pelo CEP"
+                        readOnly
+                        className="text-base rounded-xl h-12 mt-1 bg-stone-100 text-slate-500 cursor-not-allowed focus-visible:ring-0 focus-visible:ring-offset-0"
                       />
                     </div>
                     <div>
@@ -517,21 +519,23 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
                       <Input
                         value={newCity}
                         onChange={e => setNewCity(e.target.value)}
-                        placeholder="Cidade"
-                        className="text-base rounded-xl h-12 mt-1"
+                        placeholder="Busque pelo CEP"
+                        readOnly
+                        className="text-base rounded-xl h-12 mt-1 bg-stone-100 text-slate-500 cursor-not-allowed focus-visible:ring-0 focus-visible:ring-offset-0"
                       />
                     </div>
                   </div>
 
-                  {/* State — editável */}
+                  {/* State — readonly (preenchido pelo CEP) */}
                   <div>
                     <Label className="text-[10px] uppercase text-slate-500 font-black tracking-widest">Estado <span className="text-red-500">*</span></Label>
                     <Input
                       value={newState}
                       onChange={e => setNewState(e.target.value.toUpperCase().slice(0, 2))}
-                      placeholder="SC"
+                      placeholder="Busque pelo CEP"
+                      readOnly
                       maxLength={2}
-                      className="text-base rounded-xl h-12 mt-1 uppercase"
+                      className="text-base rounded-xl h-12 mt-1 uppercase bg-stone-100 text-slate-500 cursor-not-allowed focus-visible:ring-0 focus-visible:ring-offset-0"
                     />
                   </div>
 

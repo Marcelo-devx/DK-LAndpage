@@ -11,6 +11,7 @@ import { getLocalCart, updateLocalCartItemQuantity, removeFromLocalCart, ItemTyp
 import OrderTimer from './OrderTimer';
 import ProductImage from '@/components/ProductImage';
 import FreeShippingBanner from '@/components/FreeShippingBanner';
+import { DeliveryAddressModal, type DeliveryAddress } from '@/components/DeliveryAddressModal';
 
 interface DisplayItem {
   id: number;
@@ -38,6 +39,7 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
   const [total, setTotal] = useState(0);
   const [cartStartTime, setCartStartTime] = useState<string | null>(null);
   const [userShippingCost, setUserShippingCost] = useState(0);
+  const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
 
   // Busca o frete do bairro/cidade do perfil do usuário logado
   useEffect(() => {
@@ -226,131 +228,147 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
       return;
     }
 
-    navigate('/checkout');
+    // Abre o modal de seleção de endereço
+    setIsAddressModalOpen(true);
+  };
+
+  const handleAddressConfirm = (address: DeliveryAddress) => {
+    // Salva o endereço selecionado no sessionStorage
+    sessionStorage.setItem('selected_delivery_address', JSON.stringify(address));
+    setIsAddressModalOpen(false);
     onOpenChange(false);
+    navigate('/checkout');
   };
 
   return (
-    <Sheet open={isOpen} onOpenChange={onOpenChange}>
-      <SheetContent className="flex flex-col bg-white border-l border-stone-200 text-charcoal-gray w-full sm:max-w-lg">
-        <SheetHeader>
-          <SheetTitle className="font-black text-2xl tracking-tighter italic uppercase text-charcoal-gray">Seu Carrinho.</SheetTitle>
-          <SheetDescription className="sr-only">
-            Visualize e gerencie os itens adicionados ao seu carrinho de compras.
-          </SheetDescription>
-        </SheetHeader>
-        <Separator className="my-4 bg-stone-200" />
-        
-        {items.length > 0 && cartStartTime && (
-          <div className="mb-6">
-            <OrderTimer 
-              createdAt={cartStartTime} 
-              className="bg-sky-50 border-sky-100"
-            />
-            <p className="text-[10px] text-slate-700 font-bold uppercase tracking-widest mt-2 px-2">
-              Subtotal: R$ {total.toFixed(2)}
-            </p>
-          </div>
-        )}
+    <>
+      <Sheet open={isOpen} onOpenChange={onOpenChange}>
+        <SheetContent className="flex flex-col bg-white border-l border-stone-200 text-charcoal-gray w-full sm:max-w-lg">
+          <SheetHeader>
+            <SheetTitle className="font-black text-2xl tracking-tighter italic uppercase text-charcoal-gray">Seu Carrinho.</SheetTitle>
+            <SheetDescription className="sr-only">
+              Visualize e gerencie os itens adicionados ao seu carrinho de compras.
+            </SheetDescription>
+          </SheetHeader>
+          <Separator className="my-4 bg-stone-200" />
+          
+          {items.length > 0 && cartStartTime && (
+            <div className="mb-6">
+              <OrderTimer 
+                createdAt={cartStartTime} 
+                className="bg-sky-50 border-sky-100"
+              />
+              <p className="text-[10px] text-slate-700 font-bold uppercase tracking-widest mt-2 px-2">
+                Subtotal: R$ {total.toFixed(2)}
+              </p>
+            </div>
+          )}
 
-        {loading && items.length === 0 ? (
-          <div className="space-y-4 flex-grow"><Skeleton className="h-20 w-full bg-stone-100" /><Skeleton className="h-20 w-full bg-stone-100" /></div>
-        ) : items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <ShoppingCart className="h-16 w-16 text-slate-400 mb-4" />
-            <p className="text-xl font-bold text-slate-700 uppercase italic">Carrinho Vazio</p>
-          </div>
-        ) : (
-          <div className="flex-grow overflow-y-auto pr-2 -mr-2 space-y-3 custom-scrollbar">
-            {items.map(item => {
-              const key = `${item.itemType}-${item.itemId}-${item.variantId || 'no-var'}`;
-              return (
-                <div key={key} className="flex items-start gap-3 p-3 bg-white rounded-2xl border border-stone-100 shadow-sm">
-                  {/* Imagem maior */}
-                  <div className="flex-shrink-0">
-                    <ProductImage
-                      src={item.image_url}
-                      alt={item.name}
-                      className="h-20 w-20 object-cover rounded-xl border border-stone-200"
-                    />
-                  </div>
+          {loading && items.length === 0 ? (
+            <div className="space-y-4 flex-grow"><Skeleton className="h-20 w-full bg-stone-100" /><Skeleton className="h-20 w-full bg-stone-100" /></div>
+          ) : items.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center">
+              <ShoppingCart className="h-16 w-16 text-slate-400 mb-4" />
+              <p className="text-xl font-bold text-slate-700 uppercase italic">Carrinho Vazio</p>
+            </div>
+          ) : (
+            <div className="flex-grow overflow-y-auto pr-2 -mr-2 space-y-3 custom-scrollbar">
+              {items.map(item => {
+                const key = `${item.itemType}-${item.itemId}-${item.variantId || 'no-var'}`;
+                return (
+                  <div key={key} className="flex items-start gap-3 p-3 bg-white rounded-2xl border border-stone-100 shadow-sm">
+                    {/* Imagem maior */}
+                    <div className="flex-shrink-0">
+                      <ProductImage
+                        src={item.image_url}
+                        alt={item.name}
+                        className="h-20 w-20 object-cover rounded-xl border border-stone-200"
+                      />
+                    </div>
 
-                  {/* Nome + variante + preço + controles */}
-                  <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-                    {/* Nome — 2 linhas */}
-                    <p className="font-bold text-charcoal-gray text-sm leading-snug line-clamp-2">{item.name}</p>
+                    {/* Nome + variante + preço + controles */}
+                    <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                      {/* Nome — 2 linhas */}
+                      <p className="font-bold text-charcoal-gray text-sm leading-snug line-clamp-2">{item.name}</p>
 
-                    {/* Variante */}
-                    {item.variant_label && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-50 border border-sky-200 text-sky-700 text-[10px] font-black uppercase tracking-wide w-fit max-w-full truncate">
-                        🏷 {item.variant_label}
-                      </span>
-                    )}
+                      {/* Variante */}
+                      {item.variant_label && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-50 border border-sky-200 text-sky-700 text-[10px] font-black uppercase tracking-wide w-fit max-w-full truncate">
+                          🏷 {item.variant_label}
+                        </span>
+                      )}
 
-                    {/* Preço */}
-                    <p className="text-slate-900 font-extrabold text-base">
-                      R$ {item.price.toFixed(2).replace('.', ',')}
-                    </p>
+                      {/* Preço */}
+                      <p className="text-slate-900 font-extrabold text-base">
+                        R$ {item.price.toFixed(2).replace('.', ',')}
+                      </p>
 
-                    {/* Controles de quantidade + remover na mesma linha */}
-                    <div className="flex items-center justify-between mt-1">
-                      <div className="flex items-center gap-1.5 bg-stone-100 p-1 rounded-xl">
-                        <Button
-                          variant="ghost"
-                          onClick={() => updateQuantity(item, item.quantity - 1)}
-                          className="h-8 w-8 flex items-center justify-center p-0 rounded-lg hover:bg-stone-200"
-                          disabled={updatingId === key}
-                        >
-                          <Minus className="h-3.5 w-3.5" />
-                        </Button>
-                        <div className="w-7 text-center font-black text-sm select-none">
-                          {updatingId === key ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : item.quantity}
+                      {/* Controles de quantidade + remover na mesma linha */}
+                      <div className="flex items-center justify-between mt-1">
+                        <div className="flex items-center gap-1.5 bg-stone-100 p-1 rounded-xl">
+                          <Button
+                            variant="ghost"
+                            onClick={() => updateQuantity(item, item.quantity - 1)}
+                            className="h-8 w-8 flex items-center justify-center p-0 rounded-lg hover:bg-stone-200"
+                            disabled={updatingId === key}
+                          >
+                            <Minus className="h-3.5 w-3.5" />
+                          </Button>
+                          <div className="w-7 text-center font-black text-sm select-none">
+                            {updatingId === key ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : item.quantity}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            onClick={() => updateQuantity(item, item.quantity + 1)}
+                            className="h-8 w-8 flex items-center justify-center p-0 rounded-lg hover:bg-stone-200"
+                            disabled={updatingId === key}
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
+
                         <Button
                           variant="ghost"
-                          onClick={() => updateQuantity(item, item.quantity + 1)}
-                          className="h-8 w-8 flex items-center justify-center p-0 rounded-lg hover:bg-stone-200"
-                          disabled={updatingId === key}
+                          onClick={() => removeItem(item)}
+                          className="h-8 w-8 text-red-400 p-1 rounded-xl hover:bg-red-50 hover:text-red-600"
+                          title="Remover item"
                         >
-                          <Plus className="h-3.5 w-3.5" />
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
-
-                      <Button
-                        variant="ghost"
-                        onClick={() => removeItem(item)}
-                        className="h-8 w-8 text-red-400 p-1 rounded-xl hover:bg-red-50 hover:text-red-600"
-                        title="Remover item"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {items.length > 0 && (
-          <SheetFooter className="mt-auto pt-6 border-t border-stone-200 flex flex-col">
-            <div className="w-full space-y-4">
-              <FreeShippingBanner
-                subtotal={total}
-                baseShippingCost={userShippingCost}
-                isFreeShippingByBenefitOrCoupon={false}
-              />
-              <div className="flex justify-between font-black text-xl italic uppercase">
-                <span className="text-slate-800">Total</span>
-                <span className="text-sky-600">R$ {total.toFixed(2).replace('.', ',')}</span>
-              </div>
-              <Button className="w-full bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-[0.2em] h-14 rounded-xl shadow-lg transition-all active:scale-95" onClick={handleCheckout}>
-                Finalizar Compra
-              </Button>
+                );
+              })}
             </div>
-          </SheetFooter>
-        )}
-      </SheetContent>
-    </Sheet>
+          )}
+
+          {items.length > 0 && (
+            <SheetFooter className="mt-auto pt-6 border-t border-stone-200 flex flex-col">
+              <div className="w-full space-y-4">
+                <FreeShippingBanner
+                  subtotal={total}
+                  baseShippingCost={userShippingCost}
+                  isFreeShippingByBenefitOrCoupon={false}
+                />
+                <div className="flex justify-between font-black text-xl italic uppercase">
+                  <span className="text-slate-800">Total</span>
+                  <span className="text-sky-600">R$ {total.toFixed(2).replace('.', ',')}</span>
+                </div>
+                <Button className="w-full bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-[0.2em] h-14 rounded-xl shadow-lg transition-all active:scale-95" onClick={handleCheckout}>
+                  Finalizar Compra
+                </Button>
+              </div>
+            </SheetFooter>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      <DeliveryAddressModal
+        isOpen={isAddressModalOpen}
+        onOpenChange={setIsAddressModalOpen}
+        onConfirm={handleAddressConfirm}
+      />
+    </>
   );
 };

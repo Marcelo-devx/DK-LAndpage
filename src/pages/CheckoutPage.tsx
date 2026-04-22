@@ -26,6 +26,7 @@ import ProductImage from '@/components/ProductImage';
 import MercadoPagoCardForm from '@/components/MercadoPagoCardForm';
 import { useIsMobile } from '@/hooks/use-mobile';
 import FreeShippingBanner from '@/components/FreeShippingBanner';
+import { DeliveryAddressModal, type DeliveryAddress } from '@/components/DeliveryAddressModal';
 
 // ─── Contato de suporte (mesmo do botão flutuante do WhatsApp) ───────────────
 const SUPPORT_WHATSAPP_NUMBER = '595985981046';
@@ -152,6 +153,10 @@ const CheckoutPage = () => {
   const [isAddressComplete, setIsAddressComplete] = useState<boolean>(false);
   const [tierBenefits, setTierBenefits] = useState<string[]>([]);
 
+  // ── Endereço de entrega selecionado no modal (vem do sessionStorage) ──────
+  const [selectedDeliveryAddress, setSelectedDeliveryAddress] = useState<DeliveryAddress | null>(null);
+  const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+
   type RecentOrder = { created_at: string; benefits_used?: string | null };
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
   const [selectedBenefits, setSelectedBenefits] = useState<string[]>([]);
@@ -261,17 +266,13 @@ const CheckoutPage = () => {
           if (variant) {
             price = variant.price ?? 0;
 
-            // Try to find flavor name if available
             const fName = variant.flavor_id ? flavorsData?.find(f => f.id === variant.flavor_id)?.name : '';
-
-            // Build parts for a robust label: prefer explicit flavor/name + volume, otherwise try other attributes
             const parts: string[] = [];
             if (fName) parts.push(fName);
             if (variant.color) parts.push(variant.color);
             if (variant.size) parts.push(variant.size);
             if (variant.ohms) parts.push(variant.ohms);
 
-            // Join parts with separator; fallback to a generic but explicit label if nothing meaningful found
             const built = parts.join(' · ').trim();
             if (built) {
               label = built;
@@ -311,6 +312,17 @@ const CheckoutPage = () => {
     if (isMountedRef.current) setItems(finalItems);
   }, [safeNavigate]);
 
+  // ── Helper: aplica endereço de entrega selecionado nos campos do form ──────
+  const applyDeliveryAddress = useCallback((addr: DeliveryAddress) => {
+    setValue('cep', addr.cep ? maskCep(addr.cep) : '');
+    setValue('street', addr.street);
+    setValue('number', addr.number);
+    setValue('complement', addr.complement || '');
+    setValue('neighborhood', addr.neighborhood);
+    setValue('city', addr.city);
+    setValue('state', addr.state.toUpperCase());
+  }, [setValue]);
+
   const fetchUserData = useCallback(async (currentUser: any) => {
     const [profileRes, userCouponsRes, ordersRes] = await Promise.all([
       supabase.from('profiles').select('*, loyalty_tiers ( name, benefits )').eq('id', currentUser.id).single(),
@@ -336,8 +348,23 @@ const CheckoutPage = () => {
       setUserPoints(profile.points);
     }
 
+    // ── Verificar se há endereço selecionado no sessionStorage ────────────────
+    // Sobrescreve os campos de endereço do perfil com o endereço escolhido no modal
+    const savedAddressRaw = sessionStorage.getItem('selected_delivery_address');
+    if (savedAddressRaw) {
+      try {
+        const savedAddress: DeliveryAddress = JSON.parse(savedAddressRaw);
+        if (isMountedRef.current) {
+          setSelectedDeliveryAddress(savedAddress);
+          applyDeliveryAddress(savedAddress);
+        }
+      } catch {
+        sessionStorage.removeItem('selected_delivery_address');
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     // Busca os dados dos cupons separadamente para não depender da RLS da tabela coupons
-    // (a RLS bloqueia o join quando stock_quantity = 0, mesmo que o cupom já tenha sido resgatado)
     const rawUserCoupons = userCouponsRes.data || [];
     if (rawUserCoupons.length > 0 && isMountedRef.current) {
       const couponIds = rawUserCoupons.map((uc: any) => uc.coupon_id);
@@ -365,10 +392,6 @@ const CheckoutPage = () => {
 
     if (ordersRes.data && isMountedRef.current) setRecentOrders(ordersRes.data);
 
-    // Marca que o perfil foi carregado — usa setTimeout para garantir que todos os
-    // setValue() já foram processados pelo React antes de avaliar profileComplete.
-    // O segundo setTimeout (200ms) garante que o RHF já internalizou os valores
-    // antes de disparar o cálculo do frete via shippingTrigger.
     if (isMountedRef.current) setTimeout(() => {
       if (isMountedRef.current) {
         setProfileChecked(true);
@@ -377,7 +400,19 @@ const CheckoutPage = () => {
         }, 200);
       }
     }, 100);
-  }, [setValue]);
+  }, [setValue, applyDeliveryAddress]);
+
+  // ── Handler: quando o usuário confirma um novo endereço no modal ──────────
+  const handleAddressModalConfirm = useCallback((address: DeliveryAddress) => {
+    sessionStorage.setItem('selected_delivery_address', JSON.stringify(address));
+    setSelectedDeliveryAddress(address);
+    applyDeliveryAddress(address);
+    setIsAddressModalOpen(false);
+    // Recalcular frete com o novo endereço
+    setTimeout(() => {
+      if (isMountedRef.current) setShippingTrigger(t => t + 1);
+    }, 200);
+  }, [applyDeliveryAddress]);
 
   const getBenefitInfo = (benefit: string) => {
     const lowerBenefit = benefit.toLowerCase();
@@ -407,7 +442,6 @@ const CheckoutPage = () => {
 
   useEffect(() => {
     const loadCheckout = async () => {
-      // Timeout de 8s para evitar loading infinito ao voltar de outra aba
       const timeoutId = setTimeout(() => {
         if (isMountedRef.current) setLoading(false);
       }, 8000);
@@ -422,7 +456,6 @@ const CheckoutPage = () => {
             pendingOrderIdRef.current = restoredId;
             setShowMpForm(true);
             showMpFormRef.current = true;
-            // Buscar o total do pedido para exibir corretamente
             try {
               const { data: orderRow } = await supabase
                 .from('orders')
@@ -443,7 +476,6 @@ const CheckoutPage = () => {
         const { data: { session } } = await supabase.auth.getSession();
         const u = session?.user;
 
-        // Sem sessão → redirecionar para login
         if (!u) {
           if (isMountedRef.current) safeNavigate('/login', { replace: true });
           clearTimeout(timeoutId);
@@ -476,7 +508,6 @@ const CheckoutPage = () => {
     };
 
     const refetch = async () => {
-      // Não refazer fetch se o formulário de cartão do MP estiver aberto
       if (showMpFormRef.current) return;
       if (isFetchingRefLocal.current) return;
       isFetchingRefLocal.current = true;
@@ -546,12 +577,8 @@ const CheckoutPage = () => {
     } catch { showError("Erro ao buscar CEP."); } finally { if (isMountedRef.current) setIsFetchingCep(false); }
   };
 
-  // Ref para guardar o frete base calculado pelo banco (sem considerar frete grátis por valor)
   const baseShippingCostRef = useRef<number>(0);
 
-  // ─── Função central de cálculo de frete ─────────────────────────────────────
-  // Lê os valores do endereço via getValues() para funcionar tanto no useEffect
-  // (que depende de watched states) quanto na chamada direta após carregar o perfil.
   const calculateShipping = useCallback(async () => {
     if (!isMountedRef.current) return;
 
@@ -575,7 +602,6 @@ const CheckoutPage = () => {
       return;
     }
 
-    // Lê diretamente do form — funciona mesmo quando chamado logo após setValue()
     const formValues = getValues();
     const rawCep = (formValues.cep || '').replace(/\D/g, '');
     const hasValidCep = rawCep.length === 8;
@@ -606,7 +632,6 @@ const CheckoutPage = () => {
         baseShippingCostRef.current = Number(data);
         setIsShippingAvailable(true);
         setShippingErrorMessage('');
-        // A aplicação do frete grátis por valor é feita no efeito separado abaixo
       } else {
         baseShippingCostRef.current = 0;
         setShippingCost(0);
@@ -629,21 +654,19 @@ const CheckoutPage = () => {
     }
   }, [deliveryType, selectedBenefits, selectedCoupon, getValues]);
 
-  // Dispara o cálculo quando os campos de endereço mudam (digitação/CEP) ou benefícios mudam
   useEffect(() => {
     const timeoutId = setTimeout(calculateShipping, 500);
     return () => clearTimeout(timeoutId);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchedNeighborhood, watchedCity, watchedCep, selectedBenefits, deliveryType, shippingTrigger]);
 
-  // Efeito separado: aplica frete grátis por valor de compra (reage ao subtotal em tempo real)
   useEffect(() => {
     const base = baseShippingCostRef.current;
-    if (base <= 0) return; // frete ainda não calculado ou indisponível
+    if (base <= 0) return;
 
     const hasFreeShippingBenefit = selectedBenefits.some(b => b.toLowerCase().includes('frete grátis'));
     const hasFreeShippingCoupon = selectedCoupon?.name?.toLowerCase().includes('frete');
-    if (hasFreeShippingBenefit || hasFreeShippingCoupon) return; // já tratado no efeito acima
+    if (hasFreeShippingBenefit || hasFreeShippingCoupon) return;
 
     const applyFreeShippingByValue = async () => {
       const { data } = await supabase
@@ -654,7 +677,6 @@ const CheckoutPage = () => {
       if (!isMountedRef.current || !data) return;
 
       const rule = data.find((r: any) => Math.abs(r.shipping_price - base) < 0.01);
-      // Base para frete grátis = subtotal dos produtos menos desconto do cupom
       const effectiveSubtotal = Math.max(0, subtotal - discount);
       if (rule && effectiveSubtotal >= rule.min_order_value) {
         setShippingCost(0);
@@ -668,11 +690,7 @@ const CheckoutPage = () => {
     applyFreeShippingByValue();
   }, [subtotal, selectedBenefits, selectedCoupon]);
 
-  // ============================================================
-  // MOBILE: avançar da etapa 1 para a etapa 2
-  // ============================================================
   const handleMobileNextStep = async () => {
-    // Valida apenas os campos da etapa 1 antes de avançar
     const valid = await trigger([
       'email', 'first_name', 'last_name', 'phone', 'cpf_cnpj',
       'cep', 'street', 'number', 'neighborhood', 'city', 'state',
@@ -682,13 +700,9 @@ const CheckoutPage = () => {
       return;
     }
     setMobileStep(2);
-    // Scroll suave para o topo
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // ============================================================
-  // HELPER: Sincroniza endereço do checkout → perfil (fire-and-forget)
-  // ============================================================
   const syncAddressToProfile = async (data: CheckoutFormData) => {
     if (!user) return;
     try {
@@ -710,13 +724,9 @@ const CheckoutPage = () => {
     }
   };
 
-  // ============================================================
-  // PIX WHATSAPP
-  // ============================================================
   const handlePixPayment = async (data: CheckoutFormData) => {
     const toastId = showLoading("Criando seu pedido PIX...");
     try {
-      // Validação: carrinho não pode estar vazio ao finalizar
       const cartItems = getLocalCart();
       if (cartItems.length === 0) {
         throw new Error('Seu carrinho está vazio. Adicione produtos antes de finalizar o pedido.');
@@ -746,16 +756,13 @@ const CheckoutPage = () => {
       const raw: any = (o as any)?.new_order_id ?? (o as any)?.order_id ?? (o as any)?.id ?? o;
       const createdOrderId: number = typeof raw === 'string' ? Number(raw) : raw;
 
-      // Sincroniza endereço e dados pessoais no perfil (fire-and-forget)
       syncAddressToProfile(data);
 
       if (!isMountedRef.current) return;
       dismissToast(toastId);
       clearLocalCart();
       sessionStorage.removeItem('mp_pending_order_id');
-
-      // O trigger do banco (tr_order_created_webhook_fixed) já dispara o webhook automaticamente
-      // via pg_net com anon_key hardcoded — não é necessário chamar manualmente aqui.
+      sessionStorage.removeItem('selected_delivery_address');
 
       safeNavigate(`/confirmacao-pedido/${createdOrderId}`);
     } catch (e: any) {
@@ -766,11 +773,7 @@ const CheckoutPage = () => {
     }
   };
 
-  // ============================================================
-  // CARTÃO DESKTOP — Passo 1: criar pedido e mostrar form do MP
-  // ============================================================
   const handlePrepareCardPayment = async (data: CheckoutFormData) => {
-    // Validação: carrinho não pode estar vazio ao finalizar
     const cartItems = getLocalCart();
     if (cartItems.length === 0) {
       showError('Seu carrinho está vazio. Adicione produtos antes de finalizar o pedido.');
@@ -808,10 +811,8 @@ const CheckoutPage = () => {
 
       if (!orderId || !Number.isFinite(Number(orderId))) throw new Error('Não foi possível criar o pedido.');
 
-      // Sincroniza endereço e dados pessoais no perfil (fire-and-forget)
       syncAddressToProfile(data);
 
-      // Buscar o total_price real do banco como fonte da verdade para o Brick
       const { data: orderRow } = await supabase
         .from('orders')
         .select('total_price')
@@ -825,25 +826,18 @@ const CheckoutPage = () => {
       setShowMpForm(true);
       sessionStorage.setItem('mp_pending_order_id', String(orderId));
 
-      // O trigger do banco (tr_order_created_webhook_fixed) já dispara o webhook automaticamente
-      // via pg_net com anon_key hardcoded — não é necessário chamar manualmente aqui.
-
     } catch (e: any) {
       dismissToast(toastId);
       showError(e?.message || "Erro ao preparar pagamento.");
     }
   };
 
-  // ============================================================
-  // CARTÃO — Passo 2: processar pagamento com token do Brick
-  // ============================================================
   const handleMpCardSubmit = useCallback(async (cardBrickResult: any) => {
     if (!pendingOrderIdRef.current) { showError("Pedido não encontrado. Tente novamente."); return; }
 
     const currentOrderId = pendingOrderIdRef.current;
 
     try {
-      // Verificar status atual do pedido antes de processar
       const { data: orderCheck, error: orderCheckError } = await supabase
         .from('orders')
         .select('status, total_price')
@@ -854,16 +848,15 @@ const CheckoutPage = () => {
         throw new Error('Pedido não encontrado.');
       }
 
-      // Se já foi finalizado, redirecionar sem reprocessar
       if (orderCheck.status === 'Em Preparação' || orderCheck.status === 'Finalizada' || orderCheck.status === 'Entregue') {
         clearLocalCart();
         sessionStorage.removeItem('mp_pending_order_id');
+        sessionStorage.removeItem('selected_delivery_address');
         showSuccess('Pagamento já processado! 🎉');
         safeNavigate(`/confirmacao-pedido/${currentOrderId}`);
         return;
       }
 
-      // Se foi cancelado, impedir processamento
       if (orderCheck.status === 'Cancelado') {
         throw new Error('Este pedido foi cancelado. Crie um novo pedido.');
       }
@@ -902,12 +895,12 @@ const CheckoutPage = () => {
 
       clearLocalCart();
       sessionStorage.removeItem('mp_pending_order_id');
+      sessionStorage.removeItem('selected_delivery_address');
       showSuccess('Pagamento aprovado! 🎉');
 
       safeNavigate(`/confirmacao-pedido/${currentOrderId}`);
     } catch (e: any) {
       showError(e?.message || "Pagamento recusado. Verifique os dados do cartão e tente novamente.");
-      // Re-throw para que o Brick saiba que houve erro e saia do estado de loading
       throw e;
     }
   }, [getValues, safeNavigate]);
@@ -934,25 +927,18 @@ const CheckoutPage = () => {
     }
   };
 
-  // ============================================================
-  // CARTÃO — Intercepta o clique para lembrar do cupom
-  // ============================================================
   const handleCardButtonClick = () => {
-    // Se já tem cupom aplicado, ou não tem cupons disponíveis, ou não é do clube → vai direto
     if (selectedCoupon !== null || coupons.length === 0 || !tierName) {
       handleSubmit(onSubmit)();
       return;
     }
-    // Tem cupons disponíveis e não aplicou nenhum → mostra o lembrete
     setShowCouponReminderModal(true);
   };
 
   const handleApplyCouponFromModal = () => {
     setShowCouponReminderModal(false);
-    // Scroll suave até o campo de cupom
     setTimeout(() => {
       couponSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      // Destaque visual temporário
       if (couponSectionRef.current) {
         couponSectionRef.current.classList.add('ring-2', 'ring-sky-400', 'ring-offset-2', 'rounded-2xl');
         setTimeout(() => {
@@ -969,22 +955,10 @@ const CheckoutPage = () => {
 
   if (loading) return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-sky-400" /></div>;
 
-  // Sem usuário logado → não renderiza nada (o redirect já foi disparado no loadCheckout)
   if (!user) return null;
 
-  // Aguarda os dados do perfil serem carregados antes de renderizar
   if (!profileChecked) return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-sky-400" /></div>;
 
-  // ⚠️ TRAVA DE "COMPLETE SEU CADASTRO" REMOVIDA TEMPORARIAMENTE
-  // Muitos clientes com cadastro correto estavam sendo bloqueados indevidamente.
-  // A validação dos campos obrigatórios continua acontecendo via Zod no submit
-  // (trigger() em handlePixPayment / handlePrepareCardPayment / onSubmit),
-  // então nenhum pedido incompleto consegue ser criado.
-  // TODO: reimplementar essa trava depois, com critérios mais robustos.
-
-  // ============================================================
-  // TELA DO FORMULÁRIO DE CARTÃO (após criar o pedido)
-  // ============================================================
   if (showMpForm && pendingOrderId) {
     return (
       <div className="container mx-auto px-4 md:px-6 py-4 md:py-10 text-charcoal-gray max-w-2xl">
@@ -1027,9 +1001,39 @@ const CheckoutPage = () => {
     );
   }
 
-  // ============================================================
-  // BLOCOS REUTILIZÁVEIS (usados tanto no mobile quanto no desktop)
-  // ============================================================
+  // ── Badge de endereço selecionado (aparece quando há endereço do modal) ────
+  const SelectedAddressBadge = () => {
+    if (!selectedDeliveryAddress) return null;
+    return (
+      <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 flex items-start gap-3">
+        <MapPin className="h-4 w-4 text-sky-600 mt-0.5 shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] font-black uppercase tracking-widest text-sky-600 mb-1">
+            📍 Entregando em
+            {selectedDeliveryAddress.label && (
+              <span className="ml-1.5 px-1.5 py-0.5 rounded bg-sky-100 text-sky-700 text-[9px]">
+                {selectedDeliveryAddress.label}
+              </span>
+            )}
+          </p>
+          <p className="text-xs font-bold text-slate-700 leading-snug">
+            {selectedDeliveryAddress.street}, {selectedDeliveryAddress.number}
+            {selectedDeliveryAddress.complement ? `, ${selectedDeliveryAddress.complement}` : ''}
+          </p>
+          <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+            {selectedDeliveryAddress.neighborhood} — {selectedDeliveryAddress.city}, {selectedDeliveryAddress.state}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsAddressModalOpen(true)}
+          className="text-[10px] font-black uppercase tracking-widest text-sky-500 hover:text-sky-700 shrink-0 transition-colors"
+        >
+          Alterar
+        </button>
+      </div>
+    );
+  };
 
   // Bloco: formulário de endereço
   const AddressFormBlock = () => (
@@ -1041,6 +1045,9 @@ const CheckoutPage = () => {
         </div>
       </CardHeader>
       <CardContent className="p-5 md:p-8 space-y-4 md:space-y-6">
+        {/* Badge de endereço selecionado no modal */}
+        <SelectedAddressBadge />
+
         {/* Aviso: dados pessoais bloqueados */}
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 flex items-start gap-3">
           <Lock className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
@@ -1246,7 +1253,6 @@ const CheckoutPage = () => {
     <>
       {tierBenefits.length > 0 && (
         <div className="bg-slate-950 border border-white/10 rounded-2xl overflow-hidden">
-          {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
             <div className="flex items-center gap-2">
               <Crown className="h-3.5 w-3.5 text-sky-400 shrink-0" />
@@ -1255,7 +1261,6 @@ const CheckoutPage = () => {
             <span className="text-[8px] font-black text-sky-500/70 uppercase tracking-widest">Clube DK</span>
           </div>
 
-          {/* Grid de benefícios */}
           <div className="p-3 grid grid-cols-1 gap-1.5">
             {tierBenefits.map(benefit => {
               const selectable = isSelectableBenefit(benefit);
@@ -1278,7 +1283,6 @@ const CheckoutPage = () => {
                           : "border-white/8 bg-white/[0.03] hover:bg-white/[0.06] hover:border-sky-500/20 cursor-pointer"
                     )}
                   >
-                    {/* Ícone */}
                     <div className={cn(
                       "w-7 h-7 rounded-lg flex items-center justify-center shrink-0",
                       isUsed ? "bg-white/5" : isSelected ? "bg-sky-500/20" : "bg-white/5"
@@ -1286,7 +1290,6 @@ const CheckoutPage = () => {
                       <Icon className={cn("h-3.5 w-3.5", isUsed ? "text-slate-600" : isSelected ? "text-sky-400" : "text-slate-400")} />
                     </div>
 
-                    {/* Texto */}
                     <span className={cn(
                       "text-[11px] font-black uppercase tracking-tight flex-1 leading-none",
                       isUsed ? "text-slate-600" : isSelected ? "text-sky-300" : "text-slate-300"
@@ -1294,12 +1297,10 @@ const CheckoutPage = () => {
                       {benefit}
                     </span>
 
-                    {/* Badge status */}
                     <span className={cn("text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border shrink-0", info.color)}>
                       {info.label}
                     </span>
 
-                    {/* Checkbox */}
                     <Checkbox
                       id={benefit}
                       checked={isSelected}
@@ -1315,7 +1316,6 @@ const CheckoutPage = () => {
 
               return (
                 <div key={benefit} className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-white/5 bg-white/[0.02]">
-                  {/* Ícone */}
                   <div className="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
                     <Icon className="h-3.5 w-3.5 text-emerald-400" />
                   </div>
@@ -1383,7 +1383,6 @@ const CheckoutPage = () => {
             </SelectContent>
           </Select>
 
-          {/* Aviso de valor mínimo de compra */}
           <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mt-2">
             <span className="text-amber-500 text-base leading-none mt-0.5">⚠️</span>
             <p className="text-[11px] text-amber-700 font-medium leading-snug">
@@ -1461,7 +1460,7 @@ const CheckoutPage = () => {
           )}
         </div>
 
-        {/* Botões de submit — visíveis apenas no desktop (no mobile ficam no sticky footer) */}
+        {/* Botões de submit — visíveis apenas no desktop */}
         <div className="hidden md:block space-y-3">
           {paymentMethod === 'pix' && (
             <Button type="submit" disabled={isSubmitting || isCheckingShipping || !isAddressComplete || (!isShippingAvailable && !isFreeShippingApplied)} className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95">
@@ -1476,6 +1475,15 @@ const CheckoutPage = () => {
         </div>
       </CardContent>
     </Card>
+  );
+
+  // ── Modal de endereço (reutilizado no checkout para "Alterar") ────────────
+  const AddressModalForCheckout = () => (
+    <DeliveryAddressModal
+      isOpen={isAddressModalOpen}
+      onOpenChange={setIsAddressModalOpen}
+      onConfirm={handleAddressModalConfirm}
+    />
   );
 
   // ============================================================
@@ -1528,7 +1536,6 @@ const CheckoutPage = () => {
           {/* ── STICKY FOOTER MOBILE ── */}
           <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-stone-200 px-4 py-3 shadow-2xl">
             {mobileStep === 1 ? (
-              /* Etapa 1 → botão "Continuar" */
               <Button
                 type="button"
                 onClick={handleMobileNextStep}
@@ -1537,7 +1544,6 @@ const CheckoutPage = () => {
                 Continuar <ChevronRight className="h-5 w-5" />
               </Button>
             ) : (
-              /* Etapa 2 → botão de pagamento + voltar */
               <div className="space-y-2">
                 {paymentMethod === 'pix' && (
                   <Button
@@ -1612,13 +1618,14 @@ const CheckoutPage = () => {
           </DialogContent>
         </Dialog>
 
+        <AddressModalForCheckout />
         <CouponsModal isOpen={isCouponsModalOpen} onOpenChange={setIsCouponsModalOpen} userPoints={userPoints} onRedemption={handleRedemption} />
       </div>
     );
   }
 
   // ============================================================
-  // LAYOUT DESKTOP — 2 colunas (sem nenhuma alteração)
+  // LAYOUT DESKTOP — 2 colunas
   // ============================================================
   return (
     <div className="container mx-auto px-4 md:px-6 py-4 md:py-10 text-charcoal-gray">
@@ -1675,6 +1682,7 @@ const CheckoutPage = () => {
         </DialogContent>
       </Dialog>
 
+      <AddressModalForCheckout />
       <CouponsModal isOpen={isCouponsModalOpen} onOpenChange={setIsCouponsModalOpen} userPoints={userPoints} onRedemption={handleRedemption} />
     </div>
   );

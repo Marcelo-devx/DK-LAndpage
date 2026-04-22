@@ -277,9 +277,9 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
   const canAddMore = savedAddresses.length < MAX_SAVED_ADDRESSES;
 
   const content = (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       {/* Header */}
-      <div className="flex items-center gap-3 px-6 pt-2 pb-4 border-b border-stone-100">
+      <div className="flex items-center gap-3 px-6 pt-2 pb-4 border-b border-stone-100 shrink-0">
         <div className="p-2.5 bg-sky-100 rounded-xl">
           <MapPin className="h-5 w-5 text-sky-600" />
         </div>
@@ -290,7 +290,7 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
       </div>
 
       {/* Scrollable body */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 custom-scrollbar pb-6">
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-sky-400" />
@@ -407,35 +407,40 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
               </button>
             )}
 
-            {/* New address form (expandable) */}
+            {/* New address form (expandable) — sem overflow-hidden para não cortar o footer */}
             {showNewForm && (
               <div
                 className={cn(
-                  'rounded-2xl border-2 overflow-hidden transition-all duration-300',
+                  'rounded-2xl border-2 transition-all duration-300',
                   selectedId === 'new' ? 'border-sky-400 bg-sky-50/30' : 'border-stone-200 bg-white'
                 )}
               >
                 {/* Form header — clickable to select */}
-                <button
-                  type="button"
-                  onClick={() => setSelectedId('new')}
-                  className="w-full flex items-center gap-3 p-4 text-left"
-                >
-                  <div className="shrink-0">
-                    {selectedId === 'new'
-                      ? <CheckCircle2 className="h-5 w-5 text-sky-500" />
-                      : <Circle className="h-5 w-5 text-stone-300" />
-                    }
-                  </div>
-                  <p className="text-sm font-black uppercase tracking-tight text-slate-700">Novo endereço</p>
+                <div className="flex items-center gap-3 p-4">
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); setShowNewForm(false); if (selectedId === 'new') setSelectedId(hasProfileAddress ? 'profile' : savedAddresses[0]?.id || 'profile'); }}
-                    className="ml-auto text-[10px] font-bold text-slate-400 hover:text-slate-600 uppercase tracking-widest"
+                    onClick={() => setSelectedId('new')}
+                    className="flex items-center gap-3 flex-1 text-left"
+                  >
+                    <div className="shrink-0">
+                      {selectedId === 'new'
+                        ? <CheckCircle2 className="h-5 w-5 text-sky-500" />
+                        : <Circle className="h-5 w-5 text-stone-300" />
+                      }
+                    </div>
+                    <p className="text-sm font-black uppercase tracking-tight text-slate-700">Novo endereço</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowNewForm(false);
+                      if (selectedId === 'new') setSelectedId(hasProfileAddress ? 'profile' : savedAddresses[0]?.id || 'profile');
+                    }}
+                    className="text-[10px] font-bold text-slate-400 hover:text-slate-600 uppercase tracking-widest shrink-0 px-2 py-1"
                   >
                     Cancelar
                   </button>
-                </button>
+                </div>
 
                 {/* Form fields */}
                 <div className="px-4 pb-4 space-y-3">
@@ -462,7 +467,7 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
                     </div>
                   </div>
 
-                  {/* Street + Number */}
+                  {/* Street + Number — ambos editáveis */}
                   <div className="grid grid-cols-3 gap-2">
                     <div className="col-span-2">
                       <Label className="text-[10px] uppercase text-slate-500 font-black tracking-widest">Rua <span className="text-red-500">*</span></Label>
@@ -496,7 +501,7 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
                     />
                   </div>
 
-                  {/* Neighborhood + City */}
+                  {/* Neighborhood + City — ambos editáveis */}
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <Label className="text-[10px] uppercase text-slate-500 font-black tracking-widest">Bairro <span className="text-red-500">*</span></Label>
@@ -518,7 +523,7 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
                     </div>
                   </div>
 
-                  {/* State */}
+                  {/* State — editável */}
                   <div>
                     <Label className="text-[10px] uppercase text-slate-500 font-black tracking-widest">Estado <span className="text-red-500">*</span></Label>
                     <Input
@@ -546,9 +551,9 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
 
                   {/* Label field (shown when save is on) */}
                   {saveAddress && (
-                    <div className="transition-all duration-200">
+                    <div className="space-y-2">
                       <Label className="text-[10px] uppercase text-slate-500 font-black tracking-widest">Identificação</Label>
-                      <div className="flex gap-2 mt-1">
+                      <div className="flex gap-2">
                         {['Casa', 'Trabalho', 'Outro'].map(opt => (
                           <button
                             key={opt}
@@ -569,7 +574,7 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
                         value={newLabel}
                         onChange={e => setNewLabel(e.target.value)}
                         placeholder="Ou escreva um nome..."
-                        className="text-sm rounded-xl h-10 mt-2"
+                        className="text-sm rounded-xl h-10"
                       />
                     </div>
                   )}
@@ -580,12 +585,23 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
         )}
       </div>
 
-      {/* Sticky footer — confirm button */}
-      <div className="px-4 py-4 border-t border-stone-100 bg-white">
+      {/* Sticky footer — confirm button — sempre visível */}
+      <div className="shrink-0 px-4 py-4 border-t border-stone-100 bg-white">
         <Button
           type="button"
           onClick={handleConfirm}
-          disabled={loading || isSaving || (!hasProfileAddress && selectedId === 'profile') || (selectedId === 'new' && (!newStreet.trim() || !newNumber.trim() || !newNeighborhood.trim() || !newCity.trim() || !newState.trim()))}
+          disabled={
+            loading ||
+            isSaving ||
+            (!hasProfileAddress && selectedId === 'profile') ||
+            (selectedId === 'new' && (
+              !newStreet.trim() ||
+              !newNumber.trim() ||
+              !newNeighborhood.trim() ||
+              !newCity.trim() ||
+              !newState.trim()
+            ))
+          }
           className="w-full h-14 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-[0.15em] text-base rounded-2xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
         >
           {isSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : (
@@ -604,7 +620,7 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
       <Sheet open={isOpen} onOpenChange={onOpenChange}>
         <SheetContent
           side="bottom"
-          className="h-[90dvh] p-0 rounded-t-3xl flex flex-col bg-white border-t border-stone-200 overflow-hidden"
+          className="h-[92dvh] p-0 rounded-t-3xl flex flex-col bg-white border-t border-stone-200"
         >
           {/* Drag handle */}
           <div className="flex justify-center pt-3 pb-1 shrink-0">
@@ -614,7 +630,7 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
             <SheetTitle>Endereço de Entrega</SheetTitle>
             <SheetDescription>Selecione ou adicione um endereço de entrega</SheetDescription>
           </SheetHeader>
-          <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 flex flex-col min-h-0">
             {content}
           </div>
         </SheetContent>
@@ -624,12 +640,12 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg bg-white rounded-[2rem] shadow-2xl border-stone-200 p-0 overflow-hidden max-h-[85vh] flex flex-col">
+      <DialogContent className="sm:max-w-lg bg-white rounded-[2rem] shadow-2xl border-stone-200 p-0 max-h-[88vh] flex flex-col">
         <DialogHeader className="sr-only">
           <DialogTitle>Endereço de Entrega</DialogTitle>
           <DialogDescription>Selecione ou adicione um endereço de entrega</DialogDescription>
         </DialogHeader>
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col min-h-0">
           {content}
         </div>
       </DialogContent>

@@ -1082,7 +1082,6 @@ const CheckoutPage = () => {
     );
   }
 
-  // ── Badge de endereço selecionado (aparece quando há endereço do modal) ────
   // Bloco: formulário de endereço
   const AddressFormBlock = () => {
     // ── Quando há endereço selecionado no modal: mostra só o card compacto ──
@@ -1095,7 +1094,7 @@ const CheckoutPage = () => {
               <CardTitle className="font-black text-xl md:text-2xl uppercase tracking-tighter italic">Dados de Entrega.</CardTitle>
             </div>
           </CardHeader>
-          <CardContent className="p-5 md:p-8">
+          <CardContent className="p-5 md:p-8 space-y-4">
             <div className="rounded-2xl border-2 border-sky-400 bg-sky-50 p-5 flex items-start gap-4">
               <div className="p-2.5 bg-sky-100 rounded-xl shrink-0">
                 <MapPin className="h-5 w-5 text-sky-600" />
@@ -1141,6 +1140,17 @@ const CheckoutPage = () => {
                 Alterar
               </button>
             </div>
+
+            {/* Banner frete grátis dentro do card de entrega */}
+            <FreeShippingBanner
+              subtotal={subtotal}
+              discount={discount}
+              baseShippingCost={baseShippingCostRef.current}
+              isFreeShippingByBenefitOrCoupon={
+                selectedBenefits.some(b => b.toLowerCase().includes('frete grátis')) ||
+                (selectedCoupon?.name?.toLowerCase().includes('frete') ?? false)
+              }
+            />
           </CardContent>
         </Card>
       );
@@ -1352,6 +1362,17 @@ const CheckoutPage = () => {
             </Alert>
           )}
         </div>
+
+        {/* Banner frete grátis dentro do card de entrega */}
+        <FreeShippingBanner
+          subtotal={subtotal}
+          discount={discount}
+          baseShippingCost={baseShippingCostRef.current}
+          isFreeShippingByBenefitOrCoupon={
+            selectedBenefits.some(b => b.toLowerCase().includes('frete grátis')) ||
+            (selectedCoupon?.name?.toLowerCase().includes('frete') ?? false)
+          }
+        />
       </CardContent>
     </Card>
     );
@@ -1508,16 +1529,6 @@ const CheckoutPage = () => {
           <Separator />
           <div className="flex justify-between font-black text-2xl md:text-3xl italic uppercase tracking-tighter"><span>Total</span><span className="text-sky-600">R$ {total.toFixed(2).replace('.', ',')}</span></div>
         </div>
-
-        <FreeShippingBanner
-          subtotal={subtotal}
-          discount={discount}
-          baseShippingCost={baseShippingCostRef.current}
-          isFreeShippingByBenefitOrCoupon={
-            selectedBenefits.some(b => b.toLowerCase().includes('frete grátis')) ||
-            (selectedCoupon?.name?.toLowerCase().includes('frete') ?? false)
-          }
-        />
 
         <div className="space-y-3">
           <Label className="text-[10px] uppercase text-slate-400">Doação Solidária</Label>

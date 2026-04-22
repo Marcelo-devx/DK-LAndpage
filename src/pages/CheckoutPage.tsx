@@ -1083,41 +1083,71 @@ const CheckoutPage = () => {
   }
 
   // ── Badge de endereço selecionado (aparece quando há endereço do modal) ────
-  const SelectedAddressBadge = () => {
-    if (!selectedDeliveryAddress) return null;
-    return (
-      <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 flex items-start gap-3">
-        <MapPin className="h-4 w-4 text-sky-600 mt-0.5 shrink-0" />
-        <div className="flex-1 min-w-0">
-          <p className="text-[10px] font-black uppercase tracking-widest text-sky-600 mb-1">
-            📍 Entregando em
-            {selectedDeliveryAddress.label && (
-              <span className="ml-1.5 px-1.5 py-0.5 rounded bg-sky-100 text-sky-700 text-[9px]">
-                {selectedDeliveryAddress.label}
-              </span>
-            )}
-          </p>
-          <p className="text-xs font-bold text-slate-700 leading-snug">
-            {selectedDeliveryAddress.street}, {selectedDeliveryAddress.number}
-            {selectedDeliveryAddress.complement ? `, ${selectedDeliveryAddress.complement}` : ''}
-          </p>
-          <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-            {selectedDeliveryAddress.neighborhood} — {selectedDeliveryAddress.city}, {selectedDeliveryAddress.state}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setIsAddressModalOpen(true)}
-          className="text-[10px] font-black uppercase tracking-widest text-sky-500 hover:text-sky-700 shrink-0 transition-colors"
-        >
-          Alterar
-        </button>
-      </div>
-    );
-  };
-
   // Bloco: formulário de endereço
-  const AddressFormBlock = () => (
+  const AddressFormBlock = () => {
+    // ── Quando há endereço selecionado no modal: mostra só o card compacto ──
+    if (selectedDeliveryAddress) {
+      return (
+        <Card className="bg-white border-stone-200 shadow-xl rounded-[2rem] overflow-hidden">
+          <CardHeader className="bg-stone-50 border-b border-stone-100 p-6 md:p-8">
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-sky-100 rounded-2xl"><MapPin className="h-6 w-6 text-sky-600" /></div>
+              <CardTitle className="font-black text-xl md:text-2xl uppercase tracking-tighter italic">Dados de Entrega.</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="p-5 md:p-8">
+            <div className="rounded-2xl border-2 border-sky-400 bg-sky-50 p-5 flex items-start gap-4">
+              <div className="p-2.5 bg-sky-100 rounded-xl shrink-0">
+                <MapPin className="h-5 w-5 text-sky-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-widest text-sky-600 mb-1.5">
+                  📍 Entregando em
+                  {selectedDeliveryAddress.label && (
+                    <span className="ml-1.5 px-1.5 py-0.5 rounded bg-sky-200 text-sky-800 text-[9px]">
+                      {selectedDeliveryAddress.label}
+                    </span>
+                  )}
+                </p>
+                <p className="text-sm font-black text-slate-800 leading-snug">
+                  {selectedDeliveryAddress.street}, {selectedDeliveryAddress.number}
+                  {selectedDeliveryAddress.complement ? `, ${selectedDeliveryAddress.complement}` : ''}
+                </p>
+                <p className="text-xs text-slate-500 font-medium mt-1">
+                  {selectedDeliveryAddress.neighborhood} — {selectedDeliveryAddress.city}, {selectedDeliveryAddress.state}
+                  {selectedDeliveryAddress.cep ? ` · CEP ${maskCep(selectedDeliveryAddress.cep)}` : ''}
+                </p>
+                {/* Frete */}
+                <div className="mt-3 pt-3 border-t border-sky-200">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Frete</p>
+                  <p className="text-sm font-bold text-slate-700 mt-0.5">
+                    {isFreeShippingApplied
+                      ? <span className="text-emerald-600">Frete grátis ✓</span>
+                      : isCheckingShipping
+                        ? <span className="flex items-center gap-1.5"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Calculando...</span>
+                        : shippingCost > 0
+                          ? `R$ ${shippingCost.toFixed(2).replace('.', ',')}`
+                          : shippingErrorMessage
+                            ? <span className="text-amber-600 text-xs">{shippingErrorMessage}</span>
+                            : 'Calculando...'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddressModalOpen(true)}
+                className="text-[10px] font-black uppercase tracking-widest text-sky-500 hover:text-sky-700 shrink-0 transition-colors border border-sky-300 rounded-lg px-2.5 py-1.5 hover:bg-sky-100"
+              >
+                Alterar
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    // ── Sem endereço do modal: mostra o formulário completo ──────────────────
+    return (
     <Card className="bg-white border-stone-200 shadow-xl rounded-[2rem] overflow-hidden">
       <CardHeader className="bg-stone-50 border-b border-stone-100 p-6 md:p-8">
         <div className="flex items-center space-x-4">
@@ -1126,9 +1156,6 @@ const CheckoutPage = () => {
         </div>
       </CardHeader>
       <CardContent className="p-5 md:p-8 space-y-4 md:space-y-6">
-        {/* Badge de endereço selecionado no modal */}
-        <SelectedAddressBadge />
-
         {/* Aviso: dados pessoais bloqueados */}
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 flex items-start gap-3">
           <Lock className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
@@ -1327,7 +1354,8 @@ const CheckoutPage = () => {
         </div>
       </CardContent>
     </Card>
-  );
+    );
+  };
 
   // Bloco: benefícios do clube
   const BenefitsBlock = () => (

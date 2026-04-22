@@ -315,13 +315,14 @@ const CheckoutPage = () => {
 
   // ── Helper: aplica endereço de entrega selecionado nos campos do form ──────
   const applyDeliveryAddress = useCallback((addr: DeliveryAddress) => {
-    setValue('cep', addr.cep ? maskCep(addr.cep) : '');
-    setValue('street', addr.street);
-    setValue('number', addr.number);
-    setValue('complement', addr.complement || '');
-    setValue('neighborhood', addr.neighborhood);
-    setValue('city', addr.city);
-    setValue('state', addr.state.toUpperCase());
+    const opts = { shouldValidate: true, shouldDirty: true, shouldTouch: true } as const;
+    setValue('cep', addr.cep ? maskCep(addr.cep) : '', opts);
+    setValue('street', addr.street, opts);
+    setValue('number', addr.number, opts);
+    setValue('complement', addr.complement || '', opts);
+    setValue('neighborhood', addr.neighborhood, opts);
+    setValue('city', addr.city, opts);
+    setValue('state', addr.state.toUpperCase(), opts);
   }, [setValue]);
 
   // ── Calcula frete diretamente a partir de um endereço (sem depender do watch) ──
@@ -409,6 +410,7 @@ const CheckoutPage = () => {
       if (profile.loyalty_tiers) { setTierName(profile.loyalty_tiers.name); setTierBenefits(profile.loyalty_tiers.benefits || []); }
       setValue('payment_method', profile.is_credit_card_enabled ? 'mercadopago' : 'pix');
       const fields: (keyof CheckoutFormData)[] = ['email', 'first_name', 'last_name', 'phone', 'cep', 'street', 'number', 'neighborhood', 'city', 'state', 'complement', 'cpf_cnpj'];
+      const svOpts = { shouldValidate: true, shouldDirty: true, shouldTouch: true } as const;
       fields.forEach(f => {
         let val = profile[f] || '';
         if (f === 'email') val = currentUser.email || '';
@@ -416,7 +418,7 @@ const CheckoutPage = () => {
         if (f === 'cep') val = val ? maskCep(val) : '';
         if (f === 'cpf_cnpj') val = val ? maskCpfCnpj(val) : '';
         // @ts-ignore
-        setValue(f, val);
+        setValue(f, val, svOpts);
       });
       setUserPoints(profile.points);
     }

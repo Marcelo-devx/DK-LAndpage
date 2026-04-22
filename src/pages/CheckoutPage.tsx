@@ -323,6 +323,78 @@ const CheckoutPage = () => {
     setValue('state', addr.state.toUpperCase());
   }, [setValue]);
 
+  // ── Calcula frete diretamente a partir de um endereço (sem depender do watch) ──
+  const calculateShippingFromAddress = useCallback(async (neighborhood: string, city: string, cep: string) => {
+    if (!isMountedRef.current) return;
+
+    const hasFreeShippingBenefit = selectedBenefits.some(b => b.toLowerCase().includes('frete grátis'));
+    const hasFreeShippingCoupon = selectedCoupon?.name?.toLowerCase().includes('frete');
+
+    if (hasFreeShippingBenefit || hasFreeShippingCoupon) {
+      setShippingCost(0);
+      setIsFreeShippingApplied(true);
+      setIsShippingAvailable(true);
+      setShippingErrorMessage('');
+      return;
+    }
+
+    const rawCep = cep.replace(/\D/g, '');
+    const hasValidCep = rawCep.length === 8;
+
+    if (!city.trim() && !hasValidCep) return;
+
+    setIsCheckingShipping(true);
+    setShippingErrorMessage('');
+
+    try {
+      const { data, error } = await supabase.rpc('get_shipping_rate', {
+        p_neighborhood: neighborhood.trim(),
+        p_city: city.trim(),
+        p_cep: hasValidCep ? rawCep : null,
+      });
+      if (!isMountedRef.current) return;
+
+      if (!error && data !== null && data !== undefined && Number(data) > 0) {
+        const base = Number(data);
+        baseShippingCostRef.current = base;
+        setIsShippingAvailable(true);
+        setShippingErrorMessage('');
+
+        // Aplica frete grátis por valor imediatamente
+        const { data: rules } = await supabase
+          .from('free_shipping_rules')
+          .select('shipping_price, min_order_value')
+          .eq('is_active', true);
+
+        if (!isMountedRef.current) return;
+
+        const rule = rules?.find((r: any) => Math.abs(r.shipping_price - base) < 0.01);
+        // subtotal ainda pode ser 0 aqui (items ainda carregando), então usamos base diretamente
+        // O efeito separado de frete grátis por valor vai corrigir depois se necessário
+        setShippingCost(base);
+        setIsFreeShippingApplied(false);
+      } else {
+        baseShippingCostRef.current = 0;
+        setShippingCost(0);
+        setIsShippingAvailable(false);
+        setShippingErrorMessage(
+          'Ainda não temos uma taxa de frete cadastrada para este endereço. Fale com a gente pelo WhatsApp para confirmar o valor antes de finalizar a compra.'
+        );
+      }
+    } catch {
+      if (isMountedRef.current) {
+        baseShippingCostRef.current = 0;
+        setShippingCost(0);
+        setIsShippingAvailable(false);
+        setShippingErrorMessage(
+          'Não foi possível calcular o frete automaticamente. Recarregue a página ou fale com a gente pelo WhatsApp.'
+        );
+      }
+    } finally {
+      if (isMountedRef.current) setIsCheckingShipping(false);
+    }
+  }, [selectedBenefits, selectedCoupon]);
+
   const fetchUserData = useCallback(async (currentUser: any) => {
     const [profileRes, userCouponsRes, ordersRes] = await Promise.all([
       supabase.from('profiles').select('*, loyalty_tiers ( name, benefits )').eq('id', currentUser.id).single(),
@@ -350,6 +422,7 @@ const CheckoutPage = () => {
 
     // ── Verificar se há endereço selecionado no sessionStorage ────────────────
     // Sobrescreve os campos de endereço do perfil com o endereço escolhido no modal
+    // e dispara o cálculo de frete IMEDIATAMENTE com os dados do endereço selecionado
     const savedAddressRaw = sessionStorage.getItem('selected_delivery_address');
     if (savedAddressRaw) {
       try {
@@ -357,6 +430,12 @@ const CheckoutPage = () => {
         if (isMountedRef.current) {
           setSelectedDeliveryAddress(savedAddress);
           applyDeliveryAddress(savedAddress);
+          // Calcula frete direto com os dados do endereço — sem esperar o watch reagir
+          calculateShippingFromAddress(
+            savedAddress.neighborhood,
+            savedAddress.city,
+            savedAddress.cep || ''
+          );
         }
       } catch {
         sessionStorage.removeItem('selected_delivery_address');
@@ -395,12 +474,16 @@ const CheckoutPage = () => {
     if (isMountedRef.current) setTimeout(() => {
       if (isMountedRef.current) {
         setProfileChecked(true);
-        setTimeout(() => {
-          if (isMountedRef.current) setShippingTrigger(t => t + 1);
-        }, 200);
+        // Só dispara o shippingTrigger se NÃO há endereço do sessionStorage
+        // (caso contrário o frete já foi calculado diretamente acima)
+        if (!sessionStorage.getItem('selected_delivery_address')) {
+          setTimeout(() => {
+            if (isMountedRef.current) setShippingTrigger(t => t + 1);
+          }, 200);
+        }
       }
     }, 100);
-  }, [setValue, applyDeliveryAddress]);
+  }, [setValue, applyDeliveryAddress, calculateShippingFromAddress]);
 
   // ── Handler: quando o usuário confirma um novo endereço no modal ──────────
   const handleAddressModalConfirm = useCallback((address: DeliveryAddress) => {
@@ -408,11 +491,9 @@ const CheckoutPage = () => {
     setSelectedDeliveryAddress(address);
     applyDeliveryAddress(address);
     setIsAddressModalOpen(false);
-    // Recalcular frete com o novo endereço
-    setTimeout(() => {
-      if (isMountedRef.current) setShippingTrigger(t => t + 1);
-    }, 200);
-  }, [applyDeliveryAddress]);
+    // Calcula frete imediatamente com os dados do novo endereço
+    calculateShippingFromAddress(address.neighborhood, address.city, address.cep || '');
+  }, [applyDeliveryAddress, calculateShippingFromAddress]);
 
   const getBenefitInfo = (benefit: string) => {
     const lowerBenefit = benefit.toLowerCase();

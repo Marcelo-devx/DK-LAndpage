@@ -167,6 +167,7 @@ const CheckoutPage = () => {
   const [showCouponReminderModal, setShowCouponReminderModal] = useState(false);
   const [profileChecked, setProfileChecked] = useState(false);
   const [shippingTrigger, setShippingTrigger] = useState(0);
+  const [isDonationModalOpen, setIsDonationModalOpen] = useState(false);
 
   const isMountedRef = useRef(true);
   const showMpFormRef = useRef(false);
@@ -1034,53 +1035,29 @@ const CheckoutPage = () => {
     handleSubmit(onSubmit)();
   };
 
-  if (loading) return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-sky-400" /></div>;
-
-  if (!user) return null;
-
-  if (!profileChecked) return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-sky-400" /></div>;
-
-  if (showMpForm && pendingOrderId) {
-    return (
-      <div className="container mx-auto px-4 md:px-6 py-4 md:py-10 text-charcoal-gray max-w-2xl">
-        <div className="mb-8">
-          <button
-            onClick={() => { sessionStorage.removeItem('mp_pending_order_id'); setShowMpForm(false); setPendingOrderId(null); }}
-            className="text-xs text-slate-500 hover:text-slate-700 font-bold uppercase tracking-widest flex items-center gap-2 mb-6 transition-colors"
-          >
-            ← Voltar ao checkout
-          </button>
-          <h1 className="text-3xl font-black italic uppercase tracking-tighter text-charcoal-gray">Pagamento com Cartão.</h1>
-          <p className="text-sm text-slate-500 mt-2 font-medium">Pedido <span className="font-black text-sky-600">#{pendingOrderId}</span> — Total: <span className="font-black text-sky-600">R$ {(cardFormAmount || total).toFixed(2).replace('.', ',')}</span></p>
-        </div>
-
-        <Card className="bg-white border-stone-200 shadow-xl rounded-[2rem]">
-          <CardHeader className="bg-stone-50 border-b border-stone-100 p-8 rounded-t-[2rem]">
-            <div className="flex items-center space-x-4">
-              <div className="p-3 bg-sky-100 rounded-2xl">
-                <CreditCard className="h-6 w-6 text-sky-600" />
-              </div>
-              <div>
-                <CardTitle className="font-black text-2xl uppercase tracking-tighter italic">Dados do Cartão.</CardTitle>
-                <p className="text-xs text-slate-500 mt-1 font-medium">Ambiente seguro — seus dados são criptografados pelo Mercado Pago</p>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-4 md:p-8">
-            <MercadoPagoCardForm
-              amount={cardFormAmount || total}
-              onSubmit={handleMpCardSubmit}
-            />
-          </CardContent>
-        </Card>
-
-        <div className="mt-6 flex items-center justify-center gap-3 text-xs text-slate-400 font-medium">
-          <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" /></svg>
-          Pagamento 100% seguro via Mercado Pago
-        </div>
+  // Bloco: doação solidária (card-botão que abre o modal)
+  const DonationBlock = () => (
+    <button
+      type="button"
+      onClick={() => setIsDonationModalOpen(true)}
+      className="w-full text-left rounded-2xl border border-rose-200 bg-rose-50 hover:bg-rose-100 transition-colors p-4 flex items-center gap-4 group"
+    >
+      <div className="p-2.5 bg-rose-100 group-hover:bg-rose-200 rounded-xl shrink-0 transition-colors">
+        <Gift className="h-5 w-5 text-rose-500" />
       </div>
-    );
-  }
+      <div className="flex-1 min-w-0">
+        <p className="text-[10px] font-black uppercase tracking-widest text-rose-600 mb-0.5">Doação Solidária</p>
+        {donationAmount > 0 ? (
+          <p className="text-sm font-black text-rose-700">
+            R$ {donationAmount.toFixed(2).replace('.', ',')} selecionado ✓
+          </p>
+        ) : (
+          <p className="text-xs text-rose-500 font-medium">Contribua com R$ 2, R$ 5 ou R$ 10</p>
+        )}
+      </div>
+      <ChevronRight className="h-4 w-4 text-rose-400 group-hover:text-rose-600 shrink-0 transition-colors" />
+    </button>
+  );
 
   // Bloco: formulário de endereço
   const AddressFormBlock = () => {
@@ -1531,16 +1508,6 @@ const CheckoutPage = () => {
         </div>
 
         <div className="space-y-3">
-          <Label className="text-[10px] uppercase text-slate-400">Doação Solidária</Label>
-          <div className="flex flex-wrap items-center gap-2">
-            {[2, 5, 10].map(val => (
-              <Button key={val} type="button" variant={donationAmount === val ? 'default' : 'outline'} onClick={() => setDonationAmount(prev => (prev === val ? 0 : val))} className={cn("rounded-lg h-10 text-xs font-bold", donationAmount === val && "bg-rose-500 hover:bg-rose-600")}>R$ {val.toFixed(2)}</Button>
-            ))}
-            {donationAmount > 0 && (<Button type="button" variant="ghost" size="icon" onClick={() => setDonationAmount(0)} className="text-rose-500 hover:text-rose-700"><X className="h-4 w-4" /></Button>)}
-          </div>
-        </div>
-
-        <div className="space-y-3">
           <Label className="text-[10px] uppercase text-slate-400">Método de Pagamento</Label>
           {!isAddressComplete && (
             <Alert variant="destructive" className="bg-red-50 border-red-100 text-red-700">
@@ -1606,6 +1573,70 @@ const CheckoutPage = () => {
     />
   );
 
+  // ── Modal de Doação Solidária ─────────────────────────────────────────────
+  const DonationModal = () => (
+    <Dialog open={isDonationModalOpen} onOpenChange={setIsDonationModalOpen}>
+      <DialogContent className="sm:max-w-sm bg-white rounded-[2rem] shadow-2xl border-stone-200">
+        <DialogHeader className="text-center">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50 border border-rose-100">
+            <Gift className="h-7 w-7 text-rose-500" />
+          </div>
+          <DialogTitle className="font-black text-2xl uppercase tracking-tighter italic text-charcoal-gray">
+            Doação Solidária 💝
+          </DialogTitle>
+          <DialogDescription className="text-slate-600 font-medium mt-1 text-sm">
+            Contribua com um valor simbólico e ajude quem mais precisa. 100% do valor vai direto para a causa.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="mt-2 grid grid-cols-3 gap-3">
+          {[2, 5, 10].map(val => (
+            <button
+              key={val}
+              type="button"
+              onClick={() => setDonationAmount(prev => prev === val ? 0 : val)}
+              className={cn(
+                "flex flex-col items-center justify-center gap-1 h-20 rounded-2xl border-2 font-black transition-all active:scale-95",
+                donationAmount === val
+                  ? "border-rose-400 bg-rose-500 text-white shadow-lg"
+                  : "border-stone-200 bg-stone-50 text-slate-700 hover:border-rose-300 hover:bg-rose-50"
+              )}
+            >
+              <span className="text-lg">R$</span>
+              <span className="text-2xl leading-none">{val}</span>
+            </button>
+          ))}
+        </div>
+
+        {donationAmount > 0 && (
+          <p className="text-center text-xs text-rose-600 font-black uppercase tracking-widest mt-1">
+            ✓ R$ {donationAmount.toFixed(2).replace('.', ',')} selecionado
+          </p>
+        )}
+
+        <DialogFooter className="flex flex-col gap-2 mt-2 sm:flex-col">
+          <Button
+            type="button"
+            onClick={() => setIsDonationModalOpen(false)}
+            className="w-full h-12 bg-rose-500 hover:bg-rose-400 text-white font-black uppercase tracking-widest rounded-xl shadow-md"
+          >
+            {donationAmount > 0 ? 'Confirmar Doação ✓' : 'Fechar'}
+          </Button>
+          {donationAmount > 0 && (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => { setDonationAmount(0); setIsDonationModalOpen(false); }}
+              className="w-full h-10 text-slate-400 hover:text-slate-600 font-bold text-xs uppercase tracking-widest"
+            >
+              Remover doação
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
   // ============================================================
   // LAYOUT MOBILE — Stepper em 2 etapas
   // ============================================================
@@ -1622,6 +1653,7 @@ const CheckoutPage = () => {
           {mobileStep === 1 && (
             <>
               <AddressFormBlock />
+              <DonationBlock />
               <BenefitsBlock />
             </>
           )}
@@ -1739,6 +1771,7 @@ const CheckoutPage = () => {
         </Dialog>
 
         <AddressModalForCheckout />
+        <DonationModal />
         <CouponsModal isOpen={isCouponsModalOpen} onOpenChange={setIsCouponsModalOpen} userPoints={userPoints} onRedemption={handleRedemption} />
       </div>
     );
@@ -1752,6 +1785,7 @@ const CheckoutPage = () => {
       <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 lg:grid-cols-2 lg:gap-16">
         <div className="space-y-4 md:space-y-12">
           <AddressFormBlock />
+          <DonationBlock />
           <BenefitsBlock />
         </div>
 
@@ -1803,6 +1837,7 @@ const CheckoutPage = () => {
       </Dialog>
 
       <AddressModalForCheckout />
+      <DonationModal />
       <CouponsModal isOpen={isCouponsModalOpen} onOpenChange={setIsCouponsModalOpen} userPoints={userPoints} onRedemption={handleRedemption} />
     </div>
   );

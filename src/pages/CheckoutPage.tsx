@@ -1455,13 +1455,13 @@ const CheckoutPage = () => {
         {/* Botões de submit — visíveis apenas no desktop (no mobile ficam no sticky footer) */}
         <div className="hidden md:block space-y-3">
           {paymentMethod === 'pix' && (
-            <Button type="submit" disabled={isSubmitting || !isAddressComplete || (!isShippingAvailable && !isFreeShippingApplied)} className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95">
-              {isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : "Finalizar com PIX"}
+            <Button type="submit" disabled={isSubmitting || isCheckingShipping || !isAddressComplete || (!isShippingAvailable && !isFreeShippingApplied)} className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95">
+              {isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : isCheckingShipping ? <><Loader2 className="animate-spin h-5 w-5 mr-2" />Calculando frete...</> : "Finalizar com PIX"}
             </Button>
           )}
           {paymentMethod === 'mercadopago' && (
-            <Button type="button" onClick={handleCardButtonClick} disabled={isSubmitting || !isCreditCardEnabled || !isAddressComplete || (!isShippingAvailable && !isFreeShippingApplied)} className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95">
-              {isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : "Inserir Dados do Cartão →"}
+            <Button type="button" onClick={handleCardButtonClick} disabled={isSubmitting || isCheckingShipping || !isCreditCardEnabled || !isAddressComplete || (!isShippingAvailable && !isFreeShippingApplied)} className="w-full h-16 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-lg rounded-[1.5rem] shadow-xl transition-all active:scale-95">
+              {isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : isCheckingShipping ? <><Loader2 className="animate-spin h-5 w-5 mr-2" />Calculando frete...</> : "Inserir Dados do Cartão →"}
             </Button>
           )}
         </div>
@@ -1533,20 +1533,20 @@ const CheckoutPage = () => {
                 {paymentMethod === 'pix' && (
                   <Button
                     type="submit"
-                    disabled={isSubmitting || !isAddressComplete || (!isShippingAvailable && !isFreeShippingApplied)}
+                    disabled={isSubmitting || isCheckingShipping || !isAddressComplete || (!isShippingAvailable && !isFreeShippingApplied)}
                     className="w-full h-14 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-base rounded-2xl shadow-lg transition-all active:scale-95"
                   >
-                    {isSubmitting ? <Loader2 className="animate-spin h-5 w-5" /> : "Finalizar com PIX"}
+                    {isSubmitting ? <Loader2 className="animate-spin h-5 w-5" /> : isCheckingShipping ? <><Loader2 className="animate-spin h-5 w-5 mr-2" />Calculando frete...</> : "Finalizar com PIX"}
                   </Button>
                 )}
                 {paymentMethod === 'mercadopago' && (
                   <Button
                     type="button"
                     onClick={handleCardButtonClick}
-                    disabled={isSubmitting || !isCreditCardEnabled || !isAddressComplete || (!isShippingAvailable && !isFreeShippingApplied)}
+                    disabled={isSubmitting || isCheckingShipping || !isCreditCardEnabled || !isAddressComplete || (!isShippingAvailable && !isFreeShippingApplied)}
                     className="w-full h-14 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest text-base rounded-2xl shadow-lg transition-all active:scale-95"
                   >
-                    {isSubmitting ? <Loader2 className="animate-spin h-5 w-5" /> : "Inserir Dados do Cartão →"}
+                    {isSubmitting ? <Loader2 className="animate-spin h-5 w-5" /> : isCheckingShipping ? <><Loader2 className="animate-spin h-5 w-5 mr-2" />Calculando frete...</> : "Inserir Dados do Cartão →"}
                   </Button>
                 )}
                 <button

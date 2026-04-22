@@ -161,6 +161,7 @@ const CheckoutPage = () => {
   const [cardFormAmount, setCardFormAmount] = useState<number>(0);
   const [showCouponReminderModal, setShowCouponReminderModal] = useState(false);
   const [profileChecked, setProfileChecked] = useState(false);
+  const [shippingTrigger, setShippingTrigger] = useState(0);
 
   const isMountedRef = useRef(true);
   const showMpFormRef = useRef(false);
@@ -367,7 +368,11 @@ const CheckoutPage = () => {
     // Marca que o perfil foi carregado — usa setTimeout para garantir que todos os
     // setValue() já foram processados pelo React antes de avaliar profileComplete
     if (isMountedRef.current) setTimeout(() => {
-      if (isMountedRef.current) setProfileChecked(true);
+      if (isMountedRef.current) {
+        setProfileChecked(true);
+        // Dispara o cálculo do frete agora que os campos de endereço foram preenchidos
+        setShippingTrigger(t => t + 1);
+      }
     }, 100);
   }, [setValue]);
 
@@ -625,7 +630,7 @@ const CheckoutPage = () => {
   // selectedCoupon removido das dependências: o cupom não afeta o cálculo do frete base.
   // O segundo useEffect (applyFreeShippingByValue) já cuida de reaplicar o frete grátis quando o cupom muda.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchedNeighborhood, watchedCity, watchedCep, selectedBenefits, deliveryType]);
+  }, [watchedNeighborhood, watchedCity, watchedCep, selectedBenefits, deliveryType, shippingTrigger]);
 
   // Efeito separado: aplica frete grátis por valor de compra (reage ao subtotal em tempo real)
   useEffect(() => {

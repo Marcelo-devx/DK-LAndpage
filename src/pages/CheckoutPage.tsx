@@ -366,12 +366,15 @@ const CheckoutPage = () => {
     if (ordersRes.data && isMountedRef.current) setRecentOrders(ordersRes.data);
 
     // Marca que o perfil foi carregado — usa setTimeout para garantir que todos os
-    // setValue() já foram processados pelo React antes de avaliar profileComplete
+    // setValue() já foram processados pelo React antes de avaliar profileComplete.
+    // O segundo setTimeout (200ms) garante que o RHF já internalizou os valores
+    // antes de disparar o cálculo do frete via shippingTrigger.
     if (isMountedRef.current) setTimeout(() => {
       if (isMountedRef.current) {
         setProfileChecked(true);
-        // Dispara o cálculo do frete agora que os campos de endereço foram preenchidos
-        setShippingTrigger(t => t + 1);
+        setTimeout(() => {
+          if (isMountedRef.current) setShippingTrigger(t => t + 1);
+        }, 200);
       }
     }, 100);
   }, [setValue]);
@@ -546,89 +549,90 @@ const CheckoutPage = () => {
   // Ref para guardar o frete base calculado pelo banco (sem considerar frete grátis por valor)
   const baseShippingCostRef = useRef<number>(0);
 
-  useEffect(() => {
-    const calculateShipping = async () => {
-      if (deliveryType === 'correios') {
-        if (isMountedRef.current) {
-          baseShippingCostRef.current = 0;
-          setShippingCost(0);
-          setIsFreeShippingApplied(false);
-          setIsShippingAvailable(true);
-          setShippingErrorMessage('');
-        }
-        return;
-      }
+  // ─── Função central de cálculo de frete ─────────────────────────────────────
+  // Lê os valores do endereço via getValues() para funcionar tanto no useEffect
+  // (que depende de watched states) quanto na chamada direta após carregar o perfil.
+  const calculateShipping = useCallback(async () => {
+    if (!isMountedRef.current) return;
 
-      const hasFreeShippingBenefit = selectedBenefits.some(b => b.toLowerCase().includes('frete grátis'));
-      const hasFreeShippingCoupon = selectedCoupon?.name?.toLowerCase().includes('frete');
+    if (deliveryType === 'correios') {
+      baseShippingCostRef.current = 0;
+      setShippingCost(0);
+      setIsFreeShippingApplied(false);
+      setIsShippingAvailable(true);
+      setShippingErrorMessage('');
+      return;
+    }
 
-      if (hasFreeShippingBenefit || hasFreeShippingCoupon) {
-        if (isMountedRef.current) {
-          setShippingCost(0);
-          setIsFreeShippingApplied(true);
-          setIsShippingAvailable(true);
-          setShippingErrorMessage('');
-        }
-        return;
-      }
+    const hasFreeShippingBenefit = selectedBenefits.some(b => b.toLowerCase().includes('frete grátis'));
+    const hasFreeShippingCoupon = selectedCoupon?.name?.toLowerCase().includes('frete');
 
-      const rawCep = (getValues('cep') || '').replace(/\D/g, '');
-      const hasValidCep = rawCep.length === 8;
-      const hasCity = !!watchedCity?.trim();
+    if (hasFreeShippingBenefit || hasFreeShippingCoupon) {
+      setShippingCost(0);
+      setIsFreeShippingApplied(true);
+      setIsShippingAvailable(true);
+      setShippingErrorMessage('');
+      return;
+    }
 
-      if (!hasCity && !hasValidCep) {
-        if (isMountedRef.current) {
-          baseShippingCostRef.current = 0;
-          setShippingCost(0);
-          setIsFreeShippingApplied(false);
-          setIsShippingAvailable(true);
-          setShippingErrorMessage('');
-        }
-        return;
-      }
+    // Lê diretamente do form — funciona mesmo quando chamado logo após setValue()
+    const formValues = getValues();
+    const rawCep = (formValues.cep || '').replace(/\D/g, '');
+    const hasValidCep = rawCep.length === 8;
+    const city = formValues.city?.trim() || '';
+    const neighborhood = formValues.neighborhood?.trim() || '';
 
-      if (isMountedRef.current) {
-        setIsCheckingShipping(true);
+    if (!city && !hasValidCep) {
+      baseShippingCostRef.current = 0;
+      setShippingCost(0);
+      setIsFreeShippingApplied(false);
+      setIsShippingAvailable(true);
+      setShippingErrorMessage('');
+      return;
+    }
+
+    setIsCheckingShipping(true);
+    setShippingErrorMessage('');
+
+    try {
+      const { data, error } = await supabase.rpc('get_shipping_rate', {
+        p_neighborhood: neighborhood,
+        p_city: city,
+        p_cep: hasValidCep ? rawCep : null,
+      });
+      if (!isMountedRef.current) return;
+
+      if (!error && data !== null && data !== undefined && Number(data) > 0) {
+        baseShippingCostRef.current = Number(data);
+        setIsShippingAvailable(true);
         setShippingErrorMessage('');
+        // A aplicação do frete grátis por valor é feita no efeito separado abaixo
+      } else {
+        baseShippingCostRef.current = 0;
+        setShippingCost(0);
+        setIsShippingAvailable(false);
+        setShippingErrorMessage(
+          'Ainda não temos uma taxa de frete cadastrada para este endereço. Fale com a gente pelo WhatsApp para confirmar o valor antes de finalizar a compra.'
+        );
       }
-      try {
-        const { data, error } = await supabase.rpc('get_shipping_rate', {
-          p_neighborhood: watchedNeighborhood || '',
-          p_city: watchedCity || '',
-          p_cep: hasValidCep ? rawCep : null,
-        });
-        if (!isMountedRef.current) return;
+    } catch {
+      if (isMountedRef.current) {
+        baseShippingCostRef.current = 0;
+        setShippingCost(0);
+        setIsShippingAvailable(false);
+        setShippingErrorMessage(
+          'Não foi possível calcular o frete automaticamente. Recarregue a página ou fale com a gente pelo WhatsApp.'
+        );
+      }
+    } finally {
+      if (isMountedRef.current) setIsCheckingShipping(false);
+    }
+  }, [deliveryType, selectedBenefits, selectedCoupon, getValues]);
 
-        if (!error && data !== null && data !== undefined && Number(data) > 0) {
-          baseShippingCostRef.current = Number(data);
-          setIsShippingAvailable(true);
-          setShippingErrorMessage('');
-          // A aplicação do frete grátis por valor é feita no efeito abaixo
-        } else {
-          baseShippingCostRef.current = 0;
-          setShippingCost(0);
-          setIsShippingAvailable(false);
-          setShippingErrorMessage(
-            'Ainda não temos uma taxa de frete cadastrada para este endereço. Fale com a gente pelo WhatsApp para confirmar o valor antes de finalizar a compra.'
-          );
-        }
-      } catch {
-        if (isMountedRef.current) {
-          baseShippingCostRef.current = 0;
-          setShippingCost(0);
-          setIsShippingAvailable(false);
-          setShippingErrorMessage(
-            'Não foi possível calcular o frete automaticamente. Recarregue a página ou fale com a gente pelo WhatsApp.'
-          );
-        }
-      } finally {
-        if (isMountedRef.current) setIsCheckingShipping(false);
-      }
-    };
+  // Dispara o cálculo quando os campos de endereço mudam (digitação/CEP) ou benefícios mudam
+  useEffect(() => {
     const timeoutId = setTimeout(calculateShipping, 500);
     return () => clearTimeout(timeoutId);
-  // selectedCoupon removido das dependências: o cupom não afeta o cálculo do frete base.
-  // O segundo useEffect (applyFreeShippingByValue) já cuida de reaplicar o frete grátis quando o cupom muda.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchedNeighborhood, watchedCity, watchedCep, selectedBenefits, deliveryType, shippingTrigger]);
 

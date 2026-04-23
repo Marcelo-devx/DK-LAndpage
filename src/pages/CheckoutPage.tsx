@@ -378,14 +378,14 @@ const CheckoutPage = () => {
       if (!error && data !== null && data !== undefined && Number(data) > 0) {
         const base = Number(data);
         baseShippingCostRef.current = base;
+        setBaseShippingCostState(base);
         setIsShippingAvailable(true);
         setShippingErrorMessage('');
-        // Aplica o frete imediatamente — o useEffect de frete grátis por valor
-        // vai sobrescrever depois se necessário
         setShippingCost(base);
         setIsFreeShippingApplied(false);
       } else {
         baseShippingCostRef.current = 0;
+        setBaseShippingCostState(0);
         setShippingCost(0);
         setIsShippingAvailable(false);
         setShippingErrorMessage(
@@ -395,6 +395,7 @@ const CheckoutPage = () => {
     } catch {
       if (isMountedRef.current) {
         baseShippingCostRef.current = 0;
+        setBaseShippingCostState(0);
         setShippingCost(0);
         setIsShippingAvailable(false);
         setShippingErrorMessage(
@@ -676,12 +677,14 @@ const CheckoutPage = () => {
   };
 
   const baseShippingCostRef = useRef<number>(0);
+  const [baseShippingCostState, setBaseShippingCostState] = useState<number>(0);
 
   const calculateShipping = useCallback(async () => {
     if (!isMountedRef.current) return;
 
     if (deliveryType === 'correios') {
       baseShippingCostRef.current = 0;
+      setBaseShippingCostState(0);
       setShippingCost(0);
       setIsFreeShippingApplied(false);
       setIsShippingAvailable(true);
@@ -708,6 +711,7 @@ const CheckoutPage = () => {
 
     if (!city && !hasValidCep) {
       baseShippingCostRef.current = 0;
+      setBaseShippingCostState(0);
       setShippingCost(0);
       setIsFreeShippingApplied(false);
       setIsShippingAvailable(true);
@@ -729,15 +733,14 @@ const CheckoutPage = () => {
       if (!error && data !== null && data !== undefined && Number(data) > 0) {
         const rate = Number(data);
         baseShippingCostRef.current = rate;
+        setBaseShippingCostState(rate);
         setIsShippingAvailable(true);
         setShippingErrorMessage('');
-        // Aplica o frete imediatamente — o useEffect de frete grátis por valor
-        // vai sobrescrever depois se necessário, mas garante que shippingCost
-        // nunca fique em 0 quando o usuário clica em pagar
         setShippingCost(rate);
         setIsFreeShippingApplied(false);
       } else {
         baseShippingCostRef.current = 0;
+        setBaseShippingCostState(0);
         setShippingCost(0);
         setIsShippingAvailable(false);
         setShippingErrorMessage(
@@ -747,6 +750,7 @@ const CheckoutPage = () => {
     } catch {
       if (isMountedRef.current) {
         baseShippingCostRef.current = 0;
+        setBaseShippingCostState(0);
         setShippingCost(0);
         setIsShippingAvailable(false);
         setShippingErrorMessage(
@@ -765,7 +769,7 @@ const CheckoutPage = () => {
   }, [watchedNeighborhood, watchedCity, watchedCep, selectedBenefits, deliveryType, shippingTrigger]);
 
   useEffect(() => {
-    const base = baseShippingCostRef.current;
+    const base = baseShippingCostState;
     if (base <= 0) return;
 
     const hasFreeShippingBenefit = selectedBenefits.some(b => b.toLowerCase().includes('frete grátis'));
@@ -792,7 +796,7 @@ const CheckoutPage = () => {
     };
 
     applyFreeShippingByValue();
-  }, [subtotal, selectedBenefits, selectedCoupon]);
+  }, [subtotal, selectedBenefits, selectedCoupon, baseShippingCostState]);
 
   const handleMobileNextStep = async () => {
     const valid = await trigger([
@@ -854,9 +858,33 @@ const CheckoutPage = () => {
         ? { ...data, cep: selectedDeliveryAddress.cep || data.cep, street: selectedDeliveryAddress.street, number: selectedDeliveryAddress.number, complement: selectedDeliveryAddress.complement || '', neighborhood: selectedDeliveryAddress.neighborhood, city: selectedDeliveryAddress.city, state: selectedDeliveryAddress.state }
         : data;
 
+      // Garantir que o frete está calculado — se shippingCost=0 mas há endereço, recalcula agora
+      let confirmedShippingCost = shippingCost;
+      if (!isFreeShippingApplied && confirmedShippingCost <= 0 && baseShippingCostRef.current > 0) {
+        confirmedShippingCost = baseShippingCostRef.current;
+      }
+      if (!isFreeShippingApplied && confirmedShippingCost <= 0) {
+        const addr = selectedDeliveryAddress;
+        const neighborhood = addr ? addr.neighborhood : data.neighborhood;
+        const city = addr ? addr.city : data.city;
+        const cep = (addr ? addr.cep : data.cep || '').replace(/\D/g, '');
+        if (neighborhood && city) {
+          const { data: rateData } = await supabase.rpc('get_shipping_rate', {
+            p_neighborhood: neighborhood,
+            p_city: city,
+            p_cep: cep.length === 8 ? cep : null,
+          });
+          if (rateData !== null && rateData !== undefined && Number(rateData) > 0) {
+            confirmedShippingCost = Number(rateData);
+            baseShippingCostRef.current = confirmedShippingCost;
+            setShippingCost(confirmedShippingCost);
+          }
+        }
+      }
+
       const bStrings = [...tierBenefits.filter(isPassiveBenefit), ...selectedBenefits];
       const { data: o, error: err } = await supabase.rpc('create_pending_order_from_local_cart', {
-        shipping_cost_input: shippingCost,
+        shipping_cost_input: confirmedShippingCost,
         shipping_address_input: shippingData,
         cart_items_input: getLocalCart(),
         user_coupon_id_input: selectedCoupon?.user_coupon_id,
@@ -926,9 +954,38 @@ const CheckoutPage = () => {
       : data;
 
     try {
+      // Garantir que o frete está calculado — se shippingCost=0 mas há endereço, recalcula agora
+      let confirmedShippingCost = shippingCost;
+      console.log('[CheckoutPage] handlePrepareCardPayment - shippingCost state:', shippingCost, 'baseShippingCostRef:', baseShippingCostRef.current, 'isFreeShippingApplied:', isFreeShippingApplied);
+      if (!isFreeShippingApplied && confirmedShippingCost <= 0 && baseShippingCostRef.current > 0) {
+        confirmedShippingCost = baseShippingCostRef.current;
+        console.log('[CheckoutPage] Usando baseShippingCostRef:', confirmedShippingCost);
+      }
+      if (!isFreeShippingApplied && confirmedShippingCost <= 0) {
+        const addr = selectedDeliveryAddress;
+        const neighborhood = addr ? addr.neighborhood : data.neighborhood;
+        const city = addr ? addr.city : data.city;
+        const cep = (addr ? addr.cep : data.cep || '').replace(/\D/g, '');
+        console.log('[CheckoutPage] Recalculando frete via RPC para:', { neighborhood, city, cep });
+        if (neighborhood && city) {
+          const { data: rateData } = await supabase.rpc('get_shipping_rate', {
+            p_neighborhood: neighborhood,
+            p_city: city,
+            p_cep: cep.length === 8 ? cep : null,
+          });
+          console.log('[CheckoutPage] RPC get_shipping_rate retornou:', rateData);
+          if (rateData !== null && rateData !== undefined && Number(rateData) > 0) {
+            confirmedShippingCost = Number(rateData);
+            baseShippingCostRef.current = confirmedShippingCost;
+            setShippingCost(confirmedShippingCost);
+          }
+        }
+      }
+      console.log('[CheckoutPage] confirmedShippingCost final para o pedido:', confirmedShippingCost);
+
       const bStrings = [...tierBenefits.filter(isPassiveBenefit), ...selectedBenefits];
       const { data: orderData, error: orderError } = await supabase.rpc('create_pending_order_from_local_cart', {
-        shipping_cost_input: shippingCost,
+        shipping_cost_input: confirmedShippingCost,
         shipping_address_input: shippingData,
         cart_items_input: getLocalCart(),
         user_coupon_id_input: selectedCoupon?.user_coupon_id,

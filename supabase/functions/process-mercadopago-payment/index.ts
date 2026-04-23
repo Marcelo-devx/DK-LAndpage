@@ -1,4 +1,4 @@
-// redeploy: 2026-04-18T02:30:00Z — force redeploy v2
+// redeploy: 2026-07-13T16:00:00Z — fix CORS wildcard
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 // @ts-ignore

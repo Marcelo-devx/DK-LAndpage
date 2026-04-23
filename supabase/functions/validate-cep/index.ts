@@ -1,100 +1,12 @@
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
-// redeploy: v4 — fallback para API alternativa + expansão de bairros inferidos
+// @ts-ignore
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
+// redeploy: v5 — valida CEP contra shipping_rates (bairro/cidade) e shipping_zones (faixa de CEP)
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-/**
- * Quando o ViaCEP devolve `bairro` vazio (acontece em muitos CEPs genéricos),
- * inferimos o bairro pela faixa do CEP com base na divisão oficial dos Correios.
- *
- * Faixas de CEP de Curitiba por bairro (fonte: Correios):
- * https://www.correios.com.br/enviar/precisa-de-ajuda/tabela-de-cep
- */
-function inferNeighborhoodFromCep(cleanedCep: string, city: string, uf: string): string {
-  if (uf !== 'PR') return ''
-  const normalizedCity = (city || '').trim().toLowerCase()
-  if (normalizedCity !== 'curitiba') return ''
-
-  const cepNum = parseInt(cleanedCep, 10)
-  if (!Number.isFinite(cepNum)) return ''
-
-  // Centro Cívico: 80030-000 a 80035-999
-  if (cepNum >= 80030000 && cepNum <= 80035999) return 'Centro Cívico'
-
-  // Centro (faixa geral): 80010-000 a 80060-999
-  if (cepNum >= 80010000 && cepNum <= 80060999) return 'Centro'
-
-  // Água Verde: 80240-000 a 80250-999
-  if (cepNum >= 80240000 && cepNum <= 80250999) return 'Água Verde'
-
-  // Batel: 80420-000 a 80440-999
-  if (cepNum >= 80420000 && cepNum <= 80440999) return 'Batel'
-
-  // Bigorrilho: 80710-000 a 80730-999
-  if (cepNum >= 80710000 && cepNum <= 80730999) return 'Bigorrilho'
-
-  // Portão: 81300-000 a 81380-999
-  if (cepNum >= 81300000 && cepNum <= 81380999) return 'Portão'
-
-  // Novo Mundo: 81050-000 a 81070-999
-  if (cepNum >= 81050000 && cepNum <= 81070999) return 'Novo Mundo'
-
-  // Capão Raso: 81130-000 a 81170-999
-  if (cepNum >= 81130000 && cepNum <= 81170999) return 'Capão Raso'
-
-  // Xaxim: 81710-000 a 81730-999
-  if (cepNum >= 81710000 && cepNum <= 81730999) return 'Xaxim'
-
-  // Pinheirinho: 81800-000 a 81850-999
-  if (cepNum >= 81800000 && cepNum <= 81850999) return 'Pinheirinho'
-
-  // Sítio Cercado: 81900-000 a 81980-999
-  if (cepNum >= 81900000 && cepNum <= 81980999) return 'Sítio Cercado'
-
-  // Boqueirão: 81650-000 a 81700-999
-  if (cepNum >= 81650000 && cepNum <= 81700999) return 'Boqueirão'
-
-  // Alto Boqueirão: 81750-000 a 81790-999
-  if (cepNum >= 81750000 && cepNum <= 81790999) return 'Alto Boqueirão'
-
-  // Uberaba: 81500-000 a 81600-999
-  if (cepNum >= 81500000 && cepNum <= 81600999) return 'Uberaba'
-
-  // Guabirotuba: 81430-000 a 81480-999
-  if (cepNum >= 81430000 && cepNum <= 81480999) return 'Guabirotuba'
-
-  // Cajuru: 82900-000 a 82980-999
-  if (cepNum >= 82900000 && cepNum <= 82980999) return 'Cajuru'
-
-  // Bacacheri: 82510-000 a 82560-999
-  if (cepNum >= 82510000 && cepNum <= 82560999) return 'Bacacheri'
-
-  // Boa Vista: 82560-000 a 82620-999
-  if (cepNum >= 82560000 && cepNum <= 82620999) return 'Boa Vista'
-
-  // Santa Cândida: 82640-000 a 82720-999
-  if (cepNum >= 82640000 && cepNum <= 82720999) return 'Santa Cândida'
-
-  // Pilarzinho: 82100-000 a 82200-999
-  if (cepNum >= 82100000 && cepNum <= 82200999) return 'Pilarzinho'
-
-  // São Braz: 82300-000 a 82380-999
-  if (cepNum >= 82300000 && cepNum <= 82380999) return 'São Braz'
-
-  // Santa Felicidade: 82400-000 a 82480-999
-  if (cepNum >= 82400000 && cepNum <= 82480999) return 'Santa Felicidade'
-
-  // Campo Comprido: 81200-000 a 81280-999
-  if (cepNum >= 81200000 && cepNum <= 81280999) return 'Campo Comprido'
-
-  // Cidade Industrial: 81460-000 a 81490-999
-  if (cepNum >= 81460000 && cepNum <= 81490999) return 'Cidade Industrial'
-
-  return ''
 }
 
 /**
@@ -115,7 +27,7 @@ async function fetchViaCep(cleanedCep: string): Promise<any | null> {
 }
 
 /**
- * Busca dados do CEP na API alternativa brasilapi.com.br
+ * Busca dados do CEP na BrasilAPI (fallback)
  */
 async function fetchBrasilApi(cleanedCep: string): Promise<any | null> {
   try {
@@ -161,10 +73,9 @@ serve(async (req) => {
 
     console.log('[validate-cep] buscando CEP:', cleanedCep)
 
-    // Tentativa 1: ViaCEP
+    // ── 1. Buscar dados do endereço (ViaCEP → BrasilAPI) ──────────────────
     let addressData = await fetchViaCep(cleanedCep)
 
-    // Tentativa 2: BrasilAPI (fallback)
     if (!addressData) {
       console.log('[validate-cep] ViaCEP falhou, tentando BrasilAPI...')
       addressData = await fetchBrasilApi(cleanedCep)
@@ -180,50 +91,103 @@ serve(async (req) => {
 
     console.log('[validate-cep] endereço encontrado:', addressData.localidade, '/', addressData.uf, '| bairro:', addressData.bairro || '(vazio)')
 
-    // Regra de Negócio: Apenas Paraná
+    // ── 2. Regra de Negócio: Apenas Paraná ───────────────────────────────
     if (addressData.uf !== 'PR') {
       console.log('[validate-cep] CEP fora do PR:', addressData.uf)
-      return new Response(JSON.stringify({ error: `No momento, realizamos entregas apenas no estado do Paraná. O CEP informado pertence a ${addressData.localidade} / ${addressData.uf}.` }), {
+      return new Response(JSON.stringify({
+        error: `No momento, realizamos entregas apenas no estado do Paraná. O CEP informado pertence a ${addressData.localidade} / ${addressData.uf}.`
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
       })
     }
 
-    // ─────────────────────────────────────────────────────────────────
-    // Fallback do bairro: o ViaCEP frequentemente devolve "bairro" vazio
-    // para CEPs genéricos. Sem bairro, o checkout não consegue casar com
-    // a tabela shipping_rates e o frete não é calculado.
-    // ─────────────────────────────────────────────────────────────────
-    if (!addressData.bairro || String(addressData.bairro).trim() === '') {
-      const inferred = inferNeighborhoodFromCep(cleanedCep, addressData.localidade, addressData.uf)
-      if (inferred) {
-        console.log('[validate-cep] bairro vazio -> inferido pela faixa de CEP:', inferred)
-        addressData.bairro = inferred
+    // ── 3. Conectar ao Supabase para validar cobertura ────────────────────
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const supabase = createClient(supabaseUrl, supabaseKey)
+
+    const neighborhood = (addressData.bairro || '').trim()
+    const city = (addressData.localidade || '').trim()
+
+    // ── 4. Verificar na tabela shipping_rates (entrega local por bairro) ──
+    let deliveryType: 'local' | 'correios' | null = null
+    let shippingPrice: number | null = null
+
+    if (neighborhood && city) {
+      const { data: rateData } = await supabase
+        .from('shipping_rates')
+        .select('price')
+        .filter('is_active', 'eq', true)
+        .or(
+          `and(neighborhood.ilike.${neighborhood},city.ilike.${city})`
+        )
+        .limit(1)
+        .maybeSingle()
+
+      // Fallback: usar a função get_shipping_rate que já tem lógica de unaccent + LIKE parcial
+      if (!rateData) {
+        const { data: rpcRate } = await supabase.rpc('get_shipping_rate', {
+          p_neighborhood: neighborhood,
+          p_city: city,
+          p_cep: cleanedCep,
+        })
+
+        if (rpcRate !== null && rpcRate !== undefined && Number(rpcRate) > 0) {
+          deliveryType = 'local'
+          shippingPrice = Number(rpcRate)
+          console.log('[validate-cep] cobertura local via get_shipping_rate:', shippingPrice)
+        }
+      } else {
+        deliveryType = 'local'
+        shippingPrice = Number(rateData.price)
+        console.log('[validate-cep] cobertura local via shipping_rates:', shippingPrice)
       }
     }
 
-    // Identificar tipo de entrega sugerido
-    const city = addressData.localidade?.trim().toLowerCase()
+    // ── 5. Se não achou na shipping_rates, verificar shipping_zones (transportadora) ──
+    if (!deliveryType) {
+      const { data: zones } = await supabase
+        .from('shipping_zones')
+        .select('price, transportadora, city')
 
-    const localDeliveryCities = [
-      'curitiba',
-      'pinhais',
-      'são josé dos pinhais',
-      'colombo',
-      'piraquara',
-      'araucária',
-      'almirante tamandaré',
-      'campo largo',
-      'fazenda rio grande',
-    ]
+      if (zones && zones.length > 0) {
+        const cepNum = parseInt(cleanedCep, 10)
+        const matchedZone = zones.find((zone: any) => {
+          const start = parseInt((zone.cep_start || '').replace(/\D/g, ''), 10)
+          const end = parseInt((zone.cep_end || '').replace(/\D/g, ''), 10)
+          return cepNum >= start && cepNum <= end
+        })
 
-    const isLocal = localDeliveryCities.includes(city)
+        if (matchedZone) {
+          deliveryType = 'correios'
+          shippingPrice = Number(matchedZone.price)
+          console.log('[validate-cep] cobertura via transportadora:', matchedZone.transportadora, '| preço:', shippingPrice)
+        }
+      }
+    }
 
-    console.log('[validate-cep] sucesso:', addressData.localidade, '/', addressData.uf, '| bairro final:', addressData.bairro, '| tipo:', isLocal ? 'local' : 'correios')
+    // ── 6. Se não tem cobertura em nenhuma tabela → retornar erro ─────────
+    if (!deliveryType) {
+      console.log('[validate-cep] sem cobertura para:', neighborhood, '/', city, '| CEP:', cleanedCep)
+      return new Response(JSON.stringify({
+        error: `Infelizmente ainda não realizamos entregas no bairro "${neighborhood || 'informado'}" em ${city}. Entre em contato pelo WhatsApp para verificar disponibilidade.`,
+        neighborhood,
+        city,
+        uf: addressData.uf,
+        noDelivery: true,
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400,
+      })
+    }
+
+    console.log('[validate-cep] sucesso:', city, '/', addressData.uf, '| bairro:', neighborhood, '| tipo:', deliveryType, '| frete:', shippingPrice)
 
     return new Response(JSON.stringify({
       ...addressData,
-      deliveryType: isLocal ? 'local' : 'correios',
+      deliveryType,
+      shippingPrice,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,

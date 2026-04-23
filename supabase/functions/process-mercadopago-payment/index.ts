@@ -1,28 +1,35 @@
-// redeploy: 2026-07-13T16:00:00Z — fix CORS wildcard
+// redeploy: 2026-04-23T22:20:00Z — inline CORS fix
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 // @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
-import { getCorsHeaders, createPreflightResponse } from '../_shared/cors.ts'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-webhook-secret, x-webhook-token, x-requested-with, accept, origin',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+  'Access-Control-Max-Age': '86400',
+}
 
 serve(async (req) => {
   const requestId = crypto.randomUUID()
-  const origin = req.headers.get('origin')
 
+  // Handle CORS preflight — MUST return 200
   if (req.method === 'OPTIONS') {
-    return createPreflightResponse(origin)
+    console.log(`[process-mercadopago-payment][${requestId}] OPTIONS preflight`)
+    return new Response(null, { status: 200, headers: corsHeaders })
   }
 
   // Health check — mantém a função aquecida
   const url = new URL(req.url)
   if (req.method === 'GET' && url.pathname.endsWith('/health')) {
     return new Response(JSON.stringify({ status: 'ok', function: 'process-mercadopago-payment', ts: Date.now() }), {
-      headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     })
   }
 
-  console.log(`[process-mercadopago-payment][${requestId}] ${req.method} ${req.url}`, { origin })
+  console.log(`[process-mercadopago-payment][${requestId}] ${req.method} ${req.url}`)
 
   try {
     // @ts-ignore
@@ -30,7 +37,7 @@ serve(async (req) => {
     if (!MP_TOKEN) {
       console.error(`[process-mercadopago-payment][${requestId}] ERROR: MERCADOPAGO_ACCESS_TOKEN not configured`)
       return new Response(JSON.stringify({ error: "Chave de acesso do Mercado Pago não configurada no servidor." }), {
-        headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
       })
     }
@@ -102,7 +109,7 @@ serve(async (req) => {
       // Se já foi finalizado, retorna sucesso sem reprocessar
       if (orderRow.status === 'Em Preparação' || orderRow.status === 'Finalizada') {
         return new Response(JSON.stringify({ success: true, status: 'already_processed', order_id: orderId }), {
-          headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' },
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 200,
         })
       }
@@ -198,7 +205,7 @@ serve(async (req) => {
         payment_id: paymentData.id,
         order_id: orderId,
       }), {
-        headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       })
 
@@ -212,7 +219,7 @@ serve(async (req) => {
         payment_id: paymentData.id,
         order_id: orderId,
       }), {
-        headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       })
 
@@ -244,7 +251,7 @@ serve(async (req) => {
       success: false,
       error: error?.message || 'Erro ao processar pagamento. Tente novamente.'
     }), {
-      headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     })
   }

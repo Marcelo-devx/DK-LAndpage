@@ -885,6 +885,7 @@ const CheckoutPage = () => {
   };
 
   const handlePrepareCardPayment = async (data: CheckoutFormData) => {
+    console.log('[CheckoutPage] handlePrepareCardPayment iniciado', { selectedDeliveryAddress: !!selectedDeliveryAddress, user: !!userRef.current, isShippingAvailable, isFreeShippingApplied, shippingCost });
     const cartItems = getLocalCart();
     if (cartItems.length === 0) {
       showError('Seu carrinho está vazio. Adicione produtos antes de finalizar o pedido.');
@@ -892,16 +893,30 @@ const CheckoutPage = () => {
     }
 
     if (!isShippingAvailable && !isFreeShippingApplied) {
+      console.log('[CheckoutPage] bloqueado: frete indisponível');
       showError(shippingErrorMessage || 'Não conseguimos calcular o frete para esse endereço. Confira o bairro e a cidade ou fale com a gente para ajudar você.');
       return;
     }
-    const fieldsToValidate: (keyof CheckoutFormData)[] = selectedDeliveryAddress
-      ? ['email', 'first_name', 'last_name', 'phone', 'cpf_cnpj']
-      : ['email', 'first_name', 'last_name', 'phone', 'cpf_cnpj', 'cep', 'street', 'number', 'neighborhood', 'city', 'state'];
-    const formValid = await trigger(fieldsToValidate);
-    if (!formValid) {
+    // Validação manual dos campos pessoais (não depende do schema Zod dos campos de endereço)
+    const v = getValues();
+    const personalOk =
+      v.email?.trim() && v.email.includes('@') &&
+      v.first_name?.trim().length >= 2 &&
+      v.last_name?.trim().length >= 2 &&
+      (v.phone?.length ?? 0) >= 14 &&
+      (v.cpf_cnpj?.length ?? 0) >= 14;
+    console.log('[CheckoutPage] personalOk:', personalOk, { email: v.email, first_name: v.first_name, phone: v.phone, cpf_cnpj: v.cpf_cnpj });
+    if (!personalOk) {
       showError('Confira os campos obrigatórios marcados com * antes de finalizar o pedido.');
       return;
+    }
+    if (!selectedDeliveryAddress) {
+      // Sem endereço do modal: valida campos de endereço do form normalmente
+      const formValid = await trigger(['cep', 'street', 'number', 'neighborhood', 'city', 'state']);
+      if (!formValid) {
+        showError('Confira os campos obrigatórios marcados com * antes de finalizar o pedido.');
+        return;
+      }
     }
     if (!userRef.current) { showError('Sessão expirada. Faça login novamente.'); return; }
 
@@ -1049,13 +1064,28 @@ const CheckoutPage = () => {
   };
 
   const proceedWithCardPayment = useCallback(async () => {
-    const data = getValues();
-    // Garante que o método de pagamento está correto
-    data.payment_method = 'mercadopago';
+    const formValues = getValues();
+    // Se há endereço do modal, monta o objeto completo manualmente
+    // para não depender dos campos de endereço do form (que podem estar vazios)
+    const addr = selectedDeliveryAddress;
+    const data: CheckoutFormData = addr
+      ? {
+          ...formValues,
+          payment_method: 'mercadopago',
+          cep: addr.cep || formValues.cep || '',
+          street: addr.street,
+          number: addr.number,
+          complement: addr.complement || '',
+          neighborhood: addr.neighborhood,
+          city: addr.city,
+          state: addr.state,
+        }
+      : { ...formValues, payment_method: 'mercadopago' };
     setIsSubmitting(true);
     await handlePrepareCardPayment(data);
     if (isMountedRef.current) setIsSubmitting(false);
-  }, [getValues]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [getValues, selectedDeliveryAddress]);
 
   const handleCardButtonClick = () => {
     if (selectedCoupon !== null || coupons.length === 0 || !tierName) {

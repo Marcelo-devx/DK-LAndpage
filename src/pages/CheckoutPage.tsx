@@ -838,17 +838,25 @@ const CheckoutPage = () => {
       if (!isShippingAvailable && !isFreeShippingApplied) {
         throw new Error(shippingErrorMessage || 'Não conseguimos calcular o frete para esse endereço. Confira o bairro e a cidade ou fale com a gente para ajudar você.');
       }
-      const formValid = await trigger(['email', 'first_name', 'last_name', 'phone', 'cpf_cnpj', 'cep', 'street', 'number', 'neighborhood', 'city', 'state']);
+      const pixFieldsToValidate: (keyof CheckoutFormData)[] = selectedDeliveryAddress
+        ? ['email', 'first_name', 'last_name', 'phone', 'cpf_cnpj']
+        : ['email', 'first_name', 'last_name', 'phone', 'cpf_cnpj', 'cep', 'street', 'number', 'neighborhood', 'city', 'state'];
+      const formValid = await trigger(pixFieldsToValidate);
       if (!formValid) {
         throw new Error('Confira os campos obrigatórios marcados com * antes de finalizar o pedido.');
       }
 
       if (!userRef.current) throw new Error('Sessão expirada. Faça login novamente.');
 
+      // Mescla endereço do modal quando disponível
+      const shippingData = selectedDeliveryAddress
+        ? { ...data, cep: selectedDeliveryAddress.cep || data.cep, street: selectedDeliveryAddress.street, number: selectedDeliveryAddress.number, complement: selectedDeliveryAddress.complement || '', neighborhood: selectedDeliveryAddress.neighborhood, city: selectedDeliveryAddress.city, state: selectedDeliveryAddress.state }
+        : data;
+
       const bStrings = [...tierBenefits.filter(isPassiveBenefit), ...selectedBenefits];
       const { data: o, error: err } = await supabase.rpc('create_pending_order_from_local_cart', {
         shipping_cost_input: shippingCost,
-        shipping_address_input: data,
+        shipping_address_input: shippingData,
         cart_items_input: getLocalCart(),
         user_coupon_id_input: selectedCoupon?.user_coupon_id,
         benefits_input: bStrings.length ? `Nível ${tierName}: ${bStrings.join(', ')}` : null,
@@ -899,11 +907,16 @@ const CheckoutPage = () => {
 
     const toastId = showLoading("Preparando pagamento...");
 
+    // Mescla endereço do modal quando disponível
+    const shippingData = selectedDeliveryAddress
+      ? { ...data, cep: selectedDeliveryAddress.cep || data.cep, street: selectedDeliveryAddress.street, number: selectedDeliveryAddress.number, complement: selectedDeliveryAddress.complement || '', neighborhood: selectedDeliveryAddress.neighborhood, city: selectedDeliveryAddress.city, state: selectedDeliveryAddress.state }
+      : data;
+
     try {
       const bStrings = [...tierBenefits.filter(isPassiveBenefit), ...selectedBenefits];
       const { data: orderData, error: orderError } = await supabase.rpc('create_pending_order_from_local_cart', {
         shipping_cost_input: shippingCost,
-        shipping_address_input: data,
+        shipping_address_input: shippingData,
         cart_items_input: getLocalCart(),
         user_coupon_id_input: selectedCoupon?.user_coupon_id,
         benefits_input: bStrings.length ? `Nível ${tierName}: ${bStrings.join(', ')}` : null,
@@ -1016,7 +1029,10 @@ const CheckoutPage = () => {
       showError(shippingErrorMessage || 'Não conseguimos calcular o frete para esse endereço. Confira o bairro e a cidade ou fale com a gente para ajudar você.');
       return;
     }
-    const formValid = await trigger(['email', 'first_name', 'last_name', 'phone', 'cpf_cnpj', 'cep', 'street', 'number', 'neighborhood', 'city', 'state']);
+    const fieldsToValidateOnSubmit: (keyof CheckoutFormData)[] = selectedDeliveryAddress
+      ? ['email', 'first_name', 'last_name', 'phone', 'cpf_cnpj']
+      : ['email', 'first_name', 'last_name', 'phone', 'cpf_cnpj', 'cep', 'street', 'number', 'neighborhood', 'city', 'state'];
+    const formValid = await trigger(fieldsToValidateOnSubmit);
     if (!formValid) {
       showError('Confira os campos obrigatórios marcados com * antes de finalizar o pedido.');
       return;

@@ -885,7 +885,6 @@ const CheckoutPage = () => {
   };
 
   const handlePrepareCardPayment = async (data: CheckoutFormData) => {
-    console.log('[CheckoutPage] handlePrepareCardPayment iniciado', { selectedDeliveryAddress: !!selectedDeliveryAddress, user: !!userRef.current, isShippingAvailable, isFreeShippingApplied, shippingCost });
     const cartItems = getLocalCart();
     if (cartItems.length === 0) {
       showError('Seu carrinho está vazio. Adicione produtos antes de finalizar o pedido.');
@@ -893,7 +892,6 @@ const CheckoutPage = () => {
     }
 
     if (!isShippingAvailable && !isFreeShippingApplied) {
-      console.log('[CheckoutPage] bloqueado: frete indisponível');
       showError(shippingErrorMessage || 'Não conseguimos calcular o frete para esse endereço. Confira o bairro e a cidade ou fale com a gente para ajudar você.');
       return;
     }
@@ -905,7 +903,6 @@ const CheckoutPage = () => {
       v.last_name?.trim().length >= 2 &&
       (v.phone?.length ?? 0) >= 14 &&
       (v.cpf_cnpj?.length ?? 0) >= 14;
-    console.log('[CheckoutPage] personalOk:', personalOk, { email: v.email, first_name: v.first_name, phone: v.phone, cpf_cnpj: v.cpf_cnpj });
     if (!personalOk) {
       showError('Confira os campos obrigatórios marcados com * antes de finalizar o pedido.');
       return;

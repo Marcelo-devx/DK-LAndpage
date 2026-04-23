@@ -173,6 +173,7 @@ const CheckoutPage = () => {
   const showMpFormRef = useRef(false);
   const pendingOrderIdRef = useRef<number | null>(null);
   const couponSectionRef = useRef<HTMLDivElement>(null);
+  const userRef = useRef<any>(null);
 
   const { register, handleSubmit, setValue, getValues, watch, trigger, formState: { errors } } = useForm<CheckoutFormData>({
     resolver: zodResolver(checkoutSchema),
@@ -193,6 +194,7 @@ const CheckoutPage = () => {
   // Manter refs sincronizados com os states para uso em closures de event listeners
   useEffect(() => { showMpFormRef.current = showMpForm; }, [showMpForm]);
   useEffect(() => { pendingOrderIdRef.current = pendingOrderId; }, [pendingOrderId]);
+  useEffect(() => { userRef.current = user; }, [user]);
 
   useEffect(() => {
     // Se há endereço selecionado no modal, só precisamos checar os dados pessoais do perfil
@@ -805,7 +807,7 @@ const CheckoutPage = () => {
   };
 
   const syncAddressToProfile = async (data: CheckoutFormData) => {
-    if (!user) return;
+    if (!userRef.current) return;
     try {
       await supabase.from('profiles').update({
         cep: data.cep.replace(/\D/g, ''),
@@ -819,7 +821,7 @@ const CheckoutPage = () => {
         cpf_cnpj: data.cpf_cnpj.replace(/\D/g, ''),
         first_name: data.first_name.trim(),
         last_name: data.last_name.trim(),
-      }).eq('id', user.id);
+        }).eq('id', userRef.current.id);
     } catch (e) {
       logger.warn('[CheckoutPage] syncAddressToProfile silently failed:', e);
     }
@@ -841,7 +843,7 @@ const CheckoutPage = () => {
         throw new Error('Confira os campos obrigatórios marcados com * antes de finalizar o pedido.');
       }
 
-      if (!user) throw new Error('Sessão expirada. Faça login novamente.');
+      if (!userRef.current) throw new Error('Sessão expirada. Faça login novamente.');
 
       const bStrings = [...tierBenefits.filter(isPassiveBenefit), ...selectedBenefits];
       const { data: o, error: err } = await supabase.rpc('create_pending_order_from_local_cart', {
@@ -893,7 +895,7 @@ const CheckoutPage = () => {
       showError('Confira os campos obrigatórios marcados com * antes de finalizar o pedido.');
       return;
     }
-    if (!user) { showError('Sessão expirada. Faça login novamente.'); return; }
+    if (!userRef.current) { showError('Sessão expirada. Faça login novamente.'); return; }
 
     const toastId = showLoading("Preparando pagamento...");
 

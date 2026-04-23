@@ -380,18 +380,8 @@ const CheckoutPage = () => {
         baseShippingCostRef.current = base;
         setIsShippingAvailable(true);
         setShippingErrorMessage('');
-
-        // Aplica frete grátis por valor imediatamente
-        const { data: rules } = await supabase
-          .from('free_shipping_rules')
-          .select('shipping_price, min_order_value')
-          .eq('is_active', true);
-
-        if (!isMountedRef.current) return;
-
-        const rule = rules?.find((r: any) => Math.abs(r.shipping_price - base) < 0.01);
-        // subtotal ainda pode ser 0 aqui (items ainda carregando), então usamos base diretamente
-        // O efeito separado de frete grátis por valor vai corrigir depois se necessário
+        // Aplica o frete imediatamente — o useEffect de frete grátis por valor
+        // vai sobrescrever depois se necessário
         setShippingCost(base);
         setIsFreeShippingApplied(false);
       } else {
@@ -732,9 +722,15 @@ const CheckoutPage = () => {
       if (!isMountedRef.current) return;
 
       if (!error && data !== null && data !== undefined && Number(data) > 0) {
-        baseShippingCostRef.current = Number(data);
+        const rate = Number(data);
+        baseShippingCostRef.current = rate;
         setIsShippingAvailable(true);
         setShippingErrorMessage('');
+        // Aplica o frete imediatamente — o useEffect de frete grátis por valor
+        // vai sobrescrever depois se necessário, mas garante que shippingCost
+        // nunca fique em 0 quando o usuário clica em pagar
+        setShippingCost(rate);
+        setIsFreeShippingApplied(false);
       } else {
         baseShippingCostRef.current = 0;
         setShippingCost(0);

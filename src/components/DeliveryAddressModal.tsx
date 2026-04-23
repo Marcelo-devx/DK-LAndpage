@@ -156,7 +156,12 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
     setIsFetchingCep(true);
     try {
       const { data, error } = await supabase.functions.invoke('validate-cep', { body: { cep: clean } });
-      if (error || !data) { showError('Endereço não encontrado.'); return; }
+      if (error || !data) {
+        let msg = 'Endereço não encontrado.';
+        try { msg = JSON.parse(error?.context?.responseText)?.error || msg; } catch (_) {}
+        showError(msg);
+        return;
+      }
       setNewStreet(data.logradouro || '');
       setNewNeighborhood(data.bairro || '');
       setNewCity(data.localidade || '');

@@ -114,35 +114,17 @@ serve(async (req) => {
     let deliveryType: 'local' | 'correios' | null = null
     let shippingPrice: number | null = null
 
-    if (neighborhood && city) {
-      const { data: rateData } = await supabase
-        .from('shipping_rates')
-        .select('price')
-        .filter('is_active', 'eq', true)
-        .or(
-          `and(neighborhood.ilike.${neighborhood},city.ilike.${city})`
-        )
-        .limit(1)
-        .maybeSingle()
+    // Sempre usar get_shipping_rate que tem lógica de unaccent + LIKE parcial
+    const { data: rpcRate } = await supabase.rpc('get_shipping_rate', {
+      p_neighborhood: neighborhood,
+      p_city: city,
+      p_cep: cleanedCep,
+    })
 
-      // Fallback: usar a função get_shipping_rate que já tem lógica de unaccent + LIKE parcial
-      if (!rateData) {
-        const { data: rpcRate } = await supabase.rpc('get_shipping_rate', {
-          p_neighborhood: neighborhood,
-          p_city: city,
-          p_cep: cleanedCep,
-        })
-
-        if (rpcRate !== null && rpcRate !== undefined && Number(rpcRate) > 0) {
-          deliveryType = 'local'
-          shippingPrice = Number(rpcRate)
-          console.log('[validate-cep] cobertura local via get_shipping_rate:', shippingPrice)
-        }
-      } else {
-        deliveryType = 'local'
-        shippingPrice = Number(rateData.price)
-        console.log('[validate-cep] cobertura local via shipping_rates:', shippingPrice)
-      }
+    if (rpcRate !== null && rpcRate !== undefined && Number(rpcRate) > 0) {
+      deliveryType = 'local'
+      shippingPrice = Number(rpcRate)
+      console.log('[validate-cep] cobertura local via get_shipping_rate:', shippingPrice)
     }
 
     // ── 5. Se não achou na shipping_rates, verificar shipping_zones (transportadora) ──

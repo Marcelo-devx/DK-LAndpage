@@ -1011,9 +1011,18 @@ const CheckoutPage = () => {
     }
   };
 
+  const proceedWithCardPayment = useCallback(async () => {
+    const data = getValues();
+    // Garante que o método de pagamento está correto
+    data.payment_method = 'mercadopago';
+    setIsSubmitting(true);
+    await handlePrepareCardPayment(data);
+    if (isMountedRef.current) setIsSubmitting(false);
+  }, [getValues]);
+
   const handleCardButtonClick = () => {
     if (selectedCoupon !== null || coupons.length === 0 || !tierName) {
-      handleSubmit(onSubmit)();
+      proceedWithCardPayment();
       return;
     }
     setShowCouponReminderModal(true);
@@ -1034,7 +1043,7 @@ const CheckoutPage = () => {
 
   const handleContinueWithoutCoupon = () => {
     setShowCouponReminderModal(false);
-    handleSubmit(onSubmit)();
+    proceedWithCardPayment();
   };
 
   // Bloco: doação solidária (card-botão que abre o modal)

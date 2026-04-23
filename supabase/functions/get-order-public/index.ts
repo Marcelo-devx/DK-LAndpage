@@ -1,37 +1,43 @@
-// redeploy: 2026-04-16T22:00:00Z
+// redeploy: 2026-07-13T15:00:00Z
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 // @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 
-const CORS_HEADERS = {
+// Broad CORS — this is a public endpoint called by n8n and the browser
+const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-requested-with, accept, origin',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+  'Access-Control-Max-Age': '86400',
 }
 
-// redeploy: v2
 serve(async (req: Request) => {
-  // Preflight — DEVE responder 200 imediatamente, antes de qualquer lógica
+  // CORS preflight — always respond 200 immediately
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { status: 200, headers: CORS_HEADERS })
+    return new Response(null, { status: 200, headers: CORS_HEADERS })
   }
 
   const requestId = crypto.randomUUID()
   console.log(`[get-order-public][${requestId}] ${req.method} ${req.url}`)
 
   try {
-    let body: any = {}
-    try {
-      body = await req.json()
-    } catch {
-      body = {}
+    // Support both POST body and GET query params
+    let orderId: string | null = null
+
+    if (req.method === 'GET') {
+      const url = new URL(req.url)
+      orderId = url.searchParams.get('order_id') || url.searchParams.get('id')
+    } else {
+      let body: any = {}
+      try { body = await req.json() } catch { body = {} }
+      orderId = body.order_id || body.id || null
     }
 
-    const orderId = body.order_id || body.id || null
     if (!orderId) {
       return new Response(JSON.stringify({ success: false, error: 'order_id is required' }), {
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }, status: 400,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        status: 400,
       })
     }
 
@@ -43,7 +49,8 @@ serve(async (req: Request) => {
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       console.error(`[get-order-public][${requestId}] Supabase service config missing`)
       return new Response(JSON.stringify({ success: false, error: 'Supabase service config missing' }), {
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }, status: 500,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        status: 500,
       })
     }
 
@@ -58,7 +65,8 @@ serve(async (req: Request) => {
     if (orderError || !order) {
       console.error(`[get-order-public][${requestId}] Order not found:`, orderId, orderError)
       return new Response(JSON.stringify({ success: false, error: 'Order not found' }), {
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }, status: 404,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        status: 404,
       })
     }
 
@@ -71,14 +79,18 @@ serve(async (req: Request) => {
       console.warn(`[get-order-public][${requestId}] order items error`, itemsError)
     }
 
+    console.log(`[get-order-public][${requestId}] Success — order ${orderId} returned`)
+
     return new Response(JSON.stringify({ success: true, order, items: items || [] }), {
-      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }, status: 200,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      status: 200,
     })
 
   } catch (err: any) {
-    console.error(`[get-order-public] Error`, err)
+    console.error(`[get-order-public][${requestId}] Unhandled error`, err)
     return new Response(JSON.stringify({ success: false, error: 'internal_error' }), {
-      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }, status: 500,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      status: 500,
     })
   }
 })

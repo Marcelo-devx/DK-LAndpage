@@ -195,6 +195,23 @@ const CheckoutPage = () => {
   useEffect(() => { pendingOrderIdRef.current = pendingOrderId; }, [pendingOrderId]);
 
   useEffect(() => {
+    // Se há endereço selecionado no modal, só precisamos checar os dados pessoais do perfil
+    if (selectedDeliveryAddress) {
+      const data = getValues();
+      const isComplete =
+        !!data.email?.trim() &&
+        !!data.first_name?.trim() &&
+        !!data.last_name?.trim() &&
+        (data.phone?.length ?? 0) >= 14 &&
+        (data.cpf_cnpj?.length ?? 0) >= 14 &&
+        !!selectedDeliveryAddress.street?.trim() &&
+        !!selectedDeliveryAddress.number?.trim() &&
+        !!selectedDeliveryAddress.neighborhood?.trim() &&
+        !!selectedDeliveryAddress.city?.trim() &&
+        !!selectedDeliveryAddress.state?.trim();
+      setIsAddressComplete(isComplete);
+      return;
+    }
     const data = getValues();
     const isComplete =
       !!data.email?.trim() &&
@@ -209,7 +226,7 @@ const CheckoutPage = () => {
       !!data.city?.trim() &&
       !!data.state?.trim();
     setIsAddressComplete(isComplete);
-  }, [watchedAddressFields, getValues]);
+  }, [watchedAddressFields, getValues, selectedDeliveryAddress]);
 
   const getItemPrice = useCallback((item: DisplayItem) => {
     if (paymentMethod === 'pix' && item.pixPrice && item.pixPrice > 0) return item.pixPrice;
@@ -864,12 +881,14 @@ const CheckoutPage = () => {
       return;
     }
 
-    if (!isAddressComplete) { showError("Preencha todos os dados de entrega."); return; }
     if (!isShippingAvailable && !isFreeShippingApplied) {
       showError(shippingErrorMessage || 'Não conseguimos calcular o frete para esse endereço. Confira o bairro e a cidade ou fale com a gente para ajudar você.');
       return;
     }
-    const formValid = await trigger(['email', 'first_name', 'last_name', 'phone', 'cpf_cnpj', 'cep', 'street', 'number', 'neighborhood', 'city', 'state']);
+    const fieldsToValidate: (keyof CheckoutFormData)[] = selectedDeliveryAddress
+      ? ['email', 'first_name', 'last_name', 'phone', 'cpf_cnpj']
+      : ['email', 'first_name', 'last_name', 'phone', 'cpf_cnpj', 'cep', 'street', 'number', 'neighborhood', 'city', 'state'];
+    const formValid = await trigger(fieldsToValidate);
     if (!formValid) {
       showError('Confira os campos obrigatórios marcados com * antes de finalizar o pedido.');
       return;

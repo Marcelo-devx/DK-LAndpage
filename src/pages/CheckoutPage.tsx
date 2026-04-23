@@ -1686,6 +1686,46 @@ const CheckoutPage = () => {
   );
 
   // ============================================================
+  // TELA DO FORMULÁRIO MERCADO PAGO (cartão) — mobile e desktop
+  // ============================================================
+  if (showMpForm) {
+    return (
+      <div className="container mx-auto px-4 md:px-6 py-8 md:py-12 text-charcoal-gray max-w-xl">
+        <div className="mb-6 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setShowMpForm(false);
+              sessionStorage.removeItem('mp_pending_order_id');
+              setPendingOrderId(null);
+            }}
+            className="flex items-center gap-1.5 text-xs font-black uppercase tracking-widest text-slate-400 hover:text-slate-700 transition-colors"
+          >
+            <ChevronLeft className="h-4 w-4" /> Voltar
+          </button>
+        </div>
+        <Card className="bg-white border-stone-200 shadow-xl rounded-[2rem] overflow-hidden">
+          <CardHeader className="bg-stone-50 border-b border-stone-100 p-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-sky-100 rounded-xl"><CreditCard className="h-5 w-5 text-sky-600" /></div>
+              <CardTitle className="font-black text-lg uppercase tracking-tighter italic">Dados do Cartão</CardTitle>
+            </div>
+            <p className="text-xs text-slate-500 font-medium mt-2">
+              Formulário seguro do Mercado Pago · Parcelamento em até 12x
+            </p>
+          </CardHeader>
+          <CardContent className="p-5 md:p-8">
+            <MercadoPagoCardForm
+              amount={cardFormAmount}
+              onSubmit={handleMpCardSubmit}
+            />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // ============================================================
   // LAYOUT MOBILE — Stepper em 2 etapas
   // ============================================================
   if (isMobile) {

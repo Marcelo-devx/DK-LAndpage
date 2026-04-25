@@ -4,10 +4,10 @@ import { supabase } from '@/integrations/supabase/client';
 
 const defaultMessages = {
   weekday_before: "Faça seu pedido antes das 14h para ser enviado ainda hoje! Tempo restante:",
-  weekday_after: "Fazendo seu pedido após as 14h será enviado na próxima rota!",
+  weekday_after: "Seu pedido será enviado no próximo dia com entrega disponível:",
   saturday_before: "Faça seu pedido antes das 12:30h para ser enviado ainda hoje! Tempo restante:",
-  saturday_after: "Fazendo o pedido após as 12:30h será enviado na próxima rota!",
-  sunday: "Hoje é Domingo. Seu pedido será enviado no próximo dia útil!",
+  saturday_after: "Seu pedido será enviado no próximo dia com entrega disponível:",
+  sunday: "Seu pedido será enviado no próximo dia com entrega disponível:",
   holiday: "Hoje é feriado! Seu pedido será enviado no próximo dia útil.",
   eve: "Amanhã é feriado! Pedidos feitos agora serão enviados após o feriado.",
 };
@@ -22,10 +22,29 @@ const getDateString = (date: Date) => {
   return `${y}-${m}-${d}`;
 };
 
+// Retorna o nome do próximo dia com entrega (pula domingos e feriados)
+const getNextDeliveryDay = (from: Date, holidays: string[]): string => {
+  const dayNames = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+  const next = new Date(from);
+  next.setDate(next.getDate() + 1);
+
+  // Avança até encontrar um dia que não seja domingo nem feriado
+  for (let i = 0; i < 14; i++) {
+    const dayOfWeek = next.getDay();
+    const dateStr = getDateString(next);
+    if (dayOfWeek !== 0 && !holidays.includes(dateStr)) {
+      return dayNames[dayOfWeek];
+    }
+    next.setDate(next.getDate() + 1);
+  }
+  return 'próximo dia útil';
+};
+
 const DeliveryTimerBar = () => {
   const [messages, setMessages] = useState<Messages>(defaultMessages);
   const [holidays, setHolidays] = useState<string[]>([]);
   const [message, setMessage] = useState('');
+  const [nextDeliveryDay, setNextDeliveryDay] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState<string | null>(null);
   const [showTimer, setShowTimer] = useState(false);
 
@@ -87,6 +106,7 @@ const DeliveryTimerBar = () => {
         setMessage(messages.holiday);
         setShowTimer(false);
         setTimeLeft(null);
+        setNextDeliveryDay(null);
         return;
       }
 
@@ -94,6 +114,7 @@ const DeliveryTimerBar = () => {
       let deadline = new Date();
       let isTimerVisible = false;
       let msg = '';
+      let showNextDay = false;
 
       if (day >= 1 && day <= 5) {
         // Seg–Sex
@@ -101,15 +122,16 @@ const DeliveryTimerBar = () => {
         deadline.setHours(14, 0, 0, 0);
 
         if (now.getTime() <= deadline.getTime()) {
-          // Antes das 14h: timer normal (mesmo que amanhã seja feriado, ainda dá pra enviar hoje)
           isTimerVisible = true;
           msg = messages.weekday_before;
+          showNextDay = false;
         } else {
-          // Após as 14h: verifica se amanhã é feriado
           if (isTomorrowHoliday) {
             msg = messages.eve;
+            showNextDay = false;
           } else {
             msg = messages.weekday_after;
+            showNextDay = true;
           }
           isTimerVisible = false;
         }
@@ -121,11 +143,14 @@ const DeliveryTimerBar = () => {
         if (now.getTime() <= deadline.getTime()) {
           isTimerVisible = true;
           msg = messages.saturday_before;
+          showNextDay = false;
         } else {
           if (isTomorrowHoliday) {
             msg = messages.eve;
+            showNextDay = false;
           } else {
             msg = messages.saturday_after;
+            showNextDay = true;
           }
           isTimerVisible = false;
         }
@@ -133,14 +158,17 @@ const DeliveryTimerBar = () => {
         // Domingo
         if (isTomorrowHoliday) {
           msg = messages.eve;
+          showNextDay = false;
         } else {
           msg = messages.sunday;
+          showNextDay = true;
         }
         isTimerVisible = false;
       }
 
       setMessage(msg);
       setShowTimer(isTimerVisible);
+      setNextDeliveryDay(showNextDay ? getNextDeliveryDay(now, holidays) : null);
 
       if (isTimerVisible) {
         const diff = deadline.getTime() - now.getTime();
@@ -170,6 +198,11 @@ const DeliveryTimerBar = () => {
         {showTimer && timeLeft && (
           <span className="bg-slate-950/20 px-2 py-0.5 rounded-md font-black tabular-nums border border-slate-950/10 inline-block min-w-[70px] xl:min-w-[80px]">
             {timeLeft}
+          </span>
+        )}
+        {nextDeliveryDay && (
+          <span className="bg-slate-950/20 px-2 py-0.5 rounded-md font-black border border-slate-950/10">
+            {nextDeliveryDay}
           </span>
         )}
       </div>

@@ -1,4 +1,4 @@
-// redeploy: 2026-04-27T02:00:00Z — created, was missing from repo
+// redeploy: 2026-04-27T12:35:00Z — idempotency fix + catch bug fix
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 // @ts-ignore
@@ -136,6 +136,14 @@ serve(async (req) => {
 
     const { event_type, order_id } = body
 
+    // keep_alive ping — retornar imediatamente sem processar
+    if (event_type === 'keep_alive_ping' || !order_id || order_id === 0) {
+      console.log(`[send-order-email][${requestId}] keep_alive ping, skipping`)
+      return new Response(JSON.stringify({ success: false, reason: 'keep_alive' }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
     if (!event_type || !order_id) {
       console.error(`[send-order-email][${requestId}] missing event_type or order_id`)
       return new Response(JSON.stringify({ error: 'event_type e order_id são obrigatórios' }), {
@@ -144,6 +152,24 @@ serve(async (req) => {
     }
 
     console.log(`[send-order-email][${requestId}] event=${event_type} order=${order_id}`)
+
+    // ── IDEMPOTÊNCIA: verificar se já enviamos este email antes ──────────
+    const logEventType = `email_${event_type}`
+    const { data: existingLog } = await supabase
+      .from('integration_logs')
+      .select('id, created_at')
+      .eq('event_type', logEventType)
+      .eq('status', 'success')
+      .like('details', `Pedido #${order_id} |%`)
+      .maybeSingle()
+
+    if (existingLog) {
+      console.log(`[send-order-email][${requestId}] IDEMPOTENCY: email ${logEventType} for order ${order_id} already sent at ${existingLog.created_at}, skipping`)
+      return new Response(JSON.stringify({ success: false, reason: 'already_sent', sent_at: existingLog.created_at }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+    // ────────────────────────────────────────────────────────────────────
 
     // Buscar pedido
     const { data: order, error: orderErr } = await supabase
@@ -196,13 +222,17 @@ serve(async (req) => {
 
     if (!resendResp.ok) {
       console.error(`[send-order-email][${requestId}] Resend error`, resendData)
-      // Log no banco
-      await supabase.from('integration_logs').insert({
-        event_type: `email_${event_type}`,
-        status: 'error',
-        details: `Pedido #${order_id} | Para: ${toEmail} | Erro: ${resendData?.message || 'unknown'}`,
-        response_code: resendResp.status,
-      }).catch(() => {})
+      // Log no banco — sem .catch() pois não é suportado no Deno/Supabase JS v2
+      try {
+        await supabase.from('integration_logs').insert({
+          event_type: logEventType,
+          status: 'error',
+          details: `Pedido #${order_id} | Para: ${toEmail} | Erro: ${resendData?.message || 'unknown'}`,
+          response_code: resendResp.status,
+        })
+      } catch (logErr) {
+        console.warn(`[send-order-email][${requestId}] failed to write error log`, logErr)
+      }
       return new Response(JSON.stringify({ error: resendData?.message || 'Resend error' }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
@@ -210,13 +240,17 @@ serve(async (req) => {
 
     console.log(`[send-order-email][${requestId}] sent ${event_type} to ${toEmail} | Resend ID: ${resendData?.id}`)
 
-    // Log no banco
-    await supabase.from('integration_logs').insert({
-      event_type: `email_${event_type}`,
-      status: 'success',
-      details: `Pedido #${order_id} | Para: ${toEmail} | Assunto: ${subject} | Resend ID: ${resendData?.id}`,
-      response_code: 200,
-    }).catch(() => {})
+    // Log no banco — sem .catch() pois não é suportado no Deno/Supabase JS v2
+    try {
+      await supabase.from('integration_logs').insert({
+        event_type: logEventType,
+        status: 'success',
+        details: `Pedido #${order_id} | Para: ${toEmail} | Assunto: ${subject} | Resend ID: ${resendData?.id}`,
+        response_code: 200,
+      })
+    } catch (logErr) {
+      console.warn(`[send-order-email][${requestId}] failed to write success log`, logErr)
+    }
 
     return new Response(JSON.stringify({ success: true, resend_id: resendData?.id }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }

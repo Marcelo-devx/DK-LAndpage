@@ -1,4 +1,4 @@
-// redeploy: 2026-04-27T02:00:00Z — force redeploy check
+// redeploy: 2026-04-27T03:30:00Z — force redeploy was 404
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 
@@ -7,8 +7,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 }
-
-// redeploy: v2
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { status: 200, headers: corsHeaders })

@@ -57,7 +57,7 @@ const friendlyPasswordError = (errBody: any): { error: string; code: string } =>
   };
 };
 
-// redeploy: v4
+// redeploy: 2026-04-27T03:00:00Z — force redeploy was 404
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { status: 200, headers: corsHeaders });

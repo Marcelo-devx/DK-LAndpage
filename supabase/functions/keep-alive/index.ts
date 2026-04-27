@@ -42,7 +42,6 @@ const FUNCTIONS_TO_WARM = Array.from(new Set([
   'admin-update-order',
   'admin-cancel-order',
   'admin-delete-order',
-  'admin-validate-order',
 
   // ── Usuários / admin ──────────────────────────────────────────────────
   'get-users',

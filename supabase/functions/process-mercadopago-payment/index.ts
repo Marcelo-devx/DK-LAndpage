@@ -1,4 +1,4 @@
-// redeploy: 2026-04-23T22:20:00Z — inline CORS fix
+// redeploy: 2026-04-27T02:00:00Z — force redeploy check
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 // @ts-ignore

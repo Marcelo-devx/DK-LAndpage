@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { showError, showLoading, dismissToast, showSuccess } from '@/utils/toast';
+import { invokeWithRetry } from '@/lib/invokeWithRetry';
 import { Loader2, Search, CreditCard, MessageSquare, MapPin, Gift, X, AlertTriangle, CheckCircle2, Sparkles, ChevronRight, ChevronLeft, Lock, Truck, Star, Package, Headphones, Calendar, Repeat2, ShoppingBag, Zap, Crown, type LucideIcon } from 'lucide-react';
 import { getLocalCart, ItemType, clearLocalCart } from '@/utils/localCart';
 import { maskCep, maskPhone, maskCpfCnpj } from '@/utils/masks';
@@ -1058,27 +1059,29 @@ const CheckoutPage = () => {
       const { data: { session } } = await supabase.auth.getSession();
       const authToken = session?.access_token;
 
-      const invokeOptions: any = {
-        body: {
-          ...cardBrickResult,
-          external_reference: String(currentOrderId),
-          transaction_amount: finalTotal,
-          payer: {
-            email: formData.email,
-            identification: {
-              type: cleanCpf.length > 11 ? 'CNPJ' : 'CPF',
-              number: cleanCpf,
-            },
-            first_name: formData.first_name,
-            last_name: formData.last_name,
+      const payBody: any = {
+        ...cardBrickResult,
+        external_reference: String(currentOrderId),
+        transaction_amount: finalTotal,
+        payer: {
+          email: formData.email,
+          identification: {
+            type: cleanCpf.length > 11 ? 'CNPJ' : 'CPF',
+            number: cleanCpf,
           },
+          first_name: formData.first_name,
+          last_name: formData.last_name,
         },
       };
-      if (authToken) invokeOptions.headers = { Authorization: `Bearer ${authToken}` };
 
-      const { data: result, error: payError } = await supabase.functions.invoke('process-mercadopago-payment', invokeOptions);
+      const payRes = await invokeWithRetry('process-mercadopago-payment', {
+        body: payBody,
+        maxAttempts: 3,
+        baseDelayMs: 2000,
+      });
 
-      if (payError) throw new Error(payError.message || 'Erro ao processar pagamento.');
+      if (payRes.error) throw new Error(payRes.error.message || 'Erro ao processar pagamento.');
+      const result = payRes.data as any;
       if (!result?.success) throw new Error(result?.error || 'Pagamento não aprovado.');
 
       clearLocalCart();

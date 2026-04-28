@@ -294,36 +294,36 @@ const Login = () => {
         return;
       }
 
-      const genPromise = supabase.functions.invoke('generate-token', {
+      const gen = await invokeWithRetry('generate-token', {
         body: { email, type: 'signup_otp', expires_in_seconds: 60 * 10 },
+        maxAttempts: 3,
+        baseDelayMs: 1500,
       });
-      const gen = await Promise.race([
-        genPromise,
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000)),
-      ]) as any;
 
       if (gen.error || !gen.data?.code) {
-        const errMsg = gen.data?.error || gen.error?.message || 'Erro ao gerar código';
+        const errMsg = (gen.data as any)?.error || gen.error?.message || 'Erro ao gerar código';
         logger.error('[Login] generate-token error:', errMsg, gen);
         setSignUpError(translateAuthError(errMsg));
         return;
       }
 
-      const code = gen.data.code;
+      const code = (gen.data as any).code;
 
-      const emailInvoke = await supabase.functions.invoke('send-email-via-resend', {
+      const emailInvoke = await invokeWithRetry('send-email-via-resend', {
         body: { to: email, subject: 'Seu código de verificação - DKCWB', type: 'otp', code },
+        maxAttempts: 3,
+        baseDelayMs: 1500,
       });
 
       if (emailInvoke.error) {
-        const errMsg = emailInvoke.data?.error || emailInvoke.error?.message || 'Erro ao enviar e-mail';
+        const errMsg = (emailInvoke.data as any)?.error || emailInvoke.error?.message || 'Erro ao enviar e-mail';
         logger.error('[Login] send-email-via-resend error:', errMsg, emailInvoke);
         setSignUpError(translateAuthError(errMsg));
         return;
       }
 
-      if (emailInvoke.data?.error) {
-        const errMsg = emailInvoke.data.error || 'Erro ao enviar e-mail';
+      if ((emailInvoke.data as any)?.error) {
+        const errMsg = (emailInvoke.data as any).error || 'Erro ao enviar e-mail';
         logger.error('[Login] send-email-via-resend data error:', errMsg, emailInvoke.data);
         setSignUpError(translateAuthError(errMsg));
         return;
@@ -353,13 +353,14 @@ const Login = () => {
     try {
       const email = emailForSignup.trim().toLowerCase();
 
-      const val = await Promise.race([
-        supabase.functions.invoke('validate-token', { body: { email, code: cleanOtp } }),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000)),
-      ]) as any;
+      const val = await invokeWithRetry('validate-token', {
+        body: { email, code: cleanOtp },
+        maxAttempts: 3,
+        baseDelayMs: 1500,
+      });
 
-      if (val.error || !val.data?.success) {
-        const msg = val.data?.error || 'invalid';
+      if (val.error || !(val.data as any)?.success) {
+        const msg = (val.data as any)?.error || 'invalid';
         if (msg.toLowerCase().includes('expir') || msg.toLowerCase().includes('expired')) {
           setSignUpError({ message: 'Código expirado.', hint: 'O código tem validade de 10 minutos. Clique em "Reenviar" para receber um novo.' });
         } else if (msg.toLowerCase().includes('já foi utilizado') || msg.toLowerCase().includes('already used')) {
@@ -372,20 +373,14 @@ const Login = () => {
         return;
       }
 
-      let createRes: any;
-      try {
-        createRes = await Promise.race([
-          supabase.functions.invoke('create-user', { body: { email } }),
-          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 30000)),
-        ]);
-      } catch (timeoutErr: any) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) { await redirectAfterLogin(session); return; }
-        throw timeoutErr;
-      }
+      const createRes = await invokeWithRetry('create-user', {
+        body: { email },
+        maxAttempts: 3,
+        baseDelayMs: 2000,
+      });
 
-      if (createRes.error || !createRes.data?.success) {
-        const errMsg = createRes.data?.error || createRes.error?.message || '';
+      if (createRes.error || !(createRes.data as any)?.success) {
+        const errMsg = (createRes.data as any)?.error || createRes.error?.message || '';
         if (errMsg.toLowerCase().includes('already') || errMsg.toLowerCase().includes('registered')) {
           setEmailAlreadyExists(true);
           setCodeSent(false);

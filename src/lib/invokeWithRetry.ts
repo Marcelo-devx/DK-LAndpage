@@ -83,13 +83,18 @@ function isFetchError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
   const e = error as Record<string, unknown>;
   const name = String(e.name || '');
-  const msg = String(e.message || '');
+  const msg = String(e.message || '').toLowerCase();
   return (
     name === 'FunctionsFetchError' ||
-    name === 'FunctionsHttpError' && msg.includes('fetch') ||
-    msg.toLowerCase().includes('failed to fetch') ||
-    msg.toLowerCase().includes('networkerror') ||
-    msg.toLowerCase().includes('fetch failed')
+    (name === 'FunctionsHttpError' && msg.includes('fetch')) ||
+    msg.includes('failed to fetch') ||
+    msg.includes('networkerror') ||
+    msg.includes('fetch failed') ||
+    msg.includes('load failed') ||
+    msg.includes('network request failed') ||
+    msg.includes('timeout') ||
+    msg.includes('econnreset') ||
+    msg.includes('socket hang up')
   );
 }
 

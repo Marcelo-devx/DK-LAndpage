@@ -63,10 +63,10 @@ const translateAuthError = (error: string): { message: string; hint?: string } =
       hint: 'Verifique sua internet e tente novamente.',
     };
   }
-  if (e.includes('timeout') || e.includes('esgotado')) {
+  if (e.includes('timeout') || e.includes('esgotado') || e.includes('failed to fetch') || e.includes('fetch failed') || e.includes('networkerror') || e.includes('functionsfetcherror')) {
     return {
-      message: 'A requisição demorou demais.',
-      hint: 'Verifique sua conexão e tente novamente.',
+      message: 'Serviço temporariamente indisponível.',
+      hint: 'O servidor demorou para responder. Aguarde alguns segundos e tente novamente — normalmente resolve na segunda tentativa.',
     };
   }
   if (e.includes('invalid email') || e.includes('email inválido')) {
@@ -300,7 +300,7 @@ const Login = () => {
         baseDelayMs: 1500,
       });
 
-      if (gen.error || !gen.data?.code) {
+      if (gen.error || !(gen.data as any)?.code) {
         const errMsg = (gen.data as any)?.error || gen.error?.message || 'Erro ao gerar código';
         logger.error('[Login] generate-token error:', errMsg, gen);
         setSignUpError(translateAuthError(errMsg));
@@ -623,7 +623,7 @@ const Login = () => {
                           disabled={isSendingCode}
                         >
                           {isSendingCode ? (
-                            <><Loader2 className="animate-spin h-4 w-4 mr-2" /> Verificando...</>
+                            <><Loader2 className="animate-spin h-4 w-4 mr-2" /> Enviando código...</>
                           ) : (
                             'Enviar Código por E-mail'
                           )}

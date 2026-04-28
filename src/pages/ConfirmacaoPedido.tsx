@@ -9,6 +9,7 @@ import OrderTimer from '@/components/OrderTimer';
 import { cn } from '@/lib/utils';
 import { logger } from '@/lib/logger';
 import ProductImage from '@/components/ProductImage';
+import { invokeWithRetry } from '@/lib/invokeWithRetry';
 
 interface Order {
   id: number;
@@ -100,10 +101,12 @@ const ConfirmacaoPedido = () => {
     try {
       // Strategy 1: Try edge function first (uses service role, bypasses RLS)
       try {
-        const invokeResult: any = await supabase.functions.invoke('get-order-public', {
-          body: { order_id: Number(cleanId) }
+        const invokeResult = await invokeWithRetry('get-order-public', {
+          body: { order_id: Number(cleanId) },
+          maxAttempts: 3,
+          baseDelayMs: 1500,
         });
-        const payload = invokeResult?.data;
+        const payload = invokeResult?.data as any;
         if (payload?.success && payload?.order) {
           setOrder(safeOrder(payload.order));
           setItems(safeItems(payload.items || []));

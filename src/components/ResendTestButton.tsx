@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from './ui/button';
 import { showError, showSuccess } from '@/utils/toast';
+import { invokePublic } from '@/lib/invokePublic';
 
 export default function ResendTestButton() {
   const [loading, setLoading] = useState(false);
@@ -9,8 +9,7 @@ export default function ResendTestButton() {
   const sendTest = async () => {
     setLoading(true);
     try {
-      // Use supabase.functions.invoke to generate token server-side
-      const gen = await supabase.functions.invoke('generate-token', {
+      const gen = await invokePublic('generate-token', {
         body: { email: 'rc497064@gmail.com', type: 'complete_profile', expires_in_seconds: 60 * 60 },
       });
 
@@ -21,7 +20,7 @@ export default function ResendTestButton() {
         return;
       }
 
-      const token = gen.data?.token;
+      const token = (gen.data as any)?.token;
       if (!token) {
         console.error('[ResendTestButton] generate-token missing token', gen);
         showError('Erro ao gerar token (token ausente).');
@@ -36,7 +35,7 @@ export default function ResendTestButton() {
         completeLink: `${window.location.origin}/complete-profile?token=${encodeURIComponent(token)}`,
       };
 
-      const res = await supabase.functions.invoke('send-email-via-resend', { body: payload });
+      const res = await invokePublic('send-email-via-resend', { body: payload });
 
       if (res.error) {
         console.error('[ResendTestButton] send-email-via-resend error', res.error);

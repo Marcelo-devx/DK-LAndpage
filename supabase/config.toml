@@ -1,0 +1,56 @@
+[functions.generate-token]
+verify_jwt = false
+
+[functions.validate-token]
+verify_jwt = false
+
+[functions.send-email-via-resend]
+verify_jwt = false
+
+[functions.create-user]
+verify_jwt = false
+
+[functions.forgot-password]
+verify_jwt = false
+
+[functions.health-check]
+verify_jwt = false
+
+[functions.keep-alive]
+verify_jwt = false
+
+[functions.validate-cep]
+verify_jwt = false
+
+[functions.find-order-by-phone]
+verify_jwt = false
+
+[functions.get-order-public]
+verify_jwt = false
+
+[functions.mercadopago-webhook]
+verify_jwt = false
+
+[functions.update-order-status]
+verify_jwt = false
+
+[functions.trigger-integration]
+verify_jwt = false
+
+[functions.log-integration]
+verify_jwt = false
+
+[functions.chat-proxy]
+verify_jwt = false
+
+[functions.process-mercadopago-payment]
+verify_jwt = false
+
+[functions.create-mercadopago-preference]
+verify_jwt = false
+
+[functions.create-mp-preference]
+verify_jwt = false
+
+[functions.get-order-details]
+verify_jwt = false

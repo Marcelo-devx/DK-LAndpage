@@ -12,7 +12,7 @@ import { showSuccess } from '@/utils/toast';
 import OtpInput from '@/components/OtpInput';
 import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
-import { invokeWithRetry } from '@/lib/invokeWithRetry';
+import { invokePublic } from '@/lib/invokePublic';
 import { isProfileComplete as profileIsComplete } from '@/lib/profileUtils';
 
 type CustomView = 'sign_in' | 'sign_up' | 'forgot_password';
@@ -294,7 +294,7 @@ const Login = () => {
         return;
       }
 
-      const gen = await invokeWithRetry('generate-token', {
+      const gen = await invokePublic('generate-token', {
         body: { email, type: 'signup_otp', expires_in_seconds: 60 * 10 },
         maxAttempts: 3,
         baseDelayMs: 1500,
@@ -309,7 +309,7 @@ const Login = () => {
 
       const code = (gen.data as any).code;
 
-      const emailInvoke = await invokeWithRetry('send-email-via-resend', {
+      const emailInvoke = await invokePublic('send-email-via-resend', {
         body: { to: email, subject: 'Seu código de verificação - DKCWB', type: 'otp', code },
         maxAttempts: 3,
         baseDelayMs: 1500,
@@ -353,7 +353,7 @@ const Login = () => {
     try {
       const email = emailForSignup.trim().toLowerCase();
 
-      const val = await invokeWithRetry('validate-token', {
+      const val = await invokePublic('validate-token', {
         body: { email, code: cleanOtp },
         maxAttempts: 3,
         baseDelayMs: 1500,
@@ -373,7 +373,7 @@ const Login = () => {
         return;
       }
 
-      const createRes = await invokeWithRetry('create-user', {
+      const createRes = await invokePublic('create-user', {
         body: { email },
         maxAttempts: 3,
         baseDelayMs: 2000,
@@ -431,7 +431,7 @@ const Login = () => {
 
     setIsSendingForgot(true);
     try {
-      const res = await invokeWithRetry('forgot-password', { body: { email } });
+      const res = await invokePublic('forgot-password', { body: { email } });
       if (res.attempts > 1) logger.warn('[Login] forgot-password precisou de', res.attempts, 'tentativas');
       if (res.error) {
         const errMsg = res.error.message || '';

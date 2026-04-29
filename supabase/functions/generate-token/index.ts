@@ -1,4 +1,4 @@
-// redeploy: 2026-04-27T03:00:00Z — force redeploy was 404
+// redeploy: 2026-04-29T12:35:00Z — rewrite with service role bypass
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 // @ts-ignore
@@ -8,17 +8,19 @@ declare const Deno: any;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-serve(async (req) => {
+serve(async (req: Request) => {
+  // Handle CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response('ok', { status: 200, headers: corsHeaders });
+    return new Response("ok", { status: 200, headers: corsHeaders });
   }
 
   try {
-    const { email, type = "signup_otp", expires_in_seconds = 600 } = await req.json();
+    const body = await req.json();
+    const { email, type = "signup_otp", expires_in_seconds = 600 } = body;
 
     if (!email) {
       return new Response(
@@ -27,10 +29,15 @@ serve(async (req) => {
       );
     }
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+    const supabase = createClient(supabaseUrl, serviceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
 
     const cleanEmail = email.trim().toLowerCase();
 
@@ -46,12 +53,10 @@ serve(async (req) => {
 
     if (invalidateError) {
       console.error("[generate-token] error invalidating old tokens:", invalidateError);
-      // Não falha — continua gerando o novo token
     }
 
     // Gera código de 6 dígitos
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-
     const expiresAt = new Date(Date.now() + expires_in_seconds * 1000).toISOString();
 
     // Insere o novo token
@@ -77,8 +82,8 @@ serve(async (req) => {
       JSON.stringify({ success: true, code }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (err) {
-    console.error("[generate-token] unexpected error:", err);
+  } catch (err: any) {
+    console.error("[generate-token] unexpected error:", err?.message || err);
     return new Response(
       JSON.stringify({ success: false, error: "Erro interno ao gerar código" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

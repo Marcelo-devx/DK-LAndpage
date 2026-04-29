@@ -57,7 +57,7 @@ const friendlyPasswordError = (errBody: any): { error: string; code: string } =>
   };
 };
 
-// redeploy: 2026-04-27T03:00:00Z — force redeploy was 404
+// redeploy: 2026-04-29T14:00:00Z — fix verify_jwt
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { status: 200, headers: corsHeaders });
@@ -71,17 +71,17 @@ serve(async (req) => {
       return ok({ success: false, error: 'Servidor não configurado. Contate o suporte.', code: 'server_error' });
     }
 
-    const authHeader = req.headers.get('authorization') || '';
-    const token = authHeader.replace('Bearer ', '').trim();
-    if (!token) {
-      console.error('[update-password-admin] Missing Authorization token');
-      return ok({ success: false, error: 'Sessão inválida. Faça login novamente.', code: 'unauthorized' });
-    }
-
     const body = await req.json().catch(() => ({}));
     const newPassword = body?.newPassword;
-    if (!newPassword) {
-      return ok({ success: false, error: 'Senha não informada.', code: 'missing_password' });
+    // accessToken pode vir no body (quando chamado via invokePublic com anon key no header)
+    // ou no header Authorization (quando chamado via supabase.functions.invoke com JWT do usuário)
+    const bodyToken = body?.accessToken;
+    const headerToken = (req.headers.get('authorization') || '').replace('Bearer ', '').trim();
+    const token = bodyToken || headerToken;
+
+    if (!token) {
+      console.error('[update-password-admin] Missing token');
+      return ok({ success: false, error: 'Sessão inválida. Faça login novamente.', code: 'unauthorized' });
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey, {

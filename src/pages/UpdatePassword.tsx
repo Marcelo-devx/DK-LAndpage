@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { showSuccess, showLoading, dismissToast } from '@/utils/toast';
 import { Loader2, Lock, ShieldCheck, Check, X, AlertTriangle, ShieldAlert, ShieldX } from 'lucide-react';
 import { logger } from '@/lib/logger';
+import { invokePublic } from '@/lib/invokePublic';
 
 // const SUPABASE_URL moved to env; we now use supabase.functions.invoke where possible
 
@@ -132,46 +133,21 @@ const UpdatePassword = () => {
         return;
       }
 
-      logger.log('[UpdatePassword] Chamando update-password-admin via edge function...');
+      logger.log('[UpdatePassword] Chamando update-password-admin via invokePublic...');
 
-      const controller = new AbortController();
-      const fetchTimeout = setTimeout(() => controller.abort(), 18000);
+      const invokeRes = await invokePublic('update-password-admin', {
+        body: { newPassword: password, accessToken: session.access_token },
+      });
 
-      let updRes: { ok: boolean; status: number };
-      let updData: any = {};
-      try {
-        const invokeRes = await supabase.functions.invoke('update-password-admin', { body: { newPassword: password } });
-        updRes = { ok: !invokeRes.error && !invokeRes.data?.error, status: invokeRes.error ? 500 : 200 };
-        updData = invokeRes.data || {};
+      const updData: any = invokeRes.data || {};
 
-        // Se a edge function retornou erro HTTP (invokeRes.error), tenta extrair a mensagem
-        if (invokeRes.error) {
-          const errMsg = invokeRes.error?.message || '';
-          updData = { error: errMsg };
-        }
-      } catch (fetchErr: any) {
-        clearTimeout(fetchTimeout);
+      logger.log('[UpdatePassword] Resultado update-password-admin:', { data: updData, error: invokeRes.error });
+
+      if (invokeRes.error || updData?.error || updData?.success === false) {
         clearTimeout(watchdog);
         dismissToast(toastId);
         setLoading(false);
-        if (fetchErr?.name === 'AbortError') {
-          setPasswordError({ message: 'A operação demorou demais. Tente novamente.' });
-        } else {
-          setPasswordError({ message: 'Erro de conexão. Verifique sua internet e tente novamente.' });
-        }
-        console.error('[UpdatePassword] fetch error:', fetchErr);
-        return;
-      } finally {
-        clearTimeout(fetchTimeout);
-      }
-
-      logger.log('[UpdatePassword] Resultado update-password-admin:', { status: updRes.status, data: updData });
-
-      if (!updRes.ok || updData?.error || updData?.success === false) {
-        clearTimeout(watchdog);
-        dismissToast(toastId);
-        setLoading(false);
-        const errMsg = updData?.error || 'Erro ao atualizar senha';
+        const errMsg = updData?.error || invokeRes.error?.message || 'Erro ao atualizar senha';
         const errCode = updData?.code || '';
         setPasswordError(translateError(errMsg, errCode));
         return;
@@ -191,14 +167,8 @@ const UpdatePassword = () => {
       clearTimeout(watchdog);
       dismissToast(toastId);
       setLoading(false);
-
-      if (err?.name === 'AbortError') {
-        setPasswordError({ message: 'A operação demorou demais. Tente novamente.' });
-        console.error('[UpdatePassword] fetch abortado por timeout');
-      } else {
-        setPasswordError(translateError(err?.message || 'Erro inesperado. Tente novamente.'));
-        console.error('[UpdatePassword] erro inesperado:', err);
-      }
+      setPasswordError(translateError(err?.message || 'Erro inesperado. Tente novamente.'));
+      console.error('[UpdatePassword] erro inesperado:', err);
     }
   };
 

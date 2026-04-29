@@ -56,3 +56,9 @@ verify_jwt = false
 
 [functions.get-order-details]
 verify_jwt = false
+
+[functions.update-password-admin]
+verify_jwt = false
+
+[functions.notify-password-change]
+verify_jwt = false

@@ -1,11 +1,7 @@
 /**
- * Chama uma edge function pública (sem autenticação JWT) via fetch direto.
- * Usado para funções como generate-token, validate-token, create-user, forgot-password
- * que precisam funcionar sem usuário logado.
- *
- * O supabase.functions.invoke() envia o anon key como Bearer JWT, o que causa
- * erro 401 "missing sub claim" quando verify_jwt=true no servidor.
- * Esta função envia apenas o apikey header, sem Authorization JWT.
+ * Chama uma edge function pública via fetch direto.
+ * Envia o anon key tanto no header apikey quanto no Authorization,
+ * o que satisfaz o verify_jwt do Supabase (anon key é um JWT válido).
  */
 
 const SUPABASE_URL = "https://jrlozhhvwqfmjtkmvukf.supabase.co";
@@ -39,6 +35,9 @@ export async function invokePublic<T = unknown>(
         headers: {
           "Content-Type": "application/json",
           "apikey": SUPABASE_ANON_KEY,
+          // Passa o anon key como Bearer — é um JWT válido (role: anon)
+          // e satisfaz o verify_jwt do Supabase sem exigir usuário logado
+          "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
         },
         body: body ? JSON.stringify(body) : undefined,
       });

@@ -136,26 +136,17 @@ const DeliveryTimerBar = () => {
           isTimerVisible = false;
         }
       } else if (day === 6) {
-        // Sábado
-        deadline = new Date();
-        deadline.setHours(12, 30, 0, 0);
-
-        if (now.getTime() <= deadline.getTime()) {
-          isTimerVisible = true;
-          msg = messages.saturday_before;
+        // Sábado — sem timer, entrega na segunda
+        if (isTomorrowHoliday) {
+          msg = messages.eve;
           showNextDay = false;
         } else {
-          if (isTomorrowHoliday) {
-            msg = messages.eve;
-            showNextDay = false;
-          } else {
-            msg = messages.saturday_after;
-            showNextDay = true;
-          }
-          isTimerVisible = false;
+          msg = messages.saturday_after;
+          showNextDay = true;
         }
+        isTimerVisible = false;
       } else {
-        // Domingo
+        // Domingo — sem timer, entrega na segunda
         if (isTomorrowHoliday) {
           msg = messages.eve;
           showNextDay = false;

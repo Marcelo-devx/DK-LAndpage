@@ -116,15 +116,19 @@ const DeliveryTimerBar = () => {
       let msg = '';
       let showNextDay = false;
 
-      // Período especial: qui 19/06 até dom 22/06 — entrega somente na segunda
-      const specialStart = new Date('2025-06-19T00:00:00');
-      const specialEnd = new Date('2025-06-22T23:59:59');
+      // Período especial: qua 30/04 até dom 04/05 — entrega somente na segunda 05/05
+      const specialStart = new Date('2025-04-30T00:00:00');
+      const specialEnd = new Date('2025-05-04T23:59:59');
       const isSpecialPeriod = now >= specialStart && now <= specialEnd;
 
       if (isSpecialPeriod) {
         msg = messages.weekday_after;
-        showNextDay = true;
         isTimerVisible = false;
+        setMessage(messages.weekday_after);
+        setShowTimer(false);
+        setTimeLeft(null);
+        setNextDeliveryDay('Segunda-feira');
+        return;
       } else if (day >= 1 && day <= 5) {
         // Seg–Sex
         deadline = new Date();

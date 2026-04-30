@@ -116,9 +116,9 @@ const DeliveryTimerBar = () => {
       let msg = '';
       let showNextDay = false;
 
-      // Período especial: qua 30/04 até dom 04/05 — entrega somente na segunda 05/05
-      const specialStart = new Date('2025-04-30T00:00:00');
-      const specialEnd = new Date('2025-05-04T23:59:59');
+      // Período especial: qui 30/04/2026 até dom 03/05/2026 — entrega somente na segunda 04/05
+      const specialStart = new Date('2026-04-30T00:00:00');
+      const specialEnd = new Date('2026-05-03T23:59:59');
       const isSpecialPeriod = now >= specialStart && now <= specialEnd;
 
       if (isSpecialPeriod) {

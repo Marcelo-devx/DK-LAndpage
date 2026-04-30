@@ -22,17 +22,17 @@ const getDateString = (date: Date) => {
   return `${y}-${m}-${d}`;
 };
 
-// Retorna o nome do próximo dia com entrega (pula domingos e feriados)
+// Retorna o nome do próximo dia com entrega (pula domingos, sábados e feriados)
 const getNextDeliveryDay = (from: Date, holidays: string[]): string => {
   const dayNames = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
   const next = new Date(from);
   next.setDate(next.getDate() + 1);
 
-  // Avança até encontrar um dia que não seja domingo nem feriado
+  // Avança até encontrar um dia que não seja domingo, sábado nem feriado
   for (let i = 0; i < 14; i++) {
     const dayOfWeek = next.getDay();
     const dateStr = getDateString(next);
-    if (dayOfWeek !== 0 && !holidays.includes(dateStr)) {
+    if (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidays.includes(dateStr)) {
       return dayNames[dayOfWeek];
     }
     next.setDate(next.getDate() + 1);

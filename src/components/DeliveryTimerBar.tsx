@@ -116,7 +116,16 @@ const DeliveryTimerBar = () => {
       let msg = '';
       let showNextDay = false;
 
-      if (day >= 1 && day <= 5) {
+      // Período especial: qui 19/06 até dom 22/06 — entrega somente na segunda
+      const specialStart = new Date('2025-06-19T00:00:00');
+      const specialEnd = new Date('2025-06-22T23:59:59');
+      const isSpecialPeriod = now >= specialStart && now <= specialEnd;
+
+      if (isSpecialPeriod) {
+        msg = messages.weekday_after;
+        showNextDay = true;
+        isTimerVisible = false;
+      } else if (day >= 1 && day <= 5) {
         // Seg–Sex
         deadline = new Date();
         deadline.setHours(14, 0, 0, 0);

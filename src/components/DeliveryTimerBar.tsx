@@ -121,6 +121,11 @@ const DeliveryTimerBar = () => {
       const specialEnd = new Date('2026-05-03T23:59:59');
       const isSpecialPeriod = now >= specialStart && now <= specialEnd;
 
+      // Período especial: seg 04/05/2026 — rota fecha às 13:00, entrega amanhã (terça 05/05)
+      const routeFullDay = '2026-05-04';
+      const isRouteFullDay = today === routeFullDay;
+      const routeDeadline = new Date('2026-05-04T13:00:00');
+
       if (isSpecialPeriod) {
         msg = messages.weekday_after;
         isTimerVisible = false;
@@ -129,6 +134,24 @@ const DeliveryTimerBar = () => {
         setTimeLeft(null);
         setNextDeliveryDay('Segunda-feira');
         return;
+      } else if (isRouteFullDay) {
+        if (now.getTime() <= routeDeadline.getTime()) {
+          // Antes das 13h: timer contando até 13:00
+          isTimerVisible = true;
+          msg = 'Faça seu pedido antes das 13h para ser enviado ainda hoje! Tempo restante:';
+          showNextDay = false;
+          deadline = routeDeadline;
+        } else {
+          // Após as 13h: rota completa, entrega amanhã
+          isTimerVisible = false;
+          msg = '🚚 Rota de hoje completa! Pedidos realizados agora serão entregues';
+          showNextDay = false;
+          setMessage('🚚 Rota de hoje completa! Pedidos realizados agora serão entregues');
+          setShowTimer(false);
+          setTimeLeft(null);
+          setNextDeliveryDay('Amanhã (Terça-feira)');
+          return;
+        }
       } else if (day >= 1 && day <= 5) {
         // Seg–Sex
         deadline = new Date();

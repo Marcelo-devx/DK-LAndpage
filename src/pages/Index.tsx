@@ -226,18 +226,6 @@ const Index = () => {
 
   return (
     <div className="bg-off-white overflow-x-hidden text-charcoal-gray w-full transition-colors duration-500">
-      {/* ── AVISO DE MANUTENÇÃO ── */}
-      <div className="w-full bg-amber-500 text-white py-4 px-4 flex flex-col items-center justify-center gap-1 shadow-lg z-50">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">⚠️</span>
-          <span className="font-black text-base md:text-lg uppercase tracking-wide">Aviso de Manutenção</span>
-          <span className="text-2xl">⚠️</span>
-        </div>
-        <p className="text-center text-sm md:text-base font-semibold">
-          Nossas rotas estão lotadas no momento. Voltaremos a operar normalmente a partir das <span className="underline font-black">14:00h</span>. Agradecemos a compreensão! 🙏
-        </p>
-      </div>
-
       <AgeVerificationPopup />
       {infoPopup && (
         <InformationalPopup

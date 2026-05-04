@@ -29,7 +29,7 @@ const MaintenanceScreen = () => {
           <div className="h-1 w-20 bg-slate-900 mx-auto rounded-full" />
           
           <p className="text-lg text-slate-600 font-medium leading-relaxed">
-            Estamos trabalhando para melhorar sua experiência. Voltaremos em breve.
+            Nossas rotas lotaram! Voltaremos a operar normalmente a partir das <span className="font-black text-slate-900">14:00h</span>. Agradecemos a compreensão. 🙏
           </p>
 
           {/* Highlighted external shop link */}

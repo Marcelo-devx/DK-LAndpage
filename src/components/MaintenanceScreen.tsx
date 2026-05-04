@@ -1,13 +1,36 @@
 import { Wrench, LogIn } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client';
 
+const getSecondsUntil14 = () => {
+  const now = new Date();
+  const target = new Date();
+  target.setHours(14, 0, 0, 0);
+  if (now >= target) return 0;
+  return Math.floor((target.getTime() - now.getTime()) / 1000);
+};
+
 const MaintenanceScreen = () => {
   const navigate = useNavigate();
+  const [secondsLeft, setSecondsLeft] = useState(getSecondsUntil14);
+
+  useEffect(() => {
+    if (secondsLeft <= 0) return;
+    const interval = setInterval(() => {
+      setSecondsLeft(getSecondsUntil14());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [secondsLeft]);
+
+  const hours = Math.floor(secondsLeft / 3600);
+  const minutes = Math.floor((secondsLeft % 3600) / 60);
+  const seconds = secondsLeft % 60;
+  const pad = (n: number) => String(n).padStart(2, '0');
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
@@ -32,7 +55,26 @@ const MaintenanceScreen = () => {
             Nossas rotas lotaram! Voltaremos a operar normalmente a partir das <span className="font-black text-slate-900">14:00h</span>. Agradecemos a compreensão. 🙏
           </p>
 
-          {/* Highlighted external shop link */}
+          {/* Countdown Timer */}
+          {secondsLeft > 0 ? (
+            <div className="flex items-center justify-center gap-3 mt-2">
+              {[{ label: 'Horas', value: hours }, { label: 'Min', value: minutes }, { label: 'Seg', value: seconds }].map(({ label, value }, i) => (
+                <div key={label} className="flex items-center gap-3">
+                  <div className="flex flex-col items-center bg-white rounded-2xl shadow-md border border-slate-100 px-4 py-3 min-w-[64px]">
+                    <span className="text-3xl font-black text-slate-900 tabular-nums">{pad(value)}</span>
+                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-1">{label}</span>
+                  </div>
+                  {i < 2 && <span className="text-2xl font-black text-slate-400 -mt-4">:</span>}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-2 px-4 py-3 bg-green-50 border border-green-200 rounded-2xl">
+              <p className="text-green-700 font-bold text-sm">✅ Já são 14:00h! Estamos voltando...</p>
+            </div>
+          )}
+
+          {/* Login button */}
           <div className="mt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
             <Dialog>
               <DialogTrigger asChild>

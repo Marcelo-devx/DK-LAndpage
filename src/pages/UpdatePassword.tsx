@@ -123,23 +123,30 @@ const UpdatePassword = () => {
         return;
       }
 
-      const { error: updateErr } = await supabase.auth.updateUser({ password });
+      // Usa edge function com service role para atualizar senha E limpar
+      // must_change_password atomicamente, evitando loop de redirecionamento
+      const res = await fetch('https://jrlozhhvwqfmjtkmvukf.supabase.co/functions/v1/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpybG96aGh2d3FmbWp0a212dWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzNDU2NjQsImV4cCI6MjA2NzkyMTY2NH0.Do5c1-TKqpyZTJeX_hLbw1SU40CbwXfCIC-pPpcD_JM',
+        },
+        body: JSON.stringify({ password }),
+      });
 
-      if (updateErr) {
+      const resData = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
         dismissToast(toastId);
         setLoading(false);
-        setPasswordError(translateError(updateErr.message));
+        const errMsg = (resData as any)?.error || 'Erro ao atualizar senha.';
+        const errCode = (resData as any)?.code;
+        setPasswordError(translateError(errMsg, errCode));
         return;
       }
 
-      // Limpa o flag must_change_password ANTES de fazer signOut
-      // para evitar loop de redirecionamento
-      await supabase
-        .from('profiles')
-        .update({ must_change_password: false })
-        .eq('id', session.user.id);
-
-      logger.log('[UpdatePassword] must_change_password limpo, fazendo signOut...');
+      logger.log('[UpdatePassword] senha atualizada e must_change_password limpo via edge function');
 
       dismissToast(toastId);
       showSuccess('Senha criada com sucesso! Faça login com sua nova senha.');

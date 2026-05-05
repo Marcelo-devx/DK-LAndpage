@@ -1,4 +1,4 @@
-// redeploy: 2026-05-05T19:20:00Z — force redeploy v2
+// redeploy: 2026-05-05T19:35:00Z — fix SyntaxError on empty body (keep-alive probe)
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 
@@ -270,7 +270,8 @@ serve(async (req) => {
       })
     }
 
-    const body = await req.json()
+    let body: any = {}
+    try { body = await req.json() } catch { body = {} }
     const { to, subject, type, code, resetLink, html, newPassword } = body
 
     if (!to || !subject) {

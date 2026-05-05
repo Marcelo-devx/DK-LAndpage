@@ -1,4 +1,4 @@
-// redeploy: 2026-05-05T18:50:00Z — warm critical functions via GET /health
+// redeploy: 2026-05-05T19:36:00Z — move send-email-via-resend to OPTIONS warm
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 
@@ -19,11 +19,11 @@ const CRITICAL_FUNCTIONS = [
   'mercadopago-webhook',
   'process-mercadopago-payment',
   'send-order-email',
-  'send-email-via-resend',
 ];
 
 // Demais funções — aquecidas via OPTIONS (mais leve)
 const OTHER_FUNCTIONS = [
+  'send-email-via-resend',
   'generate-token',
   'validate-token',
   'create-user',

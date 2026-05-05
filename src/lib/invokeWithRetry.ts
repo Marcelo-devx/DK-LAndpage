@@ -12,16 +12,6 @@ interface InvokeResult<T = unknown> {
   attempts: number;
 }
 
-/**
- * Chama uma edge function com retry automático + backoff exponencial.
- *
- * Quando a função está em cold-start (shutdown → boot), o primeiro request
- * falha com FunctionsFetchError. Esta utilidade detecta esse tipo de erro
- * de rede e tenta novamente automaticamente, sem que o usuário perceba.
- *
- * Erros de negócio (status 4xx/5xx com JSON de erro) NÃO são retentados —
- * apenas falhas de conexão/fetch.
- */
 export async function invokeWithRetry<T = unknown>(
   functionName: string,
   options: InvokeOptions = {}
@@ -45,7 +35,7 @@ export async function invokeWithRetry<T = unknown>(
         );
 
         if (attempt < maxAttempts) {
-          const delay = baseDelayMs * attempt; // 1.2s, 2.4s, 3.6s
+          const delay = baseDelayMs * attempt;
           await sleep(delay);
           continue;
         }
@@ -53,7 +43,24 @@ export async function invokeWithRetry<T = unknown>(
         return { data: null, error: lastError, attempts: attempt };
       }
 
-      // Erro de negócio (ex: usuário não encontrado) — retorna imediatamente sem retry
+      // Erro HTTP que pode ser cold start (400/500 com body vazio ou mensagem genérica) — retenta
+      if (error && isColdStartHttpError(error)) {
+        lastError = { message: error.message || 'HTTP cold start error', context: error };
+        console.warn(
+          `[invokeWithRetry] ${functionName} tentativa ${attempt}/${maxAttempts} falhou (cold start HTTP):`,
+          error
+        );
+
+        if (attempt < maxAttempts) {
+          const delay = baseDelayMs * attempt;
+          await sleep(delay);
+          continue;
+        }
+
+        return { data: null, error: lastError, attempts: attempt };
+      }
+
+      // Erro de negócio real (ex: token inválido, pedido não encontrado) — retorna imediatamente
       if (error) {
         return { data: null, error: { message: error.message || 'Erro desconhecido' }, attempts: attempt };
       }
@@ -96,6 +103,32 @@ function isFetchError(error: unknown): boolean {
     msg.includes('econnreset') ||
     msg.includes('socket hang up')
   );
+}
+
+// Detecta erros HTTP que indicam cold start (body vazio, mensagem genérica de servidor)
+function isColdStartHttpError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const e = error as Record<string, unknown>;
+  const name = String(e.name || '');
+  const msg = String(e.message || '').toLowerCase();
+  const status = Number((e as any).status || (e as any).statusCode || 0);
+
+  if (name !== 'FunctionsHttpError') return false;
+
+  // 500 sempre retenta (erro interno do servidor / cold start)
+  if (status === 500) return true;
+
+  // 400 com mensagem vazia ou genérica indica cold start (body não chegou)
+  if (status === 400) {
+    return (
+      msg === '' ||
+      msg === 'bad request' ||
+      msg.includes('non-2xx status code') ||
+      msg.includes('edge function returned a non-2xx')
+    );
+  }
+
+  return false;
 }
 
 function sleep(ms: number): Promise<void> {

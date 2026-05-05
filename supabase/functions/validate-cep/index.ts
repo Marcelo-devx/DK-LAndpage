@@ -1,11 +1,12 @@
-// redeploy: 2026-04-30T14:40:00Z — robust CORS + crash fix
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
+// @ts-ignore
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
 }
 
 async function fetchViaCep(cleanedCep: string): Promise<any | null> {
@@ -48,15 +49,12 @@ async function fetchBrasilApi(cleanedCep: string): Promise<any | null> {
 }
 
 serve(async (req) => {
-  // CORS preflight — must always return 200
+  // CORS preflight — must ALWAYS return 200 immediately
   if (req.method === 'OPTIONS') {
     return new Response('ok', { status: 200, headers: corsHeaders })
   }
 
   try {
-    // Lazy import to avoid boot crash
-    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2.45.0')
-
     const body = await req.json().catch(() => ({}))
     const { cep } = body
     const cleanedCep = (cep || '').replace(/\D/g, '')
@@ -100,7 +98,9 @@ serve(async (req) => {
     }
 
     // 3. Conectar ao Supabase
+    // @ts-ignore
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    // @ts-ignore
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseKey)
 

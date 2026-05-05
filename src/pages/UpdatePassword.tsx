@@ -134,18 +134,30 @@ const UpdatePassword = () => {
 
       logger.log('[UpdatePassword] Chamando update-password-admin...');
 
-      const { data: updData, error: invokeErr } = await supabase.functions.invoke('update-password-admin', {
-        body: { newPassword: password, accessToken: session.access_token },
+      // Chama via fetch direto passando o accessToken no body.
+      // O gateway pode rejeitar o Authorization header com verify_jwt=true,
+      // mas a função aceita o token no body e faz a verificação internamente.
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+      const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/update-password-admin`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ newPassword: password, accessToken: session.access_token }),
       });
 
-      logger.log('[UpdatePassword] Resultado update-password-admin:', { data: updData, error: invokeErr });
+      const updData: any = await res.json().catch(() => ({}));
 
-      if (invokeErr || (updData as any)?.error || (updData as any)?.success === false) {
+      logger.log('[UpdatePassword] Resultado update-password-admin:', { status: res.status, data: updData });
+
+      if (!res.ok || updData?.error || updData?.success === false) {
         clearTimeout(watchdog);
         dismissToast(toastId);
         setLoading(false);
-        const errMsg = (updData as any)?.error || invokeErr?.message || 'Erro ao atualizar senha';
-        const errCode = (updData as any)?.code || '';
+        const errMsg = updData?.error || `HTTP ${res.status}`;
+        const errCode = updData?.code || '';
         setPasswordError(translateError(errMsg, errCode));
         return;
       }

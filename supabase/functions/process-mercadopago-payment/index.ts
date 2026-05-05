@@ -1,4 +1,4 @@
-// redeploy: 2026-04-28T23:45:00Z — fix CORS cold start
+// redeploy: 2026-05-05T19:10:00Z — force redeploy
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 // @ts-ignore

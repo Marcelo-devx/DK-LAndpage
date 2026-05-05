@@ -112,19 +112,10 @@ const UpdatePassword = () => {
     setLoading(true);
     const toastId = showLoading('Criando sua senha...');
 
-    const watchdog = setTimeout(() => {
-      dismissToast(toastId);
-      setLoading(false);
-      setPasswordError({ message: 'A operação demorou demais. Tente novamente.' });
-      console.error('[UpdatePassword] watchdog disparado — updateUser travou');
-    }, 20000);
-
     try {
-      logger.log('[UpdatePassword] Buscando sessão...');
       const { data: { session } } = await supabase.auth.getSession();
 
       if (!session?.access_token) {
-        clearTimeout(watchdog);
         dismissToast(toastId);
         setLoading(false);
         setPasswordError({ message: 'Sessão expirada. Por favor, faça login novamente.' });
@@ -132,40 +123,30 @@ const UpdatePassword = () => {
         return;
       }
 
-      logger.log('[UpdatePassword] Atualizando senha via supabase.auth.updateUser...');
-
-      // Usa o SDK diretamente — não precisa de edge function.
-      // O usuário está logado com a senha temporária, então a sessão é válida.
       const { error: updateErr } = await supabase.auth.updateUser({ password });
 
-      logger.log('[UpdatePassword] Resultado updateUser:', { error: updateErr });
-
       if (updateErr) {
-        clearTimeout(watchdog);
         dismissToast(toastId);
         setLoading(false);
         setPasswordError(translateError(updateErr.message));
         return;
       }
 
-      // Limpa o flag must_change_password no perfil
-      await supabase
+      // Limpa o flag must_change_password no perfil (não bloqueia o fluxo)
+      supabase
         .from('profiles')
         .update({ must_change_password: false })
-        .eq('id', session.user.id);
+        .eq('id', session.user.id)
+        .then(() => logger.log('[UpdatePassword] must_change_password limpo'));
 
-      clearTimeout(watchdog);
       dismissToast(toastId);
       setLoading(false);
       showSuccess('Senha criada com sucesso! Faça login com sua nova senha.');
 
       await supabase.auth.signOut();
-      setTimeout(() => {
-        navigate('/login', { replace: true, state: { passwordChanged: true } });
-      }, 1500);
+      navigate('/login', { replace: true, state: { passwordChanged: true } });
 
     } catch (err: any) {
-      clearTimeout(watchdog);
       dismissToast(toastId);
       setLoading(false);
       setPasswordError(translateError(err?.message || 'Erro inesperado. Tente novamente.'));

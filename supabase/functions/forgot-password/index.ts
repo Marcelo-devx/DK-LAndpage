@@ -1,4 +1,4 @@
-// redeploy: 2026-05-05T19:45:00Z — restart all
+// redeploy: 2026-05-05T23:20:00Z — public endpoint
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 // @ts-ignore

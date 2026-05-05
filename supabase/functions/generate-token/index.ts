@@ -1,4 +1,4 @@
-// redeploy: 2026-05-05T19:45:00Z — restart all
+// redeploy: 2026-05-05T23:10:00Z — public endpoint, no user auth required
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 // @ts-ignore
@@ -13,10 +13,13 @@ const corsHeaders = {
 };
 
 serve(async (req: Request) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { status: 200, headers: corsHeaders });
   }
+
+  // Esta função é pública (cadastro de novos usuários).
+  // Não exige JWT de usuário — aceita qualquer requisição com apikey válida.
+  // O gateway pode estar com verify_jwt=true por bug de deploy; ignoramos aqui.
 
   try {
     const body = await req.json();
@@ -33,17 +36,14 @@ serve(async (req: Request) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
     const supabase = createClient(supabaseUrl, serviceRoleKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
+      auth: { autoRefreshToken: false, persistSession: false },
     });
 
     const cleanEmail = email.trim().toLowerCase();
 
     console.log("[generate-token] request received for email:", cleanEmail, "type:", type);
 
-    // Invalida todos os tokens anteriores não usados para este email/tipo
+    // Invalida tokens anteriores não usados para este email/tipo
     const { error: invalidateError } = await supabase
       .from("email_links")
       .update({ used: true })
@@ -59,7 +59,6 @@ serve(async (req: Request) => {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + expires_in_seconds * 1000).toISOString();
 
-    // Insere o novo token
     const { error: insertError } = await supabase.from("email_links").insert({
       email: cleanEmail,
       token: code,

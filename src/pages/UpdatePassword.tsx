@@ -132,37 +132,27 @@ const UpdatePassword = () => {
         return;
       }
 
-      logger.log('[UpdatePassword] Chamando update-password-admin...');
+      logger.log('[UpdatePassword] Atualizando senha via supabase.auth.updateUser...');
 
-      // Chama via fetch direto passando o accessToken no body.
-      // O gateway pode rejeitar o Authorization header com verify_jwt=true,
-      // mas a função aceita o token no body e faz a verificação internamente.
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/update-password-admin`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': SUPABASE_ANON_KEY,
-          // JWT do usuário logado — satisfaz o verify_jwt do gateway
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ newPassword: password, accessToken: session.access_token }),
-      });
+      // Usa o SDK diretamente — não precisa de edge function.
+      // O usuário está logado com a senha temporária, então a sessão é válida.
+      const { error: updateErr } = await supabase.auth.updateUser({ password });
 
-      const updData: any = await res.json().catch(() => ({}));
+      logger.log('[UpdatePassword] Resultado updateUser:', { error: updateErr });
 
-      logger.log('[UpdatePassword] Resultado update-password-admin:', { status: res.status, data: updData });
-
-      if (!res.ok || updData?.error || updData?.success === false) {
+      if (updateErr) {
         clearTimeout(watchdog);
         dismissToast(toastId);
         setLoading(false);
-        const errMsg = updData?.error || `HTTP ${res.status}`;
-        const errCode = updData?.code || '';
-        setPasswordError(translateError(errMsg, errCode));
+        setPasswordError(translateError(updateErr.message));
         return;
       }
+
+      // Limpa o flag must_change_password no perfil
+      await supabase
+        .from('profiles')
+        .update({ must_change_password: false })
+        .eq('id', session.user.id);
 
       clearTimeout(watchdog);
       dismissToast(toastId);

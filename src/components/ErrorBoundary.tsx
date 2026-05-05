@@ -26,37 +26,46 @@ class ErrorBoundary extends Component<Props, State> {
     console.error("[ErrorBoundary] Component stack:", errorInfo.componentStack);
   }
 
-  private handleReset = () => {
-    // Limpa tudo exceto a sessão do Supabase (preserva keys que começam com 'sb-' ou 'dkcwb-')
-    const keysToPreserve = Object.keys(localStorage).filter(key => 
+  private handleReset = async () => {
+    // Preserva a sessão do Supabase
+    const keysToPreserve = Object.keys(localStorage).filter(key =>
       key.startsWith('sb-') || key.startsWith('dkcwb-')
     );
-    
-    // Armazena os valores preservados
     const preserved: Record<string, string> = {};
     keysToPreserve.forEach(key => {
       preserved[key] = localStorage.getItem(key) || '';
     });
-    
-    // Limpa o localStorage
+
     localStorage.clear();
     sessionStorage.clear();
-    
-    // Limpa cookies (exceto essenciais)
+
+    // Limpa cookies (exceto sessão Supabase)
     document.cookie.split(";").forEach((c) => {
-      // Preserva cookies de sessão do Supabase
       if (c.trim().startsWith('sb-')) return;
       document.cookie = c
         .replace(/^ +/, "")
         .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
     });
-    
-    // Restaura os valores preservados (sessão do Supabase)
+
+    // Restaura sessão
     Object.entries(preserved).forEach(([key, value]) => {
       if (value) localStorage.setItem(key, value);
     });
-    
-    window.location.reload();
+
+    // Limpa cache de service workers e caches do browser
+    try {
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map(r => r.unregister()));
+      }
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
+      }
+    } catch (_) { /* ignora erros de cache */ }
+
+    // Hard reload — ignora cache HTTP
+    window.location.href = window.location.href.split('?')[0] + '?v=' + Date.now();
   };
 
   public render() {

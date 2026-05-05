@@ -1,4 +1,4 @@
-// redeploy: 2026-05-05T19:15:00Z — force redeploy
+// redeploy: 2026-05-05T19:40:00Z — force redeploy fix 404
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 // @ts-ignore

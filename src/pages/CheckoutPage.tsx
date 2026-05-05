@@ -675,10 +675,10 @@ const CheckoutPage = () => {
         showError(data?.error || 'Endereço não encontrado.');
         return;
       }
-      setValue('street', data.logradouro);
-      setValue('neighborhood', data.bairro);
-      setValue('city', data.localidade);
-      setValue('state', data.uf);
+      setValue('street', data.logradouro || data.street || '');
+      setValue('neighborhood', data.bairro || data.neighborhood || '');
+      setValue('city', data.localidade || data.city || '');
+      setValue('state', data.uf || data.state || '');
       setDeliveryType(data.deliveryType === 'correios' ? 'correios' : 'local');
     } catch { showError("Erro ao buscar CEP."); } finally { if (isMountedRef.current) setIsFetchingCep(false); }
   };

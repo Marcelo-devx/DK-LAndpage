@@ -120,7 +120,10 @@ const ProfilePage = () => {
         setValue('street', ''); setValue('neighborhood', ''); setValue('city', ''); setValue('state', '');
         return;
       }
-      setValue('street', data.logradouro); setValue('neighborhood', data.bairro); setValue('city', data.localidade); setValue('state', data.uf);
+      setValue('street', data.logradouro || data.street || '');
+      setValue('neighborhood', data.bairro || data.neighborhood || '');
+      setValue('city', data.localidade || data.city || '');
+      setValue('state', data.uf || data.state || '');
 
       if (data.deliveryType === 'correios') {
         setDeliveryType('correios');

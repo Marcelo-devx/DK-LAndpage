@@ -164,15 +164,14 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
         }
       );
       const data = await res.json();
-      console.log('[CEP] resposta:', res.status, JSON.stringify(data));
       if (!res.ok) {
         showError(data?.error || 'Endereço não encontrado.');
         return;
       }
-      setNewStreet(data.logradouro || '');
-      setNewNeighborhood(data.bairro || '');
-      setNewCity(data.localidade || '');
-      setNewState(data.uf || '');
+      setNewStreet(data.logradouro || data.street || '');
+      setNewNeighborhood(data.bairro || data.neighborhood || '');
+      setNewCity(data.localidade || data.city || '');
+      setNewState(data.uf || data.state || '');
     } catch {
       showError('Erro ao buscar CEP. Tente novamente.');
     } finally {

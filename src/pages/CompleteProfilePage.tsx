@@ -248,13 +248,13 @@ const CompleteProfilePage = () => {
   ];
 
   const fillAddressFromData = (data: any) => {
-    setValue('street', data.logradouro || '');
-    setValue('neighborhood', data.bairro || '');
-    setValue('city', data.localidade || '');
-    setValue('state', data.uf || '');
+    setValue('street', data.logradouro || data.street || '');
+    setValue('neighborhood', data.bairro || data.neighborhood || '');
+    setValue('city', data.localidade || data.city || '');
+    setValue('state', data.uf || data.state || '');
     setCepSearched(true);
 
-    const city = (data.localidade || '').trim().toLowerCase();
+    const city = (data.localidade || data.city || '').trim().toLowerCase();
     const deliveryT = data.deliveryType || (LOCAL_DELIVERY_CITIES.includes(city) ? 'local' : 'correios');
     setDeliveryType(deliveryT);
     if (deliveryT === 'correios') {

@@ -1,15 +1,15 @@
-// redeploy: 2026-04-28T23:50:00Z — fix CORS cold start
+// redeploy: 2026-05-05T18:45:00Z — force recreate after NOT_FOUND
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 import { getCorsHeaders, createPreflightResponse } from '../_shared/cors.ts'
 
+// @ts-ignore
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || 'https://jrlozhhvwqfmjtkmvukf.supabase.co'
+// @ts-ignore
 const SUPABASE_SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE)
-const delayedOrderQueue = [830, 835, 837]
-let delayedQueueRunning = false
 
 async function dispatchWithRetry(
   url: string,
@@ -95,30 +95,16 @@ async function buildOrderPayload(orderId: number, eventType: string, requestId =
   const couponDiscount = Number(order.coupon_discount ?? 0)
   const subtotalProducts = mappedItems.reduce((s: number, it: any) => s + it.total, 0)
 
-  console.log(`[trigger-integration][${requestId}] order values from DB`, {
-    orderId,
-    total_price: totalPrice,
-    shipping_cost: shippingCost,
-    donation_amount: donationAmount,
-    coupon_discount: couponDiscount,
-    subtotal_products: subtotalProducts,
-  })
-
   const shipping = order.shipping_address || {}
   let customerEmail: string | null = shipping.email || order.guest_email || null
 
   if (!customerEmail && order.user_id) {
     try {
       const { data: authUserData, error: authUserErr } = await supabase.auth.admin.getUserById(order.user_id)
-      if (authUserErr) {
-        console.warn(`[trigger-integration][${requestId}] auth.admin.getUserById error for user ${order.user_id}:`, authUserErr)
-      } else {
+      if (!authUserErr) {
         customerEmail = authUserData?.user?.email || null
-        console.log(`[trigger-integration][${requestId}] resolved email via auth.admin for user ${order.user_id}: ${customerEmail}`)
       }
-    } catch (authErr) {
-      console.warn(`[trigger-integration][${requestId}] auth.admin.getUserById threw for user ${order.user_id}:`, authErr)
-    }
+    } catch { /* ignore */ }
   }
 
   const customer = {
@@ -150,65 +136,6 @@ async function buildOrderPayload(orderId: number, eventType: string, requestId =
   }
 }
 
-async function processDelayedOrders(requestId: string) {
-  if (delayedQueueRunning) return
-  delayedQueueRunning = true
-
-  try {
-    for (let index = 0; index < delayedOrderQueue.length; index++) {
-      const orderId = delayedOrderQueue[index]
-      const delayBeforeSend = index * 60_000
-
-      if (delayBeforeSend > 0) {
-        console.log(`[trigger-integration][${requestId}] waiting ${delayBeforeSend}ms before sending order ${orderId}`)
-        await new Promise((resolve) => setTimeout(resolve, delayBeforeSend))
-      }
-
-      const payload = await buildOrderPayload(orderId, 'order_created', requestId)
-      if (!payload) continue
-
-      const { data: tokenSetting } = await supabase
-        .from('app_settings')
-        .select('value')
-        .eq('key', 'n8n_integration_token')
-        .maybeSingle()
-      const n8nToken: string = tokenSetting?.value || ''
-
-      const { data: configs } = await supabase
-        .from('webhook_configs')
-        .select('target_url, api_key_header_name, api_key_value, additional_headers')
-        .eq('trigger_event', 'order_created')
-        .eq('is_active', true)
-
-      const config = configs?.[0]
-      if (!config?.target_url) continue
-
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        ...(n8nToken ? { Authorization: `Bearer ${n8nToken}` } : {}),
-      }
-
-      if (config.api_key_header_name && config.api_key_value) {
-        headers[config.api_key_header_name] = config.api_key_value
-      }
-
-      if (config.additional_headers) {
-        try {
-          const extraHeaders = typeof config.additional_headers === 'string' ? JSON.parse(config.additional_headers) : config.additional_headers
-          Object.assign(headers, extraHeaders)
-        } catch {
-          console.warn(`[trigger-integration][${requestId}] invalid additional_headers for delayed order ${orderId}`)
-        }
-      }
-
-      console.log(`[trigger-integration][${requestId}] dispatching delayed order ${orderId} to n8n`)
-      await dispatchWithRetry(config.target_url, headers, JSON.stringify(payload), 3, 15000, requestId)
-    }
-  } finally {
-    delayedQueueRunning = false
-  }
-}
-
 serve(async (req) => {
   const requestId = crypto.randomUUID()
   const origin = req.headers.get('origin')
@@ -217,7 +144,6 @@ serve(async (req) => {
     return createPreflightResponse(origin)
   }
 
-  // Health check — mantém a função aquecida
   const url = new URL(req.url)
   if (req.method === 'GET' && url.pathname.endsWith('/health')) {
     return new Response(JSON.stringify({ status: 'ok', function: 'trigger-integration', ts: Date.now() }), {
@@ -249,7 +175,6 @@ serve(async (req) => {
   console.log(`[trigger-integration][${requestId}] received body`, JSON.stringify(body).substring(0, 500))
 
   if (body?.simulate) {
-    console.log(`[trigger-integration][${requestId}] simulate mode — returning success without dispatching`)
     return new Response(JSON.stringify({ success: true, simulated: true }), {
       status: 200,
       headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' },
@@ -273,20 +198,6 @@ serve(async (req) => {
   console.log(`[trigger-integration][${requestId}] processing event_type: ${eventType}`)
 
   const orderId: number | null = Number(body?.payload?.order_id || body?.order_id || body?.data?.order_id || 0) || null
-
-  if (eventType === 'order_created' && orderId && delayedOrderQueue.includes(orderId)) {
-    console.log(`[trigger-integration][${requestId}] order ${orderId} is in delayed queue, scheduling sequential dispatch`)
-    void processDelayedOrders(requestId)
-    return new Response(JSON.stringify({
-      success: true,
-      queued: true,
-      order_id: orderId,
-      message: 'Pedido enfileirado para envio sequencial com intervalo de 1 minuto',
-    }), {
-      status: 200,
-      headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' },
-    })
-  }
 
   let outgoingPayload: any = null
   if (eventType === 'order_created' && orderId) {
@@ -327,14 +238,13 @@ serve(async (req) => {
   console.log(`[trigger-integration][${requestId}] found ${configs?.length ?? 0} active webhook(s) for event "${eventType}"`)
 
   if (!configs || configs.length === 0) {
-    console.warn(`[trigger-integration][${requestId}] no active webhook configs for event "${eventType}" — nothing to dispatch`)
+    console.warn(`[trigger-integration][${requestId}] no active webhook configs for event "${eventType}"`)
     await supabase.from('integration_logs').insert({
       event_type: eventType,
       status: 'no_config',
       details: `Nenhum webhook ativo configurado para o evento "${eventType}"`,
       payload: outgoingPayload,
     })
-
     return new Response(JSON.stringify({
       success: false,
       dispatched: 0,

@@ -1,13 +1,9 @@
-// redeploy: 2026-05-05T18:35:00Z — accept apikey header from n8n
+// redeploy: 2026-05-05T18:40:00Z — full rewrite, accept apikey/bearer n8n token
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 // @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 
-// Importar logger sanitizado
-import { safeLog, safeErrorLog, sanitizeLogObject } from '../_shared/logger.ts';
-
-// CORS aberto — esta função é chamada pelo n8n (servidor externo) e pelo admin (browser)
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-webhook-secret, x-webhook-token',
@@ -19,7 +15,6 @@ serve(async (req) => {
     return new Response('ok', { status: 200, headers: corsHeaders });
   }
 
-  // Health check — mantém a função aquecida
   const url = new URL(req.url)
   if (req.method === 'GET' && url.pathname.endsWith('/health')) {
     return new Response(JSON.stringify({ status: 'ok', function: 'update-order-status', ts: Date.now() }), {
@@ -29,206 +24,144 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseClient = createClient(
-      // @ts-ignore
-      Deno.env.get('SUPABASE_URL') ?? '',
-      // @ts-ignore
-      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-    )
+    // @ts-ignore
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
+    // @ts-ignore
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    // @ts-ignore
+    const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
 
-    // Segurança: aceitar autorização via 1) Bearer JWT OR 2) webhook secret header
-    const authHeader = req.headers.get('Authorization') || req.headers.get('authorization');
-    const webhookSecretHeader = req.headers.get('x-webhook-secret') || req.headers.get('x-webhook-token') || req.headers.get('apikey');
+    const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    const supabaseAnon = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
-    // Buscar token válido do n8n: tenta Supabase Secret primeiro, depois app_settings
-    const secretFromEnv = (Deno.env.get('N8N_SECRET_TOKEN') || Deno.env.get('UPDATE_ORDER_WEBHOOK_SECRET') || Deno.env.get('WEBHOOK_SECRET') || '').trim();
-
-    // Também aceitar o token salvo em app_settings (n8n_integration_token)
-    const supabaseAdmin0 = createClient(
-      // @ts-ignore
-      Deno.env.get('SUPABASE_URL') ?? '',
-      // @ts-ignore
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-    const { data: tokenSetting } = await supabaseAdmin0
+    // Buscar token configurado no banco
+    const { data: tokenSetting } = await supabaseAdmin
       .from('app_settings')
       .select('value')
       .eq('key', 'n8n_integration_token')
-      .maybeSingle();
-    const secretFromDb = (tokenSetting?.value || '').trim();
+      .maybeSingle()
+    const secretFromDb = (tokenSetting?.value || '').trim()
 
-    // Token recebido (via header ou bearer)
-    const bearerToken = authHeader?.includes('Bearer') ? authHeader.replace('Bearer ', '').trim() : null;
-    const receivedToken = webhookSecretHeader || bearerToken || '';
+    // Coletar token recebido de qualquer header possível
+    const authHeader = req.headers.get('Authorization') || req.headers.get('authorization') || ''
+    const apikeyHeader = req.headers.get('apikey') || ''
+    const webhookHeader = req.headers.get('x-webhook-secret') || req.headers.get('x-webhook-token') || ''
+    const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader.trim()
 
-    // Válido se bater com qualquer um dos secrets conhecidos
-    const validSecrets = [secretFromEnv, secretFromDb].filter(Boolean);
-    const isValidSecret = validSecrets.length > 0 && validSecrets.some(s => s === receivedToken);
+    // Token recebido: prioridade apikey > x-webhook-secret > bearer
+    const receivedToken = apikeyHeader || webhookHeader || bearerToken
 
-    safeLog('[update-order-status] Auth check', {
-      hasWebhookHeader: !!webhookSecretHeader,
-      hasAuthHeader: !!authHeader,
-      hasBearerToken: !!bearerToken,
-      secretFromEnv: !!secretFromEnv,
+    console.log('[update-order-status] auth attempt', {
+      hasApikey: !!apikeyHeader,
+      hasWebhook: !!webhookHeader,
+      hasBearer: !!bearerToken,
       secretFromDb: !!secretFromDb,
-      isValidSecret,
-    });
+      tokenMatch: receivedToken === secretFromDb,
+    })
 
-    let authorizedVia = null as null | 'webhook' | 'jwt';
-    let validatedUser: any = null;
-
-    if (isValidSecret) {
-      authorizedVia = 'webhook';
-      safeLog('[update-order-status] Authorized via webhook secret');
+    // 1) Verificar se é o token do n8n
+    if (secretFromDb && receivedToken === secretFromDb) {
+      console.log('[update-order-status] authorized via n8n token')
+      // autorizado — continua abaixo
     } else if (bearerToken) {
-      // 2) Bearer token não bateu com nenhum secret — tentar validar como JWT de usuário admin
-      const token = bearerToken;
-      try {
-        const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token as any);
-        if (authError || !user) {
-          safeErrorLog('[update-order-status] Token inválido:', authError);
-          return new Response(JSON.stringify({ error: 'Token de autenticação inválido.' }), {
-            status: 401,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          });
-        }
-
-        const { data: profile, error: profileError } = await supabaseClient
-            .from('profiles')
-            .select('role')
-            .eq('id', user.id)
-            .single();
-
-        if (profileError || !profile) {
-            safeErrorLog('[update-order-status] Perfil não encontrado para usuário:', { userId: user.id, error: profileError });
-            return new Response(JSON.stringify({ error: 'Perfil não encontrado.' }), {
-                status: 404,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            });
-        }
-
-        if (profile.role !== 'adm') {
-            safeLog('[update-order-status] Usuário não é admin:', { userId: user.id, role: profile.role });
-            return new Response(JSON.stringify({ error: 'Acesso negado. Permissões insuficientes.' }), {
-                status: 403,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            });
-        }
-
-        safeLog('[update-order-status] Usuário autorizado via JWT:', { email: user.email });
-        authorizedVia = 'jwt';
-        validatedUser = user;
-      } catch (validationError) {
-        safeErrorLog('[update-order-status] Erro na validação:', validationError);
-        return new Response(JSON.stringify({ error: 'Erro na validação de autenticação.' }), {
-            status: 401,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+      // 2) Tentar validar como JWT de usuário admin
+      const { data: { user }, error: authError } = await supabaseAnon.auth.getUser(bearerToken)
+      if (authError || !user) {
+        console.error('[update-order-status] invalid JWT', authError?.message)
+        return new Response(JSON.stringify({ error: 'Token inválido.' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
       }
+      const { data: profile } = await supabaseAnon.from('profiles').select('role').eq('id', user.id).single()
+      if (!profile || profile.role !== 'adm') {
+        return new Response(JSON.stringify({ error: 'Acesso negado.' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      }
+      console.log('[update-order-status] authorized via admin JWT', user.email)
     } else {
-      safeErrorLog('[update-order-status] Acesso negado — sem credenciais válidas', {
-        hasWebhookHeader: !!webhookSecretHeader,
-        hasAuthHeader: !!authHeader,
-        hasBearerToken: !!bearerToken,
-        secretFromEnv: !!secretFromEnv,
-        secretFromDb: !!secretFromDb,
-      });
+      console.error('[update-order-status] no valid credentials')
       return new Response(JSON.stringify({ error: 'Acesso negado. Requer autenticação.' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      })
     }
 
-    const { order_id, status, delivery_status, tracking_code, delivery_info } = await req.json()
+    const body = await req.json()
+    const { order_id, status, delivery_status, tracking_code, delivery_info } = body
 
     if (!order_id) {
-        return new Response(JSON.stringify({ error: 'order_id é obrigatório.' }), {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        })
+      return new Response(JSON.stringify({ error: 'order_id é obrigatório.' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
     }
 
-    safeLog('[update-order-status] Processing', { order_id, status, authorizedVia });
+    console.log('[update-order-status] processing', { order_id, status })
 
-    // Criar client com SERVICE_ROLE para atualizações (bypass RLS)
-    const supabaseAdmin = createClient(
-        // @ts-ignore
-        Deno.env.get('SUPABASE_URL') ?? '',
-        // @ts-ignore
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
-
-    let responseData;
-    const s = status ? status.toLowerCase() : '';
+    let responseData: any
+    const s = (status || '').toLowerCase()
 
     if (status === 'Finalizada' || status === 'Pago' || s === 'confirmado' || s === 'approved' || s === 'paid') {
-        
-        if (delivery_status || tracking_code || delivery_info) {
-            const updates: any = {};
-            if (delivery_status) updates.delivery_status = delivery_status;
-            if (tracking_code) updates.delivery_info = `Rastreio: ${tracking_code}`;
-            else if (delivery_info) updates.delivery_info = delivery_info;
-            
-            await supabaseAdmin.from('orders').update(updates).eq('id', order_id);
-        }
-
-        const { data, error } = await supabaseAdmin.rpc('finalize_order_payment', { 
-            p_order_id: order_id 
-        });
-
-        if (error) throw error;
-        
-        const { data: updatedOrder } = await supabaseAdmin.from('orders').select('*').eq('id', order_id).single();
-        responseData = updatedOrder;
-
-        await supabaseAdmin.from('integration_logs').insert({
-            event_type: 'api_payment_confirmed',
-            status: 'success',
-            payload: sanitizeLogObject({ order_id, input_status: status, method: authorizedVia === 'webhook' ? 'webhook' : 'api_manual' }),
-            details: `Pedido #${order_id} finalizado e pontos concedidos.`
-        });
-
-    } else {
+      if (delivery_status || tracking_code || delivery_info) {
         const updates: any = {}
-        if (status) updates.status = status
         if (delivery_status) updates.delivery_status = delivery_status
-        
-        if (tracking_code) {
-            updates.delivery_info = `Rastreio: ${tracking_code}`
-        } else if (delivery_info) {
-            updates.delivery_info = delivery_info
-        }
+        if (tracking_code) updates.delivery_info = `Rastreio: ${tracking_code}`
+        else if (delivery_info) updates.delivery_info = delivery_info
+        await supabaseAdmin.from('orders').update(updates).eq('id', order_id)
+      }
 
-        const { data, error } = await supabaseAdmin
-            .from('orders')
-            .update(updates)
-            .eq('id', order_id)
-            .select()
-            .single()
+      const { error } = await supabaseAdmin.rpc('finalize_order_payment', { p_order_id: order_id })
+      if (error) throw error
 
-        if (error) throw error;
-        responseData = data;
+      const { data: updatedOrder } = await supabaseAdmin.from('orders').select('*').eq('id', order_id).single()
+      responseData = updatedOrder
 
-        await supabaseAdmin.from('integration_logs').insert({
-            event_type: 'api_update_order',
-            status: 'success',
-            payload: sanitizeLogObject({ order_id, updates }),
-            details: `Pedido #${order_id} atualizado (campos simples).`
-        })
+      await supabaseAdmin.from('integration_logs').insert({
+        event_type: 'api_payment_confirmed',
+        status: 'success',
+        payload: { order_id, input_status: status },
+        details: `Pedido #${order_id} finalizado.`
+      })
+    } else {
+      const updates: any = {}
+      if (status) updates.status = status
+      if (delivery_status) updates.delivery_status = delivery_status
+      if (tracking_code) updates.delivery_info = `Rastreio: ${tracking_code}`
+      else if (delivery_info) updates.delivery_info = delivery_info
+
+      const { data, error } = await supabaseAdmin
+        .from('orders')
+        .update(updates)
+        .eq('id', order_id)
+        .select()
+        .single()
+
+      if (error) throw error
+      responseData = data
+
+      await supabaseAdmin.from('integration_logs').insert({
+        event_type: 'api_update_order',
+        status: 'success',
+        payload: { order_id, updates },
+        details: `Pedido #${order_id} atualizado.`
+      })
     }
 
-    return new Response(JSON.stringify({ 
-        success: true, 
-        message: 'Pedido atualizado com sucesso.',
-        data: responseData 
+    return new Response(JSON.stringify({
+      success: true,
+      message: 'Pedido atualizado com sucesso.',
+      data: responseData
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     })
 
-  } catch (error) {
-    safeErrorLog("[update-order-status] Erro:", error)
-    return new Response(JSON.stringify({ error: error.message }), {
+  } catch (error: any) {
+    console.error('[update-order-status] erro:', error?.message || error)
+    return new Response(JSON.stringify({ error: error?.message || 'Erro interno' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
     })

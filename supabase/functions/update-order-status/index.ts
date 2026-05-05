@@ -1,3 +1,4 @@
+// redeploy: 2026-05-05T18:35:00Z — accept apikey header from n8n
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 // @ts-ignore
@@ -37,7 +38,7 @@ serve(async (req) => {
 
     // Segurança: aceitar autorização via 1) Bearer JWT OR 2) webhook secret header
     const authHeader = req.headers.get('Authorization') || req.headers.get('authorization');
-    const webhookSecretHeader = req.headers.get('x-webhook-secret') || req.headers.get('x-webhook-token');
+    const webhookSecretHeader = req.headers.get('x-webhook-secret') || req.headers.get('x-webhook-token') || req.headers.get('apikey');
 
     // Buscar token válido do n8n: tenta Supabase Secret primeiro, depois app_settings
     const secretFromEnv = (Deno.env.get('N8N_SECRET_TOKEN') || Deno.env.get('UPDATE_ORDER_WEBHOOK_SECRET') || Deno.env.get('WEBHOOK_SECRET') || '').trim();

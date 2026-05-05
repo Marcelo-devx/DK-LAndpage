@@ -485,8 +485,10 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
                       <Input
                         value={newStreet}
                         onChange={e => setNewStreet(e.target.value)}
+                        onKeyDown={e => e.preventDefault()}
+                        onPaste={e => e.preventDefault()}
                         placeholder="Busque pelo CEP"
-                        className="text-base rounded-xl h-12 mt-1 bg-stone-100 text-slate-500 focus-visible:ring-0 focus-visible:ring-offset-0"
+                        className="text-base rounded-xl h-12 mt-1 bg-stone-100 text-slate-500 cursor-not-allowed focus-visible:ring-0 focus-visible:ring-offset-0"
                       />
                     </div>
                     <div>
@@ -512,15 +514,17 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
                     />
                   </div>
 
-                  {/* Neighborhood + City — readonly (preenchidos pelo CEP) */}
+                  {/* Neighborhood + City — preenchidos pelo CEP */}
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <Label className="text-[10px] uppercase text-slate-500 font-black tracking-widest">Bairro <span className="text-red-500">*</span></Label>
                       <Input
                         value={newNeighborhood}
                         onChange={e => setNewNeighborhood(e.target.value)}
+                        onKeyDown={e => e.preventDefault()}
+                        onPaste={e => e.preventDefault()}
                         placeholder="Busque pelo CEP"
-                        className="text-base rounded-xl h-12 mt-1 bg-stone-100 text-slate-500 focus-visible:ring-0 focus-visible:ring-offset-0"
+                        className="text-base rounded-xl h-12 mt-1 bg-stone-100 text-slate-500 cursor-not-allowed focus-visible:ring-0 focus-visible:ring-offset-0"
                       />
                     </div>
                     <div>
@@ -528,21 +532,25 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
                       <Input
                         value={newCity}
                         onChange={e => setNewCity(e.target.value)}
+                        onKeyDown={e => e.preventDefault()}
+                        onPaste={e => e.preventDefault()}
                         placeholder="Busque pelo CEP"
-                        className="text-base rounded-xl h-12 mt-1 bg-stone-100 text-slate-500 focus-visible:ring-0 focus-visible:ring-offset-0"
+                        className="text-base rounded-xl h-12 mt-1 bg-stone-100 text-slate-500 cursor-not-allowed focus-visible:ring-0 focus-visible:ring-offset-0"
                       />
                     </div>
                   </div>
 
-                  {/* State — readonly (preenchido pelo CEP) */}
+                  {/* State — preenchido pelo CEP */}
                   <div>
                     <Label className="text-[10px] uppercase text-slate-500 font-black tracking-widest">Estado <span className="text-red-500">*</span></Label>
                     <Input
                       value={newState}
                       onChange={e => setNewState(e.target.value.toUpperCase().slice(0, 2))}
+                      onKeyDown={e => e.preventDefault()}
+                      onPaste={e => e.preventDefault()}
                       placeholder="Busque pelo CEP"
                       maxLength={2}
-                      className="text-base rounded-xl h-12 mt-1 uppercase bg-stone-100 text-slate-500 focus-visible:ring-0 focus-visible:ring-offset-0"
+                      className="text-base rounded-xl h-12 mt-1 uppercase bg-stone-100 text-slate-500 cursor-not-allowed focus-visible:ring-0 focus-visible:ring-offset-0"
                     />
                   </div>
 

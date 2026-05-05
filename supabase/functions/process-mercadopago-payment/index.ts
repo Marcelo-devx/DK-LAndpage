@@ -1,4 +1,4 @@
-// redeploy: 2026-05-05T19:45:00Z — restart all
+// redeploy: 2026-05-05T21:00:00Z — log payload keys + support cardToken
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 // @ts-ignore
@@ -51,28 +51,29 @@ serve(async (req) => {
 
     const body = await req.json();
 
+    console.log(`[process-mercadopago-payment][${requestId}] Payload keys:`, Object.keys(body))
     console.log(`[process-mercadopago-payment][${requestId}] Payload recebido do Brick:`, JSON.stringify({
       external_reference: body.external_reference,
       transaction_amount: body.transaction_amount,
       payment_method_id: body.payment_method_id,
       installments: body.installments,
       has_token: !!body.token,
+      has_cardToken: !!body.cardToken,
       payer_email: body.payer?.email,
     }))
 
     // O CardPayment Brick do MP envia estes campos:
-    const {
-      token,                  // card token gerado pelo Brick
-      payment_method_id,      // ex: "visa", "master"
-      installments,           // número de parcelas
-      issuer_id,              // emissor do cartão
-      external_reference,     // nosso order_id
-      transaction_amount,     // valor total
-      payer,                  // { email, identification: { type, number } }
-    } = body
+    // Suporta tanto body.token quanto body.cardToken (variações do SDK)
+    const token = body.token || body.cardToken;
+    const payment_method_id = body.payment_method_id;
+    const installments = body.installments;
+    const issuer_id = body.issuer_id;
+    const external_reference = body.external_reference;
+    const transaction_amount = body.transaction_amount;
+    const payer = body.payer;
 
     if (!token) {
-      console.error(`[process-mercadopago-payment][${requestId}] ERROR: Token do cartão não recebido`)
+      console.error(`[process-mercadopago-payment][${requestId}] ERROR: Token do cartão não recebido. Body keys: ${Object.keys(body).join(', ')}`)
       throw new Error("Token do cartão não recebido. Tente novamente.")
     }
     if (!external_reference) {

@@ -1,6 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { showSuccess, showLoading, dismissToast } from '@/utils/toast';
 import { Loader2, Lock, ShieldCheck, Check, X, AlertTriangle, ShieldAlert, ShieldX } from 'lucide-react';
 import { logger } from '@/lib/logger';
-import { invokePublic } from '@/lib/invokePublic';
+import { supabase } from '@/integrations/supabase/client';
 
 // const SUPABASE_URL moved to env; we now use supabase.functions.invoke where possible
 
@@ -133,22 +132,20 @@ const UpdatePassword = () => {
         return;
       }
 
-      logger.log('[UpdatePassword] Chamando update-password-admin via invokePublic...');
+      logger.log('[UpdatePassword] Chamando update-password-admin...');
 
-      const invokeRes = await invokePublic('update-password-admin', {
+      const { data: updData, error: invokeErr } = await supabase.functions.invoke('update-password-admin', {
         body: { newPassword: password, accessToken: session.access_token },
       });
 
-      const updData: any = invokeRes.data || {};
+      logger.log('[UpdatePassword] Resultado update-password-admin:', { data: updData, error: invokeErr });
 
-      logger.log('[UpdatePassword] Resultado update-password-admin:', { data: updData, error: invokeRes.error });
-
-      if (invokeRes.error || updData?.error || updData?.success === false) {
+      if (invokeErr || (updData as any)?.error || (updData as any)?.success === false) {
         clearTimeout(watchdog);
         dismissToast(toastId);
         setLoading(false);
-        const errMsg = updData?.error || invokeRes.error?.message || 'Erro ao atualizar senha';
-        const errCode = updData?.code || '';
+        const errMsg = (updData as any)?.error || invokeErr?.message || 'Erro ao atualizar senha';
+        const errCode = (updData as any)?.code || '';
         setPasswordError(translateError(errMsg, errCode));
         return;
       }

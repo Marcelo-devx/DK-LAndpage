@@ -132,19 +132,22 @@ const UpdatePassword = () => {
         return;
       }
 
-      // Limpa o flag must_change_password no perfil (não bloqueia o fluxo)
-      supabase
+      // Limpa o flag must_change_password ANTES de fazer signOut
+      // para evitar loop de redirecionamento
+      await supabase
         .from('profiles')
         .update({ must_change_password: false })
-        .eq('id', session.user.id)
-        .then(() => logger.log('[UpdatePassword] must_change_password limpo'));
+        .eq('id', session.user.id);
+
+      logger.log('[UpdatePassword] must_change_password limpo, fazendo signOut...');
 
       dismissToast(toastId);
-      setLoading(false);
       showSuccess('Senha criada com sucesso! Faça login com sua nova senha.');
 
       await supabase.auth.signOut();
-      navigate('/login', { replace: true, state: { passwordChanged: true } });
+
+      // Usa window.location para garantir reload completo e limpar estado do React
+      window.location.href = '/login';
 
     } catch (err: any) {
       dismissToast(toastId);

@@ -486,8 +486,7 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
                         value={newStreet}
                         onChange={e => setNewStreet(e.target.value)}
                         placeholder="Busque pelo CEP"
-                        readOnly
-                        className="text-base rounded-xl h-12 mt-1 bg-stone-100 text-slate-500 cursor-not-allowed focus-visible:ring-0 focus-visible:ring-offset-0"
+                        className="text-base rounded-xl h-12 mt-1 bg-stone-100 text-slate-500 focus-visible:ring-0 focus-visible:ring-offset-0"
                       />
                     </div>
                     <div>
@@ -521,8 +520,7 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
                         value={newNeighborhood}
                         onChange={e => setNewNeighborhood(e.target.value)}
                         placeholder="Busque pelo CEP"
-                        readOnly
-                        className="text-base rounded-xl h-12 mt-1 bg-stone-100 text-slate-500 cursor-not-allowed focus-visible:ring-0 focus-visible:ring-offset-0"
+                        className="text-base rounded-xl h-12 mt-1 bg-stone-100 text-slate-500 focus-visible:ring-0 focus-visible:ring-offset-0"
                       />
                     </div>
                     <div>
@@ -531,8 +529,7 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
                         value={newCity}
                         onChange={e => setNewCity(e.target.value)}
                         placeholder="Busque pelo CEP"
-                        readOnly
-                        className="text-base rounded-xl h-12 mt-1 bg-stone-100 text-slate-500 cursor-not-allowed focus-visible:ring-0 focus-visible:ring-offset-0"
+                        className="text-base rounded-xl h-12 mt-1 bg-stone-100 text-slate-500 focus-visible:ring-0 focus-visible:ring-offset-0"
                       />
                     </div>
                   </div>
@@ -544,9 +541,8 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
                       value={newState}
                       onChange={e => setNewState(e.target.value.toUpperCase().slice(0, 2))}
                       placeholder="Busque pelo CEP"
-                      readOnly
                       maxLength={2}
-                      className="text-base rounded-xl h-12 mt-1 uppercase bg-stone-100 text-slate-500 cursor-not-allowed focus-visible:ring-0 focus-visible:ring-offset-0"
+                      className="text-base rounded-xl h-12 mt-1 uppercase bg-stone-100 text-slate-500 focus-visible:ring-0 focus-visible:ring-offset-0"
                     />
                   </div>
 

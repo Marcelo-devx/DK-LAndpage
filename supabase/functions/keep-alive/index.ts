@@ -1,4 +1,4 @@
-// redeploy: 2026-04-27T02:00:00Z — force redeploy check
+// redeploy: 2026-05-05T18:50:00Z — warm critical functions via GET /health
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 
@@ -10,40 +10,38 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
-// Todas as edge functions que precisam ficar aquecidas.
-// Mantemos aqui TODAS as funções existentes no projeto Supabase — mesmo que
-// algumas não estejam no código atual deste repo, elas estão deployadas
-// no projeto e precisam ficar quentes para resposta rápida.
-const FUNCTIONS_TO_WARM = Array.from(new Set([
-  // ── Auth / cadastro / email ───────────────────────────────────────────
+// Funções críticas — aquecidas via GET /health (executa o runtime de verdade)
+const CRITICAL_FUNCTIONS = [
+  'trigger-integration',
+  'update-order-status',
+  'get-order-details',
+  'get-order-public',
+  'mercadopago-webhook',
+  'process-mercadopago-payment',
+  'send-order-email',
+  'send-email-via-resend',
+];
+
+// Demais funções — aquecidas via OPTIONS (mais leve)
+const OTHER_FUNCTIONS = [
   'generate-token',
   'validate-token',
-  'send-email-via-resend',
   'create-user',
   'forgot-password',
   'notify-password-change',
   'reset-user-password',
   'update-password-admin',
   'health-check',
-
-  // ── Pedidos / pagamento ───────────────────────────────────────────────
-  'process-mercadopago-payment',
   'create-mercadopago-preference',
   'create-mp-preference',
   'create-mercadopago-pix',
   'get-mercadopago-status',
-  'mercadopago-webhook',
   'mp-webhook',
-  'update-order-status',
-  'get-order-details',
-  'get-order-public',
   'find-order-by-phone',
   'admin-get-order-history',
   'admin-update-order',
   'admin-cancel-order',
   'admin-delete-order',
-
-  // ── Usuários / admin ──────────────────────────────────────────────────
   'get-users',
   'admin-create-user',
   'admin-delete-user',
@@ -51,28 +49,21 @@ const FUNCTIONS_TO_WARM = Array.from(new Set([
   'admin-block-user',
   'bulk-add-points',
   'bulk-import-clients',
-
-  // ── Integrações / webhooks ────────────────────────────────────────────
   'n8n-webhook',
   'n8n-receive-order',
   'dispatch-webhook',
-  'trigger-integration',
   'log-integration',
-
-  // ── Cloudinary ────────────────────────────────────────────────────────
   'cloudinary-upload',
   'cloudinary-list-images',
   'cloudinary-delete-image',
   'cloudinary-usage',
-
-  // ── Outros ────────────────────────────────────────────────────────────
   'chat-proxy',
   'catalog-api',
   'analytics-bi',
   'actionable-insights',
   'generate-sales-popups',
   'validate-cep',
-]));
+];
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -92,9 +83,31 @@ serve(async (req) => {
 
   const results: Record<string, string> = {};
 
-  // Aquece todas as funções em paralelo com OPTIONS (sem custo de processamento)
+  // Aquece funções críticas via GET /health (garante que o runtime executa de verdade)
   await Promise.allSettled(
-    FUNCTIONS_TO_WARM.map(async (fn) => {
+    CRITICAL_FUNCTIONS.map(async (fn) => {
+      try {
+        const res = await fetch(`${supabaseUrl}/functions/v1/${fn}/health`, {
+          method: 'GET',
+          headers: {
+            'apikey': anonKey,
+            'Authorization': `Bearer ${anonKey}`,
+          },
+          signal: AbortSignal.timeout(10000),
+        });
+        const status = res.status;
+        results[fn] = `warm(${status})`;
+        console.log(`[keep-alive] ${fn} -> warm(${status})`);
+      } catch (err: any) {
+        results[fn] = `error:${err?.message || 'unknown'}`;
+        console.warn(`[keep-alive] ${fn} -> error:`, err?.message);
+      }
+    })
+  );
+
+  // Aquece demais funções via OPTIONS (mais leve)
+  await Promise.allSettled(
+    OTHER_FUNCTIONS.map(async (fn) => {
       try {
         const res = await fetch(`${supabaseUrl}/functions/v1/${fn}`, {
           method: 'OPTIONS',

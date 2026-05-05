@@ -1,4 +1,3 @@
-// redeploy: 2026-05-05T19:45:00Z — restart all
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 
@@ -10,8 +9,11 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
-// Funções críticas — aquecidas via GET /health (executa o runtime de verdade)
-const CRITICAL_FUNCTIONS = [
+// Todas as funções são aquecidas via OPTIONS.
+// OPTIONS nunca executa lógica de negócio nem autenticação — apenas retorna
+// os headers CORS e mantém o container vivo sem gerar erros de auth.
+const ALL_FUNCTIONS = [
+  // Críticas para o usuário final
   'trigger-integration',
   'update-order-status',
   'get-order-details',
@@ -19,10 +21,7 @@ const CRITICAL_FUNCTIONS = [
   'mercadopago-webhook',
   'process-mercadopago-payment',
   'send-order-email',
-];
-
-// Demais funções — aquecidas via OPTIONS (mais leve)
-const OTHER_FUNCTIONS = [
+  // Auth / cadastro
   'send-email-via-resend',
   'generate-token',
   'validate-token',
@@ -31,12 +30,13 @@ const OTHER_FUNCTIONS = [
   'notify-password-change',
   'reset-user-password',
   'update-password-admin',
-  'health-check',
+  // Pagamento
   'create-mercadopago-preference',
   'create-mp-preference',
   'create-mercadopago-pix',
   'get-mercadopago-status',
   'mp-webhook',
+  // Admin
   'find-order-by-phone',
   'admin-get-order-history',
   'admin-update-order',
@@ -49,14 +49,18 @@ const OTHER_FUNCTIONS = [
   'admin-block-user',
   'bulk-add-points',
   'bulk-import-clients',
+  // Integrações
   'n8n-webhook',
   'n8n-receive-order',
   'dispatch-webhook',
   'log-integration',
+  // Cloudinary
   'cloudinary-upload',
   'cloudinary-list-images',
   'cloudinary-delete-image',
   'cloudinary-usage',
+  // Outros
+  'health-check',
   'chat-proxy',
   'catalog-api',
   'analytics-bi',
@@ -83,31 +87,9 @@ serve(async (req) => {
 
   const results: Record<string, string> = {};
 
-  // Aquece funções críticas via GET /health (garante que o runtime executa de verdade)
+  // Aquece TODAS as funções via OPTIONS — nunca dispara auth nem lógica de negócio
   await Promise.allSettled(
-    CRITICAL_FUNCTIONS.map(async (fn) => {
-      try {
-        const res = await fetch(`${supabaseUrl}/functions/v1/${fn}/health`, {
-          method: 'GET',
-          headers: {
-            'apikey': anonKey,
-            'Authorization': `Bearer ${anonKey}`,
-          },
-          signal: AbortSignal.timeout(10000),
-        });
-        const status = res.status;
-        results[fn] = `warm(${status})`;
-        console.log(`[keep-alive] ${fn} -> warm(${status})`);
-      } catch (err: any) {
-        results[fn] = `error:${err?.message || 'unknown'}`;
-        console.warn(`[keep-alive] ${fn} -> error:`, err?.message);
-      }
-    })
-  );
-
-  // Aquece demais funções via OPTIONS (mais leve)
-  await Promise.allSettled(
-    OTHER_FUNCTIONS.map(async (fn) => {
+    ALL_FUNCTIONS.map(async (fn) => {
       try {
         const res = await fetch(`${supabaseUrl}/functions/v1/${fn}`, {
           method: 'OPTIONS',
@@ -115,8 +97,10 @@ serve(async (req) => {
             'apikey': anonKey,
             'Authorization': `Bearer ${anonKey}`,
           },
+          signal: AbortSignal.timeout(8000),
         });
-        results[fn] = res.ok || res.status === 204 || res.status === 200 ? 'warm' : `status:${res.status}`;
+        const ok = res.status === 200 || res.status === 204;
+        results[fn] = ok ? 'warm' : `status:${res.status}`;
         console.log(`[keep-alive] ${fn} -> ${results[fn]}`);
       } catch (err: any) {
         results[fn] = `error:${err?.message || 'unknown'}`;
@@ -125,7 +109,8 @@ serve(async (req) => {
     })
   );
 
-  console.log('[keep-alive] Warm-up concluído', results);
+  const warm = Object.values(results).filter(v => v === 'warm').length;
+  console.log(`[keep-alive] Concluído: ${warm}/${ALL_FUNCTIONS.length} warm`);
 
   return new Response(JSON.stringify({ ok: true, timestamp: new Date().toISOString(), results }), {
     status: 200,

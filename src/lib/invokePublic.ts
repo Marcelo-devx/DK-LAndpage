@@ -1,11 +1,12 @@
 /**
  * Chama uma edge function pública via fetch direto.
- * Envia o anon key tanto no header apikey quanto no Authorization,
- * o que satisfaz o verify_jwt do Supabase (anon key é um JWT válido).
+ * Usa as mesmas credenciais do cliente Supabase (variáveis de ambiente).
  */
 
-const SUPABASE_URL = "https://jrlozhhvwqfmjtkmvukf.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpybG96aGh2d3FmbWp0a212dWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzNDU2NjQsImV4cCI6MjA2NzkyMTY2NH0.Do5c1-TKqpyZTJeX_hLbw1SU40CbwXfCIC-pPpcD_JM";
+import { env } from '@/config/env';
+
+const SUPABASE_URL = env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = env.VITE_SUPABASE_ANON_KEY;
 
 interface PublicInvokeOptions {
   body?: Record<string, unknown>;

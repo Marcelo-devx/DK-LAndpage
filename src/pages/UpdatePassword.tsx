@@ -144,6 +144,8 @@ const UpdatePassword = () => {
         headers: {
           'Content-Type': 'application/json',
           'apikey': SUPABASE_ANON_KEY,
+          // JWT do usuário logado — satisfaz o verify_jwt do gateway
+          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ newPassword: password, accessToken: session.access_token }),
       });

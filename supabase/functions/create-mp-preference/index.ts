@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// redeploy: 2026-05-05T19:30:00Z — force redeploy
+// redeploy: 2026-05-05T19:45:00Z — restart all
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response('ok', { status: 200, headers: corsHeaders });

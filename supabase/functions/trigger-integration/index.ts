@@ -1,15 +1,8 @@
-// redeploy: 2026-05-05T21:15:00Z — fix webhook_configs query + RLS policy added
+// redeploy: 2026-05-05T22:35:00Z — move client init inside handler to ensure env vars available
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 import { getCorsHeaders, createPreflightResponse } from '../_shared/cors.ts'
-
-// @ts-ignore
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || 'https://jrlozhhvwqfmjtkmvukf.supabase.co'
-// @ts-ignore
-const SUPABASE_SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE)
 
 async function dispatchWithRetry(
   url: string,
@@ -57,7 +50,7 @@ async function dispatchWithRetry(
   return { ok: false, error: lastError, attempts: maxRetries }
 }
 
-async function buildOrderPayload(orderId: number, eventType: string, requestId = 'unknown'): Promise<any> {
+async function buildOrderPayload(orderId: number, eventType: string, requestId = 'unknown', supabase: any): Promise<any> {
   console.log(`[trigger-integration][${requestId}] fetching order ${orderId} from DB`)
 
   const { data: order, error: orderErr } = await supabase
@@ -144,6 +137,14 @@ serve(async (req) => {
     return createPreflightResponse(origin)
   }
 
+  // @ts-ignore
+  const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || 'https://jrlozhhvwqfmjtkmvukf.supabase.co'
+  // @ts-ignore
+  const SUPABASE_SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+
+  // Create client inside handler to ensure env vars are available at request time
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE)
+
   const url = new URL(req.url)
   if (req.method === 'GET' && url.pathname.endsWith('/health')) {
     return new Response(JSON.stringify({ status: 'ok', function: 'trigger-integration', ts: Date.now() }), {
@@ -201,7 +202,7 @@ serve(async (req) => {
 
   let outgoingPayload: any = null
   if (eventType === 'order_created' && orderId) {
-    outgoingPayload = await buildOrderPayload(orderId, eventType, requestId)
+    outgoingPayload = await buildOrderPayload(orderId, eventType, requestId, supabase)
     if (!outgoingPayload) {
       console.error(`[trigger-integration][${requestId}] could not build order payload for order ${orderId}`)
       outgoingPayload = { event: eventType, timestamp: new Date().toISOString(), data: body?.payload ?? body }
@@ -221,6 +222,8 @@ serve(async (req) => {
     .maybeSingle()
   const n8nToken: string = tokenSetting?.value || ''
 
+  console.log(`[trigger-integration][${requestId}] querying webhook_configs for trigger_event="${eventType}"`)
+
   const { data: configs, error: configsErr } = await supabase
     .from('webhook_configs')
     .select('id, trigger_event, target_url, is_active, api_key_header_name, api_key_value, additional_headers')
@@ -228,7 +231,7 @@ serve(async (req) => {
     .eq('is_active', true)
 
   if (configsErr) {
-    console.error(`[trigger-integration][${requestId}] error fetching webhook_configs`, configsErr)
+    console.error(`[trigger-integration][${requestId}] erro ao buscar webhook_configs`, configsErr)
     return new Response(JSON.stringify({ error: 'Failed to load webhook configs' }), {
       status: 500,
       headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' },
@@ -236,6 +239,9 @@ serve(async (req) => {
   }
 
   console.log(`[trigger-integration][${requestId}] found ${configs?.length ?? 0} active webhook(s) for event "${eventType}"`)
+  if (configs && configs.length > 0) {
+    console.log(`[trigger-integration][${requestId}] webhook targets: ${configs.map((c: any) => c.target_url).join(', ')}`)
+  }
 
   if (!configs || configs.length === 0) {
     console.warn(`[trigger-integration][${requestId}] no active webhook configs for event "${eventType}"`)

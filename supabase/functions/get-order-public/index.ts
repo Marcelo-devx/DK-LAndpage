@@ -1,4 +1,4 @@
-// redeploy: 2026-05-05T19:45:00Z — restart all
+// redeploy: 2026-05-05T22:40:00Z — add body debug logging
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 // @ts-ignore
@@ -30,9 +30,17 @@ serve(async (req: Request) => {
       orderId = url.searchParams.get('order_id') || url.searchParams.get('id')
     } else {
       let body: any = {}
-      try { body = await req.json() } catch { body = {} }
+      try {
+        body = await req.json()
+        console.log(`[get-order-public][${requestId}] parsed body:`, JSON.stringify(body))
+      } catch (e) {
+        console.error(`[get-order-public][${requestId}] failed to parse body:`, e)
+        body = {}
+      }
       orderId = body.order_id || body.id || null
     }
+
+    console.log(`[get-order-public][${requestId}] resolved orderId: ${orderId}`)
 
     if (!orderId) {
       return new Response(JSON.stringify({ success: false, error: 'order_id is required' }), {

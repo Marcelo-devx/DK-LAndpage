@@ -1,4 +1,4 @@
-// redeploy: 2026-04-29T14:00:00Z — fix verify_jwt
+// redeploy: 2026-05-05T19:22:00Z — force redeploy
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 

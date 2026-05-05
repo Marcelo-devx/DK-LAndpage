@@ -289,64 +289,17 @@ const CompleteProfilePage = () => {
     }, 20000);
 
     try {
-      // Tentativa 1: Edge function (com regra de negócio de estado)
-      let edgeFailed = false;
-      try {
-        const fetchPromise = fetch(
-          'https://jrlozhhvwqfmjtkmvukf.supabase.co/functions/v1/validate-cep',
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpybG96aGh2d3FmbWp0a212dWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzNDU2NjQsImV4cCI6MjA2NzkyMTY2NH0.Do5c1-TKqpyZTJeX_hLbw1SU40CbwXfCIC-pPpcD_JM' },
-            body: JSON.stringify({ cep: cleanedCep }),
-            signal: AbortSignal.timeout(8000),
-          }
-        );
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('timeout')), 8000)
-        );
-        const res: Response = await Promise.race([fetchPromise, timeoutPromise]);
-        const data = await res.json();
-
-        if (!res.ok) {
-          // Erros 400 (regra de negócio: CEP fora do PR ou inválido) e 404 (não encontrado)
-          // devem ser exibidos ao usuário sem tentar o fallback
-          if (res.status === 400 || res.status === 404) {
-            showError(data?.error || 'CEP não encontrado ou fora da área de entrega.');
-            return;
-          }
-          // Erro técnico (500) → tentar fallback
-          logger.warn('[CompleteProfilePage] edge function falhou, tentando fallback ViaCEP:', res.status);
-          edgeFailed = true;
-        } else if (data) {
-          fillAddressFromData(data);
-          return;
-        } else {
-          edgeFailed = true;
-        }
-      } catch (edgeErr: any) {
-        logger.warn('[CompleteProfilePage] edge function exception, tentando fallback ViaCEP:', edgeErr);
-        edgeFailed = true;
+      const resp = await fetch(`https://viacep.com.br/ws/${cleanedCep}/json/`);
+      if (!resp.ok) {
+        showError('Serviço de CEP indisponível. Tente novamente.');
+        return;
       }
-
-      // Tentativa 2: Fallback direto para ViaCEP
-      if (edgeFailed) {
-        const resp = await fetch(`https://viacep.com.br/ws/${cleanedCep}/json/`);
-        if (!resp.ok) {
-          showError('Serviço de CEP indisponível. Tente novamente.');
-          return;
-        }
-        const data = await resp.json();
-        if (data.erro) {
-          showError('CEP não encontrado. Verifique e tente novamente.');
-          return;
-        }
-        // Aplicar regra de negócio no frontend
-        if (data.uf !== 'PR') {
-          showError(`No momento, realizamos entregas apenas no Paraná. O CEP informado pertence a ${data.localidade} / ${data.uf}.`);
-          return;
-        }
-        fillAddressFromData(data);
+      const data = await resp.json();
+      if (data.erro) {
+        showError('CEP não encontrado. Verifique e tente novamente.');
+        return;
       }
+      fillAddressFromData(data);
 
     } catch (e: any) {
       if (String(e?.message || '').toLowerCase().includes('timeout')) {

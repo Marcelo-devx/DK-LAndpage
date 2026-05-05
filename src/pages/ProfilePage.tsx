@@ -105,31 +105,23 @@ const ProfilePage = () => {
     setIsFetchingCep(true);
     setDeliveryType(null);
     try {
-      const res = await fetch(
-        'https://jrlozhhvwqfmjtkmvukf.supabase.co/functions/v1/validate-cep',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpybG96aGh2d3FmbWp0a212dWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzNDU2NjQsImV4cCI6MjA2NzkyMTY2NH0.Do5c1-TKqpyZTJeX_hLbw1SU40CbwXfCIC-pPpcD_JM' },
-          body: JSON.stringify({ cep: cleanedCep }),
-        }
-      );
-      const data = await res.json();
+      const res = await fetch(`https://viacep.com.br/ws/${cleanedCep}/json/`);
       if (!res.ok) {
-        const msg = data?.error || 'Não foi possível buscar o endereço.';
-        showError(msg);
+        showError('Erro ao buscar CEP. Tente novamente.');
         setValue('street', ''); setValue('neighborhood', ''); setValue('city', ''); setValue('state', '');
         return;
       }
-      setValue('street', data.logradouro || data.street || '');
-      setValue('neighborhood', data.bairro || data.neighborhood || '');
-      setValue('city', data.localidade || data.city || '');
-      setValue('state', data.uf || data.state || '');
-
-      if (data.deliveryType === 'correios') {
-        setDeliveryType('correios');
-      } else {
-        setDeliveryType('local');
+      const data = await res.json();
+      if (data.erro) {
+        showError('CEP não encontrado. Verifique e tente novamente.');
+        setValue('street', ''); setValue('neighborhood', ''); setValue('city', ''); setValue('state', '');
+        return;
       }
+      setValue('street', data.logradouro || '');
+      setValue('neighborhood', data.bairro || '');
+      setValue('city', data.localidade || '');
+      setValue('state', data.uf || '');
+      setDeliveryType('local');
     } catch (e) {
       showError("Ocorreu um erro inesperado ao buscar o CEP.");
     } finally {

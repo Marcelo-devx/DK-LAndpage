@@ -27,6 +27,7 @@ const ALL_FUNCTIONS = [
   'validate-token',
   'create-user',
   'forgot-password',
+  'change-password',
   'notify-password-change',
   'reset-user-password',
   'update-password-admin',

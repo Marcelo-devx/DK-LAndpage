@@ -1,4 +1,4 @@
-// redeploy: 2026-07-13T00:00:00Z — force redeploy after Supabase change
+// redeploy: 2026-05-05T19:30:00Z — force redeploy
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 // @ts-ignore

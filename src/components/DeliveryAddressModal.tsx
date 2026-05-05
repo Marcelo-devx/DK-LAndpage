@@ -155,11 +155,17 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
     if (clean.length !== 8) { showError('CEP inválido.'); return; }
     setIsFetchingCep(true);
     try {
-      const { data, error } = await supabase.functions.invoke('validate-cep', { body: { cep: clean } });
-      if (error || !data) {
-        let msg = 'Endereço não encontrado.';
-        try { msg = JSON.parse(error?.context?.responseText)?.error || msg; } catch (_) {}
-        showError(msg);
+      const res = await fetch(
+        'https://jrlozhhvwqfmjtkmvukf.supabase.co/functions/v1/validate-cep',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpybG96aGh2d3FmbWp0a212dWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzNDU2NjQsImV4cCI6MjA2NzkyMTY2NH0.Do5c1-TKqpyZTJeX_hLbw1SU40CbwXfCIC-pPpcD_JM' },
+          body: JSON.stringify({ cep: clean }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        showError(data?.error || 'Endereço não encontrado.');
         return;
       }
       setNewStreet(data.logradouro || '');
@@ -167,7 +173,7 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
       setNewCity(data.localidade || '');
       setNewState(data.uf || '');
     } catch {
-      showError('Erro ao buscar CEP.');
+      showError('Erro ao buscar CEP. Tente novamente.');
     } finally {
       setIsFetchingCep(false);
     }

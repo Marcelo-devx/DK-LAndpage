@@ -292,36 +292,30 @@ const CompleteProfilePage = () => {
       // Tentativa 1: Edge function (com regra de negócio de estado)
       let edgeFailed = false;
       try {
-        const invokePromise = supabase.functions.invoke('validate-cep', {
-          body: { cep: cleanedCep },
-        });
+        const fetchPromise = fetch(
+          'https://jrlozhhvwqfmjtkmvukf.supabase.co/functions/v1/validate-cep',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpybG96aGh2d3FmbWp0a212dWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzNDU2NjQsImV4cCI6MjA2NzkyMTY2NH0.Do5c1-TKqpyZTJeX_hLbw1SU40CbwXfCIC-pPpcD_JM' },
+            body: JSON.stringify({ cep: cleanedCep }),
+            signal: AbortSignal.timeout(8000),
+          }
+        );
         const timeoutPromise = new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('timeout')), 8000)
         );
-        const result: any = await Promise.race([invokePromise, timeoutPromise]);
-        const { data, error } = result || {};
+        const res: Response = await Promise.race([fetchPromise, timeoutPromise]);
+        const data = await res.json();
 
-        if (error) {
-          // Tentar extrair mensagem de erro de regra de negócio
-          let status = error?.context?.status || error?.status;
-          let msg = '';
-          try {
-            if (error?.context?.responseText) {
-              const parsed = JSON.parse(error.context.responseText);
-              msg = parsed.error || '';
-              if (!status) status = error?.context?.status;
-            }
-          } catch (_) {}
-
+        if (!res.ok) {
           // Erros 400 (regra de negócio: CEP fora do PR ou inválido) e 404 (não encontrado)
           // devem ser exibidos ao usuário sem tentar o fallback
-          if (status === 400 || status === 404) {
-            showError(msg || 'CEP não encontrado ou fora da área de entrega.');
+          if (res.status === 400 || res.status === 404) {
+            showError(data?.error || 'CEP não encontrado ou fora da área de entrega.');
             return;
           }
-
-          // Erro técnico (500, timeout, network) → tentar fallback
-          logger.warn('[CompleteProfilePage] edge function falhou, tentando fallback ViaCEP:', error);
+          // Erro técnico (500) → tentar fallback
+          logger.warn('[CompleteProfilePage] edge function falhou, tentando fallback ViaCEP:', res.status);
           edgeFailed = true;
         } else if (data) {
           fillAddressFromData(data);

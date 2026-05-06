@@ -429,6 +429,12 @@ const ConfirmacaoPedido = () => {
                 <p>Frete Especial</p>
                 <p className="text-green-600 font-black uppercase text-[10px] tracking-widest">{Number(order.shipping_cost) > 0 ? `R$ ${Number(order.shipping_cost).toFixed(2).replace('.', ',')}` : 'Grátis'}</p>
               </div>
+              {Number(order.coupon_discount) > 0 && (
+                <div className="flex justify-between text-green-600 text-sm font-medium">
+                  <p>Desconto (cupom)</p>
+                  <p>- R$ {Number(order.coupon_discount).toFixed(2).replace('.', ',')}</p>
+                </div>
+              )}
               {Number(order.donation_amount) > 0 && (
                 <div className="flex justify-between text-rose-500 text-sm font-medium">
                   <div className="flex items-center gap-1.5">

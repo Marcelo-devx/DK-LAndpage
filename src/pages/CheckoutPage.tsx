@@ -240,6 +240,12 @@ const CheckoutPage = () => {
   const discount = selectedCoupon?.discount_value ?? 0;
   const total = Math.max(0, subtotal - discount + shippingCost) + donationAmount;
 
+  // Refs para subtotal e discount — usados dentro de callbacks sem criar dependências que causem loops
+  const subtotalRef = useRef(subtotal);
+  const discountRef = useRef(discount);
+  useEffect(() => { subtotalRef.current = subtotal; }, [subtotal]);
+  useEffect(() => { discountRef.current = discount; }, [discount]);
+
   const fetchCartItems = useCallback(async () => {
     const localCart = getLocalCart();
     if (localCart.length === 0) {
@@ -407,7 +413,7 @@ const CheckoutPage = () => {
         setIsShippingAvailable(true);
         setShippingErrorMessage('');
         // Verifica frete grátis por valor imediatamente
-        const effectiveSubtotal = Math.max(0, subtotal - discount);
+        const effectiveSubtotal = Math.max(0, subtotalRef.current - discountRef.current);
         await applyFreeShippingRules(base, effectiveSubtotal);
       } else {
         baseShippingCostRef.current = 0;
@@ -431,7 +437,7 @@ const CheckoutPage = () => {
     } finally {
       if (isMountedRef.current) setIsCheckingShipping(false);
     }
-  }, [selectedBenefits, selectedCoupon, subtotal, discount, applyFreeShippingRules]);
+  }, [selectedBenefits, selectedCoupon, applyFreeShippingRules]);
 
   const fetchUserData = useCallback(async (currentUser: any) => {
     const [profileRes, userCouponsRes, ordersRes] = await Promise.all([
@@ -757,7 +763,7 @@ const CheckoutPage = () => {
         setIsShippingAvailable(true);
         setShippingErrorMessage('');
         // Verifica frete grátis por valor imediatamente
-        const effectiveSubtotal = Math.max(0, subtotal - discount);
+        const effectiveSubtotal = Math.max(0, subtotalRef.current - discountRef.current);
         await applyFreeShippingRules(rate, effectiveSubtotal);
       } else {
         baseShippingCostRef.current = 0;
@@ -781,7 +787,7 @@ const CheckoutPage = () => {
     } finally {
       if (isMountedRef.current) setIsCheckingShipping(false);
     }
-  }, [deliveryType, selectedBenefits, selectedCoupon, getValues, subtotal, discount, applyFreeShippingRules]);
+  }, [deliveryType, selectedBenefits, selectedCoupon, getValues, applyFreeShippingRules]);
 
   useEffect(() => {
     const timeoutId = setTimeout(calculateShipping, 500);
@@ -797,7 +803,7 @@ const CheckoutPage = () => {
     const hasFreeShippingBenefit = selectedBenefits.some(b => b.toLowerCase().includes('frete grátis'));
     const hasFreeShippingCoupon = selectedCoupon?.name?.toLowerCase().includes('frete');
     if (hasFreeShippingBenefit || hasFreeShippingCoupon) return;
-    const effectiveSubtotal = Math.max(0, subtotal - discount);
+    const effectiveSubtotal = Math.max(0, subtotalRef.current - discountRef.current);
     applyFreeShippingRules(base, effectiveSubtotal);
   }, [subtotal, discount, selectedCoupon, selectedBenefits, applyFreeShippingRules]);
 

@@ -794,7 +794,7 @@ const CheckoutPage = () => {
     };
 
     applyFreeShippingByValue();
-  }, [subtotal, selectedBenefits, selectedCoupon, baseShippingCostState]);
+  }, [subtotal, discount, selectedBenefits, selectedCoupon, baseShippingCostState]);
 
   const handleMobileNextStep = async () => {
     const valid = await trigger([

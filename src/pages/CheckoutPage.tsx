@@ -333,6 +333,30 @@ const CheckoutPage = () => {
     if (isMountedRef.current) setItems(finalItems);
   }, [safeNavigate]);
 
+  const baseShippingCostRef = useRef<number>(0);
+  const [baseShippingCostState, setBaseShippingCostState] = useState<number>(0);
+
+  // Helper: verifica regras de frete grátis por valor e aplica se qualificar
+  const applyFreeShippingRules = useCallback(async (base: number, effectiveSubtotal: number) => {
+    if (base <= 0 || !isMountedRef.current) return;
+    const { data } = await supabase
+      .from('free_shipping_rules')
+      .select('shipping_price, min_order_value')
+      .eq('is_active', true);
+    if (!isMountedRef.current || !data) return;
+    const rule = data.find((r: any) => Math.abs(r.shipping_price - base) < 0.01);
+    const qualifies = rule
+      ? effectiveSubtotal >= rule.min_order_value
+      : data.some((r: any) => effectiveSubtotal >= r.min_order_value);
+    if (qualifies) {
+      setShippingCost(0);
+      setIsFreeShippingApplied(true);
+    } else {
+      setShippingCost(base);
+      setIsFreeShippingApplied(false);
+    }
+  }, []);
+
   // ── Helper: aplica endereço de entrega selecionado nos campos do form ──────
   const applyDeliveryAddress = useCallback((addr: DeliveryAddress) => {
     const opts = { shouldValidate: true, shouldDirty: true, shouldTouch: true } as const;
@@ -382,8 +406,9 @@ const CheckoutPage = () => {
         setBaseShippingCostState(base);
         setIsShippingAvailable(true);
         setShippingErrorMessage('');
-        setShippingCost(base);
-        setIsFreeShippingApplied(false);
+        // Verifica frete grátis por valor imediatamente
+        const effectiveSubtotal = Math.max(0, subtotal - discount);
+        await applyFreeShippingRules(base, effectiveSubtotal);
       } else {
         baseShippingCostRef.current = 0;
         setBaseShippingCostState(0);
@@ -406,7 +431,7 @@ const CheckoutPage = () => {
     } finally {
       if (isMountedRef.current) setIsCheckingShipping(false);
     }
-  }, [selectedBenefits, selectedCoupon]);
+  }, [selectedBenefits, selectedCoupon, subtotal, discount, applyFreeShippingRules]);
 
   const fetchUserData = useCallback(async (currentUser: any) => {
     const [profileRes, userCouponsRes, ordersRes] = await Promise.all([
@@ -674,9 +699,6 @@ const CheckoutPage = () => {
     } catch { showError("Erro ao buscar CEP."); } finally { if (isMountedRef.current) setIsFetchingCep(false); }
   };
 
-  const baseShippingCostRef = useRef<number>(0);
-  const [baseShippingCostState, setBaseShippingCostState] = useState<number>(0);
-
   const calculateShipping = useCallback(async () => {
     if (!isMountedRef.current) return;
 
@@ -734,8 +756,9 @@ const CheckoutPage = () => {
         setBaseShippingCostState(rate);
         setIsShippingAvailable(true);
         setShippingErrorMessage('');
-        setShippingCost(rate);
-        setIsFreeShippingApplied(false);
+        // Verifica frete grátis por valor imediatamente
+        const effectiveSubtotal = Math.max(0, subtotal - discount);
+        await applyFreeShippingRules(rate, effectiveSubtotal);
       } else {
         baseShippingCostRef.current = 0;
         setBaseShippingCostState(0);
@@ -758,7 +781,7 @@ const CheckoutPage = () => {
     } finally {
       if (isMountedRef.current) setIsCheckingShipping(false);
     }
-  }, [deliveryType, selectedBenefits, selectedCoupon, getValues]);
+  }, [deliveryType, selectedBenefits, selectedCoupon, getValues, subtotal, discount, applyFreeShippingRules]);
 
   useEffect(() => {
     const timeoutId = setTimeout(calculateShipping, 500);
@@ -766,35 +789,17 @@ const CheckoutPage = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchedNeighborhood, watchedCity, watchedCep, selectedBenefits, deliveryType, shippingTrigger]);
 
+  // Quando cupom ou subtotal mudam, re-aplica regras de frete grátis por valor
+  // sem precisar recalcular o frete do servidor (base já está em cache)
   useEffect(() => {
-    const base = baseShippingCostState;
+    const base = baseShippingCostRef.current;
     if (base <= 0) return;
-
     const hasFreeShippingBenefit = selectedBenefits.some(b => b.toLowerCase().includes('frete grátis'));
     const hasFreeShippingCoupon = selectedCoupon?.name?.toLowerCase().includes('frete');
     if (hasFreeShippingBenefit || hasFreeShippingCoupon) return;
-
-    const applyFreeShippingByValue = async () => {
-      const { data } = await supabase
-        .from('free_shipping_rules')
-        .select('shipping_price, min_order_value')
-        .eq('is_active', true);
-
-      if (!isMountedRef.current || !data) return;
-
-      const rule = data.find((r: any) => Math.abs(r.shipping_price - base) < 0.01);
-      const effectiveSubtotal = Math.max(0, subtotal - discount);
-      if (rule && effectiveSubtotal >= rule.min_order_value) {
-        setShippingCost(0);
-        setIsFreeShippingApplied(true);
-      } else {
-        setShippingCost(base);
-        setIsFreeShippingApplied(false);
-      }
-    };
-
-    applyFreeShippingByValue();
-  }, [subtotal, discount, selectedBenefits, selectedCoupon, baseShippingCostState]);
+    const effectiveSubtotal = Math.max(0, subtotal - discount);
+    applyFreeShippingRules(base, effectiveSubtotal);
+  }, [subtotal, discount, selectedCoupon, selectedBenefits, applyFreeShippingRules]);
 
   const handleMobileNextStep = async () => {
     const valid = await trigger([

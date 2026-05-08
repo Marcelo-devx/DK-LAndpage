@@ -12,8 +12,9 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  // CORS preflight — must be handled BEFORE anything else
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { status: 200, headers: corsHeaders });
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   try {

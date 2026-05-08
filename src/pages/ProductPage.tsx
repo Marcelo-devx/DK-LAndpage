@@ -14,30 +14,58 @@ import ProductCard from '@/components/ProductCard';
 import { useSEO } from '@/hooks/useSEO';
 
 /**
- * Se a descrição não contém tags HTML, converte quebras de linha em <br>
- * e agrupa parágrafos separados por linhas em branco em <p>.
- * Produtos que já têm HTML correto passam sem alteração.
+ * Garante que toda a descrição seja renderizada com espaçamento correto.
+ * Funciona para 3 casos:
+ *  1. HTML puro e bem formatado → passa direto
+ *  2. Texto puro sem nenhuma tag → converte \n em <p> e <br>
+ *  3. HTML misto (algumas tags, mas blocos de texto puro soltos) → envolve
+ *     os trechos de texto puro em <p> para que não colem com o restante
  */
 function formatDescription(raw: string): string {
-  const hasHtmlTags = /<[a-z][\s\S]*>/i.test(raw);
-  if (hasHtmlTags) return raw;
-
-  // Normaliza \r\n e \r para \n
+  // Normaliza quebras de linha
   const normalized = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
-  // Divide em blocos separados por linha(s) em branco
-  const blocks = normalized.split(/\n{2,}/);
+  // Caso 1: sem nenhuma tag HTML → converte tudo
+  const hasHtmlTags = /<[a-z][\s\S]*?>/i.test(normalized);
+  if (!hasHtmlTags) {
+    const blocks = normalized.split(/\n{2,}/);
+    return blocks
+      .map(block => {
+        const trimmed = block.trim();
+        if (!trimmed) return '';
+        return `<p>${trimmed.replace(/\n/g, '<br>')}</p>`;
+      })
+      .filter(Boolean)
+      .join('\n');
+  }
 
-  return blocks
-    .map(block => {
-      const trimmed = block.trim();
-      if (!trimmed) return '';
-      // Dentro de cada bloco, quebras simples viram <br>
-      const withBreaks = trimmed.replace(/\n/g, '<br>');
-      return `<p>${withBreaks}</p>`;
-    })
-    .filter(Boolean)
-    .join('\n');
+  // Caso 2 e 3: tem HTML (puro ou misto)
+  // Divide o conteúdo em segmentos: tags HTML vs texto puro
+  // Regex captura blocos de tags completos OU texto entre eles
+  const segments = normalized.split(/(<[^>]+>[\s\S]*?<\/[^>]+>|<[^>]+\/>|<[^>]+>)/);
+
+  const result: string[] = [];
+
+  for (const segment of segments) {
+    const trimmed = segment.trim();
+    if (!trimmed) continue;
+
+    // Se começa com < é HTML — passa direto
+    if (trimmed.startsWith('<')) {
+      result.push(trimmed);
+      continue;
+    }
+
+    // É texto puro solto — converte em parágrafos
+    const blocks = trimmed.split(/\n{2,}/);
+    for (const block of blocks) {
+      const b = block.trim();
+      if (!b) continue;
+      result.push(`<p>${b.replace(/\n/g, '<br>')}</p>`);
+    }
+  }
+
+  return result.join('\n');
 }
 
 interface Product {

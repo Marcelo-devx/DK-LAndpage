@@ -22,17 +22,17 @@ const getDateString = (date: Date) => {
   return `${y}-${m}-${d}`;
 };
 
-// Retorna o nome do próximo dia com entrega (pula domingos, sábados e feriados)
+// Retorna o nome do próximo dia com entrega (pula apenas domingos e feriados)
 const getNextDeliveryDay = (from: Date, holidays: string[]): string => {
   const dayNames = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
   const next = new Date(from);
   next.setDate(next.getDate() + 1);
 
-  // Avança até encontrar um dia que não seja domingo, sábado nem feriado
+  // Avança até encontrar um dia que não seja domingo nem feriado
   for (let i = 0; i < 14; i++) {
     const dayOfWeek = next.getDay();
     const dateStr = getDateString(next);
-    if (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidays.includes(dateStr)) {
+    if (dayOfWeek !== 0 && !holidays.includes(dateStr)) {
       return dayNames[dayOfWeek];
     }
     next.setDate(next.getDate() + 1);
@@ -136,15 +136,24 @@ const DeliveryTimerBar = () => {
           isTimerVisible = false;
         }
       } else if (day === 6) {
-        // Sábado — sem timer, entrega na segunda
-        if (isTomorrowHoliday) {
-          msg = messages.eve;
+        // Sábado — timer até 12:30h, depois mostra próximo dia (segunda)
+        deadline = new Date();
+        deadline.setHours(12, 30, 0, 0);
+
+        if (now.getTime() <= deadline.getTime()) {
+          isTimerVisible = true;
+          msg = messages.saturday_before;
           showNextDay = false;
         } else {
-          msg = messages.saturday_after;
-          showNextDay = true;
+          if (isTomorrowHoliday) {
+            msg = messages.eve;
+            showNextDay = false;
+          } else {
+            msg = messages.saturday_after;
+            showNextDay = true;
+          }
+          isTimerVisible = false;
         }
-        isTimerVisible = false;
       } else {
         // Domingo — sem timer, entrega na segunda
         if (isTomorrowHoliday) {

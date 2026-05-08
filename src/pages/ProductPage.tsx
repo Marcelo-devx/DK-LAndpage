@@ -13,6 +13,33 @@ import DOMPurify from 'dompurify';
 import ProductCard from '@/components/ProductCard';
 import { useSEO } from '@/hooks/useSEO';
 
+/**
+ * Se a descrição não contém tags HTML, converte quebras de linha em <br>
+ * e agrupa parágrafos separados por linhas em branco em <p>.
+ * Produtos que já têm HTML correto passam sem alteração.
+ */
+function formatDescription(raw: string): string {
+  const hasHtmlTags = /<[a-z][\s\S]*>/i.test(raw);
+  if (hasHtmlTags) return raw;
+
+  // Normaliza \r\n e \r para \n
+  const normalized = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+  // Divide em blocos separados por linha(s) em branco
+  const blocks = normalized.split(/\n{2,}/);
+
+  return blocks
+    .map(block => {
+      const trimmed = block.trim();
+      if (!trimmed) return '';
+      // Dentro de cada bloco, quebras simples viram <br>
+      const withBreaks = trimmed.replace(/\n/g, '<br>');
+      return `<p>${withBreaks}</p>`;
+    })
+    .filter(Boolean)
+    .join('\n');
+}
+
 interface Product {
   id: number;
   category: string | null;
@@ -597,7 +624,7 @@ const ProductPage = () => {
                   "prose prose-stone prose-sm max-w-none text-slate-600 leading-relaxed font-medium overflow-hidden transition-all duration-300",
                   descExpanded ? "max-h-[2000px]" : "max-h-[120px] [mask-image:linear-gradient(to_bottom,black_60%,transparent_100%)]"
                 )}>
-                  <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(product.description || 'Sem descrição disponível.') }} />
+                  <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(formatDescription(product.description || 'Sem descrição disponível.')) }} />
                 </div>
                 <button
                   onClick={() => setDescExpanded(v => !v)}
@@ -609,7 +636,7 @@ const ProductPage = () => {
 
               {/* Desktop: completo */}
               <div className="hidden md:block prose prose-stone prose-base md:prose-lg xl:prose-xl max-w-none text-slate-600 leading-relaxed font-medium">
-                <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(product.description || 'Sem descrição disponível.') }} />
+                <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(formatDescription(product.description || 'Sem descrição disponível.')) }} />
               </div>
             </CardContent>
           </Card>

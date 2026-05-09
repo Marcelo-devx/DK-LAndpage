@@ -35,7 +35,6 @@ const DashboardSecurity = lazy(() => import("./pages/DashboardSecurity"));
 const AdminLogistics = lazy(() => import("./pages/AdminLogistics"));
 const EmailConfirm = lazy(() => import("./pages/EmailConfirm"));
 
-import MaintenanceScreen from "./components/MaintenanceScreen";
 import ErrorBoundary from "./components/ErrorBoundary";
 import AdminCustomizer from "./components/AdminCustomizer";
 import { useMercadoPagoRedirect } from "./hooks/useMercadoPagoRedirect";
@@ -61,7 +60,6 @@ const AppContent = () => {
   useMercadoPagoRedirect();
 
   const { settings } = useTheme();
-  const { isAdmin } = useAuth();
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -74,11 +72,6 @@ const AppContent = () => {
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
-
-  const { isGerenteGeral } = useAuth();
-  if (settings.maintenanceMode && !isAdmin && !isGerenteGeral) {
-    return <MaintenanceScreen />;
-  }
 
   return (
     <>

@@ -613,9 +613,9 @@ const CompleteProfilePage = () => {
                   <Input
                     id="street"
                     {...register('street')}
-                    disabled={cepSearched && cepHasStreet}
+                    disabled={!cepSearched || (cepSearched && cepHasStreet)}
                     placeholder={cepSearched && !cepHasStreet ? "Digite a rua manualmente" : "Preenchido automaticamente pelo CEP"}
-                    className={cepSearched && cepHasStreet
+                    className={(!cepSearched || (cepSearched && cepHasStreet))
                       ? "bg-stone-100 border-stone-200 h-12 rounded-xl text-stone-500 cursor-not-allowed opacity-70"
                       : "bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors"}
                   />
@@ -624,12 +624,26 @@ const CompleteProfilePage = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                     <div className="md:col-span-1 space-y-2">
                       <Label htmlFor="number" className="text-charcoal-gray">Número {requiredStar('number') && <span className="text-red-500">*</span>}</Label>
-                      <Input id="number" {...register('number')} className="bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors" />
+                      <Input
+                        id="number"
+                        {...register('number')}
+                        disabled={!cepSearched}
+                        className={!cepSearched
+                          ? "bg-stone-100 border-stone-200 h-12 rounded-xl text-stone-500 cursor-not-allowed opacity-70"
+                          : "bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors"}
+                      />
                       {errors.number && <p className="text-xs text-red-500 font-bold">{errors.number.message}</p>}
                     </div>
                     <div className="md:col-span-2 space-y-2">
                       <Label htmlFor="complement" className="text-charcoal-gray">Complemento <span className="text-red-500">*</span></Label>
-                      <Input id="complement" {...register('complement')} className="bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors" />
+                      <Input
+                        id="complement"
+                        {...register('complement')}
+                        disabled={!cepSearched}
+                        className={!cepSearched
+                          ? "bg-stone-100 border-stone-200 h-12 rounded-xl text-stone-500 cursor-not-allowed opacity-70"
+                          : "bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors"}
+                      />
                       {errors.complement && <p className="text-xs text-red-500 font-bold">{errors.complement.message}</p>}
                     </div>
                 </div>
@@ -638,9 +652,9 @@ const CompleteProfilePage = () => {
                   <Input
                     id="neighborhood"
                     {...register('neighborhood')}
-                    disabled={cepSearched && cepHasStreet}
+                    disabled={!cepSearched || (cepSearched && cepHasStreet)}
                     placeholder={cepSearched && !cepHasStreet ? "Digite o bairro manualmente" : "Preenchido automaticamente pelo CEP"}
-                    className={cepSearched && cepHasStreet
+                    className={(!cepSearched || (cepSearched && cepHasStreet))
                       ? "bg-stone-100 border-stone-200 h-12 rounded-xl text-stone-500 cursor-not-allowed opacity-70"
                       : "bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors"}
                   />
@@ -652,11 +666,9 @@ const CompleteProfilePage = () => {
                       <Input
                         id="city"
                         {...register('city')}
-                        disabled={cepSearched && cepHasStreet}
-                        placeholder={cepSearched && !cepHasStreet ? "Digite a cidade manualmente" : "Preenchido automaticamente pelo CEP"}
-                        className={cepSearched && cepHasStreet
-                          ? "bg-stone-100 border-stone-200 h-12 rounded-xl text-stone-500 cursor-not-allowed opacity-70"
-                          : "bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors"}
+                        disabled={!cepSearched || cepSearched}
+                        placeholder="Preenchido automaticamente pelo CEP"
+                        className="bg-stone-100 border-stone-200 h-12 rounded-xl text-stone-500 cursor-not-allowed opacity-70"
                       />
                       {errors.city && <p className="text-xs text-red-500 font-bold">{errors.city.message}</p>}
                     </div>
@@ -665,11 +677,9 @@ const CompleteProfilePage = () => {
                       <Input
                         id="state"
                         {...register('state')}
-                        disabled={cepSearched && cepHasStreet}
+                        disabled={!cepSearched || cepSearched}
                         placeholder="UF"
-                        className={cepSearched && cepHasStreet
-                          ? "bg-stone-100 border-stone-200 h-12 rounded-xl text-stone-500 cursor-not-allowed opacity-70"
-                          : "bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors"}
+                        className="bg-stone-100 border-stone-200 h-12 rounded-xl text-stone-500 cursor-not-allowed opacity-70"
                       />
                       {errors.state && <p className="text-xs text-red-500 font-bold">{errors.state.message}</p>}
                     </div>

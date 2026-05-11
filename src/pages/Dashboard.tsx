@@ -13,8 +13,7 @@ import {
   Gem,
   ChevronRight,
   Loader2,
-  RefreshCw,
-  Key
+  RefreshCw
 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
@@ -142,14 +141,6 @@ const Dashboard = () => {
       color: 'text-purple-600 bg-purple-100',
       notification: false
     },
-    {
-      title: 'Segurança',
-      description: 'Alterar sua senha e ajustes de segurança',
-      icon: Key,
-      link: '/dashboard/security',
-      color: 'text-rose-600 bg-rose-100',
-      notification: false
-    }
   ];
 
   return (

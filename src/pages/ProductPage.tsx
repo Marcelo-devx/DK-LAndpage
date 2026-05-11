@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import ProductImage from '@/components/ProductImage';
 import DOMPurify from 'dompurify';
 import ProductCard from '@/components/ProductCard';
+import ProductReviews from '@/components/ProductReviews';
 import { useSEO } from '@/hooks/useSEO';
 
 /**
@@ -124,6 +125,7 @@ const ProductPage = () => {
   const [recommendedProducts, setRecommendedProducts] = useState<DisplayProduct[]>([]);
   const [loadingRecommended, setLoadingRecommended] = useState(true);
   const [descExpanded, setDescExpanded] = useState(false);
+  const [approvedReviews, setApprovedReviews] = useState<{ id: number; rating: number; comment: string | null; created_at: string }[]>([]);
 
   const { handleAddToCart, isAdding } = useAddToCart();
 
@@ -212,6 +214,16 @@ const ProductPage = () => {
 
       if (!background) setLoading(false);
       if (safetyTimer) clearTimeout(safetyTimer);
+
+      // Buscar avaliações aprovadas do produto
+      const { data: reviewsData } = await supabase
+        .from('reviews')
+        .select('id, rating, comment, created_at')
+        .eq('product_id', id)
+        .eq('is_approved', true)
+        .order('created_at', { ascending: false });
+
+      setApprovedReviews((reviewsData as any[]) || []);
   }, [id]);
 
   const fetchRecommendedProducts = useCallback(async () => {
@@ -633,6 +645,13 @@ const ProductPage = () => {
           </div>
         </div>
         
+        {/* Avaliações aprovadas — antes dos detalhes */}
+        {approvedReviews.length > 0 && (
+          <div className="w-full mb-6 md:mb-8 xl:mb-10">
+            <ProductReviews reviews={approvedReviews} />
+          </div>
+        )}
+
         {/* Descrição */}
         <div className="w-full">
           <Card className="bg-white border-none shadow-[0_30px_60px_-20px_rgba(0,0,0,0.05)] rounded-[2rem] md:rounded-[3rem] overflow-hidden">

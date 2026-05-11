@@ -41,7 +41,7 @@ const CategoryProductCarousel = memo(({ categoryName, showAgeBadge = true }: Cat
             .eq('category', cat.trim())
             .eq('is_visible', true)
             .order('created_at', { ascending: false })
-            .limit(30),
+            .limit(500),
         ]);
 
         if (!mounted) return;

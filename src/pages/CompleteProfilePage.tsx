@@ -56,6 +56,7 @@ const CompleteProfilePage = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isFetchingCep, setIsFetchingCep] = useState(false);
   const [cepSearched, setCepSearched] = useState(false);
+  const [cepHasStreet, setCepHasStreet] = useState(false);
   const [deliveryType, setDeliveryType] = useState<'local' | 'correios' | null>(null);
   const [isTermsOpen, setIsTermsOpen] = useState(false);
   const [cpfError, setCpfError] = useState<string | null>(null);
@@ -248,11 +249,14 @@ const CompleteProfilePage = () => {
   ];
 
   const fillAddressFromData = (data: any) => {
-    setValue('street', data.logradouro || data.street || '');
-    setValue('neighborhood', data.bairro || data.neighborhood || '');
+    const street = data.logradouro || data.street || '';
+    const neighborhood = data.bairro || data.neighborhood || '';
+    setValue('street', street);
+    setValue('neighborhood', neighborhood);
     setValue('city', data.localidade || data.city || '');
     setValue('state', data.uf || data.state || '');
     setCepSearched(true);
+    setCepHasStreet(!!street);
 
     const city = (data.localidade || data.city || '').trim().toLowerCase();
     const deliveryT = data.deliveryType || (LOCAL_DELIVERY_CITIES.includes(city) ? 'local' : 'correios');
@@ -277,6 +281,7 @@ const CompleteProfilePage = () => {
     setIsFetchingCep(true);
     setDeliveryType(null);
     setCepSearched(false);
+    setCepHasStreet(false);
 
     setValue('street', '');
     setValue('neighborhood', '');
@@ -576,6 +581,7 @@ const CompleteProfilePage = () => {
                             // Reset address fields when CEP changes
                             if (cepSearched) {
                               setCepSearched(false);
+                              setCepHasStreet(false);
                               setValue('street', '');
                               setValue('neighborhood', '');
                               setValue('city', '');
@@ -607,9 +613,9 @@ const CompleteProfilePage = () => {
                   <Input
                     id="street"
                     {...register('street')}
-                    disabled={cepSearched}
-                    placeholder="Preenchido automaticamente pelo CEP"
-                    className={cepSearched
+                    disabled={cepSearched && cepHasStreet}
+                    placeholder={cepSearched && !cepHasStreet ? "Digite a rua manualmente" : "Preenchido automaticamente pelo CEP"}
+                    className={cepSearched && cepHasStreet
                       ? "bg-stone-100 border-stone-200 h-12 rounded-xl text-stone-500 cursor-not-allowed opacity-70"
                       : "bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors"}
                   />
@@ -632,9 +638,9 @@ const CompleteProfilePage = () => {
                   <Input
                     id="neighborhood"
                     {...register('neighborhood')}
-                    disabled={cepSearched}
-                    placeholder="Preenchido automaticamente pelo CEP"
-                    className={cepSearched
+                    disabled={cepSearched && cepHasStreet}
+                    placeholder={cepSearched && !cepHasStreet ? "Digite o bairro manualmente" : "Preenchido automaticamente pelo CEP"}
+                    className={cepSearched && cepHasStreet
                       ? "bg-stone-100 border-stone-200 h-12 rounded-xl text-stone-500 cursor-not-allowed opacity-70"
                       : "bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors"}
                   />
@@ -646,9 +652,9 @@ const CompleteProfilePage = () => {
                       <Input
                         id="city"
                         {...register('city')}
-                        disabled={cepSearched}
-                        placeholder="Preenchido automaticamente pelo CEP"
-                        className={cepSearched
+                        disabled={cepSearched && cepHasStreet}
+                        placeholder={cepSearched && !cepHasStreet ? "Digite a cidade manualmente" : "Preenchido automaticamente pelo CEP"}
+                        className={cepSearched && cepHasStreet
                           ? "bg-stone-100 border-stone-200 h-12 rounded-xl text-stone-500 cursor-not-allowed opacity-70"
                           : "bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors"}
                       />
@@ -659,9 +665,9 @@ const CompleteProfilePage = () => {
                       <Input
                         id="state"
                         {...register('state')}
-                        disabled={cepSearched}
+                        disabled={cepSearched && cepHasStreet}
                         placeholder="UF"
-                        className={cepSearched
+                        className={cepSearched && cepHasStreet
                           ? "bg-stone-100 border-stone-200 h-12 rounded-xl text-stone-500 cursor-not-allowed opacity-70"
                           : "bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors"}
                       />

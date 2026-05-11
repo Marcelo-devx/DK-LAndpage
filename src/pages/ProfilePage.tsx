@@ -379,7 +379,7 @@ const ProfilePage = () => {
 
                     <div className="space-y-3">
                       <Label htmlFor="street" className="text-xs font-black uppercase tracking-[0.2em] text-stone-500">Rua</Label>
-                      <Input id="street" {...register('street')} className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" disabled={!canEditAddress && !isAdmin} />
+                      <Input id="street" {...register('street')} readOnly className="bg-stone-100 border-stone-200 h-12 rounded-xl text-stone-500 cursor-not-allowed" />
                       {errors.street && <p className="text-xs font-bold text-red-400">{errors.street.message}</p>}
                     </div>
 
@@ -398,19 +398,19 @@ const ProfilePage = () => {
 
                     <div className="space-y-3">
                       <Label htmlFor="neighborhood" className="text-xs font-black uppercase tracking-[0.2em] text-stone-500">Bairro</Label>
-                      <Input id="neighborhood" {...register('neighborhood')} className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" disabled={!canEditAddress && !isAdmin} />
+                      <Input id="neighborhood" {...register('neighborhood')} readOnly className="bg-stone-100 border-stone-200 h-12 rounded-xl text-stone-500 cursor-not-allowed" />
                       {errors.neighborhood && <p className="text-xs font-bold text-red-400">{errors.neighborhood.message}</p>}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       <div className="space-y-3">
                         <Label htmlFor="city" className="text-xs font-black uppercase tracking-[0.2em] text-stone-500">Cidade</Label>
-                        <Input id="city" {...register('city')} className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" disabled={!canEditAddress && !isAdmin} />
+                        <Input id="city" {...register('city')} readOnly className="bg-stone-100 border-stone-200 h-12 rounded-xl text-stone-500 cursor-not-allowed" />
                         {errors.city && <p className="text-xs font-bold text-red-400">{errors.city.message}</p>}
                       </div>
                       <div className="space-y-3">
                         <Label htmlFor="state" className="text-xs font-black uppercase tracking-[0.2em] text-stone-500">Estado</Label>
-                        <Input id="state" {...register('state')} className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" disabled={!canEditAddress && !isAdmin} />
+                        <Input id="state" {...register('state')} readOnly className="bg-stone-100 border-stone-200 h-12 rounded-xl text-stone-500 cursor-not-allowed" />
                         {errors.state && <p className="text-xs font-bold text-red-400">{errors.state.message}</p>}
                       </div>
                     </div>

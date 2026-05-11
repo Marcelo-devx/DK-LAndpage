@@ -34,7 +34,7 @@ const profileSchema = z.object({
   cpf_cnpj: z.string().min(11, "CPF/CNPJ inválido").max(18, "CPF/CNPJ inválido"),
   gender: z.string({ required_error: "Gênero é obrigatório" }).min(1, "Selecione um gênero"),
   cep: z.string().min(9, "CEP inválido"),
-  street: z.string().min(1, "Rua é obrigatória"),
+  street: z.string().optional().default(''),
   number: z.string().min(1, "Número é obrigatório"),
   complement: z.string().min(1, "Complemento é obrigatório"),
   neighborhood: z.string().min(1, "Bairro é obrigatório"),
@@ -235,7 +235,7 @@ const CompleteProfilePage = () => {
       isOldEnough = dob <= minAge;
     }
 
-    return Boolean(f && dob && isOldEnough && phone && phone.length >= 10 && cpf && cpf.length >= 11 && gender && cep && street && number && complement && complement.trim() && neighborhood && city && state);
+    return Boolean(f && dob && isOldEnough && phone && phone.length >= 10 && cpf && cpf.length >= 11 && gender && cep && number && complement && complement.trim() && neighborhood && city && state);
   }, [watched]);
 
   const accepted = Boolean(watched.accepted_terms);
@@ -603,13 +603,13 @@ const CompleteProfilePage = () => {
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="street" className="text-charcoal-gray">Rua {requiredStar('street') && <span className="text-red-500">*</span>}</Label>
+                  <Label htmlFor="street" className="text-charcoal-gray">Rua {!cepSearched && requiredStar('street') && <span className="text-red-500">*</span>}</Label>
                   <Input
                     id="street"
                     {...register('street')}
-                    disabled={cepSearched && !!watched.street}
+                    disabled={cepSearched}
                     placeholder="Preenchido automaticamente pelo CEP"
-                    className={cepSearched && !!watched.street
+                    className={cepSearched
                       ? "bg-stone-100 border-stone-200 h-12 rounded-xl text-stone-500 cursor-not-allowed opacity-70"
                       : "bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors"}
                   />
@@ -632,9 +632,9 @@ const CompleteProfilePage = () => {
                   <Input
                     id="neighborhood"
                     {...register('neighborhood')}
-                    disabled={cepSearched && !!watched.neighborhood}
+                    disabled={cepSearched}
                     placeholder="Preenchido automaticamente pelo CEP"
-                    className={cepSearched && !!watched.neighborhood
+                    className={cepSearched
                       ? "bg-stone-100 border-stone-200 h-12 rounded-xl text-stone-500 cursor-not-allowed opacity-70"
                       : "bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors"}
                   />
@@ -646,9 +646,9 @@ const CompleteProfilePage = () => {
                       <Input
                         id="city"
                         {...register('city')}
-                        disabled={cepSearched && !!watched.city}
+                        disabled={cepSearched}
                         placeholder="Preenchido automaticamente pelo CEP"
-                        className={cepSearched && !!watched.city
+                        className={cepSearched
                           ? "bg-stone-100 border-stone-200 h-12 rounded-xl text-stone-500 cursor-not-allowed opacity-70"
                           : "bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors"}
                       />
@@ -659,9 +659,9 @@ const CompleteProfilePage = () => {
                       <Input
                         id="state"
                         {...register('state')}
-                        disabled={cepSearched && !!watched.state}
+                        disabled={cepSearched}
                         placeholder="UF"
-                        className={cepSearched && !!watched.state
+                        className={cepSearched
                           ? "bg-stone-100 border-stone-200 h-12 rounded-xl text-stone-500 cursor-not-allowed opacity-70"
                           : "bg-stone-50 border-stone-200 h-12 rounded-xl focus:bg-white transition-colors"}
                       />

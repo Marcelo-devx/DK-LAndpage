@@ -1,4 +1,4 @@
-// redeploy: 2026-05-05T23:20:00Z — public endpoint
+// redeploy: 2026-05-15T14:35:00Z — force deploy temp-password flow
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 // @ts-ignore

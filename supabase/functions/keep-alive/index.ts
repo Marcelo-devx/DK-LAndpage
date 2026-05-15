@@ -55,6 +55,7 @@ const ALL_FUNCTIONS = [
   'n8n-receive-order',
   'dispatch-webhook',
   'log-integration',
+  // Nota: 'api-config-manager' removido — tabela api_configs não existe
   // Cloudinary
   'cloudinary-upload',
   'cloudinary-list-images',

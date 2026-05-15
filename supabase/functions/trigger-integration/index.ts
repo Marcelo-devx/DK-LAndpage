@@ -1,4 +1,4 @@
-// redeploy: 2026-05-08T20:30:00Z — force redeploy fix column name trigger_event
+// redeploy: 2026-05-15T14:00:00Z — force redeploy v2 fix trigger_event column
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
@@ -142,8 +142,13 @@ serve(async (req) => {
   // @ts-ignore
   const SUPABASE_SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 
+  console.log(`[trigger-integration][${requestId}] env check: SUPABASE_URL=${SUPABASE_URL ? 'set' : 'MISSING'} SERVICE_ROLE=${SUPABASE_SERVICE_ROLE ? 'set(len=' + SUPABASE_SERVICE_ROLE.length + ')' : 'MISSING/EMPTY'}`)
+
   // Create client inside handler to ensure env vars are available at request time
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE)
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: `Bearer ${SUPABASE_SERVICE_ROLE}` } }
+  })
 
   const url = new URL(req.url)
   if (req.method === 'GET' && url.pathname.endsWith('/health')) {
@@ -222,13 +227,33 @@ serve(async (req) => {
     .maybeSingle()
   const n8nToken: string = tokenSetting?.value || ''
 
-  console.log(`[trigger-integration][${requestId}] querying webhook_configs for trigger_event="${eventType}"`)
+  console.log(`[trigger-integration][${requestId}] querying webhook_configs for trigger_event="${eventType}" (v3-direct-fetch-2026-05-15)`)
 
-  const { data: configs, error: configsErr } = await supabase
-    .from('webhook_configs')
-    .select('id, trigger_event, target_url, is_active, api_key_header_name, api_key_value, additional_headers')
-    .eq('trigger_event', eventType)
-    .eq('is_active', true)
+  // Usar fetch direto para evitar problemas com o cliente Supabase sobrescrevendo o Authorization header
+  let configs: any[] | null = null
+  let configsErr: any = null
+  try {
+    const pgrestUrl = `${SUPABASE_URL}/rest/v1/webhook_configs?trigger_event=eq.${encodeURIComponent(eventType)}&is_active=eq.true&select=id,trigger_event,target_url,is_active,api_key_header_name,api_key_value,additional_headers`
+    const pgrestResp = await fetch(pgrestUrl, {
+      headers: {
+        'apikey': SUPABASE_SERVICE_ROLE,
+        'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE}`,
+        'Content-Type': 'application/json',
+      }
+    })
+    if (pgrestResp.ok) {
+      configs = await pgrestResp.json()
+    } else {
+      const errText = await pgrestResp.text()
+      configsErr = { status: pgrestResp.status, body: errText }
+      console.error(`[trigger-integration][${requestId}] REST API error: ${pgrestResp.status} ${errText}`)
+    }
+  } catch (fetchErr: any) {
+    configsErr = { message: String(fetchErr?.message || fetchErr) }
+    console.error(`[trigger-integration][${requestId}] fetch error: ${configsErr.message}`)
+  }
+
+  console.log(`[trigger-integration][${requestId}] webhook_configs result: count=${configs?.length ?? 'null'} error=${JSON.stringify(configsErr)}`)
 
   if (configsErr) {
     console.error(`[trigger-integration][${requestId}] erro ao buscar webhook_configs`, configsErr)
@@ -244,7 +269,31 @@ serve(async (req) => {
   }
 
   if (!configs || configs.length === 0) {
-    console.warn(`[trigger-integration][${requestId}] no active webhook configs for event "${eventType}"`)
+    console.warn(`[trigger-integration][${requestId}] no active webhook configs for event "${eventType}" — trying hardcoded fallback`)
+
+    // Fallback hardcoded para order_created caso a query não retorne resultados
+    if (eventType === 'order_created') {
+      const fallbackUrl = 'https://n8n-ws.dkcwb.cloud/webhook/Pedido-criado'
+      console.log(`[trigger-integration][${requestId}] FALLBACK: dispatching directly to ${fallbackUrl}`)
+      const fallbackResult = await dispatchWithRetry(
+        fallbackUrl,
+        { 'Content-Type': 'application/json' },
+        JSON.stringify(outgoingPayload),
+        3, 15000, requestId
+      )
+      console.log(`[trigger-integration][${requestId}] FALLBACK result: ${JSON.stringify(fallbackResult)}`)
+      return new Response(JSON.stringify({
+        success: fallbackResult.ok,
+        event_type: eventType,
+        dispatched: fallbackResult.ok ? 1 : 0,
+        fallback: true,
+        results: [fallbackResult],
+      }), {
+        status: 200,
+        headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' },
+      })
+    }
+
     await supabase.from('integration_logs').insert({
       event_type: eventType,
       status: 'no_config',

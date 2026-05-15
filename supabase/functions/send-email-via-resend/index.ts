@@ -1,4 +1,4 @@
-// redeploy: 2026-05-15T14:35:00Z — force deploy temp-password email template
+// redeploy: 2026-05-15T20:00:00Z — add detailed logs for debugging email issue
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 
@@ -274,6 +274,8 @@ serve(async (req) => {
     try { body = await req.json() } catch { body = {} }
     const { to, subject, type, code, resetLink, html, newPassword } = body
 
+    console.log('[send-email-via-resend] recebido:', JSON.stringify({ to, subject, type, hasNewPassword: !!newPassword, newPasswordLength: newPassword?.length, hasCode: !!code, hasResetLink: !!resetLink }))
+
     if (!to || !subject) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
         status: 400,
@@ -283,6 +285,7 @@ serve(async (req) => {
 
     let emailHtml = html || ''
     if (!emailHtml) {
+      console.log('[send-email-via-resend] selecionando template para type:', type)
       switch (type) {
         case 'otp':
           emailHtml = templates.otp(code || '')
@@ -291,6 +294,7 @@ serve(async (req) => {
           emailHtml = templates.passwordReset(resetLink || '')
           break
         case 'new_password':
+          console.log('[send-email-via-resend] usando template newPassword, senha length:', (newPassword || code || '').length)
           emailHtml = templates.newPassword(newPassword || code || '')
           break
         case 'complete_profile':
@@ -300,6 +304,7 @@ serve(async (req) => {
           emailHtml = templates.passwordChanged(code || 'Usuário')
           break
         default:
+          console.log('[send-email-via-resend] type desconhecido, usando template otp como fallback')
           emailHtml = templates.otp(code || '')
       }
     }

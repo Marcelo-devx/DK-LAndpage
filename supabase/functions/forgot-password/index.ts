@@ -1,4 +1,4 @@
-// redeploy: 2026-05-15T14:35:00Z — force deploy temp-password flow
+// redeploy: 2026-05-15T20:00:00Z — add detailed logs for debugging email issue
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 // @ts-ignore
@@ -135,7 +135,13 @@ serve(async (req) => {
     }
 
     // Envia e-mail com retry automático (send-email-via-resend pode estar em cold start)
-    console.log('[forgot-password] enviando e-mail via send-email-via-resend (com retry)...');
+    const emailPayload = {
+      to: cleanEmail,
+      subject: 'Sua nova senha temporária - DKCWB',
+      type: 'new_password',
+      newPassword,
+    };
+    console.log('[forgot-password] payload do email:', JSON.stringify({ to: cleanEmail, type: 'new_password', newPasswordLength: newPassword.length, newPasswordFirst3: newPassword.substring(0, 3) }));
     const sendResp = await fetchWithRetry(
       `${supabaseUrl}/functions/v1/send-email-via-resend`,
       {
@@ -145,12 +151,7 @@ serve(async (req) => {
           'Authorization': `Bearer ${serviceRoleKey}`,
           'apikey': serviceRoleKey,
         },
-        body: JSON.stringify({
-          to: cleanEmail,
-          subject: 'Sua nova senha temporária - DKCWB',
-          type: 'new_password',
-          newPassword,
-        }),
+        body: JSON.stringify(emailPayload),
       }
     );
 

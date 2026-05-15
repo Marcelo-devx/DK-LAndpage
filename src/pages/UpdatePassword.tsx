@@ -125,15 +125,38 @@ const UpdatePassword = () => {
 
       // Usa edge function com service role para atualizar senha E limpar
       // must_change_password atomicamente, evitando loop de redirecionamento
-      const res = await fetch('https://jrlozhhvwqfmjtkmvukf.supabase.co/functions/v1/change-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpybG96aGh2d3FmbWp0a212dWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzNDU2NjQsImV4cCI6MjA2NzkyMTY2NH0.Do5c1-TKqpyZTJeX_hLbw1SU40CbwXfCIC-pPpcD_JM',
-        },
-        body: JSON.stringify({ password }),
-      });
+      // Retry automático para lidar com cold start da edge function
+      let res: Response | null = null;
+      let lastFetchError: any = null;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          res = await fetch('https://jrlozhhvwqfmjtkmvukf.supabase.co/functions/v1/change-password', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+              'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpybG96aGh2d3FmbWp0a212dWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzNDU2NjQsImV4cCI6MjA2NzkyMTY2NH0.Do5c1-TKqpyZTJeX_hLbw1SU40CbwXfCIC-pPpcD_JM',
+            },
+            body: JSON.stringify({ password }),
+            signal: AbortSignal.timeout(15000),
+          });
+          // Se retornou 404, a função ainda está em cold start — tenta novamente
+          if (res.status === 404 && attempt < 3) {
+            console.warn(`[UpdatePassword] change-password retornou 404, tentativa ${attempt}/3, aguardando...`);
+            await new Promise(r => setTimeout(r, 2000 * attempt));
+            continue;
+          }
+          break;
+        } catch (fetchErr: any) {
+          lastFetchError = fetchErr;
+          console.warn(`[UpdatePassword] fetch tentativa ${attempt}/3 falhou:`, fetchErr?.message);
+          if (attempt < 3) await new Promise(r => setTimeout(r, 2000 * attempt));
+        }
+      }
+
+      if (!res) {
+        throw lastFetchError || new Error('Não foi possível conectar ao servidor. Tente novamente.');
+      }
 
       const resData = await res.json().catch(() => ({}));
 
@@ -159,7 +182,12 @@ const UpdatePassword = () => {
     } catch (err: any) {
       dismissToast(toastId);
       setLoading(false);
-      setPasswordError(translateError(err?.message || 'Erro inesperado. Tente novamente.'));
+      const msg = err?.message || '';
+      if (msg.toLowerCase().includes('fetch') || msg.toLowerCase().includes('network') || msg.toLowerCase().includes('timeout') || err?.name === 'TimeoutError') {
+        setPasswordError({ message: 'Servidor demorou para responder.', hint: 'Aguarde alguns segundos e tente novamente — normalmente resolve na segunda tentativa.' });
+      } else {
+        setPasswordError(translateError(msg || 'Erro inesperado. Tente novamente.'));
+      }
       console.error('[UpdatePassword] erro inesperado:', err);
     }
   };

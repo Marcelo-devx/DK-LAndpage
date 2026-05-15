@@ -74,7 +74,8 @@ serve(async (req) => {
           signal: AbortSignal.timeout(8000),
         });
 
-        const ok = res.status === 200 || res.status === 204;
+        // 405 é esperado para funções que só aceitam POST (ex: send-auth-hook)
+        const ok = res.status === 200 || res.status === 204 || res.status === 405;
         results[fn] = ok ? 'warm' : `status:${res.status}`;
         console.log(`[keep-alive] ${fn} -> ${results[fn]}`);
       } catch (err: any) {

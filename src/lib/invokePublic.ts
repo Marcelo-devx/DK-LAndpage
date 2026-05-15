@@ -1,13 +1,3 @@
-/**
- * Chama uma edge function pública via fetch direto.
- *
- * Envia APENAS o header `apikey` (sem Authorization).
- * O gateway do Supabase aceita requisições com apikey mesmo quando
- * verify_jwt=true — o 401 só ocorre quando o Authorization header
- * contém um JWT inválido/sem sub. Omitindo o Authorization, o gateway
- * trata como requisição anônima e passa para a função.
- */
-
 import { env } from '@/config/env';
 
 const SUPABASE_URL = env.VITE_SUPABASE_URL;
@@ -25,6 +15,18 @@ interface InvokeResult<T = unknown> {
   attempts: number;
 }
 
+const requestHeaderVariants: HeadersInit[] = [
+  {
+    'Content-Type': 'application/json',
+    apikey: SUPABASE_ANON_KEY,
+    Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+  },
+  {
+    'Content-Type': 'application/json',
+    apikey: SUPABASE_ANON_KEY,
+  },
+];
+
 export async function invokePublic<T = unknown>(
   functionName: string,
   options: PublicInvokeOptions = {}
@@ -35,56 +37,72 @@ export async function invokePublic<T = unknown>(
   let lastError: { message: string; context?: unknown } | null = null;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          // Só apikey — sem Authorization.
-          // Com Authorization: Bearer <anon_key>, o gateway rejeita com 401
-          // porque o anon key não tem `sub` (não é um usuário).
-          // Sem Authorization, o gateway passa a requisição para a função
-          // que tem verify_jwt=false no config.toml.
-          'apikey': SUPABASE_ANON_KEY,
-        },
-        body: body ? JSON.stringify(body) : undefined,
-      });
+    for (const headers of requestHeaderVariants) {
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers,
+          body: body ? JSON.stringify(body) : undefined,
+        });
 
-      if (!res.ok) {
-        let errData: unknown = null;
-        try { errData = await res.json(); } catch { /* ignore */ }
-        const msg = (errData as any)?.error || (errData as any)?.message || `HTTP ${res.status}`;
-        lastError = { message: msg, context: errData };
+        if (!res.ok) {
+          let errData: unknown = null;
+          try {
+            errData = await res.json();
+          } catch {
+            try {
+              errData = await res.text();
+            } catch {
+              errData = null;
+            }
+          }
 
-        // 4xx não retenta (erro de negócio ou auth)
-        if (res.status >= 400 && res.status < 500) {
-          return { data: errData as T, error: lastError, attempts: attempt };
+          const msg =
+            (typeof errData === 'object' && errData !== null && 'error' in errData && typeof (errData as any).error === 'string'
+              ? (errData as any).error
+              : typeof errData === 'object' && errData !== null && 'message' in errData && typeof (errData as any).message === 'string'
+                ? (errData as any).message
+                : typeof errData === 'string' && errData.trim()
+                  ? errData
+                  : `HTTP ${res.status}`);
+
+          lastError = { message: msg, context: errData };
+
+          if (res.status === 401 && headers !== requestHeaderVariants[requestHeaderVariants.length - 1]) {
+            continue;
+          }
+
+          if (res.status >= 400 && res.status < 500) {
+            return { data: errData as T, error: lastError, attempts: attempt };
+          }
+
+          if (attempt < maxAttempts) {
+            await sleep(baseDelayMs * attempt);
+            break;
+          }
+
+          return { data: null, error: lastError, attempts: attempt };
         }
 
-        // 5xx retenta
-        if (attempt < maxAttempts) {
-          await sleep(baseDelayMs * attempt);
-          continue;
-        }
-        return { data: null, error: lastError, attempts: attempt };
+        const data = (await res.json()) as T;
+        return { data, error: null, attempts: attempt };
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        lastError = { message: msg };
+        console.warn(`[invokePublic] ${functionName} tentativa ${attempt}/${maxAttempts} falhou:`, msg);
       }
+    }
 
-      const data = await res.json() as T;
-      return { data, error: null, attempts: attempt };
-
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      lastError = { message: msg };
-      console.warn(`[invokePublic] ${functionName} tentativa ${attempt}/${maxAttempts} falhou:`, msg);
-
-      if (attempt < maxAttempts) {
-        await sleep(baseDelayMs * attempt);
-        continue;
-      }
+    if (attempt < maxAttempts) {
+      await sleep(baseDelayMs * attempt);
     }
   }
 
-  return { data: null, error: lastError ?? { message: 'Erro desconhecido' }, attempts: maxAttempts };
+  return {
+    data: null,
+    error: lastError ?? { message: 'Erro desconhecido' },
+    attempts: maxAttempts,
+  };
 }
 
 function sleep(ms: number): Promise<void> {

@@ -1,4 +1,4 @@
-// redeploy: 2026-05-05T22:15:00Z — force redeploy after shutdown
+// redeploy: 2026-05-15T14:30:00Z — force redeploy v3 fix token field
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 // @ts-ignore
@@ -52,7 +52,7 @@ serve(async (req) => {
     const body = await req.json();
 
     console.log(`[process-mercadopago-payment][${requestId}] Payload keys:`, Object.keys(body))
-    console.log(`[process-mercadopago-payment][${requestId}] Payload recebido do Brick:`, JSON.stringify({
+    console.log(`[process-mercadopago-payment][${requestId}] Payload recebido:`, JSON.stringify({
       external_reference: body.external_reference,
       transaction_amount: body.transaction_amount,
       payment_method_id: body.payment_method_id,

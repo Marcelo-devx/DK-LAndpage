@@ -1066,12 +1066,17 @@ const CheckoutPage = () => {
       // Monta o payload garantindo que transaction_amount e external_reference
       // sempre sobrescrevam qualquer valor que o Brick possa ter enviado
       const payBody: Record<string, unknown> = {
+        // Campos do Brick
         token: cardBrickResult?.token || cardBrickResult?.cardToken,
+        cardToken: cardBrickResult?.token || cardBrickResult?.cardToken,
         payment_method_id: cardBrickResult?.payment_method_id,
         installments: cardBrickResult?.installments,
         issuer_id: cardBrickResult?.issuer_id,
+        // Referência e valor — sempre do banco (fonte da verdade)
         external_reference: String(currentOrderId),
+        order_id: currentOrderId,
         transaction_amount: Number(finalTotal),
+        amount: Number(finalTotal),
         payer: {
           email: formData.email,
           identification: {

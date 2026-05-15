@@ -14,7 +14,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { showError, showLoading, dismissToast, showSuccess } from '@/utils/toast';
-import { invokeWithRetry } from '@/lib/invokeWithRetry';
 import { Loader2, Search, CreditCard, MessageSquare, MapPin, Gift, X, AlertTriangle, CheckCircle2, Sparkles, ChevronRight, ChevronLeft, Lock, Truck, Star, Package, Headphones, Calendar, Repeat2, ShoppingBag, Zap, Crown, type LucideIcon } from 'lucide-react';
 import { getLocalCart, ItemType, clearLocalCart } from '@/utils/localCart';
 import { maskCep, maskPhone, maskCpfCnpj } from '@/utils/masks';
@@ -1064,13 +1063,15 @@ const CheckoutPage = () => {
       const formData = getValues();
       const cleanCpf = formData.cpf_cnpj.replace(/\D/g, '');
 
-      const { data: { session } } = await supabase.auth.getSession();
-      const authToken = session?.access_token;
-
-      const payBody: any = {
-        ...cardBrickResult,
+      // Monta o payload garantindo que transaction_amount e external_reference
+      // sempre sobrescrevam qualquer valor que o Brick possa ter enviado
+      const payBody: Record<string, unknown> = {
+        token: cardBrickResult?.token || cardBrickResult?.cardToken,
+        payment_method_id: cardBrickResult?.payment_method_id,
+        installments: cardBrickResult?.installments,
+        issuer_id: cardBrickResult?.issuer_id,
         external_reference: String(currentOrderId),
-        transaction_amount: finalTotal,
+        transaction_amount: Number(finalTotal),
         payer: {
           email: formData.email,
           identification: {
@@ -1082,14 +1083,31 @@ const CheckoutPage = () => {
         },
       };
 
-      const payRes = await invokeWithRetry('process-mercadopago-payment', {
-        body: payBody,
-        maxAttempts: 3,
-        baseDelayMs: 2000,
-      });
+      // Usar fetch direto para garantir serialização correta do body
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      const mpFetchRes = await fetch(
+        'https://jrlozhhvwqfmjtkmvukf.supabase.co/functions/v1/process-mercadopago-payment',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${currentSession?.access_token || ''}`,
+            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpybG96aGh2d3FmbWp0a212dWtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzNDU2NjQsImV4cCI6MjA2NzkyMTY2NH0.Do5c1-TKqpyZTJeX_hLbw1SU40CbwXfCIC-pPpcD_JM',
+          },
+          body: JSON.stringify(payBody),
+        }
+      );
 
-      if (payRes.error) throw new Error(payRes.error.message || 'Erro ao processar pagamento.');
-      const result = payRes.data as any;
+      let result: any;
+      try {
+        result = await mpFetchRes.json();
+      } catch {
+        throw new Error('Erro ao processar resposta do pagamento. Tente novamente.');
+      }
+
+      if (!mpFetchRes.ok && !result?.success) {
+        throw new Error(result?.error || result?.message || 'Erro ao processar pagamento.');
+      }
       if (!result?.success) throw new Error(result?.error || 'Pagamento não aprovado.');
 
       clearLocalCart();

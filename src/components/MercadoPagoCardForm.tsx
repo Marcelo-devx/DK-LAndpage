@@ -7,13 +7,9 @@ interface MercadoPagoCardFormProps {
   onSubmit: (formData: any) => Promise<void>;
 }
 
-// React.memo evita re-renders desnecessários que desmontariam o iframe do Brick
-const MercadoPagoCardForm = memo(({ amount, onSubmit }: MercadoPagoCardFormProps) => {
-  const [mpReady, setMpReady] = useState(false);
-  const [mpPublicKey, setMpPublicKey] = useState<string | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [mpInitialized, setMpInitialized] = useState(false);
-
+// Componente interno que só é montado quando amount > 0
+// A key garante que o Brick seja recriado se o amount mudar
+const CardPaymentBrick = memo(({ amount, onSubmit }: MercadoPagoCardFormProps) => {
   // Manter referência estável do onSubmit para não recriar o Brick quando o callback muda
   const onSubmitRef = useRef(onSubmit);
   useEffect(() => { onSubmitRef.current = onSubmit; }, [onSubmit]);
@@ -22,81 +18,6 @@ const MercadoPagoCardForm = memo(({ amount, onSubmit }: MercadoPagoCardFormProps
   const stableOnSubmit = useRef(async (formData: any) => {
     return onSubmitRef.current(formData);
   }).current;
-
-  useEffect(() => {
-    const loadPublicKey = async () => {
-      try {
-        const { supabase } = await import('@/integrations/supabase/client');
-        const { data } = await supabase
-          .from('app_settings')
-          .select('value')
-          .eq('key', 'mercadopago_public_key')
-          .maybeSingle();
-
-        if (data?.value) {
-          setMpPublicKey(data.value);
-        } else {
-          // Fallback: tentar usar variável de ambiente se não estiver no banco
-          const envPublicKey = import.meta.env.VITE_MP_PUBLIC_KEY;
-          if (envPublicKey) {
-            console.warn('[MercadoPagoCardForm] Usando VITE_MP_PUBLIC_KEY como fallback');
-            setMpPublicKey(envPublicKey);
-          } else {
-            setLoadError('Public Key do Mercado Pago não configurada. Acesse o painel admin e configure a chave.');
-          }
-        }
-      } catch (error) {
-        console.error('[MercadoPagoCardForm] Erro ao carregar public key:', error);
-        // Fallback: tentar usar variável de ambiente em caso de erro
-        const envPublicKey = import.meta.env.VITE_MP_PUBLIC_KEY;
-        if (envPublicKey) {
-          console.warn('[MercadoPagoCardForm] Usando VITE_MP_PUBLIC_KEY como fallback após erro');
-          setMpPublicKey(envPublicKey);
-        } else {
-          setLoadError('Erro ao carregar configurações de pagamento.');
-        }
-      }
-    };
-
-    loadPublicKey();
-  }, []);
-
-  useEffect(() => {
-    if (!mpPublicKey) return;
-
-    if (!mpInitialized) {
-      try {
-        initMercadoPago(mpPublicKey, { locale: 'pt-BR' });
-        setMpInitialized(true);
-        console.log('[MercadoPagoCardForm] SDK inicializado com sucesso');
-      } catch (error) {
-        console.error('[MercadoPagoCardForm] Erro ao inicializar SDK:', error);
-        setLoadError('Erro ao inicializar o formulário de pagamento. Tente recarregar a página.');
-        return;
-      }
-    }
-
-    const timer = setTimeout(() => setMpReady(true), 300);
-    return () => clearTimeout(timer);
-  }, [mpPublicKey, mpInitialized]);
-
-  if (loadError) {
-    return (
-      <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
-        <p className="text-red-600 text-sm font-bold">{loadError}</p>
-        <p className="text-red-500 text-xs mt-2">Configure a chave em: Admin → Configurações → Mercado Pago Public Key</p>
-      </div>
-    );
-  }
-
-  if (!mpReady) {
-    return (
-      <div className="flex items-center justify-center py-12 bg-stone-50 rounded-2xl border border-stone-100">
-        <Loader2 className="h-6 w-6 animate-spin text-sky-500 mr-3" />
-        <span className="text-sm text-slate-700 font-medium">Carregando formulário seguro...</span>
-      </div>
-    );
-  }
 
   return (
     <div className="mp-card-form-wrapper">
@@ -139,6 +60,87 @@ const MercadoPagoCardForm = memo(({ amount, onSubmit }: MercadoPagoCardFormProps
   );
 });
 
-MercadoPagoCardForm.displayName = 'MercadoPagoCardForm';
+CardPaymentBrick.displayName = 'CardPaymentBrick';
+
+const MercadoPagoCardForm = ({ amount, onSubmit }: MercadoPagoCardFormProps) => {
+  const [mpReady, setMpReady] = useState(false);
+  const [mpPublicKey, setMpPublicKey] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [mpInitialized, setMpInitialized] = useState(false);
+
+  useEffect(() => {
+    const loadPublicKey = async () => {
+      try {
+        const { supabase } = await import('@/integrations/supabase/client');
+        const { data } = await supabase
+          .from('app_settings')
+          .select('value')
+          .eq('key', 'mercadopago_public_key')
+          .maybeSingle();
+
+        if (data?.value) {
+          setMpPublicKey(data.value);
+        } else {
+          const envPublicKey = import.meta.env.VITE_MP_PUBLIC_KEY;
+          if (envPublicKey) {
+            setMpPublicKey(envPublicKey);
+          } else {
+            setLoadError('Public Key do Mercado Pago não configurada. Acesse o painel admin e configure a chave.');
+          }
+        }
+      } catch (error) {
+        console.error('[MercadoPagoCardForm] Erro ao carregar public key:', error);
+        const envPublicKey = import.meta.env.VITE_MP_PUBLIC_KEY;
+        if (envPublicKey) {
+          setMpPublicKey(envPublicKey);
+        } else {
+          setLoadError('Erro ao carregar configurações de pagamento.');
+        }
+      }
+    };
+
+    loadPublicKey();
+  }, []);
+
+  useEffect(() => {
+    if (!mpPublicKey) return;
+
+    if (!mpInitialized) {
+      try {
+        initMercadoPago(mpPublicKey, { locale: 'pt-BR' });
+        setMpInitialized(true);
+      } catch (error) {
+        console.error('[MercadoPagoCardForm] Erro ao inicializar SDK:', error);
+        setLoadError('Erro ao inicializar o formulário de pagamento. Tente recarregar a página.');
+        return;
+      }
+    }
+
+    const timer = setTimeout(() => setMpReady(true), 300);
+    return () => clearTimeout(timer);
+  }, [mpPublicKey, mpInitialized]);
+
+  if (loadError) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
+        <p className="text-red-600 text-sm font-bold">{loadError}</p>
+        <p className="text-red-500 text-xs mt-2">Configure a chave em: Admin → Configurações → Mercado Pago Public Key</p>
+      </div>
+    );
+  }
+
+  // Aguarda o SDK estar pronto E o amount ser válido antes de renderizar o Brick
+  if (!mpReady || !amount || amount <= 0) {
+    return (
+      <div className="flex items-center justify-center py-12 bg-stone-50 rounded-2xl border border-stone-100">
+        <Loader2 className="h-6 w-6 animate-spin text-sky-500 mr-3" />
+        <span className="text-sm text-slate-700 font-medium">Carregando formulário seguro...</span>
+      </div>
+    );
+  }
+
+  // A key baseada no amount garante que o Brick seja recriado se o valor mudar
+  return <CardPaymentBrick key={amount} amount={amount} onSubmit={onSubmit} />;
+};
 
 export default MercadoPagoCardForm;

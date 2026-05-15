@@ -28,6 +28,7 @@ const CURRENT_FUNCTIONS = [
 
   // Auth / conta
   'send-email-via-resend',
+  'send-auth-hook',
   'generate-token',
   'validate-token',
   'create-user',

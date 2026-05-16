@@ -587,8 +587,19 @@ const CheckoutPage = () => {
                 .select('total_price')
                 .eq('id', restoredId)
                 .single();
-              if (orderRow?.total_price) {
-                setCardFormAmount(Number(orderRow.total_price));
+              const restoredAmount = Number(orderRow?.total_price ?? 0);
+              if (restoredAmount > 0) {
+                setCardFormAmount(restoredAmount);
+              } else {
+                // total_price inválido — calcula a partir dos itens do pedido
+                const { data: itemsData } = await supabase
+                  .from('order_items')
+                  .select('price_at_purchase, quantity')
+                  .eq('order_id', restoredId);
+                if (itemsData && itemsData.length > 0) {
+                  const calcTotal = itemsData.reduce((acc: number, it: any) => acc + Number(it.price_at_purchase) * Number(it.quantity), 0);
+                  if (calcTotal > 0) setCardFormAmount(calcTotal);
+                }
               }
             } catch { /* ignore */ }
             clearTimeout(timeoutId);
@@ -1822,6 +1833,39 @@ const CheckoutPage = () => {
           >
             <ChevronLeft className="h-4 w-4" /> Voltar
           </button>
+        </div>
+        {/* Resumo do pedido */}
+        <div className="mb-4 bg-white border border-stone-200 rounded-2xl p-4 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Resumo do Pedido</p>
+          <div className="space-y-1.5">
+            <div className="flex justify-between text-sm text-slate-600">
+              <span>Subtotal</span>
+              <span className="font-semibold">R$ {subtotal.toFixed(2)}</span>
+            </div>
+            {discount > 0 && (
+              <div className="flex justify-between text-sm text-emerald-600">
+                <span>Desconto</span>
+                <span className="font-semibold">- R$ {discount.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-sm text-slate-600">
+              <span>Frete</span>
+              {isFreeShippingApplied
+                ? <span className="font-semibold text-emerald-600">Grátis</span>
+                : <span className="font-semibold">R$ {shippingCost.toFixed(2)}</span>
+              }
+            </div>
+            {donationAmount > 0 && (
+              <div className="flex justify-between text-sm text-slate-600">
+                <span>Doação</span>
+                <span className="font-semibold">R$ {donationAmount.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="border-t border-stone-100 pt-2 mt-2 flex justify-between">
+              <span className="font-black text-sm uppercase tracking-widest">Total</span>
+              <span className="font-black text-base text-sky-600">R$ {(cardFormAmount > 0 ? cardFormAmount : total).toFixed(2)}</span>
+            </div>
+          </div>
         </div>
         <Card className="bg-white border-stone-200 shadow-xl rounded-[2rem] overflow-hidden">
           <CardHeader className="bg-stone-50 border-b border-stone-100 p-6">

@@ -318,7 +318,6 @@ const LoyaltyClubPage = () => {
             <Trophy className="h-6 w-6 text-white" />
           </div>
           <h1 className="text-3xl md:text-5xl font-black italic tracking-tighter uppercase mb-2">DK Clube.</h1>
-          <p className="text-white/90 font-medium text-lg uppercase tracking-widest">{currentTier.name}</p>
           
           <div className="mt-8 bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/10 max-w-lg mx-auto shadow-2xl">
             <div className="flex justify-between items-end mb-4">

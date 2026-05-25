@@ -145,7 +145,7 @@ const LoyaltyButton = () => {
     }}>
       <PopoverTrigger asChild>
         <button
-          className="fixed bottom-6 right-6 z-[99999] rounded-full h-14 w-14 bg-slate-900 text-white shadow-2xl border-2 border-white/20 hover:scale-110 transition-transform flex items-center justify-center group"
+          className="loyalty-float fixed bottom-6 right-6 z-[99999] rounded-full h-14 w-14 bg-slate-900 text-white shadow-2xl border-2 border-white/20 hover:scale-110 transition-transform flex items-center justify-center group"
           aria-label="Acessar DK Clube Points"
         >
           {/* Badge de cupons disponíveis para resgatar */}

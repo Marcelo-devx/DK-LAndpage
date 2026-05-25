@@ -240,6 +240,16 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
     navigate('/checkout');
   };
 
+  // Oculta os botões flutuantes (WhatsApp, Loyalty) no mobile quando o carrinho está aberto
+  useEffect(() => {
+    if (isOpen) {
+      document.body.classList.add('cart-open');
+    } else {
+      document.body.classList.remove('cart-open');
+    }
+    return () => { document.body.classList.remove('cart-open'); };
+  }, [isOpen]);
+
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onOpenChange}>

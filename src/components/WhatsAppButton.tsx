@@ -13,7 +13,7 @@ const WhatsAppButton: React.FC = () => {
       rel="noopener noreferrer"
       aria-label="Falar pelo WhatsApp"
       style={{ zIndex: 999999 }}
-      className="fixed bottom-[88px] right-6 flex items-center justify-center w-14 h-14 rounded-full shadow-xl bg-[#25D366] hover:bg-[#1ebe5d] active:scale-95 transition-all duration-200"
+      className="whatsapp-float fixed bottom-[88px] right-6 flex items-center justify-center w-14 h-14 rounded-full shadow-xl bg-[#25D366] hover:bg-[#1ebe5d] active:scale-95 transition-all duration-200"
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"

@@ -8,7 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, Gem, Lock, Unlock, Trophy, History, Gift, TrendingUp, Clock, AlertTriangle, ShoppingBag, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { differenceInDays, addMonths } from 'date-fns';
 import { useSEO } from '@/hooks/useSEO';
 
 interface Tier {
@@ -292,21 +291,6 @@ const LoyaltyClubPage = () => {
 
   const currentTierIndex = tiers.findIndex(t => t.id === effectiveProfile.tier_id);
   const currentTier = tiers[currentTierIndex] || tiers[0] || { id: 0, name: 'Clube', min_spend: 0, max_spend: null, points_multiplier: 1, benefits: [] };
-  const nextTier = tiers[currentTierIndex + 1];
-  
-  let progress = 100;
-  let remaining = 0;
-  
-  if (nextTier) {
-    const range = nextTier.min_spend - currentTier.min_spend || 1;
-    const currentInLevel = effectiveProfile.spend_last_6_months - currentTier.min_spend;
-    progress = Math.min(100, Math.max(0, (currentInLevel / range) * 100));
-    remaining = Math.max(0, nextTier.min_spend - effectiveProfile.spend_last_6_months);
-  }
-
-  const expirationDate = addMonths(new Date(effectiveProfile.last_tier_update), 6);
-  const daysLeft = differenceInDays(expirationDate, new Date());
-  const isExpiringSoon = daysLeft <= 30;
 
   return (
     <div className="bg-off-white min-h-screen pb-20 text-charcoal-gray">
@@ -318,58 +302,6 @@ const LoyaltyClubPage = () => {
             <Trophy className="h-6 w-6 text-white" />
           </div>
           <h1 className="text-3xl md:text-5xl font-black italic tracking-tighter uppercase mb-2">DK Clube.</h1>
-          
-          <div className="mt-8 bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/10 max-w-lg mx-auto shadow-2xl">
-            <div className="flex justify-between items-end mb-4">
-                <span className="text-xs font-bold uppercase tracking-widest text-white/70">Gasto em 6 meses</span>
-                <span className="text-2xl font-black">{effectiveProfile.spend_last_6_months.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-            </div>
-            
-            {nextTier ? (
-                <>
-                    <div className="h-4 w-full bg-black/40 rounded-full overflow-hidden mb-4 border border-white/5">
-                        <div className="h-full bg-sky-500 transition-all duration-1000" style={{ width: `${progress}%` }} />
-                    </div>
-                    <p className="text-sm font-medium text-white/90">
-                        {sessionUser ? (
-                          <>Faltam <span className="text-white font-black">{remaining.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span> para o nível <span className="font-black uppercase text-sky-400">{nextTier.name}</span></>
-                        ) : (
-                          <>Entre ou crie uma conta para acompanhar seu progresso e subir de nível.</>
-                        )}
-                    </p>
-                </>
-            ) : (
-                <div className="bg-gradient-to-r from-yellow-400 to-yellow-600 text-black font-black text-center py-2 rounded-lg uppercase tracking-widest text-xs">
-                    Nível Máximo Alcançado!
-                </div>
-            )}
-
-            {/* Total acumulado de pontos (destaque) - mostrar Lifetime e últimos 180 dias */}
-            <div className="mt-6 flex justify-center">
-              <div className="inline-flex items-center gap-6 px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-400 text-white font-black text-lg shadow-2xl border border-white/10">
-                <Gem className="h-8 w-8 text-white" />
-                <div className="text-left">
-                  <div className="text-xs uppercase tracking-widest opacity-90">Total (lifetime)</div>
-                  <div className="text-2xl md:text-3xl font-black">{sessionUser ? totalPointsEarned : 0} PTS</div>
-                </div>
-
-                <div className="h-10 w-px bg-white/20 mx-2" />
-
-                <div className="text-left">
-                  <div className="text-xs uppercase tracking-widest opacity-80">Últimos 180 dias</div>
-                  <div className="text-xl md:text-2xl font-black">{sessionUser ? totalPointsLast180Days : 0} PTS</div>
-                </div>
-              </div>
-            </div>
-
-            <div className={cn("mt-6 pt-4 border-t border-white/10 flex items-center justify-between", isExpiringSoon ? "text-orange-300" : "text-white/80")}>
-                <div className="flex items-center gap-2">
-                    {isExpiringSoon ? <AlertTriangle className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
-                    <span className="text-xs font-bold uppercase tracking-widest">Status válido por</span>
-                </div>
-                <span className="font-mono font-black text-sm">{daysLeft} dias</span>
-            </div>
-          </div>
         </div>
       </div>
 

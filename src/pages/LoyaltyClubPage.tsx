@@ -5,11 +5,10 @@ import { logger } from '@/lib/logger';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Gem, Lock, Unlock, Trophy, History, Gift, TrendingUp, Clock, AlertTriangle, CheckCircle, XCircle, ShoppingBag, User } from 'lucide-react';
+import { Loader2, Gem, Lock, Unlock, Trophy, History, Gift, TrendingUp, Clock, AlertTriangle, ShoppingBag, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { differenceInDays, addMonths, endOfWeek, isSameWeek, startOfWeek, addWeeks } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { differenceInDays, addMonths } from 'date-fns';
 import { useSEO } from '@/hooks/useSEO';
 
 interface Tier {
@@ -53,7 +52,6 @@ const LoyaltyClubPage = () => {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [redeemingId, setRedeemingId] = useState<number | null>(null);
   const [coupons, setCoupons] = useState<any[]>([]);
-  const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [sessionUser, setSessionUser] = useState<any | null>(null);
   const [totalPointsEarned, setTotalPointsEarned] = useState<number>(0);
   const [totalPointsLast180Days, setTotalPointsLast180Days] = useState<number>(0);
@@ -99,12 +97,11 @@ const LoyaltyClubPage = () => {
       cutoffDate.setDate(cutoffDate.getDate() - 180);
       const cutoffISO = cutoffDate.toISOString();
 
-      const [tiersRes, profileRes, historyRes, couponsRes, ordersRes, totalPointsData, last180Data] = await Promise.all([
+      const [tiersRes, profileRes, historyRes, couponsRes, totalPointsData, last180Data] = await Promise.all([
         supabase.from('loyalty_tiers').select('*').order('min_spend', { ascending: true }),
         supabase.from('profiles').select('points, spend_last_6_months, tier_id, current_tier_name, last_tier_update').eq('id', session.user.id).single(),
         supabase.from('loyalty_history').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false }).limit(100),
         supabase.from('coupons').select('*').eq('is_active', true).or('stock_quantity.gt.0,stock_quantity.lt.0').order('points_cost'),
-        supabase.from('orders').select('created_at, benefits_used').eq('user_id', session.user.id).order('created_at', { ascending: false }).limit(10),
         supabase.from('loyalty_history').select('points').eq('user_id', session.user.id).gt('points', 0),
         // pontos positivos nos últimos 180 dias
         supabase.from('loyalty_history').select('points').eq('user_id', session.user.id).gt('points', 0).gte('created_at', cutoffISO)
@@ -118,7 +115,6 @@ const LoyaltyClubPage = () => {
         const filtered = couponsRes.data.filter((c: any) => !excludeNames.includes(String(c.name).toUpperCase()));
         setCoupons(filtered);
       }
-      if (ordersRes.data) setRecentOrders(ordersRes.data);
       
       // Calcular total de pontos ganhos (apenas pontos positivos)
       const totalEarned = totalPointsData?.data?.reduce((sum: number, item: any) => sum + (item.points || 0), 0) || 0;
@@ -282,43 +278,6 @@ const LoyaltyClubPage = () => {
     }
   };
 
-  const getBenefitStatus = (benefit: string) => {
-    const lowerBenefit = benefit.toLowerCase();
-    const now = new Date();
-
-    if (lowerBenefit.includes('semana')) {
-        const usedThisWeek = recentOrders.some(o => 
-            o.benefits_used && 
-            o.benefits_used.includes(benefit) && 
-            isSameWeek(new Date(o.created_at), now, { locale: ptBR })
-        );
-
-        if (usedThisWeek) {
-            const endOfCurrentWeek = endOfWeek(now, { locale: ptBR });
-            const daysToRenew = differenceInDays(endOfCurrentWeek, now) + 1;
-
-            return {
-                status: 'used',
-                label: `Usado. Renova em ${daysToRenew} dias`,
-                color: 'text-stone-500 bg-stone-100 border-stone-200'
-            };
-        } else {
-            const endOfCurrentWeek = endOfWeek(now, { locale: ptBR });
-            const daysLeft = differenceInDays(endOfCurrentWeek, now);
-            return {
-                status: 'available',
-                label: daysLeft === 0 ? 'Expira HOJE!' : `Expira em ${daysLeft} dias`,
-                color: 'text-green-600 bg-green-100 border-green-200 animate-pulse'
-            };
-        }
-    }
-
-    return {
-        status: 'passive',
-        label: 'Ativo',
-        color: 'text-sky-600 bg-sky-100 border-sky-200'
-    };
-  };
 
   if (loading) return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-sky-400" /></div>;
 
@@ -416,7 +375,7 @@ const LoyaltyClubPage = () => {
       </div>
 
       <div className="container mx-auto px-4 -mt-8 relative z-20">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6">
             <Card className="bg-white border-stone-200 text-charcoal-gray shadow-xl">
                 <CardHeader className="pb-2">
                     <CardTitle className="text-xs font-black uppercase tracking-[0.2em] text-stone-400">Seu Saldo</CardTitle>
@@ -457,33 +416,6 @@ const LoyaltyClubPage = () => {
                 </CardContent>
             </Card>
 
-            <Card className="bg-white border-stone-200 text-charcoal-gray shadow-xl md:col-span-2">
-                <CardHeader className="pb-2">
-                    <CardTitle className="text-xs font-black uppercase tracking-[0.2em] text-stone-400">Seus Benefícios Atuais</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-1 gap-3">
-                        {currentTier.benefits.map((benefit, idx) => {
-                            const benefitStatus = getBenefitStatus(benefit);
-                            return (
-                                <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-stone-50 p-4 rounded-xl border border-stone-100">
-                                    <div className="flex items-center gap-3">
-                                        <div className={cn("p-2 rounded-lg shrink-0", benefitStatus.status === 'used' ? "bg-stone-200" : "bg-green-100")}>
-                                            {benefitStatus.status === 'used' ? <XCircle className="h-5 w-5 text-stone-400" /> : <TrendingUp className="h-5 w-5 text-green-600" />}
-                                        </div>
-                                        <span className={cn("text-sm font-bold", benefitStatus.status === 'used' ? "text-stone-400 line-through" : "text-charcoal-gray")}>
-                                            {benefit}
-                                        </span>
-                                    </div>
-                                    <div className={cn("text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border text-center sm:text-right w-full sm:w-auto", benefitStatus.color)}>
-                                        {benefitStatus.label}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </CardContent>
-            </Card>
         </div>
 
         <Tabs defaultValue="redeem" className="mt-12">

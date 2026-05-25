@@ -1533,9 +1533,11 @@ const CheckoutPage = () => {
     );
   };
 
-  // Bloco: benefícios do clube
-  const BenefitsBlock = () => (
-    <>
+  // Bloco: benefícios do clube — temporariamente oculto (seção removida da UI, lógica preservada)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const BenefitsBlock = () => null;
+  const _BenefitsBlockContent = () => (
+    <div className="hidden">
       {tierBenefits.length > 0 && (
         <div className="bg-slate-950 border border-white/10 rounded-2xl overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
@@ -1616,7 +1618,7 @@ const CheckoutPage = () => {
           </p>
         </div>
       )}
-    </>
+    </div>
   );
 
   // Bloco: resumo + pagamento

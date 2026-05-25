@@ -352,7 +352,6 @@ const LoyaltyClubPage = () => {
         <Tabs defaultValue="redeem" className="mt-12">
             <TabsList className="bg-stone-100 border border-stone-200 p-1 rounded-xl h-14 w-full justify-start overflow-x-auto">
                 <TabsTrigger value="redeem" className="data-[state=active]:bg-sky-500 data-[state=active]:text-white text-stone-500 rounded-lg px-6 h-10 uppercase text-xs font-black tracking-widest transition-all">Resgatar Cupons</TabsTrigger>
-                <TabsTrigger value="tiers" className="data-[state=active]:bg-sky-500 data-[state=active]:text-white text-stone-500 rounded-lg px-6 h-10 uppercase text-xs font-black tracking-widest transition-all">Níveis</TabsTrigger>
                 <TabsTrigger value="history" className="data-[state=active]:bg-sky-500 data-[state=active]:text-white text-stone-500 rounded-lg px-6 h-10 uppercase text-xs font-black tracking-widest transition-all">Extrato</TabsTrigger>
             </TabsList>
 
@@ -462,39 +461,6 @@ const LoyaltyClubPage = () => {
                                         </span>
                                     )}
                                 </Button>
-                            </div>
-                        )
-                    })}
-                </div>
-            </TabsContent>
-
-            <TabsContent value="tiers" className="mt-8">
-                <div className="space-y-4">
-                    {tiers.map((tier) => {
-                        const isCurrent = tier.id === effectiveProfile.tier_id;
-                        return (
-                            <div key={tier.id} className={cn("flex flex-col md:flex-row items-start md:items-center gap-6 p-6 rounded-2xl border transition-all", isCurrent ? "bg-sky-50 border-sky-200 ring-1 ring-sky-100" : "bg-white border-stone-200 opacity-80 hover:opacity-100")}>
-                                <div className={cn("w-16 h-16 rounded-full flex items-center justify-center shrink-0 bg-gradient-to-br shadow-lg", TierColors[tier.name])}>
-                                    {isCurrent ? <Gem className="h-8 w-8 text-white" /> : (effectiveProfile.spend_last_6_months > tier.min_spend ? <Unlock className="h-6 w-6 text-white/80" /> : <Lock className="h-6 w-6 text-white/80" />)}
-                                </div>
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-3 mb-1">
-                                        <h4 className="text-xl font-black text-charcoal-gray uppercase tracking-tight">{tier.name}</h4>
-                                        {isCurrent && <span className="bg-sky-500 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-widest">Atual</span>}
-                                    </div>
-                                    <p className="text-sm text-stone-500 font-medium mb-3">
-                                        Gasto semestral: <span className="text-charcoal-gray font-bold">R$ {tier.min_spend}</span> {tier.max_spend ? `a R$ ${tier.max_spend}` : '+'}
-                                    </p>
-                                    <div className="flex flex-wrap gap-2">
-                                        {tier.benefits.map((b, i) => (
-                                            <span key={i} className="text-[10px] bg-stone-100 text-slate-600 px-2 py-1 rounded border border-stone-200 uppercase font-bold tracking-wider">{b}</span>
-                                        ))}
-                                    </div>
-                                </div>
-                                <div className="text-right shrink-0">
-                                    <p className="text-[10px] text-stone-400 uppercase font-black tracking-widest mb-1">Multiplicador</p>
-                                    <p className="text-2xl font-black text-charcoal-gray">{tier.points_multiplier}x</p>
-                                </div>
                             </div>
                         )
                     })}

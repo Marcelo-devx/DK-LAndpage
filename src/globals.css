@@ -142,10 +142,8 @@
   box-sizing: border-box !important;
 }
 
-/* Oculta botões flutuantes (WhatsApp, Loyalty) no mobile quando o carrinho está aberto */
-@media (max-width: 767px) {
-  body.cart-open .whatsapp-float,
-  body.cart-open .loyalty-float {
-    display: none !important;
-  }
+/* Oculta botões flutuantes (WhatsApp, Loyalty) quando o carrinho está aberto */
+body.cart-open .whatsapp-float,
+body.cart-open .loyalty-float {
+  display: none !important;
 }

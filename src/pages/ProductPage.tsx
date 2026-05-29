@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, Minus, ChevronLeft, Loader2, FileText, ShoppingCart, Zap, Palette, Droplets, ArrowLeft, ShoppingBag, Bookmark, BookmarkCheck } from "lucide-react";
+import { Plus, Minus, ChevronLeft, Loader2, FileText, ShoppingCart, Zap, Palette, Droplets, ArrowLeft, ShoppingBag, Bookmark, BookmarkCheck, PackageCheck, Bell } from "lucide-react";
 import { useAddToCart } from '@/hooks/useAddToCart';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
@@ -132,6 +132,7 @@ const ProductPage = () => {
   const { user } = useAuth();
   const [isReserving, setIsReserving] = useState(false);
   const [isReserved, setIsReserved] = useState(false);
+  const [returnedReservation, setReturnedReservation] = useState<{ id: string; variantName: string | null } | null>(null);
 
   // SEO — computed at top level (no hook inside useEffect)
   const seoTitle = product ? `${product.name} | DKCWB` : 'DKCWB';
@@ -382,17 +383,52 @@ const ProductPage = () => {
     if (!product) return;
     
     await handleAddToCart(product.id, quantity, 'product', selectedVariant?.id);
+
+    // Se tinha reserva ativa (produto voltou ao estoque), marca como concluída
+    if (returnedReservation) {
+      await supabase
+        .from('product_reservations')
+        .update({ status: 'fulfilled' })
+        .eq('id', returnedReservation.id);
+      setReturnedReservation(null);
+      setIsReserved(false);
+    }
   };
 
-  // Verifica se a variação/produto já está reservado
+  // Verifica se a variação/produto já está reservado ou se voltou ao estoque
   useEffect(() => {
-    if (!user || !product) { setIsReserved(false); return; }
-    const variantIsOut = variants.length > 0
-      ? selectedVariant ? selectedVariant.stock_quantity <= 0 : false
-      : product.stock_quantity <= 0;
-    if (!variantIsOut) { setIsReserved(false); return; }
+    if (!user || !product) { setIsReserved(false); setReturnedReservation(null); return; }
 
     const checkReservation = async () => {
+      const variantIsOut = variants.length > 0
+        ? selectedVariant ? selectedVariant.stock_quantity <= 0 : false
+        : product.stock_quantity <= 0;
+
+      // Verifica se há reserva ativa com stock_returned_at preenchido (produto voltou ao estoque)
+      const queryReturned = supabase
+        .from('product_reservations')
+        .select('id, variant_name, stock_returned_at')
+        .eq('user_id', user.id)
+        .eq('product_id', product.id)
+        .eq('status', 'active')
+        .not('stock_returned_at', 'is', null);
+
+      if (selectedVariant) {
+        queryReturned.eq('variant_id', selectedVariant.id);
+      } else {
+        queryReturned.is('variant_id', null);
+      }
+
+      const { data: returnedData } = await queryReturned.maybeSingle();
+      if (returnedData) {
+        setReturnedReservation({ id: returnedData.id, variantName: returnedData.variant_name });
+        setIsReserved(true);
+        return;
+      }
+      setReturnedReservation(null);
+
+      if (!variantIsOut) { setIsReserved(false); return; }
+
       const query = supabase
         .from('product_reservations')
         .select('id')
@@ -593,6 +629,34 @@ const ProductPage = () => {
                 </div>
               </div>
             </div>
+
+            {/* Banner: Produto voltou ao estoque */}
+            {returnedReservation && !isOutOfStock && (
+              <div className="relative overflow-hidden rounded-[1.5rem] bg-gradient-to-br from-emerald-500 to-teal-600 p-5 shadow-xl shadow-emerald-500/20 animate-in fade-in slide-in-from-top-3 duration-500">
+                <div className="absolute -top-4 -right-4 w-24 h-24 bg-white/10 rounded-full blur-xl" />
+                <div className="absolute bottom-0 left-10 w-16 h-16 bg-white/10 rounded-full blur-lg" />
+                <div className="relative flex items-start gap-3">
+                  <div className="shrink-0 bg-white/20 rounded-xl p-2.5">
+                    <PackageCheck className="h-6 w-6 text-white" strokeWidth={2.5} />
+                  </div>
+                  <div>
+                    <p className="font-black text-white text-sm uppercase tracking-widest leading-tight flex items-center gap-2">
+                      🎉 Voltou ao estoque!
+                    </p>
+                    <p className="text-emerald-100 text-xs font-medium mt-1 leading-relaxed">
+                      {returnedReservation.variantName
+                        ? <>O item <span className="font-bold text-white">{returnedReservation.variantName}</span> que você reservou voltou! Corre antes que acabe.</>
+                        : <>O produto que você reservou voltou ao estoque! Adicione ao carrinho antes que acabe.</>
+                      }
+                    </p>
+                    <div className="flex items-center gap-1.5 mt-2.5">
+                      <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                      <span className="text-[10px] text-white/80 font-bold uppercase tracking-widest">Disponível agora</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Variantes */}
             {variants.length > 0 && (

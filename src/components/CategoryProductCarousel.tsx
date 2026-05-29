@@ -10,20 +10,14 @@ import {
 } from "@/components/ui/carousel";
 import ProductCard from './ProductCard';
 import { Skeleton } from './ui/skeleton';
-import { useProductRotation } from '@/hooks/useProductRotation';
-
 interface CategoryProductCarouselProps {
   categoryName: string;
   showAgeBadge?: boolean;
 }
 
-const ROTATION_INTERVAL = 15000; // 15 segundos
-
 const CategoryProductCarousel = memo(({ categoryName, showAgeBadge = true }: CategoryProductCarouselProps) => {
   const [pool, setPool] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const { fade } = useProductRotation(pool, 6, ROTATION_INTERVAL);
 
   useEffect(() => {
     let mounted = true;
@@ -128,7 +122,7 @@ const CategoryProductCarousel = memo(({ categoryName, showAgeBadge = true }: Cat
             </CarouselContent>
           </Carousel>
         ) : pool.length > 0 ? (
-          <div className="transition-opacity duration-500" style={{ opacity: fade ? 1 : 0 }}>
+          <div>
             <Carousel opts={{ align: "start", loop: pool.length > 4 }} className="w-full">
               <CarouselContent className="-ml-1 md:-ml-2">
                 {pool.map((p, idx) => (

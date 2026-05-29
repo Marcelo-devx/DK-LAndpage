@@ -135,10 +135,9 @@ const Index = () => {
       }
 
       // PHASE 2: produtos, promoções, marcas, categorias
-      setTimeout(async () => {
-        if (!isMountedRef.current) return;
+      if (!isMountedRef.current) return;
 
-        const [productsRes, promosRes, brandsRes, categoriesRes] = await Promise.all([
+      const [productsRes, promosRes, brandsRes, categoriesRes] = await Promise.all([
           timed('fetch_products', Promise.resolve(supabase.from('products').select('*').eq('is_visible', true).order('created_at', { ascending: false }).limit(40))),
           timed('fetch_promos', Promise.resolve(supabase.from('promotions').select('*').eq('is_active', true).order('created_at', { ascending: false }))),
           timed('fetch_brands', Promise.resolve(supabase.from('brands').select('*').eq('is_visible', true).order('name'))),
@@ -200,11 +199,8 @@ const Index = () => {
           setBrands(brandsRes.data || []);
           setCategories(categoriesRes.data || []);
           setLoadingProducts(false);
-          setTimeout(() => {
-            if (isMountedRef.current) setCategoriesVisible(true);
-          }, 400);
+          setCategoriesVisible(true);
         }
-      }, 800);
 
     } catch (error) {
       console.error("Erro ao carregar dados da Home:", error);

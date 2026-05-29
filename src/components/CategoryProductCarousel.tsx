@@ -10,14 +10,20 @@ import {
 } from "@/components/ui/carousel";
 import ProductCard from './ProductCard';
 import { Skeleton } from './ui/skeleton';
+import { useProductRotation } from '@/hooks/useProductRotation';
+
 interface CategoryProductCarouselProps {
   categoryName: string;
   showAgeBadge?: boolean;
 }
 
+const ROTATION_INTERVAL = 15000;
+
 const CategoryProductCarousel = memo(({ categoryName, showAgeBadge = true }: CategoryProductCarouselProps) => {
   const [pool, setPool] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const { visible: products, fade } = useProductRotation(pool, pool.length, ROTATION_INTERVAL);
 
   useEffect(() => {
     let mounted = true;
@@ -121,11 +127,11 @@ const CategoryProductCarousel = memo(({ categoryName, showAgeBadge = true }: Cat
               ))}
             </CarouselContent>
           </Carousel>
-        ) : pool.length > 0 ? (
-          <div>
-            <Carousel opts={{ align: "start", loop: pool.length > 4 }} className="w-full">
+        ) : products.length > 0 ? (
+          <div className="transition-opacity duration-500" style={{ opacity: fade ? 1 : 0 }}>
+            <Carousel opts={{ align: "start", loop: products.length > 4 }} className="w-full">
               <CarouselContent className="-ml-1 md:-ml-2">
-                {pool.map((p, idx) => (
+                {products.map((p, idx) => (
                   <CarouselItem key={`${p.id}-${idx}`} className="pl-1 md:pl-2 basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/5">
                     <ProductCard product={{
                       id: p.id, name: p.name, price: p.price, pixPrice: p.pixPrice,

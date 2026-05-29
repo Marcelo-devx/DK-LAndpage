@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ShoppingBag, Cake, User, Gem, Lock, Loader2, ChevronRight, Star, CheckCircle, Clock, Gift, Ticket, ShoppingBag as ShoppingBagIcon } from 'lucide-react';
+import { ShoppingBag, Cake, User, Gem, Lock, Loader2, ChevronRight, Star, CheckCircle, Clock, Gift, Ticket, ShoppingBag as ShoppingBagIcon, Users } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
@@ -268,6 +268,25 @@ const LoyaltyWidget = ({ onClose }: LoyaltyWidgetProps) => {
                                         <div className="mt-2 flex items-center text-[8px] font-black uppercase tracking-widest text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg w-fit border border-emerald-100">
                                             <CheckCircle className="mr-1 h-2.5 w-2.5" /> Concluído
                                         </div>
+                                    </div>
+                                </div>
+                            </Card>
+
+                            <Card className="p-4 border-none shadow-sm bg-white rounded-2xl group hover:shadow-md transition-all">
+                                <div className="flex gap-3">
+                                    <div className="h-10 w-10 rounded-xl bg-purple-50 flex items-center justify-center shrink-0 group-hover:bg-purple-500 group-hover:text-white transition-colors">
+                                        <Users className="h-5 w-5 text-purple-500 group-hover:text-white transition-colors" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <h4 className="font-black text-slate-900 text-[10px] uppercase tracking-tight italic">Indicação de Amigos</h4>
+                                        <p className="text-[10px] text-slate-500 mt-1 font-medium leading-snug">Ganhe <span className="text-purple-600 font-bold">pontos</span> a cada amigo que se cadastrar com seu link.</p>
+                                        <Link
+                                            to="/indicacoes"
+                                            onClick={onClose}
+                                            className="mt-2 inline-flex items-center gap-1 text-[8px] font-black uppercase tracking-widest text-purple-600 bg-purple-50 px-2 py-1 rounded-lg border border-purple-100 hover:bg-purple-100 transition-colors"
+                                        >
+                                            Ver meu link <ChevronRight className="h-2.5 w-2.5" />
+                                        </Link>
                                     </div>
                                 </div>
                             </Card>

@@ -1,12 +1,15 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
-import { ShoppingCart, Loader2, Eye } from "lucide-react";
-import { memo } from "react";
+import { ShoppingCart, Loader2, Eye, Bookmark, BookmarkCheck } from "lucide-react";
+import { memo, useState, useEffect } from "react";
 import { ProductCardProps } from "./ProductCard.types";
 import { cn } from "@/lib/utils";
 import ProductImage from "@/components/ProductImage";
 import { useAddToCart } from "@/hooks/useAddToCart";
+import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { showSuccess, showError } from "@/utils/toast";
 
 const PixIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
@@ -18,18 +21,10 @@ const PixIcon = ({ className }: { className?: string }) => (
 const ProductCard = memo(({ product, imagePriority }: ProductCardProps & { imagePriority?: boolean }) => {
   const { handleAddToCart, isAdding } = useAddToCart();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
-  const handleAddToCartClick = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    await handleAddToCart(product.id, 1, 'product', product.variantId);
-  };
-
-  const handleViewOptions = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    navigate(`/produto/${product.id}`);
-  };
+  const [isReserving, setIsReserving] = useState(false);
+  const [isReserved, setIsReserved] = useState(false);
 
   const hasMultipleVariants = product.hasMultipleVariants;
   const fullPrice = product.price ?? 0;
@@ -47,10 +42,79 @@ const ProductCard = memo(({ product, imagePriority }: ProductCardProps & { image
         ? `/produto/${product.id}?variant=${product.variantId}`
         : `/produto/${product.id}`;
   
-  // Consider a product out of stock whenever the known stock quantity is 0 or less,
-  // independent of whether it has multiple variants. This ensures products with
-  // total variant stock = 0 are shown as esgotado and do not get priority.
   const isOutOfStock = typeof product.stockQuantity === 'number' ? product.stockQuantity <= 0 : false;
+
+  // Verifica se o produto já está reservado pelo usuário logado
+  useEffect(() => {
+    if (!user || !isOutOfStock) return;
+
+    const checkReservation = async () => {
+      const { data } = await supabase
+        .from('product_reservations')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('product_id', product.id)
+        .eq('status', 'active')
+        .maybeSingle();
+      
+      setIsReserved(!!data);
+    };
+
+    checkReservation();
+  }, [user, product.id, isOutOfStock]);
+
+  const handleAddToCartClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    await handleAddToCart(product.id, 1, 'product', product.variantId);
+  };
+
+  const handleViewOptions = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    navigate(`/produto/${product.id}`);
+  };
+
+  const handleReserve = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+
+    if (isReserved) return;
+
+    setIsReserving(true);
+    try {
+      const { error } = await supabase
+        .from('product_reservations')
+        .insert({
+          user_id: user.id,
+          product_id: product.id,
+          product_name: product.name,
+          product_image: product.imageUrl,
+          status: 'active',
+        });
+
+      if (error) {
+        if (error.code === '23505') {
+          showError('Produto já está reservado!');
+          setIsReserved(true);
+        } else {
+          showError('Erro ao reservar produto. Tente novamente.');
+        }
+      } else {
+        setIsReserved(true);
+        showSuccess('Produto reservado! Avisaremos quando estiver disponível.');
+      }
+    } catch {
+      showError('Erro ao reservar produto. Tente novamente.');
+    } finally {
+      setIsReserving(false);
+    }
+  };
 
   return (
     <Link to={linkUrl} className="group block h-full">
@@ -109,7 +173,44 @@ const ProductCard = memo(({ product, imagePriority }: ProductCardProps & { image
 
           {/* Botão de ação */}
           <div className="mt-3">
-            {hasMultipleVariants ? (
+            {isOutOfStock ? (
+              user ? (
+                // Usuário logado + produto esgotado → botão de reserva
+                <Button
+                  className={cn(
+                    "w-full font-black uppercase text-[9px] md:text-[10px] xl:text-[11px] tracking-widest h-9 md:h-10 xl:h-11 rounded-xl transition-all duration-300 whitespace-nowrap",
+                    isReserved
+                      ? "bg-amber-500 hover:bg-amber-500 text-white cursor-default"
+                      : "bg-slate-800 hover:bg-amber-500 text-white"
+                  )}
+                  onClick={handleReserve}
+                  disabled={isReserving || isReserved}
+                >
+                  {isReserving ? (
+                    <Loader2 className="animate-spin h-3.5 w-3.5" />
+                  ) : isReserved ? (
+                    <>
+                      <BookmarkCheck className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                      Reservado
+                    </>
+                  ) : (
+                    <>
+                      <Bookmark className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                      Reservar
+                    </>
+                  )}
+                </Button>
+              ) : (
+                // Usuário não logado + produto esgotado → botão desabilitado
+                <Button
+                  className="w-full font-black uppercase text-[9px] md:text-[10px] xl:text-[11px] tracking-widest h-9 md:h-10 xl:h-11 rounded-xl transition-all duration-300 whitespace-nowrap bg-stone-200 text-stone-500 cursor-not-allowed hover:bg-stone-200"
+                  disabled
+                >
+                  <ShoppingCart className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                  Esgotado
+                </Button>
+              )
+            ) : hasMultipleVariants ? (
               <Button 
                 className="w-full font-black uppercase text-[9px] md:text-[10px] xl:text-[11px] tracking-widest h-9 md:h-10 xl:h-11 rounded-xl transition-all duration-300 bg-slate-950 hover:bg-sky-500 text-white whitespace-nowrap"
                 onClick={handleViewOptions}
@@ -120,17 +221,14 @@ const ProductCard = memo(({ product, imagePriority }: ProductCardProps & { image
               </Button>
             ) : (
               <Button 
-                className={cn(
-                    "w-full font-black uppercase text-[9px] md:text-[10px] xl:text-[11px] tracking-widest h-9 md:h-10 xl:h-11 rounded-xl transition-all duration-300 whitespace-nowrap",
-                    isOutOfStock ? "bg-stone-200 text-stone-500 cursor-not-allowed hover:bg-stone-200" : "bg-slate-950 hover:bg-sky-500 text-white"
-                )}
+                className="w-full font-black uppercase text-[9px] md:text-[10px] xl:text-[11px] tracking-widest h-9 md:h-10 xl:h-11 rounded-xl transition-all duration-300 bg-slate-950 hover:bg-sky-500 text-white whitespace-nowrap"
                 onClick={handleAddToCartClick}
-                disabled={isAdding || isOutOfStock}
+                disabled={isAdding}
               >
                 {isAdding ? <Loader2 className="animate-spin h-3.5 w-3.5" /> : (
                   <>
                     <ShoppingCart className="mr-1.5 h-3.5 w-3.5 shrink-0" />
-                    {isOutOfStock ? 'Esgotado' : 'Adicionar'}
+                    Adicionar
                   </>
                 )}
               </Button>

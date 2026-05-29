@@ -16,6 +16,7 @@ import OrdersPage from "./pages/OrdersPage";
 import AllProductsPage from "./pages/AllProductsPage";
 import LoyaltyClubPage from "./pages/LoyaltyClubPage";
 import MyCouponsPage from "./pages/MyCouponsPage";
+import ReservedItemsPage from "./pages/ReservedItemsPage";
 import HowItWorksPage from "./pages/HowItWorksPage";
 import InformacoesPage from "./pages/InformacoesPage";
 import UpdatePassword from "./pages/UpdatePassword";
@@ -100,6 +101,7 @@ const AppContent = () => {
             <Route path="/dashboard/security" element={<DashboardSecurity />} />
             <Route path="/clube-dk" element={<LoyaltyClubPage />} />
             <Route path="/meus-cupons" element={<MyCouponsPage />} />
+            <Route path="/itens-reservados" element={<ReservedItemsPage />} />
             <Route path="/como-funciona" element={<HowItWorksPage />} />
             <Route path="/informacoes" element={<InformacoesPage />} />
           </Route>

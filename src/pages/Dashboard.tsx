@@ -3,17 +3,18 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { 
-  User, 
-  ShoppingBag, 
-  Star, 
-  Users, 
-  Ticket, 
-  LogOut, 
+import {
+  User,
+  ShoppingBag,
+  Star,
+  Users,
+  Ticket,
+  LogOut,
   Gem,
   ChevronRight,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  Bookmark
 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
@@ -131,6 +132,14 @@ const Dashboard = () => {
       icon: Star,
       link: '/perfil?tab=reviews',
       color: 'text-yellow-600 bg-yellow-100',
+      notification: false
+    },
+    {
+      title: 'Itens Reservados',
+      description: 'Produtos esgotados que você reservou',
+      icon: Bookmark,
+      link: '/itens-reservados',
+      color: 'text-amber-600 bg-amber-100',
       notification: false
     },
     {

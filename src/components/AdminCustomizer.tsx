@@ -561,7 +561,7 @@ const AdminCustomizer = () => {
                 <TabsTrigger value="home" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-sky-500 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><Home className="h-3.5 w-3.5" /> Home</TabsTrigger>
                 <TabsTrigger value="login" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-indigo-500 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><LogIn className="h-3.5 w-3.5" /> Login</TabsTrigger>
                 <TabsTrigger value="maintenance" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-orange-600 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><Wrench className="h-3.5 w-3.5" /> Manutenção</TabsTrigger>
-                <TabsTrigger value="timerbar" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-sky-500 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><Timer className="h-3.5 w-3.5" /> Barra Azul</TabsTrigger>
+                <TabsTrigger value="timerbar" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-yellow-500 data-[state=active]:text-slate-900 hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><Timer className="h-3.5 w-3.5" /> Barra Amarela</TabsTrigger>
                 <TabsTrigger value="feriados" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-rose-500 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><CalendarX className="h-3.5 w-3.5" /> Feriados</TabsTrigger>
                 {canManageShipping && (
                   <TabsTrigger value="frete" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-green-600 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><Truck className="h-3.5 w-3.5" /> Frete</TabsTrigger>
@@ -912,15 +912,15 @@ const AdminCustomizer = () => {
                 )}
               </TabsContent>
 
-              {/* --- ABA BARRA AZUL (TIMER) --- */}
-              <TabsContent value="timerbar" className="space-y-6 mt-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="bg-sky-50 border border-sky-100 p-4 rounded-xl">
+              {/* --- ABA BARRA AMARELA (TIMER) --- */}
+              <TabsContent value="timerbar" className="space-y-4 mt-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-xl">
                   <div className="flex items-center gap-3 mb-2">
-                    <Timer className="h-5 w-5 text-sky-600" />
-                    <h3 className="font-bold text-sky-900 text-sm">Mensagens da Barra de Entrega</h3>
+                    <Timer className="h-5 w-5 text-yellow-600" />
+                    <h3 className="font-bold text-yellow-900 text-sm">Mensagens da Barra Amarela</h3>
                   </div>
-                  <p className="text-xs text-sky-700 font-medium">
-                    Edite os textos exibidos na barra azul no topo do site. As alterações são salvas ao clicar em "Salvar Mensagens".
+                  <p className="text-xs text-yellow-700 font-medium">
+                    Edite as mensagens exibidas na barra amarela no topo do site conforme o horário e dia da semana.
                   </p>
                 </div>
 
@@ -928,52 +928,70 @@ const AdminCustomizer = () => {
                   <div className="flex justify-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                   </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="bg-slate-900 rounded-xl border border-slate-700 overflow-hidden">
-                      <div className="flex items-center justify-between px-4 py-2 border-b border-slate-700">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">JSON — Barra de Entrega</span>
-                        <button
+                ) : (() => {
+                  let parsed: Record<string, string> = {};
+                  try { parsed = JSON.parse(timerJson); } catch {}
+                  const fields = [
+                    { key: 'weekday_before', label: '📦 Seg–Sex antes das 14h', hint: 'Mostra timer de contagem regressiva', icon: '🟢' },
+                    { key: 'weekday_after', label: '🌙 Seg–Sex após as 14h', hint: 'Mostra próximo dia de entrega', icon: '🟡' },
+                    { key: 'saturday_before', label: '📦 Sábado antes das 12:30h', hint: 'Mostra timer de contagem regressiva', icon: '🟢' },
+                    { key: 'saturday_after', label: '🌙 Sábado após as 12:30h', hint: 'Mostra próximo dia de entrega', icon: '🟡' },
+                    { key: 'sunday', label: '😴 Domingo', hint: 'Mostra próximo dia de entrega', icon: '🔵' },
+                  ];
+
+                  const handleFieldChange = (fieldKey: string, value: string) => {
+                    try {
+                      const current = JSON.parse(timerJson);
+                      current[fieldKey] = value;
+                      setTimerJson(JSON.stringify(current, null, 2));
+                      setTimerJsonError(null);
+                    } catch {
+                      setTimerJsonError('Erro interno. Tente resetar.');
+                    }
+                  };
+
+                  return (
+                    <div className="space-y-3">
+                      {fields.map((field) => (
+                        <div key={field.key} className="bg-white border border-slate-100 rounded-xl p-4 shadow-sm space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs font-bold text-slate-700">{field.label}</Label>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50 px-2 py-1 rounded-md border border-slate-100">{field.hint}</span>
+                          </div>
+                          <Input
+                            value={parsed[field.key] || ''}
+                            onChange={(e) => handleFieldChange(field.key, e.target.value)}
+                            className="text-sm"
+                            placeholder={`Mensagem para ${field.label}`}
+                          />
+                        </div>
+                      ))}
+
+                      {timerJsonError && (
+                        <p className="text-xs text-red-500 font-bold flex items-center gap-1">⚠️ {timerJsonError}</p>
+                      )}
+
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs border-slate-200 text-slate-500 hover:text-slate-700"
                           onClick={() => { setTimerJson(defaultTimerJson); setTimerJsonError(null); }}
-                          className="text-[10px] text-slate-500 hover:text-sky-400 font-bold uppercase tracking-wider transition-colors"
                         >
-                          Resetar
+                          Resetar padrão
+                        </Button>
+                        <button
+                          onClick={saveTimerMessages}
+                          disabled={savingTimer}
+                          className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-slate-900 font-bold h-10 rounded-xl shadow transition-all active:scale-95 flex items-center justify-center gap-2 text-sm"
+                        >
+                          {savingTimer ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                          {savingTimer ? 'Salvando...' : 'Salvar Mensagens'}
                         </button>
                       </div>
-                      <textarea
-                        value={timerJson}
-                        onChange={(e) => { setTimerJson(e.target.value); setTimerJsonError(null); }}
-                        rows={14}
-                        spellCheck={false}
-                        className="w-full bg-transparent text-green-400 font-mono text-xs p-4 resize-none outline-none leading-relaxed"
-                      />
                     </div>
-
-                    {timerJsonError && (
-                      <p className="text-xs text-red-500 font-bold flex items-center gap-1">
-                        ⚠️ {timerJsonError}
-                      </p>
-                    )}
-
-                    <div className="bg-slate-800 rounded-lg p-3 text-[10px] text-slate-400 font-mono leading-relaxed">
-                      <p className="text-slate-300 font-bold mb-1">Chaves disponíveis:</p>
-                      <p>• <span className="text-sky-400">weekday_before</span> — Seg–Sex antes das 14h</p>
-                      <p>• <span className="text-sky-400">weekday_after</span> — Seg–Sex após as 14h</p>
-                      <p>• <span className="text-sky-400">saturday_before</span> — Sábado antes das 12:30h</p>
-                      <p>• <span className="text-sky-400">saturday_after</span> — Sábado após as 12:30h</p>
-                      <p>• <span className="text-sky-400">sunday</span> — Domingo</p>
-                    </div>
-
-                    <button
-                      onClick={saveTimerMessages}
-                      disabled={savingTimer}
-                      className="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold h-11 rounded-xl shadow transition-all active:scale-95 flex items-center justify-center gap-2 text-sm"
-                    >
-                      {savingTimer ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                      {savingTimer ? 'Salvando...' : 'Salvar JSON'}
-                    </button>
-                  </div>
-                )}
+                  );
+                })()}
               </TabsContent>
 
               {/* --- ABA FRETE GRÁTIS --- */}

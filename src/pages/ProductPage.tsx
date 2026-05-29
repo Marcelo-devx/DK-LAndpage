@@ -3,10 +3,11 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, Minus, ChevronLeft, Loader2, FileText, ShoppingCart, Zap, Palette, Droplets, ArrowLeft, ShoppingBag } from "lucide-react";
+import { Plus, Minus, ChevronLeft, Loader2, FileText, ShoppingCart, Zap, Palette, Droplets, ArrowLeft, ShoppingBag, Bookmark, BookmarkCheck } from "lucide-react";
 import { useAddToCart } from '@/hooks/useAddToCart';
+import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
-import { showError } from '@/utils/toast';
+import { showError, showSuccess } from '@/utils/toast';
 import { Card, CardContent } from "@/components/ui/card";
 import ProductImage from '@/components/ProductImage';
 import DOMPurify from 'dompurify';
@@ -128,6 +129,9 @@ const ProductPage = () => {
   const [approvedReviews, setApprovedReviews] = useState<{ id: number; rating: number; comment: string | null; created_at: string }[]>([]);
 
   const { handleAddToCart, isAdding } = useAddToCart();
+  const { user } = useAuth();
+  const [isReserving, setIsReserving] = useState(false);
+  const [isReserved, setIsReserved] = useState(false);
 
   // SEO — computed at top level (no hook inside useEffect)
   const seoTitle = product ? `${product.name} | DKCWB` : 'DKCWB';
@@ -380,6 +384,72 @@ const ProductPage = () => {
     await handleAddToCart(product.id, quantity, 'product', selectedVariant?.id);
   };
 
+  // Verifica se a variação/produto já está reservado
+  useEffect(() => {
+    if (!user || !product) { setIsReserved(false); return; }
+    const variantIsOut = variants.length > 0
+      ? selectedVariant ? selectedVariant.stock_quantity <= 0 : false
+      : product.stock_quantity <= 0;
+    if (!variantIsOut) { setIsReserved(false); return; }
+
+    const checkReservation = async () => {
+      const query = supabase
+        .from('product_reservations')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('product_id', product.id)
+        .eq('status', 'active');
+
+      if (selectedVariant) {
+        query.eq('variant_id', selectedVariant.id);
+      } else {
+        query.is('variant_id', null);
+      }
+
+      const { data } = await query.maybeSingle();
+      setIsReserved(!!data);
+    };
+
+    checkReservation();
+  }, [user, product?.id, selectedVariant?.id, variants.length]);
+
+  const handleReserve = async () => {
+    if (!user) { navigate('/login'); return; }
+    if (!product || isReserved) return;
+
+    const variantLabel = selectedVariant ? getVariantLabel(selectedVariant) : null;
+
+    setIsReserving(true);
+    try {
+      const { error } = await supabase.from('product_reservations').insert({
+        user_id: user.id,
+        product_id: product.id,
+        product_name: product.name,
+        product_image: product.image_url,
+        variant_id: selectedVariant?.id ?? null,
+        variant_name: variantLabel ?? null,
+        status: 'active',
+      });
+
+      if (error) {
+        if (error.code === '23505') {
+          setIsReserved(true);
+          showError('Este item já está reservado!');
+        } else {
+          showError('Erro ao reservar. Tente novamente.');
+        }
+      } else {
+        setIsReserved(true);
+        const label = variantLabel ? ` — ${variantLabel}` : '';
+        showSuccess(`Reservado! Avisaremos quando "${product.name}${label}" voltar ao estoque.`);
+      }
+    } catch {
+      showError('Erro ao reservar. Tente novamente.');
+    } finally {
+      setIsReserving(false);
+    }
+  };
+
   const getVariantLabel = (v: Variant) => {
     if (v.flavor_name) return v.flavor_name;
     if (v.color) return v.color;
@@ -606,29 +676,53 @@ const ProductPage = () => {
                   </div>
                 </div>
 
-                <Button
-                  size="lg"
-                  variant={isOutOfStock ? "secondary" : "default"}
-                  onClick={handleAddToCartClick}
-                  className={cn(
-                    "w-full font-black uppercase tracking-[0.2em] h-14 xl:h-16 text-lg xl:text-xl rounded-[1.5rem] shadow-xl transition-all active:scale-95",
-                    !isOutOfStock && "bg-sky-500 hover:bg-sky-400 text-white",
-                    isOutOfStock && "bg-stone-800 text-stone-500 opacity-70"
-                  )}
-                  disabled={isAdding || isOutOfStock}
-                >
-                  {isAdding ? <Loader2 className="animate-spin h-6 w-6" /> : (
-                    <span className="flex items-center gap-2">
-                      <ShoppingCart className="h-6 w-6" />
-                      <span className={cn(
-                        isOutOfStock ? 'text-stone-500' : 'text-white',
-                        "text-xs xl:text-sm font-black uppercase tracking-widest"
-                      )}>
-                        {isOutOfStock ? 'ESGOTADO' : 'ADICIONAR AO CARRINHO'}
+                {isOutOfStock && user ? (
+                  <Button
+                    size="lg"
+                    onClick={handleReserve}
+                    disabled={isReserving || isReserved}
+                    className={cn(
+                      "w-full font-black uppercase tracking-[0.2em] h-14 xl:h-16 rounded-[1.5rem] shadow-xl transition-all active:scale-95",
+                      isReserved
+                        ? "bg-amber-500 hover:bg-amber-500 text-white cursor-default"
+                        : "bg-slate-800 hover:bg-amber-500 text-white"
+                    )}
+                  >
+                    {isReserving ? <Loader2 className="animate-spin h-6 w-6" /> : isReserved ? (
+                      <span className="flex items-center gap-2 text-xs xl:text-sm">
+                        <BookmarkCheck className="h-5 w-5" /> RESERVADO
                       </span>
-                    </span>
-                  )}
-                </Button>
+                    ) : (
+                      <span className="flex items-center gap-2 text-xs xl:text-sm">
+                        <Bookmark className="h-5 w-5" /> RESERVAR ESTE ITEM
+                      </span>
+                    )}
+                  </Button>
+                ) : (
+                  <Button
+                    size="lg"
+                    variant={isOutOfStock ? "secondary" : "default"}
+                    onClick={handleAddToCartClick}
+                    className={cn(
+                      "w-full font-black uppercase tracking-[0.2em] h-14 xl:h-16 text-lg xl:text-xl rounded-[1.5rem] shadow-xl transition-all active:scale-95",
+                      !isOutOfStock && "bg-sky-500 hover:bg-sky-400 text-white",
+                      isOutOfStock && "bg-stone-800 text-stone-500 opacity-70"
+                    )}
+                    disabled={isAdding || isOutOfStock}
+                  >
+                    {isAdding ? <Loader2 className="animate-spin h-6 w-6" /> : (
+                      <span className="flex items-center gap-2">
+                        <ShoppingCart className="h-6 w-6" />
+                        <span className={cn(
+                          isOutOfStock ? 'text-stone-500' : 'text-white',
+                          "text-xs xl:text-sm font-black uppercase tracking-widest"
+                        )}>
+                          {isOutOfStock ? 'ESGOTADO' : 'ADICIONAR AO CARRINHO'}
+                        </span>
+                      </span>
+                    )}
+                  </Button>
+                )}
               </div>
 
               <div className="space-y-3">
@@ -815,26 +909,47 @@ const ProductPage = () => {
             </button>
           </div>
 
-          {/* Botão Adicionar */}
-          <button
-            onClick={handleAddToCartClick}
-            disabled={isAdding || isOutOfStock}
-            className={cn(
-              "flex-1 h-12 rounded-xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg",
-              isOutOfStock
-                ? "bg-stone-200 text-stone-400 cursor-not-allowed"
-                : "bg-sky-500 hover:bg-sky-400 text-white shadow-sky-500/30"
-            )}
-          >
-            {isAdding ? (
-              <Loader2 className="animate-spin h-5 w-5" />
-            ) : (
-              <>
-                <ShoppingCart className="h-4 w-4 shrink-0" />
-                <span>{isOutOfStock ? 'Esgotado' : 'Adicionar'}</span>
-              </>
-            )}
-          </button>
+          {/* Botão Adicionar / Reservar */}
+          {isOutOfStock && user ? (
+            <button
+              onClick={handleReserve}
+              disabled={isReserving || isReserved}
+              className={cn(
+                "flex-1 h-12 rounded-xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg",
+                isReserved
+                  ? "bg-amber-500 text-white cursor-default"
+                  : "bg-slate-800 hover:bg-amber-500 text-white"
+              )}
+            >
+              {isReserving ? (
+                <Loader2 className="animate-spin h-5 w-5" />
+              ) : isReserved ? (
+                <><BookmarkCheck className="h-4 w-4 shrink-0" /><span>Reservado</span></>
+              ) : (
+                <><Bookmark className="h-4 w-4 shrink-0" /><span>Reservar</span></>
+              )}
+            </button>
+          ) : (
+            <button
+              onClick={handleAddToCartClick}
+              disabled={isAdding || isOutOfStock}
+              className={cn(
+                "flex-1 h-12 rounded-xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg",
+                isOutOfStock
+                  ? "bg-stone-200 text-stone-400 cursor-not-allowed"
+                  : "bg-sky-500 hover:bg-sky-400 text-white shadow-sky-500/30"
+              )}
+            >
+              {isAdding ? (
+                <Loader2 className="animate-spin h-5 w-5" />
+              ) : (
+                <>
+                  <ShoppingCart className="h-4 w-4 shrink-0" />
+                  <span>{isOutOfStock ? 'Esgotado' : 'Adicionar'}</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
     </div>

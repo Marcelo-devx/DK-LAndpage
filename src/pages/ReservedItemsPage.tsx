@@ -14,6 +14,8 @@ interface Reservation {
   product_id: number;
   product_name: string;
   product_image: string | null;
+  variant_id: string | null;
+  variant_name: string | null;
   status: string;
   created_at: string;
 }
@@ -163,6 +165,12 @@ const ReservedItemsPage = () => {
                     </h3>
                   </Link>
 
+                  {reservation.variant_name && (
+                    <p className="text-xs text-sky-600 font-bold uppercase tracking-wider mt-0.5" translate="no">
+                      {reservation.variant_name}
+                    </p>
+                  )}
+
                   <div className="mt-1 flex items-center gap-2">
                     <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-600 border border-amber-100 text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full">
                       <Bookmark className="h-2.5 w-2.5" />
@@ -181,7 +189,7 @@ const ReservedItemsPage = () => {
                     size="sm"
                     className="bg-sky-500 hover:bg-sky-400 text-white font-black uppercase text-[9px] tracking-widest rounded-lg h-8"
                   >
-                    <Link to={`/produto/${reservation.product_id}`}>Ver</Link>
+                    <Link to={reservation.variant_id ? `/produto/${reservation.product_id}?variant=${reservation.variant_id}` : `/produto/${reservation.product_id}`}>Ver</Link>
                   </Button>
                   <Button
                     size="sm"

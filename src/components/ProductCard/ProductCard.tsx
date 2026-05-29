@@ -44,9 +44,9 @@ const ProductCard = memo(({ product, imagePriority }: ProductCardProps & { image
   
   const isOutOfStock = typeof product.stockQuantity === 'number' ? product.stockQuantity <= 0 : false;
 
-  // Verifica se o produto já está reservado pelo usuário logado
+  // Verifica reserva apenas para produtos SEM variações (sem variações = pode reservar direto)
   useEffect(() => {
-    if (!user || !isOutOfStock) return;
+    if (!user || !isOutOfStock || hasMultipleVariants) return;
 
     const checkReservation = async () => {
       const { data } = await supabase
@@ -55,13 +55,14 @@ const ProductCard = memo(({ product, imagePriority }: ProductCardProps & { image
         .eq('user_id', user.id)
         .eq('product_id', product.id)
         .eq('status', 'active')
+        .is('variant_id', null)
         .maybeSingle();
       
       setIsReserved(!!data);
     };
 
     checkReservation();
-  }, [user, product.id, isOutOfStock]);
+  }, [user, product.id, isOutOfStock, hasMultipleVariants]);
 
   const handleAddToCartClick = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -173,44 +174,54 @@ const ProductCard = memo(({ product, imagePriority }: ProductCardProps & { image
 
           {/* Botão de ação */}
           <div className="mt-3">
-            {isOutOfStock ? (
-              user ? (
-                // Usuário logado + produto esgotado → botão de reserva
-                <Button
-                  className={cn(
-                    "w-full font-black uppercase text-[9px] md:text-[10px] xl:text-[11px] tracking-widest h-9 md:h-10 xl:h-11 rounded-xl transition-all duration-300 whitespace-nowrap",
-                    isReserved
-                      ? "bg-amber-500 hover:bg-amber-500 text-white cursor-default"
-                      : "bg-slate-800 hover:bg-amber-500 text-white"
-                  )}
-                  onClick={handleReserve}
-                  disabled={isReserving || isReserved}
-                >
-                  {isReserving ? (
-                    <Loader2 className="animate-spin h-3.5 w-3.5" />
-                  ) : isReserved ? (
-                    <>
-                      <BookmarkCheck className="mr-1.5 h-3.5 w-3.5 shrink-0" />
-                      Reservado
-                    </>
-                  ) : (
-                    <>
-                      <Bookmark className="mr-1.5 h-3.5 w-3.5 shrink-0" />
-                      Reservar
-                    </>
-                  )}
-                </Button>
-              ) : (
-                // Usuário não logado + produto esgotado → botão desabilitado
-                <Button
-                  className="w-full font-black uppercase text-[9px] md:text-[10px] xl:text-[11px] tracking-widest h-9 md:h-10 xl:h-11 rounded-xl transition-all duration-300 whitespace-nowrap bg-stone-200 text-stone-500 cursor-not-allowed hover:bg-stone-200"
-                  disabled
-                >
-                  <ShoppingCart className="mr-1.5 h-3.5 w-3.5 shrink-0" />
-                  Esgotado
-                </Button>
-              )
-            ) : hasMultipleVariants ? (
+            {isOutOfStock && hasMultipleVariants ? (
+              // Produto com variações esgotado → vai para a página escolher qual variação reservar
+              <Button
+                className="w-full font-black uppercase text-[9px] md:text-[10px] xl:text-[11px] tracking-widest h-9 md:h-10 xl:h-11 rounded-xl transition-all duration-300 bg-slate-800 hover:bg-amber-500 text-white whitespace-nowrap"
+                onClick={handleViewOptions}
+                aria-label="Ver opções para reservar"
+              >
+                <Bookmark className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                Ver p/ Reservar
+              </Button>
+            ) : isOutOfStock ? (
+                user ? (
+                  // Usuário logado + sem variações + esgotado → reserva direta
+                  <Button
+                    className={cn(
+                      "w-full font-black uppercase text-[9px] md:text-[10px] xl:text-[11px] tracking-widest h-9 md:h-10 xl:h-11 rounded-xl transition-all duration-300 whitespace-nowrap",
+                      isReserved
+                        ? "bg-amber-500 hover:bg-amber-500 text-white cursor-default"
+                        : "bg-slate-800 hover:bg-amber-500 text-white"
+                    )}
+                    onClick={handleReserve}
+                    disabled={isReserving || isReserved}
+                  >
+                    {isReserving ? (
+                      <Loader2 className="animate-spin h-3.5 w-3.5" />
+                    ) : isReserved ? (
+                      <>
+                        <BookmarkCheck className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                        Reservado
+                      </>
+                    ) : (
+                      <>
+                        <Bookmark className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                        Reservar
+                      </>
+                    )}
+                  </Button>
+                ) : (
+                  // Usuário não logado + sem variações + esgotado → desabilitado
+                  <Button
+                    className="w-full font-black uppercase text-[9px] md:text-[10px] xl:text-[11px] tracking-widest h-9 md:h-10 xl:h-11 rounded-xl transition-all duration-300 whitespace-nowrap bg-stone-200 text-stone-500 cursor-not-allowed hover:bg-stone-200"
+                    disabled
+                  >
+                    <ShoppingCart className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                    Esgotado
+                  </Button>
+                )
+              ) : hasMultipleVariants ? (
               <Button 
                 className="w-full font-black uppercase text-[9px] md:text-[10px] xl:text-[11px] tracking-widest h-9 md:h-10 xl:h-11 rounded-xl transition-all duration-300 bg-slate-950 hover:bg-sky-500 text-white whitespace-nowrap"
                 onClick={handleViewOptions}

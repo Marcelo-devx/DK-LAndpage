@@ -31,13 +31,19 @@ serve(async (req: Request) => {
     } else {
       let body: any = {}
       try {
-        body = await req.json()
+        const rawText = await req.text()
+        console.log(`[get-order-public][${requestId}] raw body text:`, rawText?.substring(0, 200))
+        if (rawText && rawText.trim()) {
+          body = JSON.parse(rawText)
+        }
         console.log(`[get-order-public][${requestId}] parsed body:`, JSON.stringify(body))
       } catch (e) {
         console.error(`[get-order-public][${requestId}] failed to parse body:`, e)
         body = {}
       }
-      orderId = body.order_id || body.id || null
+      // Aceita order_id como número ou string, com ou sem prefixo
+      const rawId = body.order_id ?? body.id ?? body.orderId ?? null
+      orderId = rawId !== null ? String(rawId).replace(/\D/g, '') || null : null
     }
 
     console.log(`[get-order-public][${requestId}] resolved orderId: ${orderId}`)

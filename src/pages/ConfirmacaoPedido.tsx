@@ -90,13 +90,13 @@ const ConfirmacaoPedido = () => {
       return;
     }
 
-    // Timeout de 3s para evitar loading infinito ao voltar de outra aba
+    // Timeout de 10s para evitar loading infinito ao voltar de outra aba
     const timeoutId = setTimeout(() => {
       if (!isBackground) {
         setLoading(false);
         setErrorMessage('Tempo limite excedido. Tente novamente.');
       }
-    }, 3000);
+    }, 10000);
 
     try {
       // Strategy 1: Try edge function first (uses service role, bypasses RLS)

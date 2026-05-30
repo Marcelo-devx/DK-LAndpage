@@ -119,7 +119,16 @@ function isColdStartHttpError(error: unknown): boolean {
   if (status === 500) return true;
 
   // 400 com mensagem vazia ou genérica indica cold start (body não chegou)
+  // NÃO retentar se a mensagem indica erro de negócio real (ex: order_id missing)
   if (status === 400) {
+    if (
+      msg.includes('order_id') ||
+      msg.includes('required') ||
+      msg.includes('invalid') ||
+      msg.includes('not found')
+    ) {
+      return false;
+    }
     return (
       msg === '' ||
       msg === 'bad request' ||

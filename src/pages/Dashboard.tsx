@@ -175,9 +175,6 @@ const Dashboard = () => {
             <div>
               <div className="flex items-center gap-2 mb-0.5">
                 <p className="text-stone-400 text-[10px] font-black uppercase tracking-[0.2em]">{settings.dashboardPointsLabel}</p>
-                {profile?.current_tier_name && (
-                    <span className="bg-slate-900 text-white text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-widest">{profile.current_tier_name}</span>
-                )}
               </div>
               <p className="text-4xl md:text-5xl font-black tracking-tighter text-charcoal-gray">
                 {profile?.points || 0} <span className="text-lg md:text-xl text-sky-500 italic">PTS</span>

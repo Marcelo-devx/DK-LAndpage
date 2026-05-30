@@ -1,4 +1,4 @@
-// redeploy: 2026-05-15T14:30:00Z — force redeploy v3 fix token field
+// redeploy: 2026-05-30T01:50:00Z — force redeploy v4 fix stale deployment
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 // @ts-ignore

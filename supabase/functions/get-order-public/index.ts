@@ -1,4 +1,4 @@
-// redeploy: 2026-05-05T22:40:00Z — add body debug logging
+// redeploy: 2026-05-30T02:20:00Z — force full sync
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 // @ts-ignore

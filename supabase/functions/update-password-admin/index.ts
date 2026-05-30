@@ -57,7 +57,7 @@ const friendlyPasswordError = (errBody: any): { error: string; code: string } =>
   };
 };
 
-// redeploy: 2026-05-05T19:45:00Z — restart all
+// redeploy: 2026-05-30T02:20:00Z — force full sync
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { status: 200, headers: corsHeaders });

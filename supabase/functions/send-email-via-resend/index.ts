@@ -1,4 +1,4 @@
-// redeploy: 2026-05-15T20:00:00Z — add detailed logs for debugging email issue
+// redeploy: 2026-05-30T02:10:00Z — force redeploy v2 fix stale deployment
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 

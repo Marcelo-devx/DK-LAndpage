@@ -1,4 +1,4 @@
-// redeploy: 2026-05-15T20:30:00Z — auth hook para interceptar emails nativos do Supabase via Resend
+// redeploy: 2026-07-13T10:10:00Z — force redeploy send-auth-hook
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 // @ts-ignore

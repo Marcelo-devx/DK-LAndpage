@@ -1,4 +1,4 @@
-// redeploy: 2026-05-15T15:50:00Z — force fresh deploy to resync public access
+// redeploy: 2026-07-13T10:10:00Z — force redeploy validate-token
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 

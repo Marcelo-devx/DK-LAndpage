@@ -1,4 +1,4 @@
-// redeploy: 2026-05-15T14:00:00Z — force redeploy v2 fix trigger_event column
+// redeploy: 2026-05-30T01:45:00Z — force redeploy v3 fix stale deployment
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'

@@ -1,4 +1,4 @@
-// redeploy: 2026-05-30T01:45:00Z — force redeploy v3 fix stale deployment
+// redeploy: 2026-07-14T14:00:00Z — force full redeploy all functions
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'

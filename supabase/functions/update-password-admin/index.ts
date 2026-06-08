@@ -1,4 +1,4 @@
-// redeploy: 2026-07-13T11:00:00Z — add timestamp to force fresh deploy
+// redeploy: 2026-07-14T14:00:00Z — force full redeploy all functions
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 // @ts-ignore

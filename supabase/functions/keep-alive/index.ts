@@ -1,4 +1,4 @@
-// redeploy: 2026-07-13T10:10:00Z — force redeploy keep-alive
+// redeploy: 2026-07-13T11:00:00Z — warm auth functions with real POST
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 
@@ -10,11 +10,8 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
-// Mantém apenas funções canônicas e atuais.
-// Evita aquecer aliases antigos ou endpoints removidos que geravam ruído,
-// erros espúrios e risco de containers legados permanecerem vivos.
-const CURRENT_FUNCTIONS = [
-  // Checkout / pedidos
+// Funções aquecidas via OPTIONS (confirma que o container está vivo)
+const OPTIONS_FUNCTIONS = [
   'process-mercadopago-payment',
   'create-mercadopago-preference',
   'mercadopago-webhook',
@@ -25,24 +22,25 @@ const CURRENT_FUNCTIONS = [
   'trigger-integration',
   'dispatch-webhook',
   'log-integration',
-
-  // Auth / conta
-  'send-email-via-resend',
-  'send-auth-hook',
-  'generate-token',
-  'validate-token',
-  'create-user',
-  'forgot-password',
-  'change-password',
-  'notify-password-change',
-  'reset-user-password',
-  'update-password-admin',
-
-  // Utilitários usados no app
   'find-order-by-phone',
   'validate-cep',
   'health-check',
   'chat-proxy',
+  'notify-password-change',
+  'reset-user-password',
+  'update-password-admin',
+];
+
+// Funções de auth aquecidas via POST real (body intencionalmente inválido para forçar
+// instanciação do container; retornam 400/422 mas isso é suficiente para warm-up)
+const POST_WARMUP_FUNCTIONS = [
+  { name: 'generate-token',       body: { __warmup: true } },
+  { name: 'validate-token',       body: { __warmup: true } },
+  { name: 'create-user',          body: { __warmup: true } },
+  { name: 'send-email-via-resend', body: { __warmup: true } },
+  { name: 'forgot-password',      body: { __warmup: true } },
+  { name: 'change-password',      body: { __warmup: true } },
+  { name: 'send-auth-hook',       body: { __warmup: true } },
 ];
 
 serve(async (req) => {
@@ -63,30 +61,53 @@ serve(async (req) => {
 
   const results: Record<string, string> = {};
 
+  // Aquecer via OPTIONS
   await Promise.allSettled(
-    CURRENT_FUNCTIONS.map(async (fn) => {
+    OPTIONS_FUNCTIONS.map(async (fn) => {
       try {
         const res = await fetch(`${supabaseUrl}/functions/v1/${fn}`, {
           method: 'OPTIONS',
-          headers: {
-            'apikey': anonKey,
-          },
+          headers: { 'apikey': anonKey },
           signal: AbortSignal.timeout(8000),
         });
-
-        // 405 é esperado para funções que só aceitam POST (ex: send-auth-hook)
         const ok = res.status === 200 || res.status === 204 || res.status === 405;
         results[fn] = ok ? 'warm' : `status:${res.status}`;
-        console.log(`[keep-alive] ${fn} -> ${results[fn]}`);
+        console.log(`[keep-alive] OPTIONS ${fn} -> ${results[fn]}`);
       } catch (err: any) {
         results[fn] = `error:${err?.message || 'unknown'}`;
-        console.warn(`[keep-alive] ${fn} -> error:`, err?.message);
+        console.warn(`[keep-alive] OPTIONS ${fn} -> error:`, err?.message);
+      }
+    })
+  );
+
+  // Aquecer funções de auth via POST real
+  await Promise.allSettled(
+    POST_WARMUP_FUNCTIONS.map(async ({ name, body }) => {
+      try {
+        const res = await fetch(`${supabaseUrl}/functions/v1/${name}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': anonKey,
+            'Authorization': `Bearer ${anonKey}`,
+          },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(8000),
+        });
+        // 400/422 = container ativo e respondendo (body inválido esperado)
+        const ok = res.status < 500;
+        results[name] = ok ? 'warm' : `status:${res.status}`;
+        console.log(`[keep-alive] POST ${name} -> ${results[name]} (${res.status})`);
+      } catch (err: any) {
+        results[name] = `error:${err?.message || 'unknown'}`;
+        console.warn(`[keep-alive] POST ${name} -> error:`, err?.message);
       }
     })
   );
 
   const warm = Object.values(results).filter((v) => v === 'warm').length;
-  console.log(`[keep-alive] Concluído: ${warm}/${CURRENT_FUNCTIONS.length} warm`);
+  const total = OPTIONS_FUNCTIONS.length + POST_WARMUP_FUNCTIONS.length;
+  console.log(`[keep-alive] Concluído: ${warm}/${total} warm`);
 
   return new Response(JSON.stringify({ ok: true, timestamp: new Date().toISOString(), results }), {
     status: 200,

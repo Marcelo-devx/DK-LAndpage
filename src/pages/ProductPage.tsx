@@ -758,7 +758,7 @@ const ProductPage = () => {
                       </span>
                     ) : (
                       <span className="flex items-center gap-2 text-xs xl:text-sm">
-                        <Bookmark className="h-5 w-5" /> RESERVAR ESTE ITEM
+                        <Bookmark className="h-5 w-5" /> AVISE-ME
                       </span>
                     )}
                   </Button>

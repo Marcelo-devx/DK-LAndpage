@@ -108,21 +108,6 @@ const SupportChatWidget = () => {
 
     } catch (err) {
       logger.error('[SupportChatWidget] chat-proxy invoke error:', err);
-      // If supabase.functions.invoke fails, log and attempt direct fetch to help diagnose CORS/network issues
-      try {
-        const debugResp = await fetch('https://jrlozhhvwqfmjtkmvukf.supabase.co/functions/v1/chat-proxy', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: userMsg.text, history: messages.slice(-5).map(m => ({ role: m.sender, content: m.text })) })
-        });
-        if (!debugResp.ok) {
-          logger.warn('[SupportChatWidget] direct function fetch not ok:', debugResp.status, debugResp.statusText);
-        } else {
-          logger.info('[SupportChatWidget] direct function fetch succeeded (for debug).');
-        }
-      } catch (fetchErr) {
-        logger.error('[SupportChatWidget] direct function fetch error (CORS/network):', fetchErr);
-      }
 
       setMessages(prev => [...prev, {
         id: Date.now().toString(),

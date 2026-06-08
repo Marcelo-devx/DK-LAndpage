@@ -1,4 +1,4 @@
-// redeploy: 2026-05-30T02:10:00Z — force redeploy v2 fix stale deployment
+// redeploy: 2026-07-14T12:00:00Z — force redeploy send-email-via-resend (fix 401 gateway)
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 

@@ -1,4 +1,4 @@
-// redeploy: 2026-07-13T10:10:00Z — force redeploy validate-token
+// redeploy: 2026-07-14T12:00:00Z — force redeploy validate-token (fix 401 gateway)
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 

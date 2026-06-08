@@ -1,4 +1,4 @@
-// redeploy: 2026-07-13T10:05:00Z — force redeploy generate-token
+// redeploy: 2026-07-14T14:00:00Z — force redeploy v3 (fix 401 jwt gateway issue)
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 
@@ -13,17 +13,31 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+// Esta função é pública — verify_jwt=false configurado em config.toml
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { status: 200, headers: corsHeaders });
   }
 
-  // Esta função é pública (cadastro de novos usuários).
-  // Não exige JWT de usuário — aceita qualquer requisição com apikey válida.
-  // O gateway pode estar com verify_jwt=true por bug de deploy; ignoramos aqui.
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    console.error("[generate-token] missing env vars");
+    return new Response(
+      JSON.stringify({ success: false, error: "Server misconfigured" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
 
   try {
-    const body = await req.json();
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {
+      body = {};
+    }
+
     const { email, type = "signup_otp", expires_in_seconds = 600 } = body;
 
     if (!email) {
@@ -32,9 +46,6 @@ serve(async (req: Request) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
     const supabase = createClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },

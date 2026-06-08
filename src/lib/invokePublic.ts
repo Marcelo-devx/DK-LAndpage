@@ -50,7 +50,9 @@ export async function invokePublic<T = unknown>(
 
         lastError = { message: msg, context: errData };
 
-        if (res.status >= 400 && res.status < 500) {
+        // 401 pode ser falha temporária do gateway (verify_jwt delay no deploy),
+        // então reprocessa com retry. Outros 4xx são erros definitivos do cliente.
+        if (res.status >= 400 && res.status < 500 && res.status !== 401) {
           return { data: errData as T, error: lastError, attempts: attempt };
         }
 

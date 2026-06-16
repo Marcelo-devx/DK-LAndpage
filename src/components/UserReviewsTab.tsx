@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import ProductImage from '@/components/ProductImage';
 
 interface ProductToReview {
+  row_id: number;
   product_id: number;
   order_id: number;
   name: string;
@@ -53,7 +54,7 @@ const UserReviewsTab = () => {
     const [itemsResult, reviewsResult] = await Promise.all([
       supabase
         .from('order_items')
-        .select('item_id, order_id, name_at_purchase, image_url_at_purchase')
+        .select('id, item_id, order_id, name_at_purchase, image_url_at_purchase')
         .in('order_id', orderIds)
         .eq('item_type', 'product'),
       supabase
@@ -70,9 +71,20 @@ const UserReviewsTab = () => {
     setSubmittedReviews((reviewsData as any[]) || []);
 
     const reviewedSet = new Set((reviewsData || []).map(r => `${r.order_id}-${r.product_id}`));
+    // Deduplica por order_id+item_id: mesmo produto (id igual) no mesmo pedido aparece uma única vez
+    const seenKeys = new Set<string>();
     const unreviewedProducts = (orderItemsData || [])
-      .filter(item => !reviewedSet.has(`${item.order_id}-${item.item_id}`))
+      .filter(item => {
+        const reviewKey = `${item.order_id}-${item.item_id}`;
+        if (reviewedSet.has(reviewKey)) return false;
+        // Usa row id como fallback para item_id nulo
+        const dedupKey = item.item_id != null ? reviewKey : `${item.order_id}-row-${item.id}`;
+        if (seenKeys.has(dedupKey)) return false;
+        seenKeys.add(dedupKey);
+        return true;
+      })
       .map(item => ({
+        row_id: item.id,
         product_id: item.item_id,
         order_id: item.order_id,
         name: item.name_at_purchase,
@@ -108,7 +120,7 @@ const UserReviewsTab = () => {
             <div className="space-y-3">
               {productsToReview.map((product) => (
                 <div
-                  key={`${product.order_id}-${product.product_id}`}
+                  key={product.row_id}
                   className="flex items-center gap-4 p-4 bg-sky-50 border border-sky-100 rounded-2xl hover:border-sky-300 transition-all"
                 >
                   <Link to={`/produto/${product.product_id}`} className="shrink-0">

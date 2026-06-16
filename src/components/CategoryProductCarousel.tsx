@@ -66,12 +66,13 @@ const CategoryProductCarousel = memo(({ categoryName, showAgeBadge = true }: Cat
           const prodVariants = (variants || []).filter((v: any) => v.product_id === prod.id);
           if (prodVariants.length > 0) {
             const totalStock = prodVariants.reduce((s: number, v: any) => s + (v.stock_quantity || 0), 0);
-            if (totalStock > 0) {
+            const effectiveStock = totalStock > 0 ? totalStock : (prod.stock_quantity || 0);
+            if (effectiveStock > 0) {
               finalList.push({
                 id: prod.id, name: prod.name,
                 price: Math.min(...prodVariants.map((v: any) => v.price ?? 0)),
                 pixPrice: Math.min(...prodVariants.map((v: any) => v.pix_price ?? v.price ?? 0)),
-                imageUrl: prod.image_url || '', stockQuantity: totalStock,
+                imageUrl: prod.image_url || '', stockQuantity: effectiveStock,
                 hasMultipleVariants: true, showAgeBadge,
               });
             }

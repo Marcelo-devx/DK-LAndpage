@@ -156,6 +156,8 @@ const CheckoutPage = () => {
   // ── Endereço de entrega selecionado no modal (vem do sessionStorage) ──────
   const [selectedDeliveryAddress, setSelectedDeliveryAddress] = useState<DeliveryAddress | null>(null);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  // Indicador visual: endereço atendido via transportadora (badge informativa, não afeta cálculo de frete)
+  const [isTransportadoraAddress, setIsTransportadoraAddress] = useState(false);
 
   type RecentOrder = { created_at: string; benefits_used?: string | null };
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
@@ -437,6 +439,48 @@ const CheckoutPage = () => {
       if (isMountedRef.current) setIsCheckingShipping(false);
     }
   }, [selectedBenefits, selectedCoupon, applyFreeShippingRules]);
+
+  // ── Badge informativa: verifica se o endereço selecionado é atendido via transportadora ──
+  useEffect(() => {
+    let cancelled = false;
+    if (!selectedDeliveryAddress) {
+      setIsTransportadoraAddress(false);
+      return;
+    }
+    (async () => {
+      try {
+        const { data: localRate } = await supabase.rpc('get_shipping_rate', {
+          p_neighborhood: selectedDeliveryAddress.neighborhood || '',
+          p_city: selectedDeliveryAddress.city || '',
+          p_cep: null,
+        });
+        if (cancelled) return;
+        if (localRate !== null && localRate !== undefined && Number(localRate) > 0) {
+          setIsTransportadoraAddress(false);
+          return;
+        }
+
+        const cleanedCep = (selectedDeliveryAddress.cep || '').replace(/\D/g, '');
+        if (cleanedCep.length !== 8) { setIsTransportadoraAddress(false); return; }
+
+        const { data: zones } = await supabase
+          .from('shipping_zones')
+          .select('cep_start, cep_end');
+        if (cancelled) return;
+
+        const cepNum = parseInt(cleanedCep, 10);
+        const matched = (zones || []).some((zone: any) => {
+          const start = parseInt((zone.cep_start || '').replace(/\D/g, ''), 10);
+          const end = parseInt((zone.cep_end || '').replace(/\D/g, ''), 10);
+          return cepNum >= start && cepNum <= end;
+        });
+        setIsTransportadoraAddress(matched);
+      } catch {
+        if (!cancelled) setIsTransportadoraAddress(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedDeliveryAddress]);
 
   const fetchUserData = useCallback(async (currentUser: any) => {
     const [profileRes, userCouponsRes, ordersRes] = await Promise.all([
@@ -1255,6 +1299,11 @@ const CheckoutPage = () => {
                   {selectedDeliveryAddress.neighborhood} — {selectedDeliveryAddress.city}, {selectedDeliveryAddress.state}
                   {selectedDeliveryAddress.cep ? ` · CEP ${maskCep(selectedDeliveryAddress.cep)}` : ''}
                 </p>
+                {isTransportadoraAddress && (
+                  <span className="inline-block mt-1.5 px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-widest">
+                    Transportadora
+                  </span>
+                )}
                 {/* Frete */}
                 <div className="mt-3 pt-3 border-t border-sky-200">
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Frete</p>

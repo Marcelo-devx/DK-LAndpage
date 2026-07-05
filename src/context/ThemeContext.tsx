@@ -28,6 +28,7 @@ interface ThemeSettings {
   dashboardPointsLabel: string;
   dashboardButtonText: string;
   maintenanceMode: boolean;
+  maintenanceMessage: string;
 }
 
 interface ThemeContextType {
@@ -63,6 +64,7 @@ const defaultSettings: ThemeSettings = {
   dashboardPointsLabel: 'Saldo acumulado',
   dashboardButtonText: 'Resgatar Cupons',
   maintenanceMode: false,
+  maintenanceMessage: 'Estamos em manutenção. Voltaremos em breve!',
 };
 
 const ThemeContext = createContext<ThemeContextType>({
@@ -160,6 +162,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
         if (latest['dashboard_points_label']) newSettings.dashboardPointsLabel = latest['dashboard_points_label'] || 'Saldo acumulado';
         if (latest['dashboard_button_text']) newSettings.dashboardButtonText = latest['dashboard_button_text'] || 'Resgatar Cupons';
         if (latest['maintenance_mode']) newSettings.maintenanceMode = latest['maintenance_mode'] === 'true';
+        if (latest['maintenance_message']) newSettings.maintenanceMessage = latest['maintenance_message'] || '';
 
         setSettings(newSettings);
         applyColors(newSettings);
@@ -216,6 +219,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
       'dashboard_points_label': 'dashboardPointsLabel',
       'dashboard_button_text': 'dashboardButtonText',
       'maintenance_mode': 'maintenanceMode',
+      'maintenance_message': 'maintenanceMessage',
     };
 
     const settingKey = mapKey[key];
@@ -306,6 +310,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
       { key: 'dashboard_points_label', value: toSave.dashboardPointsLabel },
       { key: 'dashboard_button_text', value: toSave.dashboardButtonText },
       { key: 'maintenance_mode', value: String(toSave.maintenanceMode) },
+      { key: 'maintenance_message', value: toSave.maintenanceMessage },
     ];
 
     try {

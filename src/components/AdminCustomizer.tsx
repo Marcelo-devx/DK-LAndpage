@@ -34,6 +34,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import {
   Sheet,
@@ -1230,6 +1231,20 @@ const AdminCustomizer = () => {
                       checked={settings.maintenanceMode}
                       onCheckedChange={(checked) => updateSetting('maintenance_mode', String(checked))}
                     />
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100">
+                    <Label className="text-xs">Mensagem para os usuários</Label>
+                    <Textarea
+                      className="mt-1.5"
+                      rows={4}
+                      placeholder="Estamos em manutenção. Voltaremos em breve!"
+                      value={settings.maintenanceMessage}
+                      onChange={(e) => updateSetting('maintenance_message', e.target.value)}
+                    />
+                    <p className="text-[10px] text-slate-500 mt-1.5">
+                      Essa mensagem aparece para os usuários na tela de manutenção.
+                    </p>
                   </div>
 
                   {settings.maintenanceMode && (

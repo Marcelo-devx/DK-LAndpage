@@ -6,6 +6,7 @@ import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from 
 import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client';
+import { useTheme } from '@/context/ThemeContext';
 
 const getSecondsUntil14 = () => {
   const now = new Date();
@@ -17,6 +18,7 @@ const getSecondsUntil14 = () => {
 
 const MaintenanceScreen = () => {
   const navigate = useNavigate();
+  const { settings } = useTheme();
   const [secondsLeft, setSecondsLeft] = useState(getSecondsUntil14);
 
   useEffect(() => {
@@ -48,7 +50,11 @@ const MaintenanceScreen = () => {
           </h1>
           
           <div className="h-1 w-20 bg-slate-900 mx-auto rounded-full" />
-          
+
+          <p className="text-lg text-slate-600 font-medium leading-relaxed">
+            {settings.maintenanceMessage || 'Estamos em manutenção. Voltaremos em breve!'}
+          </p>
+
           <p className="hidden text-lg text-slate-600 font-medium leading-relaxed">
             Nossas rotas lotaram! Voltaremos a operar normalmente a partir das <span className="font-black text-slate-900">14:00h</span>. Agradecemos a compreensão. 🙏
           </p>

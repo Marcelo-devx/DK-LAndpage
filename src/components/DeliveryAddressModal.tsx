@@ -70,6 +70,7 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
   const [loading, setLoading] = useState(true);
   const [profileAddress, setProfileAddress] = useState<ProfileAddress | null>(null);
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [deliveryTypeById, setDeliveryTypeById] = useState<Record<string, 'local' | 'correios' | null>>({});
   const [selectedId, setSelectedId] = useState<string>('profile'); // 'profile' | saved address id
   const [showNewForm, setShowNewForm] = useState(false);
   const [isFetchingCep, setIsFetchingCep] = useState(false);
@@ -128,10 +129,59 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
         setSelectedId('new');
         setShowNewForm(true);
       }
+
+      // Verifica, em paralelo, se cada endereço é atendido via transportadora (só para exibir badge informativa)
+      const checks: Array<[string, Promise<'local' | 'correios' | null>]> = [];
+      if (hasProfile && profile) {
+        checks.push(['profile', checkDeliveryType(profile.neighborhood, profile.city, profile.cep)]);
+      }
+      (savedRes.data as SavedAddress[] || []).forEach(addr => {
+        checks.push([addr.id, checkDeliveryType(addr.neighborhood, addr.city, addr.cep)]);
+      });
+      Promise.all(checks.map(([, p]) => p)).then(results => {
+        const map: Record<string, 'local' | 'correios' | null> = {};
+        checks.forEach(([key], i) => { map[key] = results[i]; });
+        setDeliveryTypeById(map);
+      });
     } finally {
       setLoading(false);
     }
   }, []);
+
+  const checkDeliveryType = async (
+    neighborhood: string | null,
+    city: string | null,
+    cep: string | null
+  ): Promise<'local' | 'correios' | null> => {
+    try {
+      const { data: localRate } = await supabase.rpc('get_shipping_rate', {
+        p_neighborhood: neighborhood || '',
+        p_city: city || '',
+        p_cep: null,
+      });
+      if (localRate !== null && localRate !== undefined && Number(localRate) > 0) {
+        return 'local';
+      }
+
+      const cleanedCep = (cep || '').replace(/\D/g, '');
+      if (cleanedCep.length !== 8) return null;
+
+      const { data: zones } = await supabase
+        .from('shipping_zones')
+        .select('cep_start, cep_end');
+
+      const cepNum = parseInt(cleanedCep, 10);
+      const matched = (zones || []).some((zone: any) => {
+        const start = parseInt((zone.cep_start || '').replace(/\D/g, ''), 10);
+        const end = parseInt((zone.cep_end || '').replace(/\D/g, ''), 10);
+        return cepNum >= start && cepNum <= end;
+      });
+
+      return matched ? 'correios' : null;
+    } catch {
+      return null;
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -147,6 +197,7 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
       setSaveAddress(false);
       setNewLabel('');
       setShowNewForm(false);
+      setDeliveryTypeById({});
     }
   }, [isOpen, fetchData]);
 
@@ -328,6 +379,11 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
                       {profileAddress.neighborhood} — {profileAddress.city}, {profileAddress.state}
                       {profileAddress.cep ? ` · CEP ${maskCep(profileAddress.cep)}` : ''}
                     </p>
+                    {deliveryTypeById['profile'] === 'correios' && (
+                      <span className="inline-block mt-1.5 px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-widest">
+                        Transportadora
+                      </span>
+                    )}
                   </div>
                 </div>
               </button>
@@ -365,6 +421,11 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
                         {addr.neighborhood} — {addr.city}, {addr.state}
                         {addr.cep ? ` · CEP ${maskCep(addr.cep)}` : ''}
                       </p>
+                      {deliveryTypeById[addr.id] === 'correios' && (
+                        <span className="inline-block mt-1.5 px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-widest">
+                          Transportadora
+                        </span>
+                      )}
                     </div>
                   </div>
                 </button>

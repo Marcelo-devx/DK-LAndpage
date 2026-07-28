@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { getSessionOrUser } from '@/lib/auth';
 import { useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, Package, ChevronRight, CreditCard, MessageSquare, Clock, CheckCircle2, Truck, AlertCircle, Calendar, Heart, MapPin } from 'lucide-react';
+import { Loader2, Package, ChevronRight, CreditCard, MessageSquare, Clock, CheckCircle2, Truck, AlertCircle, Calendar, Heart, MapPin, Bike } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -380,7 +380,12 @@ const OrdersPage = () => {
                           <div className="flex items-start gap-3 bg-sky-50 border border-sky-100 p-4 rounded-2xl">
                             <MapPin className="h-5 w-5 text-sky-600 shrink-0 mt-0.5" />
                             <div className="flex-1">
-                              <p className="text-[10px] font-black uppercase text-sky-600 tracking-widest mb-2">Endereço de Entrega</p>
+                              <div className="flex items-center justify-between gap-2 mb-2">
+                                <p className="text-[10px] font-black uppercase text-sky-600 tracking-widest">Endereço de Entrega</p>
+                                <Badge className="px-2.5 py-0.5 text-[10px] font-bold border uppercase tracking-wider text-emerald-600 bg-emerald-100 border-emerald-200 flex items-center gap-1 shrink-0">
+                                  <Bike className="h-3 w-3" /> Motoboy
+                                </Badge>
+                              </div>
                               <p className="text-sm font-bold text-charcoal-gray">
                                 {order.shipping_address.street}, {order.shipping_address.number}
                               </p>

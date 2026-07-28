@@ -1,4 +1,4 @@
-// redeploy: 2026-07-25T17:30:00Z — force fresh deploy from current source
+ // redeploy: 2026-07-28T22:59:53.802Z — force fresh deploy from current source
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'

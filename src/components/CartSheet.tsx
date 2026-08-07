@@ -199,7 +199,7 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
     // Verifica estoque antes de aumentar
     if (newQuantity > item.quantity) {
         if (item.stock !== undefined && newQuantity > item.stock) {
-            showError(`Estoque insuficiente. Temos apenas ${item.stock} unidades.`);
+            showError(`Estoque insuficiente para "${item.name}". Temos apenas ${item.stock} unidade${item.stock === 1 ? '' : 's'}.`);
             setUpdatingId(null);
             return;
         }

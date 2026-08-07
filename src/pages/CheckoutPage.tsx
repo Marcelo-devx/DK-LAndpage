@@ -1213,7 +1213,7 @@ const CheckoutPage = () => {
     await handlePrepareCardPayment(data);
     if (isMountedRef.current) setIsSubmitting(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [getValues, selectedDeliveryAddress]);
+  }, [getValues, selectedDeliveryAddress, handlePrepareCardPayment]);
 
   const handleCardButtonClick = () => {
     if (selectedCoupon !== null || coupons.length === 0 || !tierName) {

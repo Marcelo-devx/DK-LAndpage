@@ -21,6 +21,7 @@ interface DisplayItem {
   variantId?: string;
   name: string;
   price: number;
+  pixPrice: number | null;
   image_url: string;
   variant_label?: string;
   stock?: number;
@@ -77,15 +78,15 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
       
       // Avoid calling .in with empty arrays which can be slow / problematic
       const productsPromise = productIds.length > 0
-        ? supabase.from('products').select('id, name, price, image_url, stock_quantity').in('id', productIds)
+        ? supabase.from('products').select('id, name, price, pix_price, image_url, stock_quantity').in('id', productIds)
         : Promise.resolve({ data: [] });
 
       const promotionsPromise = promotionIds.length > 0
-        ? supabase.from('promotions').select('id, name, price, image_url, stock_quantity').in('id', promotionIds)
+        ? supabase.from('promotions').select('id, name, price, pix_price, image_url, stock_quantity').in('id', promotionIds)
         : Promise.resolve({ data: [] });
 
       const variantsPromise = variantIds.length > 0
-        ? supabase.from('product_variants').select('id, flavor_id, volume_ml, price, stock_quantity, color, ohms, size, sku').in('id', variantIds)
+        ? supabase.from('product_variants').select('id, flavor_id, volume_ml, price, pix_price, stock_quantity, color, ohms, size, sku').in('id', variantIds)
         : Promise.resolve({ data: [] });
 
       const [productsRes, promotionsRes, variantsRes] = await Promise.all([
@@ -105,6 +106,7 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
           if (!product) return null;
 
           let price = product.price ?? 0;
+          let pixPrice: number | null = product.pix_price ?? null;
           let label = '';
           let stock = product.stock_quantity ?? 0;
 
@@ -112,6 +114,7 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
             const variant = (variantsRes as any).data?.find((v: any) => v.id === cartItem.variantId);
             if (variant) {
               price = variant.price ?? 0;
+              pixPrice = variant.pix_price ?? null;
               stock = variant.stock_quantity ?? 0;
 
               // Try to find flavor name if available
@@ -142,6 +145,7 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
             variantId: cartItem.variantId,
             name: product.name,
             price: price,
+            pixPrice: pixPrice && pixPrice > 0 && pixPrice < price ? pixPrice : null,
             image_url: product.image_url || '',
             variant_label: label,
             stock: stock
@@ -149,13 +153,16 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
         } else {
           const promo = (promotionsRes as any).data?.find((p: any) => p.id === cartItem.itemId);
           if (!promo) return null;
+          const promoPrice = promo.price ?? 0;
+          const promoPixPrice = promo.pix_price ?? null;
           return {
             id: cartItem.itemId,
             itemId: cartItem.itemId,
             itemType: cartItem.itemType,
             quantity: cartItem.quantity,
             name: promo.name,
-            price: promo.price ?? 0,
+            price: promoPrice,
+            pixPrice: promoPixPrice && promoPixPrice > 0 && promoPixPrice < promoPrice ? promoPixPrice : null,
             image_url: promo.image_url || '',
             stock: promo.stock_quantity ?? 0
           };
@@ -309,9 +316,21 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
                       )}
 
                       {/* Preço */}
-                      <p className="text-slate-900 font-extrabold text-base">
-                        R$ {item.price.toFixed(2).replace('.', ',')}
-                      </p>
+                      {item.pixPrice ? (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-emerald-600 font-extrabold text-base">
+                            R$ {item.pixPrice.toFixed(2).replace('.', ',')}
+                            <span className="text-[10px] font-black uppercase tracking-wide ml-1">no pix</span>
+                          </span>
+                          <span className="text-slate-400 text-xs font-semibold">
+                            R$ {item.price.toFixed(2).replace('.', ',')} no cartão
+                          </span>
+                        </div>
+                      ) : (
+                        <p className="text-slate-900 font-extrabold text-base">
+                          R$ {item.price.toFixed(2).replace('.', ',')}
+                        </p>
+                      )}
 
                       {/* Controles de quantidade + remover na mesma linha */}
                       <div className="flex items-center justify-between mt-1">

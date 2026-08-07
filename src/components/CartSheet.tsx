@@ -38,6 +38,7 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
   const [loading, setLoading] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
+  const [pixTotal, setPixTotal] = useState(0);
   const [cartStartTime, setCartStartTime] = useState<string | null>(null);
   const [userShippingCost, setUserShippingCost] = useState(0);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
@@ -183,6 +184,8 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
   }, [fetchCartItems]);
 
   useEffect(() => { setTotal(items.reduce((acc, item) => acc + item.price * item.quantity, 0)); }, [items]);
+  useEffect(() => { setPixTotal(items.reduce((acc, item) => acc + (item.pixPrice ?? item.price) * item.quantity, 0)); }, [items]);
+  const hasPixDiscount = pixTotal < total;
 
   const updateQuantity = async (item: DisplayItem, newQuantity: number) => {
     if (newQuantity <= 0) {
@@ -380,9 +383,21 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
                   baseShippingCost={userShippingCost}
                   isFreeShippingByBenefitOrCoupon={false}
                 />
-                <div className="flex justify-between font-black text-xl italic uppercase">
-                  <span className="text-slate-800">Total</span>
-                  <span className="text-sky-600">R$ {total.toFixed(2).replace('.', ',')}</span>
+                <div className="flex items-end justify-between">
+                  <span className="font-black text-xl italic uppercase text-slate-800">Total</span>
+                  {hasPixDiscount ? (
+                    <div className="flex flex-col items-end">
+                      <span className="font-black text-xl italic text-emerald-600">
+                        R$ {pixTotal.toFixed(2).replace('.', ',')}
+                        <span className="text-[10px] not-italic font-black uppercase tracking-wide ml-1">no pix</span>
+                      </span>
+                      <span className="text-xs font-semibold text-slate-400">
+                        R$ {total.toFixed(2).replace('.', ',')} no cartão
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="font-black text-xl italic text-sky-600">R$ {total.toFixed(2).replace('.', ',')}</span>
+                  )}
                 </div>
                 <Button className="w-full bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-[0.2em] h-14 rounded-xl shadow-lg transition-all active:scale-95" onClick={handleCheckout}>
                   Finalizar Compra

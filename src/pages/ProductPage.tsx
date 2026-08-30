@@ -30,12 +30,14 @@ function formatDescription(raw: string): string {
   // Caso 1: sem nenhuma tag HTML → converte tudo
   const hasHtmlTags = /<[a-z][\s\S]*?>/i.test(normalized);
   if (!hasHtmlTags) {
-    const blocks = normalized.split(/\n{2,}/);
+    // Cada linha (separada por uma ou mais quebras) vira seu próprio parágrafo,
+    // preservando o espaçamento visual entre blocos de texto.
+    const blocks = normalized.split(/\n+/);
     return blocks
       .map(block => {
         const trimmed = block.trim();
         if (!trimmed) return '';
-        return `<p>${trimmed.replace(/\n/g, '<br>')}</p>`;
+        return `<p>${trimmed}</p>`;
       })
       .filter(Boolean)
       .join('\n');
@@ -58,12 +60,12 @@ function formatDescription(raw: string): string {
       continue;
     }
 
-    // É texto puro solto — converte em parágrafos
-    const blocks = trimmed.split(/\n{2,}/);
+    // É texto puro solto — converte em parágrafos (uma linha = um parágrafo)
+    const blocks = trimmed.split(/\n+/);
     for (const block of blocks) {
       const b = block.trim();
       if (!b) continue;
-      result.push(`<p>${b.replace(/\n/g, '<br>')}</p>`);
+      result.push(`<p>${b}</p>`);
     }
   }
 

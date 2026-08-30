@@ -108,6 +108,7 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
   
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryProductSubsMap, setCategoryProductSubsMap] = useState<Record<number, string[]>>({});
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const fetchNavData = async () => {
     try {
@@ -247,7 +248,7 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
       {/* Mobile Header */}
       <div className="md:hidden flex items-center justify-between gap-3 px-4 py-3">
         <div className="flex items-center space-x-2 shrink-0">
-          <Sheet>
+          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="hover:bg-white/10 text-white md:hidden">
                 <Menu className="h-6 w-6" />
@@ -262,10 +263,10 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
                 <nav className="flex flex-col gap-8">
                   <div className="space-y-4">
                     <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-700">Navegação Principal</h3>
-                    <Link to="/produtos" className="block text-lg font-black uppercase tracking-widest hover:text-sky-400">Todos Produtos</Link>
-                    <Link to="/compras" className="block text-lg font-black uppercase tracking-widest hover:text-sky-400">Meus Pedidos</Link>
-                    <Link to="/como-funciona" className="block text-lg font-black uppercase tracking-widest hover:text-sky-400">Clube DK</Link>
-                    <Link to="/informacoes" className="block text-lg font-black uppercase tracking-widest hover:text-sky-400">Informações</Link>
+                    <Link to="/produtos" onClick={() => setMobileMenuOpen(false)} className="block text-lg font-black uppercase tracking-widest hover:text-sky-400">Todos Produtos</Link>
+                    <Link to="/compras" onClick={() => setMobileMenuOpen(false)} className="block text-lg font-black uppercase tracking-widest hover:text-sky-400">Meus Pedidos</Link>
+                    <Link to="/como-funciona" onClick={() => setMobileMenuOpen(false)} className="block text-lg font-black uppercase tracking-widest hover:text-sky-400">Clube DK</Link>
+                    <Link to="/informacoes" onClick={() => setMobileMenuOpen(false)} className="block text-lg font-black uppercase tracking-widest hover:text-sky-400">Informações</Link>
                   </div>
 
                   <div className="space-y-4">
@@ -277,10 +278,10 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
                             {cat.name}
                           </AccordionTrigger>
                           <AccordionContent className="pl-4 pb-4 space-y-3">
-                            <Link to={`/produtos?category=${encodeURIComponent(cat.name)}`} className="block text-xs font-bold text-sky-500 uppercase tracking-widest border-b border-white/5 pb-2">Explorar Tudo</Link>
+                            <Link to={`/produtos?category=${encodeURIComponent(cat.name)}`} onClick={() => setMobileMenuOpen(false)} className="block text-xs font-bold text-sky-500 uppercase tracking-widest border-b border-white/5 pb-2">Explorar Tudo</Link>
                             {(categoryProductSubsMap[cat.id] || []).length > 0 ? (
                               (categoryProductSubsMap[cat.id] || []).map(sub => (
-                                <Link key={sub} to={`/produtos?category=${encodeURIComponent(cat.name)}&sub_category=${encodeURIComponent(sub)}`} className="block text-xs font-medium text-slate-400 uppercase tracking-widest hover:text-white" translate="no">{sub}</Link>
+                                <Link key={sub} to={`/produtos?category=${encodeURIComponent(cat.name)}&sub_category=${encodeURIComponent(sub)}`} onClick={() => setMobileMenuOpen(false)} className="block text-xs font-medium text-slate-400 uppercase tracking-widest hover:text-white" translate="no">{sub}</Link>
                               ))
                             ) : (
                               <div className="text-[11px] text-slate-700 italic">Nenhuma sub-categoria encontrada.</div>

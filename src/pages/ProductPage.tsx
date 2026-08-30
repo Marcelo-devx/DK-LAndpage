@@ -17,59 +17,35 @@ import { useSEO } from '@/hooks/useSEO';
 
 /**
  * Garante que toda a descrição seja renderizada com espaçamento correto.
- * Funciona para 3 casos:
- *  1. HTML puro e bem formatado → passa direto
- *  2. Texto puro sem nenhuma tag → converte \n em <p> e <br>
- *  3. HTML misto (algumas tags, mas blocos de texto puro soltos) → envolve
- *     os trechos de texto puro em <p> para que não colem com o restante
+ *  - Linhas em branco (\n\n) separam parágrafos (<p>), que ganham o
+ *    espaçamento vertical do plugin de tipografia (prose).
+ *  - Quebras de linha simples viram <br>, mantendo o texto no mesmo parágrafo.
+ *  - Tags inline já existentes na descrição (ex: links criados em "Criar Link")
+ *    são preservadas no lugar, dentro do parágrafo, em vez de serem
+ *    destacadas como blocos separados.
+ *  - Se a descrição já for um HTML de blocos bem formado (sequência de
+ *    tags como <p>, <div>, <ul>...), ela é usada como está, sem reprocessar.
  */
 function formatDescription(raw: string): string {
   // Normaliza quebras de linha
-  const normalized = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const normalized = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
 
-  // Caso 1: sem nenhuma tag HTML → converte tudo
   const hasHtmlTags = /<[a-z][\s\S]*?>/i.test(normalized);
-  if (!hasHtmlTags) {
-    // Cada linha (separada por uma ou mais quebras) vira seu próprio parágrafo,
-    // preservando o espaçamento visual entre blocos de texto.
-    const blocks = normalized.split(/\n+/);
-    return blocks
-      .map(block => {
-        const trimmed = block.trim();
-        if (!trimmed) return '';
-        return `<p>${trimmed}</p>`;
-      })
-      .filter(Boolean)
-      .join('\n');
+
+  // HTML já composto inteiramente por tags de bloco bem formadas → passa direto
+  const blockTagPattern = /^(\s*<(p|div|ul|ol|li|h[1-6]|table|blockquote|section|article)\b[^>]*>[\s\S]*?<\/\2>\s*)+$/i;
+  if (hasHtmlTags && blockTagPattern.test(normalized)) {
+    return normalized;
   }
 
-  // Caso 2 e 3: tem HTML (puro ou misto)
-  // Divide o conteúdo em segmentos: tags HTML vs texto puro
-  // Regex captura blocos de tags completos OU texto entre eles
-  const segments = normalized.split(/(<[^>]+>[\s\S]*?<\/[^>]+>|<[^>]+\/>|<[^>]+>)/);
-
-  const result: string[] = [];
-
-  for (const segment of segments) {
-    const trimmed = segment.trim();
-    if (!trimmed) continue;
-
-    // Se começa com < é HTML — passa direto
-    if (trimmed.startsWith('<')) {
-      result.push(trimmed);
-      continue;
-    }
-
-    // É texto puro solto — converte em parágrafos (uma linha = um parágrafo)
-    const blocks = trimmed.split(/\n+/);
-    for (const block of blocks) {
-      const b = block.trim();
-      if (!b) continue;
-      result.push(`<p>${b}</p>`);
-    }
-  }
-
-  return result.join('\n');
+  // Texto puro, ou texto com tags inline (a, strong, b, i, em, span, br) soltas →
+  // agrupa em parágrafos pelas linhas em branco, preservando as tags inline no lugar
+  const paragraphs = normalized.split(/\n{2,}/);
+  return paragraphs
+    .map(p => p.trim())
+    .filter(Boolean)
+    .map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`)
+    .join('\n');
 }
 
 interface Product {

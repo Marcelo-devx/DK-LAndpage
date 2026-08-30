@@ -338,7 +338,7 @@ const ProfilePage = () => {
                       <AlertCircle className="h-4 w-4" />
                       <AlertTitle className="font-bold uppercase text-xs tracking-wider">Endereço bloqueado para edição</AlertTitle>
                       <AlertDescription className="text-xs">
-                        Você já completou 3 ou mais pedidos pagos e entregues. Por segurança, a edição do endereço foi bloqueada. Entre em contato com o suporte para alterar o endereço.
+                        A edição do endereço só é liberada após você completar 3 pedidos pagos e entregues. Entre em contato com o suporte para alterar o endereço enquanto isso.
                       </AlertDescription>
                     </Alert>
                   )}

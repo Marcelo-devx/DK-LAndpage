@@ -1,4 +1,4 @@
- // redeploy: 2026-08-09T23:00:00.000Z — refresh after production deploy
+ // redeploy: 2026-08-31T00:01:48.000Z — refresh after production deploy
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'

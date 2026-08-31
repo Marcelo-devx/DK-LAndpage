@@ -1,6 +1,6 @@
 /**
  * CORS Utilities — wildcard para compatibilidade máxima com browser e n8n
- * redeploy: 2026-08-31T00:01:48Z
+ * redeploy: 2026-08-31T00:35:54Z
  */
 
 const CORS_HEADERS: Record<string, string> = {

@@ -1,4 +1,4 @@
- // redeploy: 2026-08-31T13:51:47.000Z — refresh after production deploy
+ // redeploy: 2026-09-15T00:00:00.000Z — verified active after production deploy
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 // @ts-ignore

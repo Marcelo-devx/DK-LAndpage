@@ -483,10 +483,11 @@ const CheckoutPage = () => {
   }, [selectedDeliveryAddress]);
 
   const fetchUserData = useCallback(async (currentUser: any) => {
-    const [profileRes, userCouponsRes, ordersRes] = await Promise.all([
+    const [profileRes, userCouponsRes, ordersRes, addressesRes] = await Promise.all([
       supabase.from('profiles').select('*, loyalty_tiers ( name, benefits )').eq('id', currentUser.id).single(),
       supabase.from('user_coupons').select('id, expires_at, coupon_id').eq('user_id', currentUser.id).eq('is_used', false).gt('expires_at', new Date().toISOString()),
       supabase.from('orders').select('created_at, benefits_used').eq('user_id', currentUser.id).neq('status', 'Cancelado').order('created_at', { ascending: false }).limit(10),
+      supabase.from('user_addresses').select('id, label, cep, street, number, complement, neighborhood, city, state').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(1),
     ]);
 
     const profile = profileRes.data;
@@ -527,6 +528,29 @@ const CheckoutPage = () => {
         }
       } catch {
         sessionStorage.removeItem('selected_delivery_address');
+      }
+    } else {
+      // Sem endereço escolhido nesta sessão: usa o endereço salvo mais recente
+      // da lista de endereços (fonte confiável) em vez do campo solto do perfil,
+      // que costuma ficar desatualizado/divergente da lista de endereços do usuário.
+      const mostRecentSaved = addressesRes.data?.[0];
+      if (mostRecentSaved && isMountedRef.current) {
+        const savedAddress: DeliveryAddress = {
+          id: mostRecentSaved.id,
+          source: 'saved',
+          label: mostRecentSaved.label || undefined,
+          cep: mostRecentSaved.cep || '',
+          street: mostRecentSaved.street,
+          number: mostRecentSaved.number,
+          complement: mostRecentSaved.complement || undefined,
+          neighborhood: mostRecentSaved.neighborhood,
+          city: mostRecentSaved.city,
+          state: mostRecentSaved.state,
+        };
+        setSelectedDeliveryAddress(savedAddress);
+        applyDeliveryAddress(savedAddress);
+        sessionStorage.setItem('selected_delivery_address', JSON.stringify(savedAddress));
+        calculateShippingFromAddress(savedAddress.neighborhood, savedAddress.city, savedAddress.cep || '');
       }
     }
     // ─────────────────────────────────────────────────────────────────────────

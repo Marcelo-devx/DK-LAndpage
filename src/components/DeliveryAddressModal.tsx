@@ -119,12 +119,14 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
       setProfileAddress(profile);
       setSavedAddresses((savedRes.data as SavedAddress[]) || []);
 
-      // Default selection: profile if it has address, otherwise first saved, otherwise show new form
+      // Default selection: endereço salvo mais recente (fonte confiável) tem prioridade;
+      // o endereço solto do perfil só é usado como padrão quando não há nenhum salvo,
+      // pois costuma ficar desatualizado em relação à lista de endereços do usuário.
       const hasProfile = !!(profile?.street && profile?.number && profile?.neighborhood && profile?.city && profile?.state);
-      if (hasProfile) {
-        setSelectedId('profile');
-      } else if (savedRes.data && savedRes.data.length > 0) {
+      if (savedRes.data && savedRes.data.length > 0) {
         setSelectedId(savedRes.data[0].id);
+      } else if (hasProfile) {
+        setSelectedId('profile');
       } else {
         setSelectedId('new');
         setShowNewForm(true);

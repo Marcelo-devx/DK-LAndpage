@@ -35,6 +35,7 @@ interface Order {
   order_items: OrderItem[];
   reviewed_products: number[];
   shipping_address: any;
+  recipient_note: string | null;
 }
 
 const getStatusBadge = (status: string) => {
@@ -134,7 +135,7 @@ const OrdersPage = () => {
 
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
-        .select('id, created_at, total_price, shipping_cost, donation_amount, status, delivery_status, payment_method, shipping_address')
+        .select('id, created_at, total_price, shipping_cost, donation_amount, status, delivery_status, payment_method, shipping_address, recipient_note')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
@@ -400,6 +401,11 @@ const OrdersPage = () => {
                               <p className="text-xs text-stone-500 font-semibold mt-0.5">
                                 CEP: {order.shipping_address.cep}
                               </p>
+                              {order.recipient_note && (
+                                <p className="text-xs text-sky-700 font-bold mt-2 pt-2 border-t border-sky-200">
+                                  👤 {order.recipient_note}
+                                </p>
+                              )}
                             </div>
                           </div>
                         )}

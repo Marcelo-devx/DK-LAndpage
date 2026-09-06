@@ -49,43 +49,49 @@ const DeliveryTimerBar = () => {
   const [showTimer, setShowTimer] = useState(false);
 
   useEffect(() => {
-    supabase
-      .from('app_settings')
-      .select('key, value')
-      .in('key', [
-        'timer_weekday_before',
-        'timer_weekday_after',
-        'timer_saturday_before',
-        'timer_saturday_after',
-        'timer_sunday',
-        'timer_holidays',
-        'timer_holiday_message',
-        'timer_eve_message',
-      ])
-      .then(({ data }) => {
-        if (data && data.length > 0) {
-          const map: Record<string, string> = {};
-          data.forEach((row: any) => { map[row.key] = row.value; });
+    const loadSettings = () => {
+      supabase
+        .from('app_settings')
+        .select('key, value')
+        .in('key', [
+          'timer_weekday_before',
+          'timer_weekday_after',
+          'timer_saturday_before',
+          'timer_saturday_after',
+          'timer_sunday',
+          'timer_holidays',
+          'timer_holiday_message',
+          'timer_eve_message',
+        ])
+        .then(({ data }) => {
+          if (data && data.length > 0) {
+            const map: Record<string, string> = {};
+            data.forEach((row: any) => { map[row.key] = row.value; });
 
-          setMessages({
-            weekday_before: map['timer_weekday_before'] || defaultMessages.weekday_before,
-            weekday_after: map['timer_weekday_after'] || defaultMessages.weekday_after,
-            saturday_before: map['timer_saturday_before'] || defaultMessages.saturday_before,
-            saturday_after: map['timer_saturday_after'] || defaultMessages.saturday_after,
-            sunday: map['timer_sunday'] || defaultMessages.sunday,
-            holiday: map['timer_holiday_message'] || defaultMessages.holiday,
-            eve: map['timer_eve_message'] || defaultMessages.eve,
-          });
+            setMessages({
+              weekday_before: map['timer_weekday_before'] || defaultMessages.weekday_before,
+              weekday_after: map['timer_weekday_after'] || defaultMessages.weekday_after,
+              saturday_before: map['timer_saturday_before'] || defaultMessages.saturday_before,
+              saturday_after: map['timer_saturday_after'] || defaultMessages.saturday_after,
+              sunday: map['timer_sunday'] || defaultMessages.sunday,
+              holiday: map['timer_holiday_message'] || defaultMessages.holiday,
+              eve: map['timer_eve_message'] || defaultMessages.eve,
+            });
 
-          if (map['timer_holidays']) {
-            const list = map['timer_holidays']
-              .split(',')
-              .map((d) => d.trim())
-              .filter(Boolean);
-            setHolidays(list);
+            setHolidays(
+              map['timer_holidays']
+                ? map['timer_holidays'].split(',').map((d) => d.trim()).filter(Boolean)
+                : []
+            );
           }
-        }
-      });
+        });
+    };
+
+    loadSettings();
+
+    // Recarrega assim que o admin salvar feriados/mensagens, sem precisar dar F5
+    window.addEventListener('timer-settings-updated', loadSettings);
+    return () => window.removeEventListener('timer-settings-updated', loadSettings);
   }, []);
 
   useEffect(() => {

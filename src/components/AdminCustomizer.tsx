@@ -328,6 +328,8 @@ const AdminCustomizer = () => {
     ], { onConflict: 'key' });
     setSavingHolidays(false);
     showSuccess('Feriados salvos!');
+    // Avisa a barra amarela (DeliveryTimerBar) para recarregar os dados na hora
+    window.dispatchEvent(new Event('timer-settings-updated'));
   };
 
   const addHoliday = () => {
@@ -499,6 +501,7 @@ const AdminCustomizer = () => {
 
     setSavingTimer(false);
     showSuccess('Barra atualizada!');
+    window.dispatchEvent(new Event('timer-settings-updated'));
   };
 
   const handleTabChange = (value: string) => {

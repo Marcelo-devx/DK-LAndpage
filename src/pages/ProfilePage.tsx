@@ -19,6 +19,7 @@ import { DatePicker } from '@/components/ui/DatePicker';
 import { format } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useAuth } from '@/context/AuthContext';
+import { isProfileComplete } from '@/lib/profileUtils';
 
 const profileSchema = z.object({
   first_name: z.string().min(1, "Nome é obrigatório"),
@@ -52,6 +53,13 @@ const ProfilePage = () => {
   // New states for address edit permission
   const [canEditAddress, setCanEditAddress] = useState<boolean>(true);
   const [isCheckingPermission, setIsCheckingPermission] = useState<boolean>(false);
+  // Exceção: cadastro incompleto (faltando telefone e/ou endereço) sempre pode ser editado,
+  // mesmo que o usuário ainda não tenha 3 pedidos pagos e entregues. Isso evita que a trava
+  // de edição de endereço impeça o cliente de completar o cadastro para continuar comprando.
+  const [profileIncomplete, setProfileIncomplete] = useState<boolean>(false);
+
+  // Permissão efetiva de edição do endereço, já considerando a exceção de cadastro incompleto
+  const addressEditAllowed = isAdmin || canEditAddress || profileIncomplete;
 
   const { register, handleSubmit, control, setValue, getValues, formState: { errors } } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -176,6 +184,8 @@ const ProfilePage = () => {
             setValue(key as keyof ProfileFormData, initialFormValues[key as keyof ProfileFormData]);
           });
 
+          setProfileIncomplete(!isProfileComplete(profileData));
+
           // After loading profile, check address edit permission
           try {
             await checkAddressEditPermission(userId);
@@ -202,8 +212,9 @@ const ProfilePage = () => {
   const onAttemptSubmit = async (data: ProfileFormData) => {
     if (!user) return;
 
-    // Double-check permission before saving (server-side)
-    if (!isAdmin) {
+    // Double-check permission before saving (server-side), exceto quando o cadastro
+    // ainda está incompleto — nesse caso o usuário precisa poder salvar para liberar a compra.
+    if (!isAdmin && !profileIncomplete) {
       try {
         const allowed = await checkAddressEditPermission(user.id);
         if (!allowed) {
@@ -333,12 +344,22 @@ const ProfilePage = () => {
                   </div>
 
                   {/* Show block alert if user cannot edit address and is not admin */}
-                  {(!canEditAddress && !isAdmin) && (
+                  {!addressEditAllowed && (
                     <Alert className="mb-6 bg-rose-50 border-rose-200 text-rose-800">
                       <AlertCircle className="h-4 w-4" />
                       <AlertTitle className="font-bold uppercase text-xs tracking-wider">Endereço bloqueado para edição</AlertTitle>
                       <AlertDescription className="text-xs">
                         A edição do endereço só é liberada após você completar 3 pedidos pagos e entregues. Entre em contato com o suporte para alterar o endereço enquanto isso.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  {profileIncomplete && (
+                    <Alert className="mb-6 bg-sky-50 border-sky-200 text-sky-800">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle className="font-bold uppercase text-xs tracking-wider">Complete seu cadastro</AlertTitle>
+                      <AlertDescription className="text-xs">
+                        Preencha e salve seu telefone e endereço para continuar comprando na loja.
                       </AlertDescription>
                     </Alert>
                   )}
@@ -368,9 +389,9 @@ const ProfilePage = () => {
                             }
                           }}
                           className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors"
-                          disabled={!canEditAddress && !isAdmin}
+                          disabled={!addressEditAllowed}
                         />
-                        <Button type="button" size="icon" onClick={handleCepLookup} disabled={isFetchingCep || (!canEditAddress && !isAdmin)} className="bg-sky-500 hover:bg-sky-400 text-white h-12 w-12 rounded-xl shrink-0">
+                        <Button type="button" size="icon" onClick={handleCepLookup} disabled={isFetchingCep || !addressEditAllowed} className="bg-sky-500 hover:bg-sky-400 text-white h-12 w-12 rounded-xl shrink-0">
                           {isFetchingCep ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
                         </Button>
                       </div>
@@ -386,12 +407,12 @@ const ProfilePage = () => {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                       <div className="space-y-3">
                         <Label htmlFor="number" className="text-xs font-black uppercase tracking-[0.2em] text-stone-500">Número</Label>
-                        <Input id="number" {...register('number')} className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" disabled={!canEditAddress && !isAdmin} />
+                        <Input id="number" {...register('number')} className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" disabled={!addressEditAllowed} />
                         {errors.number && <p className="text-xs font-bold text-red-400">{errors.number.message}</p>}
                       </div>
                       <div className="md:col-span-2 space-y-3">
                         <Label htmlFor="complement" className="text-xs font-black uppercase tracking-[0.2em] text-stone-500">Complemento *</Label>
-                        <Input id="complement" {...register('complement')} className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" disabled={!canEditAddress && !isAdmin} />
+                        <Input id="complement" {...register('complement')} className="bg-white border-stone-200 h-12 rounded-xl focus:border-sky-500 transition-colors" disabled={!addressEditAllowed} />
                         {errors.complement && <p className="text-xs font-bold text-red-400">{errors.complement.message}</p>}
                       </div>
                     </div>

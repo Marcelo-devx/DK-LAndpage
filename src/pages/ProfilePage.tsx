@@ -245,6 +245,15 @@ const ProfilePage = () => {
     } else {
       showSuccess("Perfil salvo com sucesso!");
       window.dispatchEvent(new CustomEvent('profileUpdated'));
+
+      // Recalcula a exceção de cadastro incompleto e a permissão real de edição de
+      // endereço com os dados recém-salvos, para que a trava volte a valer normalmente
+      // assim que o cadastro estiver completo, sem precisar recarregar a página.
+      const nowComplete = isProfileComplete(updatePayload);
+      setProfileIncomplete(!nowComplete);
+      if (!isAdmin) {
+        await checkAddressEditPermission(user.id);
+      }
     }
     setIsSaving(false);
   };

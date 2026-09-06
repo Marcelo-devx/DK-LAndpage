@@ -67,6 +67,16 @@ const checkoutSchema = z.object({
   city: z.string().trim().min(1, "Informe a cidade."),
   state: z.string().trim().min(2, "Informe a sigla do estado.").max(2, "Use a sigla do estado (ex: SC)"),
   payment_method: z.enum(['mercadopago', 'pix'], { required_error: "Selecione um método de pagamento." }),
+  recipient_type: z.enum(['self', 'other'], { required_error: "Informe quem irá receber o pedido." }),
+  recipient_name: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (data.recipient_type === 'other' && !data.recipient_name?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Informe o nome de quem irá receber o pedido.",
+      path: ['recipient_name'],
+    });
+  }
 });
 
 type CheckoutFormData = z.infer<typeof checkoutSchema>;
@@ -182,10 +192,11 @@ const CheckoutPage = () => {
   });
 
   const paymentMethod = watch('payment_method');
+  const recipientType = watch('recipient_type');
   const watchedNeighborhood = watch('neighborhood');
   const watchedCity = watch('city');
   const watchedCep = watch('cep');
-  const watchedAddressFields = watch(['email', 'first_name', 'last_name', 'phone', 'cpf_cnpj', 'cep', 'street', 'number', 'neighborhood', 'city', 'state', 'complement']);
+  const watchedAddressFields = watch(['email', 'first_name', 'last_name', 'phone', 'cpf_cnpj', 'cep', 'street', 'number', 'neighborhood', 'city', 'state', 'complement', 'recipient_type', 'recipient_name']);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -202,6 +213,7 @@ const CheckoutPage = () => {
     // Se há endereço selecionado no modal, só precisamos checar os dados pessoais do perfil
     if (selectedDeliveryAddress) {
       const data = getValues();
+      const isRecipientComplete = data.recipient_type === 'self' || (data.recipient_type === 'other' && !!data.recipient_name?.trim());
       const isComplete =
         !!data.email?.trim() &&
         !!data.first_name?.trim() &&
@@ -212,11 +224,13 @@ const CheckoutPage = () => {
         !!selectedDeliveryAddress.number?.trim() &&
         !!selectedDeliveryAddress.neighborhood?.trim() &&
         !!selectedDeliveryAddress.city?.trim() &&
-        !!selectedDeliveryAddress.state?.trim();
+        !!selectedDeliveryAddress.state?.trim() &&
+        isRecipientComplete;
       setIsAddressComplete(isComplete);
       return;
     }
     const data = getValues();
+    const isRecipientComplete = data.recipient_type === 'self' || (data.recipient_type === 'other' && !!data.recipient_name?.trim());
     const isComplete =
       !!data.email?.trim() &&
       !!data.first_name?.trim() &&
@@ -228,7 +242,8 @@ const CheckoutPage = () => {
       !!data.number?.trim() &&
       !!data.neighborhood?.trim() &&
       !!data.city?.trim() &&
-      !!data.state?.trim();
+      !!data.state?.trim() &&
+      isRecipientComplete;
     setIsAddressComplete(isComplete);
   }, [watchedAddressFields, getValues, selectedDeliveryAddress]);
 
@@ -374,6 +389,8 @@ const CheckoutPage = () => {
     setValue('neighborhood', addr.neighborhood, opts);
     setValue('city', addr.city, opts);
     setValue('state', addr.state.toUpperCase(), opts);
+    setValue('recipient_type', addr.recipientType, opts);
+    setValue('recipient_name', addr.recipientName || '', opts);
   }, [setValue]);
 
   // ── Calcula frete diretamente a partir de um endereço (sem depender do watch) ──
@@ -889,6 +906,7 @@ const CheckoutPage = () => {
     const valid = await trigger([
       'email', 'first_name', 'last_name', 'phone', 'cpf_cnpj',
       'cep', 'street', 'number', 'neighborhood', 'city', 'state',
+      'recipient_type', 'recipient_name',
     ]);
     if (!valid) {
       showError("Confira os dados obrigatórios da entrega antes de continuar. Preencha os campos marcados com *.");
@@ -919,6 +937,13 @@ const CheckoutPage = () => {
     }
   };
 
+  const getRecipientNote = (data: CheckoutFormData): string | null => {
+    if (data.recipient_type === 'other' && data.recipient_name?.trim()) {
+      return `Pedido será recebido por: ${data.recipient_name.trim()}`;
+    }
+    return null;
+  };
+
   const handlePixPayment = async (data: CheckoutFormData) => {
     const toastId = showLoading("Criando seu pedido PIX...");
     try {
@@ -931,8 +956,8 @@ const CheckoutPage = () => {
         throw new Error(shippingErrorMessage || 'Não conseguimos calcular o frete para esse endereço. Confira o bairro e a cidade ou fale com a gente para ajudar você.');
       }
       const pixFieldsToValidate: (keyof CheckoutFormData)[] = selectedDeliveryAddress
-        ? ['email', 'first_name', 'last_name', 'phone', 'cpf_cnpj']
-        : ['email', 'first_name', 'last_name', 'phone', 'cpf_cnpj', 'cep', 'street', 'number', 'neighborhood', 'city', 'state'];
+        ? ['email', 'first_name', 'last_name', 'phone', 'cpf_cnpj', 'recipient_type', 'recipient_name']
+        : ['email', 'first_name', 'last_name', 'phone', 'cpf_cnpj', 'cep', 'street', 'number', 'neighborhood', 'city', 'state', 'recipient_type', 'recipient_name'];
       const formValid = await trigger(pixFieldsToValidate);
       if (!formValid) {
         throw new Error('Confira os campos obrigatórios marcados com * antes de finalizar o pedido.');
@@ -978,6 +1003,7 @@ const CheckoutPage = () => {
         benefits_input: bStrings.length ? `Nível ${tierName}: ${bStrings.join(', ')}` : null,
         payment_method_input: 'pix',
         donation_amount_input: donationAmount,
+        recipient_note_input: getRecipientNote(data),
       });
       if (err) throw err;
       const raw: any = (o as any)?.new_order_id ?? (o as any)?.order_id ?? (o as any)?.id ?? o;
@@ -1022,6 +1048,14 @@ const CheckoutPage = () => {
     if (!personalOk) {
       showError('Confira os campos obrigatórios marcados com * antes de finalizar o pedido.');
       return;
+    }
+    const recipientOk = v.recipient_type === 'self' || (v.recipient_type === 'other' && !!v.recipient_name?.trim());
+    if (!recipientOk) {
+      const formValid = await trigger(['recipient_type', 'recipient_name']);
+      if (!formValid) {
+        showError('Informe quem irá receber o pedido antes de finalizar.');
+        return;
+      }
     }
     if (!selectedDeliveryAddress) {
       // Sem endereço do modal: valida campos de endereço do form normalmente
@@ -1079,6 +1113,7 @@ const CheckoutPage = () => {
         benefits_input: bStrings.length ? `Nível ${tierName}: ${bStrings.join(', ')}` : null,
         payment_method_input: 'Cartão de Crédito',
         donation_amount_input: donationAmount,
+        recipient_note_input: getRecipientNote(data),
       });
       if (orderError) throw new Error(orderError.message || "Erro ao criar pedido.");
       const raw: any = (orderData as any)?.new_order_id ?? (orderData as any)?.order_id ?? (orderData as any)?.id ?? orderData;
@@ -1197,8 +1232,8 @@ const CheckoutPage = () => {
       return;
     }
     const fieldsToValidateOnSubmit: (keyof CheckoutFormData)[] = selectedDeliveryAddress
-      ? ['email', 'first_name', 'last_name', 'phone', 'cpf_cnpj']
-      : ['email', 'first_name', 'last_name', 'phone', 'cpf_cnpj', 'cep', 'street', 'number', 'neighborhood', 'city', 'state'];
+      ? ['email', 'first_name', 'last_name', 'phone', 'cpf_cnpj', 'recipient_type', 'recipient_name']
+      : ['email', 'first_name', 'last_name', 'phone', 'cpf_cnpj', 'cep', 'street', 'number', 'neighborhood', 'city', 'state', 'recipient_type', 'recipient_name'];
     const formValid = await trigger(fieldsToValidateOnSubmit);
     if (!formValid) {
       showError('Confira os campos obrigatórios marcados com * antes de finalizar o pedido.');
@@ -1323,6 +1358,13 @@ const CheckoutPage = () => {
                   {selectedDeliveryAddress.neighborhood} — {selectedDeliveryAddress.city}, {selectedDeliveryAddress.state}
                   {selectedDeliveryAddress.cep ? ` · CEP ${maskCep(selectedDeliveryAddress.cep)}` : ''}
                 </p>
+                {selectedDeliveryAddress.recipientType && (
+                  <p className="text-xs text-slate-500 font-medium mt-1">
+                    👤 Vai receber: <span className="font-bold text-slate-700">
+                      {selectedDeliveryAddress.recipientType === 'self' ? 'Eu mesmo' : selectedDeliveryAddress.recipientName}
+                    </span>
+                  </p>
+                )}
                 {isTransportadoraAddress && (
                   <span className="inline-block mt-1.5 px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-widest">
                     Transportadora

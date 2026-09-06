@@ -23,6 +23,8 @@ export interface DeliveryAddress {
   neighborhood: string;
   city: string;
   state: string;
+  recipientType?: 'self' | 'other';
+  recipientName?: string;
 }
 
 interface SavedAddress {
@@ -87,6 +89,10 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
   const [newState, setNewState] = useState('');
   const [saveAddress, setSaveAddress] = useState(false);
   const [newLabel, setNewLabel] = useState('');
+
+  // Quem vai receber o pedido (obrigatório)
+  const [recipientType, setRecipientType] = useState<'self' | 'other' | ''>('');
+  const [recipientName, setRecipientName] = useState('');
 
   const hasProfileAddress = !!(
     profileAddress?.street &&
@@ -200,6 +206,8 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
       setNewLabel('');
       setShowNewForm(false);
       setDeliveryTypeById({});
+      setRecipientType('');
+      setRecipientName('');
     }
   }, [isOpen, fetchData]);
 
@@ -241,6 +249,15 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
   };
 
   const handleConfirm = async () => {
+    if (!recipientType) {
+      showError('Informe quem vai receber o pedido.');
+      return;
+    }
+    if (recipientType === 'other' && !recipientName.trim()) {
+      showError('Informe o nome de quem vai receber o pedido.');
+      return;
+    }
+
     if (selectedId === 'profile') {
       if (!hasProfileAddress || !profileAddress) return;
       onConfirm({
@@ -252,6 +269,8 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
         neighborhood: profileAddress.neighborhood!,
         city: profileAddress.city!,
         state: profileAddress.state!,
+        recipientType,
+        recipientName: recipientType === 'other' ? recipientName.trim() : undefined,
       });
       onOpenChange(false);
       return;
@@ -306,6 +325,8 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
         neighborhood: newNeighborhood.trim(),
         city: newCity.trim(),
         state: newState.trim().toUpperCase(),
+        recipientType,
+        recipientName: recipientType === 'other' ? recipientName.trim() : undefined,
       });
       onOpenChange(false);
       return;
@@ -325,6 +346,8 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
       neighborhood: saved.neighborhood,
       city: saved.city,
       state: saved.state,
+      recipientType,
+      recipientName: recipientType === 'other' ? recipientName.trim() : undefined,
     });
     onOpenChange(false);
   };
@@ -654,6 +677,53 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
                 </div>
               </div>
             )}
+            {/* Quem vai receber o pedido — obrigatório */}
+            <div className="rounded-2xl border border-stone-200 bg-white p-4 space-y-3">
+              <Label className="text-[10px] uppercase text-slate-500 font-black tracking-widest">
+                Quem vai receber o pedido? <span className="text-red-500">*</span>
+              </Label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setRecipientType('self')}
+                  className={cn(
+                    'flex items-center gap-2 rounded-xl border-2 px-4 py-3 transition-colors',
+                    recipientType === 'self' ? 'border-sky-400 bg-sky-50' : 'border-stone-200 bg-stone-50 hover:border-sky-200'
+                  )}
+                >
+                  {recipientType === 'self'
+                    ? <CheckCircle2 className="h-4 w-4 text-sky-500 shrink-0" />
+                    : <Circle className="h-4 w-4 text-stone-300 shrink-0" />}
+                  <span className="text-xs font-bold text-slate-700">Eu mesmo</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRecipientType('other')}
+                  className={cn(
+                    'flex items-center gap-2 rounded-xl border-2 px-4 py-3 transition-colors',
+                    recipientType === 'other' ? 'border-sky-400 bg-sky-50' : 'border-stone-200 bg-stone-50 hover:border-sky-200'
+                  )}
+                >
+                  {recipientType === 'other'
+                    ? <CheckCircle2 className="h-4 w-4 text-sky-500 shrink-0" />
+                    : <Circle className="h-4 w-4 text-stone-300 shrink-0" />}
+                  <span className="text-xs font-bold text-slate-700">Outra pessoa</span>
+                </button>
+              </div>
+              {recipientType === 'other' && (
+                <div>
+                  <Label className="text-[10px] uppercase text-slate-500 font-black tracking-widest">
+                    Nome de quem vai receber <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    value={recipientName}
+                    onChange={e => setRecipientName(e.target.value)}
+                    placeholder="Nome completo"
+                    className="text-base rounded-xl h-12 mt-1"
+                  />
+                </div>
+              )}
+            </div>
           </>
         )}
       </div>
@@ -673,7 +743,9 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
               !newNeighborhood.trim() ||
               !newCity.trim() ||
               !newState.trim()
-            ))
+            )) ||
+            !recipientType ||
+            (recipientType === 'other' && !recipientName.trim())
           }
           className="w-full h-14 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-[0.15em] text-base rounded-2xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
         >

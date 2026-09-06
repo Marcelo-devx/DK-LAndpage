@@ -32,6 +32,16 @@ const AuthEventHandler = () => {
     };
   }, [navigate]);
 
+  // Redireciona para a tela de completar cadastro quando o carrinho detecta
+  // que o cliente logado ainda não preencheu telefone/endereço.
+  useEffect(() => {
+    const handleProfileIncomplete = () => {
+      navigate('/complete-profile');
+    };
+    window.addEventListener('profileIncomplete', handleProfileIncomplete);
+    return () => window.removeEventListener('profileIncomplete', handleProfileIncomplete);
+  }, [navigate]);
+
   return null;
 };
 

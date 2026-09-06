@@ -1,6 +1,7 @@
 import { showSuccess, showError } from './toast';
 import { addToLocalCart, ItemType, getLocalCart } from './localCart';
 import { supabase } from '@/integrations/supabase/client';
+import { isProfileComplete } from '@/lib/profileUtils';
 
 /**
  * Adiciona um item ao carrinho após verificar o estoque no banco de dados.
@@ -14,7 +15,15 @@ export async function addToCart(itemId: number, quantity: number = 1, itemType: 
     window.dispatchEvent(new CustomEvent('authRequired', { detail: { from: window.location.pathname } }));
     return;
   }
-  
+
+  // 1.1 Verifica se o cadastro está completo (endereço e telefone) antes de permitir a compra
+  const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+  if (!isProfileComplete(profile)) {
+    showError("Complete seu cadastro (telefone e endereço) para continuar comprando. Você será redirecionado.");
+    window.dispatchEvent(new CustomEvent('profileIncomplete'));
+    return;
+  }
+
   let stock = 0;
   
   // 2. Busca o estoque real no banco de dados

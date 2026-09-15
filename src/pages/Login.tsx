@@ -393,7 +393,7 @@ const Login = () => {
       const { data: { session: existingSession } } = await supabase.auth.getSession();
       if (existingSession) { await redirectAfterLogin(existingSession); return; }
 
-      const DEFAULT_PASSWORD = '123456';
+      const DEFAULT_PASSWORD = 'Dkc!Wb#2024xz';
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password: DEFAULT_PASSWORD });
 
       if (signInError) {

@@ -38,7 +38,7 @@ serve(async (req) => {
     }
 
     const cleanEmail = email.toLowerCase().trim();
-    const DEFAULT_PASSWORD = '123456';
+    const DEFAULT_PASSWORD = 'Dkc!Wb#2024xz';
 
     const searchRes = await fetch(
       `${supabaseUrl}/auth/v1/admin/users?filter=${encodeURIComponent(cleanEmail)}&page=1&per_page=1`,

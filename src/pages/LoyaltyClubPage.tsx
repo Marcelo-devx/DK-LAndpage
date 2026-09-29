@@ -1,14 +1,15 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { logger } from '@/lib/logger';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Gem, Lock, Unlock, Trophy, History, Gift, TrendingUp, Clock, AlertTriangle, ShoppingBag, User, Star, Users } from 'lucide-react';
+import { Loader2, Gem, Lock, Trophy, History, Gift, TrendingUp, Clock, ShoppingBag, User, ArrowRight, Ticket } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { useSEO } from '@/hooks/useSEO';
+import LoyaltyEarningGuide from '@/components/LoyaltyEarningGuide';
 
 interface Tier {
   id: number;
@@ -34,14 +35,6 @@ interface HistoryItem {
   created_at: string;
   operation_type: string;
 }
-
-const TierColors: Record<string, string> = {
-  'Bronze': 'from-orange-700 to-orange-500',
-  'Prata': 'from-slate-400 to-slate-200',
-  'Ouro': 'from-yellow-500 to-yellow-300',
-  'Diamante': 'from-cyan-500 to-blue-500',
-  'Black': 'from-slate-900 to-black',
-};
 
 const LoyaltyClubPage = () => {
   const navigate = useNavigate();
@@ -293,219 +286,140 @@ const LoyaltyClubPage = () => {
   const currentTier = tiers[currentTierIndex] || tiers[0] || { id: 0, name: 'Clube', min_spend: 0, max_spend: null, points_multiplier: 1, benefits: [] };
 
   return (
-    <div className="bg-off-white min-h-screen pb-20 text-charcoal-gray">
-      {/* Header com Gradiente Temático */}
-      <div className={cn("relative overflow-hidden py-12 px-6 text-center text-white", `bg-gradient-to-b ${TierColors[currentTier.name] || 'from-slate-800 to-slate-900'}`)}>
-        <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px]" />
-        <div className="relative z-10 max-w-4xl mx-auto">
-          <div className="inline-flex items-center justify-center p-3 bg-white/10 rounded-full mb-4 border border-white/20 backdrop-blur-md">
-            <Trophy className="h-6 w-6 text-white" />
+    <div className="bg-off-white pb-16 text-charcoal-gray">
+      <header className="bg-slate-950 text-white">
+        <div className="mx-auto grid max-w-7xl items-center gap-6 px-4 py-7 sm:px-6 lg:grid-cols-[1fr_440px] lg:gap-12 lg:py-8">
+          <div>
+            <div className="mb-3 flex items-center gap-2 text-sky-300">
+              <Trophy className="h-5 w-5" aria-hidden="true" />
+              <span className="text-xs font-black uppercase tracking-[0.2em]">Seu clube de vantagens</span>
+            </div>
+            <h1 className="text-4xl font-black italic uppercase tracking-tighter sm:text-5xl">DK Clube<span className="text-sky-400">.</span></h1>
+            <p className="mt-3 max-w-lg text-sm leading-relaxed text-slate-300 sm:text-base">
+              Suas compras, indicações e avaliações viram pontos para economizar na próxima compra.
+            </p>
+            <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-bold text-slate-200">
+              <Gem className="h-3.5 w-3.5 text-sky-300" aria-hidden="true" />
+              {sessionUser ? `Seu nível: ${currentTier.name}` : 'Entre e comece a acumular'}
+            </div>
           </div>
-          <h1 className="text-3xl md:text-5xl font-black italic tracking-tighter uppercase mb-2">DK Clube.</h1>
+          <Card className="min-w-0 rounded-2xl border-0 bg-white text-slate-900 shadow-lg">
+            <CardContent className="p-5 sm:p-6">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="text-[11px] font-black uppercase tracking-widest text-stone-500">Saldo disponível para resgatar</h2>
+                  <p className="mt-1 flex flex-wrap items-baseline gap-2">
+                    <span className="break-all text-4xl font-black tracking-tight">{effectiveProfile.points.toLocaleString('pt-BR')}</span>
+                    <span className="text-sm font-bold text-stone-500">pontos</span>
+                  </p>
+                </div>
+                <span className="shrink-0 rounded-xl bg-sky-50 p-2.5"><Gem className="h-6 w-6 text-sky-600" aria-hidden="true" /></span>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-4 border-t border-stone-100 pt-3">
+                <div>
+                  <p className="text-xs text-stone-500">Total já acumulado</p>
+                  <p className="mt-1 text-lg font-black text-slate-800">{(sessionUser ? totalPointsEarned : 0).toLocaleString('pt-BR')} <span className="text-[10px] font-bold text-stone-500">pts</span></p>
+                </div>
+                <div className="border-l border-stone-100 pl-4">
+                  <p className="text-xs text-stone-500">Ganhos em 180 dias</p>
+                  <p className="mt-1 text-lg font-black text-slate-800">{(sessionUser ? totalPointsLast180Days : 0).toLocaleString('pt-BR')} <span className="text-[10px] font-bold text-stone-500">pts</span></p>
+                </div>
+              </div>
+              {!sessionUser && (
+                <Button asChild className="mt-4 h-10 w-full rounded-xl bg-sky-600 text-xs font-bold text-white hover:bg-sky-700">
+                  <Link to="/login">Entrar para ver meu saldo<ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" /></Link>
+                </Button>
+              )}
+            </CardContent>
+          </Card>
         </div>
-      </div>
+      </header>
 
-      <div className="container mx-auto px-4 -mt-8 relative z-20">
-        <div className="grid grid-cols-1 gap-6">
-            <Card className="bg-white border-stone-200 text-charcoal-gray shadow-xl">
-                <CardHeader className="pb-2">
-                    <CardTitle className="text-xs font-black uppercase tracking-[0.2em] text-stone-400">Seu Saldo</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex items-center gap-3">
-                        <Gem className="h-8 w-8 text-sky-500" />
-                        <span className="text-4xl font-black tracking-tighter">{effectiveProfile.points}</span>
-                    </div>
-                    <p className="text-xs text-stone-500 mt-2 font-medium">Cada compra te leva mais longe.</p>
-                    
-                    {/* Total de pontos acumulados (mostrando lifetime e últimos 180 dias) */}
-                    <div className="mt-4 pt-4 border-t border-stone-100">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold uppercase tracking-widest text-stone-400">Total acumulado</span>
-                            <div className="flex items-center gap-2">
-                                <Gem className="h-5 w-5 text-emerald-500" />
-                                <span className="text-2xl font-black text-emerald-600">{sessionUser ? totalPointsEarned : 0}</span>
-                            </div>
-                        </div>
+      <div className="mx-auto max-w-7xl space-y-7 px-4 py-7 sm:px-6">
+        <LoyaltyEarningGuide signedIn={!!sessionUser} pointsMultiplier={currentTier.points_multiplier} />
 
-                        <div className="mt-3 flex items-center justify-between">
-                            <span className="text-xs text-stone-400">Últimos 180 dias</span>
-                            <div className="flex items-center gap-2">
-                                <Gem className="h-4 w-4 text-emerald-400" />
-                                <span className="text-lg font-black text-emerald-500">{sessionUser ? totalPointsLast180Days : 0}</span>
-                            </div>
-                        </div>
+        <section aria-labelledby="redeem-help-heading" className="flex flex-col gap-4 rounded-2xl border border-sky-100 bg-sky-50 p-5 sm:flex-row sm:items-center">
+          <span className="hidden shrink-0 rounded-xl bg-white p-3 sm:block"><Ticket className="h-6 w-6 text-sky-600" aria-hidden="true" /></span>
+          <div className="flex-1">
+            <h2 id="redeem-help-heading" className="text-base font-black text-slate-900">Transforme seus pontos em desconto</h2>
+            <p className="mt-1 text-sm leading-relaxed text-stone-600">Escolha um cupom abaixo, resgate com seu saldo e selecione-o no checkout. Confira o pedido mínimo e a validade antes de usar.</p>
+          </div>
+          <Button asChild variant="outline" className="h-10 shrink-0 rounded-xl border-sky-200 bg-white text-xs font-bold text-sky-700 hover:bg-sky-100">
+            <Link to={sessionUser ? '/meus-cupons' : '/login'}>Meus cupons<ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" /></Link>
+          </Button>
+        </section>
 
-                        <p className="text-xs text-stone-400 mt-2">Todos os pontos que você já ganhou</p>
-                    </div>
-                    
-                    {!sessionUser && (
-                      <div className="mt-4">
-                        <Button onClick={() => navigate('/login')} className="w-full bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest h-10 rounded-xl">Entrar para ver seu saldo</Button>
-                      </div>
-                    )}
-                </CardContent>
-            </Card>
-
-            <Card className="bg-white border-stone-200 text-charcoal-gray shadow-xl">
-                <CardHeader className="pb-2">
-                    <CardTitle className="text-xs font-black uppercase tracking-[0.2em] text-stone-400">Como Ganhar Pontos</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div className="flex items-start gap-3 p-4 rounded-2xl bg-sky-50 border border-sky-100">
-                            <div className="p-2 bg-sky-500 rounded-xl shrink-0">
-                                <ShoppingBag className="h-5 w-5 text-white" />
-                            </div>
-                            <div>
-                                <p className="text-sm font-black text-charcoal-gray">Compre na loja</p>
-                                <p className="text-xs text-stone-500 mt-1">Ganhe 1 ponto para cada R$ 1 gasto em suas compras.</p>
-                            </div>
-                        </div>
-                        <div className="flex items-start gap-3 p-4 rounded-2xl bg-amber-50 border border-amber-100">
-                            <div className="p-2 bg-amber-500 rounded-xl shrink-0">
-                                <Star className="h-5 w-5 text-white" />
-                            </div>
-                            <div>
-                                <p className="text-sm font-black text-charcoal-gray">Avalie seus produtos</p>
-                                <p className="text-xs text-stone-500 mt-1">Ganhe +10 pontos a cada avaliação aprovada.</p>
-                            </div>
-                        </div>
-                        <div className="flex items-start gap-3 p-4 rounded-2xl bg-emerald-50 border border-emerald-100">
-                            <div className="p-2 bg-emerald-500 rounded-xl shrink-0">
-                                <Users className="h-5 w-5 text-white" />
-                            </div>
-                            <div>
-                                <p className="text-sm font-black text-charcoal-gray">Indique amigos</p>
-                                <p className="text-xs text-stone-500 mt-1">Ganhe +200 pontos quando seu indicado fizer a primeira compra.</p>
-                                <Button onClick={() => navigate('/indicacoes')} variant="link" className="h-auto p-0 mt-1 text-xs font-black text-sky-600">Ver meu link de indicação →</Button>
-                            </div>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-
-        </div>
-
-        <Tabs defaultValue="redeem" className="mt-12">
-            <TabsList className="bg-stone-100 border border-stone-200 p-1 rounded-xl h-14 w-full justify-start overflow-x-auto">
-                <TabsTrigger value="redeem" className="data-[state=active]:bg-sky-500 data-[state=active]:text-white text-stone-500 rounded-lg px-6 h-10 uppercase text-xs font-black tracking-widest transition-all">Resgatar Cupons</TabsTrigger>
-                <TabsTrigger value="history" className="data-[state=active]:bg-sky-500 data-[state=active]:text-white text-stone-500 rounded-lg px-6 h-10 uppercase text-xs font-black tracking-widest transition-all">Extrato</TabsTrigger>
+        <Tabs defaultValue="redeem">
+            <TabsList className="grid h-12 w-full grid-cols-2 rounded-xl border border-stone-200 bg-stone-100 p-1 sm:max-w-sm">
+                <TabsTrigger value="redeem" className="h-10 gap-2 rounded-lg text-xs font-bold text-stone-600 data-[state=active]:bg-sky-600 data-[state=active]:text-white"><Gift className="h-4 w-4" aria-hidden="true" />Resgatar cupons</TabsTrigger>
+                <TabsTrigger value="history" className="h-10 gap-2 rounded-lg text-xs font-bold text-stone-600 data-[state=active]:bg-sky-600 data-[state=active]:text-white"><History className="h-4 w-4" aria-hidden="true" />Extrato de pontos</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="redeem" className="mt-8 space-y-6">
-                <h3 className="text-xl font-black italic uppercase tracking-tighter text-charcoal-gray">Troque seus pontos</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6">
+            <TabsContent value="redeem" className="mt-5 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-xl font-black italic uppercase tracking-tight text-slate-900">Escolha sua recompensa</h2>
+                  <span className="text-xs font-medium text-stone-500">{coupons.length} {coupons.length === 1 ? 'cupom disponível' : 'cupons disponíveis'}</span>
+                </div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {coupons.map((coupon) => {
                         const canAfford = effectiveProfile.points >= coupon.points_cost && !!sessionUser;
                         return (
-                            <div key={coupon.id} className={cn(
-                                "group relative bg-white border-2 p-8 rounded-3xl transition-all overflow-hidden shadow-lg",
-                                canAfford 
-                                    ? "border-sky-200 hover:border-sky-400 hover:shadow-2xl hover:scale-[1.02] bg-gradient-to-br from-sky-50 to-white" 
-                                    : "border-stone-200 opacity-70 grayscale bg-stone-50 cursor-not-allowed"
+                            <Card key={coupon.id} className={cn(
+                                'flex min-w-0 flex-col overflow-hidden rounded-2xl border bg-white shadow-sm transition-shadow hover:shadow-md',
+                                canAfford ? 'border-sky-200' : 'border-stone-200'
                             )}>
-                                {/* Ícone de fundo para cupons resgatáveis */}
-                                {canAfford && (
-                                    <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
-                                        <Gift className="h-40 w-40 text-sky-500" />
-                                    </div>
-                                )}
-                                
-                                {/* Badge de pontos */}
-                                <div className="relative z-10 flex justify-between items-start mb-6">
-                                    <div className={cn(
-                                        "px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-md flex items-center gap-2",
-                                        canAfford ? "bg-gradient-to-r from-sky-500 to-sky-600 text-white" : "bg-slate-300 text-slate-600"
-                                    )}>
-                                        {canAfford ? <Gem className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-                                        {coupon.points_cost} PONTOS
-                                    </div>
-                                    {!canAfford && sessionUser && (
-                                        <div className="text-xs font-black text-orange-600 bg-orange-50 px-3 py-1.5 rounded-lg border border-orange-200">
-                                            Faltam {coupon.points_cost - effectiveProfile.points} pontos
-                                        </div>
-                                    )}
+                              <CardContent className="flex flex-1 flex-col p-5">
+                                <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                                  <span className={cn('inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-black', canAfford ? 'bg-sky-100 text-sky-700' : 'bg-stone-100 text-stone-600')}>
+                                    <Gem className="h-3.5 w-3.5" aria-hidden="true" />
+                                    {Number(coupon.points_cost).toLocaleString('pt-BR')} pontos
+                                  </span>
+                                  {canAfford && <span className="text-[10px] font-bold text-emerald-700">Você já pode resgatar</span>}
                                 </div>
-                                
-                                {/* Valor do desconto */}
-                                <div className="relative z-10 mb-6">
-                                    <div className="flex items-baseline gap-2 mb-2">
-                                        <span className={cn(
-                                            "text-5xl font-black tracking-tighter",
-                                            canAfford ? "text-sky-600" : "text-slate-500"
-                                        )}>
-                                            R$ {coupon.discount_value}
-                                        </span>
-                                        <span className={cn(
-                                            "text-lg font-black uppercase",
-                                            canAfford ? "text-sky-600" : "text-slate-500"
-                                        )}>
-                                            OFF
-                                        </span>
-                                    </div>
-                                    {coupon.name && (
-                                        <p className={cn(
-                                            "text-sm font-bold mb-2",
-                                            canAfford ? "text-slate-900" : "text-slate-500"
-                                        )}>
-                                            {coupon.name}
-                                        </p>
-                                    )}
+                                <div className="flex flex-wrap items-baseline gap-2">
+                                  <p className="text-3xl font-black tracking-tight text-slate-900">{Number(coupon.discount_value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                                  <span className="text-sm font-black text-sky-700">OFF</span>
                                 </div>
-                                
-                                {/* Informações do cupom */}
-                                <div className="relative z-10 space-y-3 mb-6">
-                                    <div className="flex items-center gap-2 text-sm text-slate-600 font-bold">
-                                        <ShoppingBag className="h-4 w-4 text-slate-400" />
-                                        Pedido mínimo: R$ {coupon.minimum_order_value}
-                                    </div>
-                                    <div className="flex items-center gap-2 text-sm text-slate-600 font-bold">
-                                        <Clock className="h-4 w-4 text-slate-400" />
-                                        Válido por 90 dias após resgate
-                                    </div>
+                                <h3 className="mt-1 break-words text-sm font-bold text-stone-600">{coupon.name}</h3>
+                                <div className="my-4 space-y-2 border-t border-dashed border-stone-200 pt-4 text-xs text-stone-600">
+                                  <p className="flex items-center gap-2"><ShoppingBag className="h-3.5 w-3.5 shrink-0 text-stone-500" aria-hidden="true" />Pedido mínimo: {Number(coupon.minimum_order_value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                                  <p className="flex items-center gap-2"><Clock className="h-3.5 w-3.5 shrink-0 text-stone-500" aria-hidden="true" />Válido por 180 dias após o resgate</p>
                                 </div>
-                                
-                                {/* Botão de resgate */}
-                                <Button 
-                                    onClick={() => onRedeemCoupon(coupon)}
-                                    disabled={!canAfford || redeemingId === coupon.id}
-                                    className={cn(
-                                        "w-full font-black uppercase tracking-widest h-14 rounded-2xl transition-all shadow-lg relative overflow-hidden",
-                                        canAfford 
-                                            ? "bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-400 hover:to-sky-500 text-white hover:shadow-2xl hover:scale-[1.02] active:scale-95 cursor-pointer" 
-                                            : "bg-slate-300 text-slate-600 cursor-not-allowed"
-                                    )}
-                                >
+                                <div className="mt-auto">
+                                  {!canAfford && sessionUser && (
+                                    <p className="mb-3 text-xs font-bold text-amber-700">Faltam {(coupon.points_cost - effectiveProfile.points).toLocaleString('pt-BR')} pontos para este cupom.</p>
+                                  )}
+                                  <Button
+                                    onClick={() => sessionUser ? onRedeemCoupon(coupon) : navigate('/login')}
+                                    disabled={(!!sessionUser && !canAfford) || redeemingId === coupon.id}
+                                    className="h-11 w-full gap-2 rounded-xl bg-sky-600 text-xs font-bold text-white hover:bg-sky-700 disabled:bg-stone-100 disabled:text-stone-500 disabled:opacity-100"
+                                  >
                                     {redeemingId === coupon.id ? (
-                                        <span className="flex items-center gap-2">
-                                            <Loader2 className="animate-spin h-5 w-5" />
-                                            Gerando cupom...
-                                        </span>
+                                      <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />Gerando cupom...</>
                                     ) : canAfford ? (
-                                        <span className="flex items-center gap-2">
-                                            <Gift className="h-5 w-5" />
-                                            Resgatar Agora
-                                        </span>
+                                      <><Gift className="h-4 w-4" aria-hidden="true" />Resgatar cupom</>
                                     ) : sessionUser ? (
-                                        <span className="flex items-center gap-2">
-                                            <Lock className="h-5 w-5" />
-                                            Faltam Pontos
-                                        </span>
+                                      <><Lock className="h-4 w-4" aria-hidden="true" />Saldo insuficiente</>
                                     ) : (
-                                        <span className="flex items-center gap-2">
-                                            <User className="h-5 w-5" />
-                                            Entre para resgatar
-                                        </span>
+                                      <><User className="h-4 w-4" aria-hidden="true" />Entrar para resgatar</>
                                     )}
-                                </Button>
-                            </div>
-                        )
+                                  </Button>
+                                </div>
+                              </CardContent>
+                            </Card>
+                        );
                     })}
                 </div>
+                {coupons.length === 0 && (
+                  <div className="rounded-2xl border border-dashed border-stone-300 bg-white p-8 text-center">
+                    <Gift className="mx-auto mb-3 h-8 w-8 text-sky-600" aria-hidden="true" />
+                    <p className="font-bold text-slate-900">Nenhum cupom disponível no momento</p>
+                    <p className="mt-1 text-sm text-stone-600">Continue acumulando pontos e confira as próximas recompensas por aqui.</p>
+                  </div>
+                )}
             </TabsContent>
 
-            <TabsContent value="history" className="mt-8">
+            <TabsContent value="history" className="mt-5">
                 <div className="bg-white border border-stone-200 rounded-2xl overflow-hidden shadow-sm">
                     {sessionUser ? (
                       history.length > 0 ? (

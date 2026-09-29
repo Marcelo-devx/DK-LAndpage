@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Gem, Users, Cake, TrendingUp, RefreshCw, Clock, ShoppingBag, Star } from 'lucide-react';
+import { Gem, Users, Cake, TrendingUp, Clock, ShoppingBag, Star } from 'lucide-react';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { useSEO } from '@/hooks/useSEO';
 import ScrollAnimationWrapper from '@/components/ScrollAnimationWrapper';
@@ -78,17 +78,12 @@ const otherBonuses = [
   {
     icon: Cake,
     title: 'Bônus de Aniversário',
-    description: 'No mês do seu aniversário, você ganha 100 pontos extras automaticamente.',
+    description: 'No dia do seu aniversário, você ganha 100 pontos extras automaticamente.',
   },
   {
     icon: TrendingUp,
     title: 'Bônus Ticket Alto',
     description: 'Compras a partir de R$ 500 geram +10 pontos extras automaticamente.',
-  },
-  {
-    icon: RefreshCw,
-    title: 'Bônus Recorrência',
-    description: 'Compre todo mês e ganhe extra: +5 pontos na 2ª compra, +10 na 3ª e +15 pontos da 4ª em diante.',
   },
 ];
 
@@ -208,7 +203,7 @@ const HowItWorksPage = () => {
             </div>
           </ScrollAnimationWrapper>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
             {otherBonuses.map((bonus, i) => (
               <ScrollAnimationWrapper key={i}>
                 <div className="bg-white/5 border border-white/10 hover:border-sky-500/30 rounded-3xl p-7 flex flex-col gap-4 transition-all duration-300 hover:-translate-y-1 h-full">

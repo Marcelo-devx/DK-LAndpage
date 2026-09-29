@@ -430,7 +430,7 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
           </Button>
         </form>
 
-        <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
           {safeCategories.map((cat) => (
             <Link 
               key={cat.id} 

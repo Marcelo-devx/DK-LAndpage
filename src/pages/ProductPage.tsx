@@ -16,6 +16,56 @@ import ProductReviews from '@/components/ProductReviews';
 import { useSEO } from '@/hooks/useSEO';
 
 /**
+ * Corrige URLs digitadas com o protocolo duplicado por engano,
+ * ex: "https://https://exemplo.com" -> "https://exemplo.com".
+ */
+function fixUrl(url: string): string {
+  return url.replace(/^(https?:\/\/)(https?:\/\/)+/i, '$1');
+}
+
+/**
+ * Converte links em texto puro (URLs "cruas") e links em formato Markdown
+ * ([texto](url)) em tags <a> clicáveis, sem tocar em links que já sejam
+ * tags HTML (<a>...</a>) existentes na descrição.
+ */
+function linkifySegment(text: string): string {
+  const placeholders: string[] = [];
+  const store = (html: string) => {
+    placeholders.push(html);
+    return `\u0000${placeholders.length - 1}\u0000`;
+  };
+
+  // Links em formato Markdown: [texto](url)
+  let result = text.replace(
+    /\[([^\]\[]+)\]\((https?:\/\/[^\s()]+)\)/gi,
+    (_match, linkText, url) =>
+      store(`<a href="${fixUrl(url)}" target="_blank" rel="noopener noreferrer">${linkText.trim()}</a>`)
+  );
+
+  // URLs soltas em texto puro (não dentro de atributos/tags)
+  result = result.replace(
+    /(^|[\s(>])(https?:\/\/[^\s<]+)/gi,
+    (_match, prefix, url) => {
+      const cleanUrl = url.replace(/[.,;:!?)\]]+$/, '');
+      const trailing = url.slice(cleanUrl.length);
+      return `${prefix}${store(
+        `<a href="${fixUrl(cleanUrl)}" target="_blank" rel="noopener noreferrer">${cleanUrl}</a>`
+      )}${trailing}`;
+    }
+  );
+
+  return result.replace(/\u0000(\d+)\u0000/g, (_match, idx) => placeholders[Number(idx)]);
+}
+
+function linkifyUrls(html: string): string {
+  // Preserva tags <a>...</a> já existentes e só processa o texto fora delas
+  return html
+    .split(/(<a\b[^>]*>[\s\S]*?<\/a>)/gi)
+    .map(part => (/^<a\b/i.test(part) ? part : linkifySegment(part)))
+    .join('');
+}
+
+/**
  * Garante que toda a descrição seja renderizada com espaçamento correto.
  *  - Linhas em branco (\n\n) separam parágrafos (<p>), que ganham o
  *    espaçamento vertical do plugin de tipografia (prose).
@@ -25,6 +75,8 @@ import { useSEO } from '@/hooks/useSEO';
  *    destacadas como blocos separados.
  *  - Se a descrição já for um HTML de blocos bem formado (sequência de
  *    tags como <p>, <div>, <ul>...), ela é usada como está, sem reprocessar.
+ *  - URLs em texto puro ou em formato Markdown são convertidas em links
+ *    clicáveis (<a href>).
  */
 function formatDescription(raw: string): string {
   // Normaliza quebras de linha
@@ -35,17 +87,19 @@ function formatDescription(raw: string): string {
   // HTML já composto inteiramente por tags de bloco bem formadas → passa direto
   const blockTagPattern = /^(\s*<(p|div|ul|ol|li|h[1-6]|table|blockquote|section|article)\b[^>]*>[\s\S]*?<\/\2>\s*)+$/i;
   if (hasHtmlTags && blockTagPattern.test(normalized)) {
-    return normalized;
+    return linkifyUrls(normalized);
   }
 
   // Texto puro, ou texto com tags inline (a, strong, b, i, em, span, br) soltas →
   // agrupa em parágrafos pelas linhas em branco, preservando as tags inline no lugar
   const paragraphs = normalized.split(/\n{2,}/);
-  return paragraphs
+  const html = paragraphs
     .map(p => p.trim())
     .filter(Boolean)
     .map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`)
     .join('\n');
+
+  return linkifyUrls(html);
 }
 
 interface Product {

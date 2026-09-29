@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
-import { ShoppingCart, Loader2, Eye, Bookmark, BookmarkCheck } from "lucide-react";
+import { ShoppingCart, Loader2, Eye, Bookmark, BookmarkCheck, Tag } from "lucide-react";
 import { memo, useState, useEffect } from "react";
 import { ProductCardProps } from "./ProductCard.types";
 import { cn } from "@/lib/utils";
@@ -25,6 +25,7 @@ const ProductCard = memo(({ product, imagePriority }: ProductCardProps & { image
 
   const [isReserving, setIsReserving] = useState(false);
   const [isReserved, setIsReserved] = useState(false);
+  const [activePromotionId, setActivePromotionId] = useState<number | null>(null);
 
   const hasMultipleVariants = product.hasMultipleVariants;
   const fullPrice = product.price ?? 0;
@@ -63,6 +64,55 @@ const ProductCard = memo(({ product, imagePriority }: ProductCardProps & { image
 
     checkReservation();
   }, [user, product.id, isOutOfStock, hasMultipleVariants]);
+
+  // Produto esgotado no catálogo normal: verifica se a unidade dele está
+  // disponível dentro de uma promoção ativa, para direcionar o cliente pra lá.
+  useEffect(() => {
+    if (!isOutOfStock) {
+      setActivePromotionId(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const checkPromotion = async () => {
+      const { data: items } = await supabase
+        .from('promotion_items')
+        .select('promotion_id')
+        .eq('product_id', product.id);
+
+      const promotionIds = Array.from(
+        new Set((items || []).map((i) => i.promotion_id).filter((id): id is number => id != null))
+      );
+
+      if (promotionIds.length === 0) {
+        if (!cancelled) setActivePromotionId(null);
+        return;
+      }
+
+      const { data: promo } = await supabase
+        .from('promotions')
+        .select('id')
+        .in('id', promotionIds)
+        .eq('is_active', true)
+        .gt('stock_quantity', 0)
+        .limit(1)
+        .maybeSingle();
+
+      if (!cancelled) setActivePromotionId(promo?.id ?? null);
+    };
+
+    checkPromotion();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOutOfStock, product.id]);
+
+  const handleGoToPromotion = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (activePromotionId) navigate(`/promocao/${activePromotionId}`);
+  };
 
   const handleAddToCartClick = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -174,7 +224,17 @@ const ProductCard = memo(({ product, imagePriority }: ProductCardProps & { image
 
           {/* Botão de ação */}
           <div className="mt-3">
-            {isOutOfStock && hasMultipleVariants ? (
+            {isOutOfStock && activePromotionId ? (
+              // Esgotado no catálogo normal, mas disponível dentro de uma promoção ativa
+              <Button
+                className="w-full font-black uppercase text-[9px] md:text-[10px] xl:text-[11px] tracking-widest h-9 md:h-10 xl:h-11 rounded-xl transition-all duration-300 bg-amber-500 hover:bg-amber-600 text-white whitespace-nowrap"
+                onClick={handleGoToPromotion}
+                aria-label="Ver na promoção"
+              >
+                <Tag className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                Ver na Promoção
+              </Button>
+            ) : isOutOfStock && hasMultipleVariants ? (
               // Produto com variações esgotado → vai para a página escolher qual variação reservar
               <Button
                 className="w-full font-black uppercase text-[9px] md:text-[10px] xl:text-[11px] tracking-widest h-9 md:h-10 xl:h-11 rounded-xl transition-all duration-300 bg-slate-800 hover:bg-amber-500 text-white whitespace-nowrap"

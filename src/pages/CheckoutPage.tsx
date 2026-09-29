@@ -302,12 +302,14 @@ const CheckoutPage = () => {
         if (!product) return null;
 
         let price = product.price ?? 0;
+        let pixPrice = product.pix_price ?? null;
         let label = '';
 
         if (cartItem.variantId) {
           const variant = (variantsRes as any).data?.find((v: any) => v.id === cartItem.variantId);
           if (variant) {
             price = variant.price ?? 0;
+            pixPrice = variant.pix_price ?? null;
 
             const fName = variant.flavor_id ? flavorsData?.find(f => f.id === variant.flavor_id)?.name : '';
             const parts: string[] = [];
@@ -332,7 +334,7 @@ const CheckoutPage = () => {
           quantity: cartItem.quantity,
           name: product.name,
           price: price,
-          pixPrice: product.pix_price ?? null,
+          pixPrice: pixPrice,
           image_url: product.image_url || '',
           variant_label: label || undefined,
         };

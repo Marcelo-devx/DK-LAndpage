@@ -5,7 +5,7 @@ import { logger } from '@/lib/logger';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Gem, Lock, Unlock, Trophy, History, Gift, TrendingUp, Clock, AlertTriangle, ShoppingBag, User } from 'lucide-react';
+import { Loader2, Gem, Lock, Unlock, Trophy, History, Gift, TrendingUp, Clock, AlertTriangle, ShoppingBag, User, Star, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { useSEO } from '@/hooks/useSEO';
@@ -344,6 +344,44 @@ const LoyaltyClubPage = () => {
                         <Button onClick={() => navigate('/login')} className="w-full bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest h-10 rounded-xl">Entrar para ver seu saldo</Button>
                       </div>
                     )}
+                </CardContent>
+            </Card>
+
+            <Card className="bg-white border-stone-200 text-charcoal-gray shadow-xl">
+                <CardHeader className="pb-2">
+                    <CardTitle className="text-xs font-black uppercase tracking-[0.2em] text-stone-400">Como Ganhar Pontos</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="flex items-start gap-3 p-4 rounded-2xl bg-sky-50 border border-sky-100">
+                            <div className="p-2 bg-sky-500 rounded-xl shrink-0">
+                                <ShoppingBag className="h-5 w-5 text-white" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-black text-charcoal-gray">Compre na loja</p>
+                                <p className="text-xs text-stone-500 mt-1">Ganhe 1 ponto para cada R$ 1 gasto em suas compras.</p>
+                            </div>
+                        </div>
+                        <div className="flex items-start gap-3 p-4 rounded-2xl bg-amber-50 border border-amber-100">
+                            <div className="p-2 bg-amber-500 rounded-xl shrink-0">
+                                <Star className="h-5 w-5 text-white" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-black text-charcoal-gray">Avalie seus produtos</p>
+                                <p className="text-xs text-stone-500 mt-1">Ganhe +10 pontos a cada avaliação aprovada.</p>
+                            </div>
+                        </div>
+                        <div className="flex items-start gap-3 p-4 rounded-2xl bg-emerald-50 border border-emerald-100">
+                            <div className="p-2 bg-emerald-500 rounded-xl shrink-0">
+                                <Users className="h-5 w-5 text-white" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-black text-charcoal-gray">Indique amigos</p>
+                                <p className="text-xs text-stone-500 mt-1">Ganhe +200 pontos quando seu indicado fizer a primeira compra.</p>
+                                <Button onClick={() => navigate('/indicacoes')} variant="link" className="h-auto p-0 mt-1 text-xs font-black text-sky-600">Ver meu link de indicação →</Button>
+                            </div>
+                        </div>
+                    </div>
                 </CardContent>
             </Card>
 

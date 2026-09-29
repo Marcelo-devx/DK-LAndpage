@@ -233,7 +233,7 @@ const Index = () => {
       )}
 
       {settings.showHero && heroSlides.length > 0 && (
-        <section className="relative w-full overflow-hidden h-[180px] md:h-[260px] lg:h-[420px] xl:h-[500px] 2xl:h-[600px]">
+        <section className="relative w-full max-w-[1920px] mx-auto overflow-hidden h-[180px] md:h-[260px] lg:h-[420px] xl:h-[500px] 2xl:h-[600px]">
           <Carousel plugins={[Autoplay({ delay: 5000 })]} opts={{ loop: heroSlides.length > 1 }} className="w-full h-full">
             <div className="relative">
               <CarouselContent>

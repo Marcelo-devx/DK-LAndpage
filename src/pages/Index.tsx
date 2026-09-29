@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link, useOutletContext, useNavigate } from 'react-router-dom';
-import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
 import ProductCard from "@/components/ProductCard";
 import PromotionCard from '@/components/PromotionCard';
@@ -234,7 +234,7 @@ const Index = () => {
 
       {settings.showHero && heroSlides.length > 0 && (
         <section className="relative w-full overflow-hidden h-[180px] md:h-[260px] lg:h-[420px] xl:h-[500px] 2xl:h-[600px]">
-          <Carousel plugins={[Autoplay({ delay: 5000 })]} className="w-full h-full">
+          <Carousel plugins={[Autoplay({ delay: 5000 })]} opts={{ loop: heroSlides.length > 1 }} className="w-full h-full">
             <CarouselContent>
               {heroSlides.map((slide, index) => (
                 <CarouselItem key={index}>
@@ -254,6 +254,12 @@ const Index = () => {
                 </CarouselItem>
               ))}
             </CarouselContent>
+            {heroSlides.length > 1 && (
+              <>
+                <CarouselPrevious className="left-2 md:left-4 bg-black/40 border-white/30 text-white hover:bg-black/60 hover:text-white" />
+                <CarouselNext className="right-2 md:right-4 bg-black/40 border-white/30 text-white hover:bg-black/60 hover:text-white" />
+              </>
+            )}
           </Carousel>
         </section>
       )}

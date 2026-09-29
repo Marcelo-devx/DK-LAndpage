@@ -152,6 +152,7 @@ const CheckoutPage = () => {
   const [userPoints, setUserPoints] = useState<number | null>(null);
   const [isFetchingCep, setIsFetchingCep] = useState(false);
   const [isCreditCardEnabled, setIsCreditCardEnabled] = useState(false);
+  const [isVip, setIsVip] = useState(false);
   const [deliveryType, setDeliveryType] = useState<'local' | 'correios' | null>(null);
   const [shippingCost, setShippingCost] = useState<number>(0);
   const [isFreeShippingApplied, setIsFreeShippingApplied] = useState(false);
@@ -186,6 +187,7 @@ const CheckoutPage = () => {
   const pendingOrderIdRef = useRef<number | null>(null);
   const couponSectionRef = useRef<HTMLDivElement>(null);
   const userRef = useRef<any>(null);
+  const isVipRef = useRef(false);
 
   const { register, handleSubmit, setValue, getValues, watch, trigger, formState: { errors } } = useForm<CheckoutFormData>({
     resolver: zodResolver(checkoutSchema),
@@ -435,6 +437,13 @@ const CheckoutPage = () => {
         // Verifica frete grátis por valor imediatamente
         const effectiveSubtotal = Math.max(0, subtotalRef.current - discountRef.current);
         await applyFreeShippingRules(base, effectiveSubtotal);
+      } else if (isVipRef.current) {
+        baseShippingCostRef.current = 0;
+        setBaseShippingCostState(0);
+        setShippingCost(0);
+        setIsFreeShippingApplied(true);
+        setIsShippingAvailable(true);
+        setShippingErrorMessage('');
       } else {
         baseShippingCostRef.current = 0;
         setBaseShippingCostState(0);
@@ -512,6 +521,8 @@ const CheckoutPage = () => {
     const profile = profileRes.data;
     if (profile && isMountedRef.current) {
       setIsCreditCardEnabled(profile.is_credit_card_enabled);
+      setIsVip(!!profile.is_vip);
+      isVipRef.current = !!profile.is_vip;
       if (profile.loyalty_tiers) { setTierName(profile.loyalty_tiers.name); setTierBenefits(profile.loyalty_tiers.benefits || []); }
       setValue('payment_method', profile.is_credit_card_enabled ? 'mercadopago' : 'pix');
       const fields: (keyof CheckoutFormData)[] = ['email', 'first_name', 'last_name', 'phone', 'cep', 'street', 'number', 'neighborhood', 'city', 'state', 'complement', 'cpf_cnpj'];
@@ -862,6 +873,13 @@ const CheckoutPage = () => {
         // Verifica frete grátis por valor imediatamente
         const effectiveSubtotal = Math.max(0, subtotalRef.current - discountRef.current);
         await applyFreeShippingRules(rate, effectiveSubtotal);
+      } else if (isVipRef.current) {
+        baseShippingCostRef.current = 0;
+        setBaseShippingCostState(0);
+        setShippingCost(0);
+        setIsFreeShippingApplied(true);
+        setIsShippingAvailable(true);
+        setShippingErrorMessage('');
       } else {
         baseShippingCostRef.current = 0;
         setBaseShippingCostState(0);

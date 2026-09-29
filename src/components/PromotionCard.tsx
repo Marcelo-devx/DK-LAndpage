@@ -61,6 +61,7 @@ const PromotionCard = memo(({ promotion }: PromotionCardProps) => {
     : null;
   const formatBRL = (value: number) =>
     value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const installmentValue = !isNaN(parsedPrice) ? formatBRL(parsedPrice / 3) : promotion.price;
 
   return (
     <Link to={promotion.url} className="group block h-full">
@@ -125,7 +126,7 @@ const PromotionCard = memo(({ promotion }: PromotionCardProps) => {
                 {promotion.price}
               </p>
               <p className="text-[9px] md:text-[10px] xl:text-[11px] text-slate-700 font-medium">
-                3x de <span className="font-black">{promotion.price}</span> <span className="text-sky-600 font-black uppercase">cartão</span>
+                3x de <span className="font-black">{installmentValue}</span> <span className="text-sky-600 font-black uppercase">cartão</span>
               </p>
 
               <div className="pt-1.5">

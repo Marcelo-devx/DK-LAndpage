@@ -1,10 +1,12 @@
 import { useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Gem, Gift, Users, Cake, TrendingUp, RefreshCw, Clock, ShoppingBag } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Gem, Users, Cake, TrendingUp, RefreshCw, Clock, ShoppingBag, Star } from 'lucide-react';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { useSEO } from '@/hooks/useSEO';
 import ScrollAnimationWrapper from '@/components/ScrollAnimationWrapper';
+import { cn } from '@/lib/utils';
 
 const coupons = [
   { points: 60,   discount: 5,   minOrder: 60 },
@@ -15,26 +17,78 @@ const coupons = [
   { points: 1000, discount: 100, minOrder: 675 },
 ];
 
-const bonuses = [
+const waysToEarn = [
   {
-    icon: Cake,
-    title: 'Bônus de Aniversário',
-    description: 'No mês do seu aniversário, você ganha pontos extras automaticamente.',
+    icon: ShoppingBag,
+    title: 'Compre',
+    reward: '1 ponto',
+    unit: 'por R$ 1 gasto',
+    color: 'text-sky-700',
+    iconColor: 'bg-sky-100 text-sky-700',
+    headerColor: 'from-sky-50 to-white',
+    buttonColor: 'bg-sky-600 hover:bg-sky-700',
+    steps: [
+      'Faça suas compras conectado à sua conta DK.',
+      'A cada R$ 1,00 gasto, 1 ponto é somado ao seu saldo.',
+      'Os pontos são creditados quando o pedido é entregue.',
+    ],
+    note: 'Seu nível no clube pode multiplicar os pontos ganhos em cada compra.',
+    action: 'Explorar produtos',
+    href: '/produtos',
   },
   {
     icon: Users,
-    title: 'Bônus de Indicação',
-    description: 'Indique um amigo e ganhe pontos quando ele realizar a primeira compra.',
+    title: 'Indique um amigo',
+    reward: '+200',
+    unit: 'pontos na primeira compra do amigo',
+    color: 'text-emerald-700',
+    iconColor: 'bg-emerald-100 text-emerald-700',
+    headerColor: 'from-emerald-50 to-white',
+    buttonColor: 'bg-emerald-700 hover:bg-emerald-800',
+    steps: [
+      'Compartilhe seu link de indicação com um amigo.',
+      'Ele precisa se cadastrar usando esse link.',
+      'Na primeira compra confirmada dele, você recebe 200 pontos.',
+    ],
+    note: 'Só o cadastro não gera pontos. O bônus é concedido uma vez por amigo indicado.',
+    action: 'Entrar para indicar',
+    href: '/login',
+  },
+  {
+    icon: Star,
+    title: 'Avalie seus produtos',
+    reward: '+10',
+    unit: 'pontos por avaliação aprovada',
+    color: 'text-amber-700',
+    iconColor: 'bg-amber-100 text-amber-700',
+    headerColor: 'from-amber-50 to-white',
+    buttonColor: 'bg-amber-700 hover:bg-amber-800',
+    steps: [
+      'Abra "Minhas avaliações" e escolha um produto de um pedido finalizado.',
+      'Dê sua nota de 1 a 5 estrelas e conte sua experiência.',
+      'Após a aprovação da avaliação, 10 pontos entram no seu saldo.',
+    ],
+    note: 'Enviar não credita pontos na hora. Cada avaliação recebe o bônus uma única vez, após aprovação.',
+    action: 'Entrar para avaliar',
+    href: '/login',
+  },
+];
+
+const otherBonuses = [
+  {
+    icon: Cake,
+    title: 'Bônus de Aniversário',
+    description: 'No mês do seu aniversário, você ganha 100 pontos extras automaticamente.',
   },
   {
     icon: TrendingUp,
     title: 'Bônus Ticket Alto',
-    description: 'Compras acima de determinado valor geram pontos extras automaticamente.',
+    description: 'Compras a partir de R$ 500 geram +10 pontos extras automaticamente.',
   },
   {
     icon: RefreshCw,
     title: 'Bônus Recorrência',
-    description: 'Clientes que compram todo mês recebem pontos bônus pela fidelidade.',
+    description: 'Compre todo mês e ganhe extra: +5 pontos na 2ª compra, +10 na 3ª e +15 pontos da 4ª em diante.',
   },
 ];
 
@@ -84,58 +138,56 @@ const HowItWorksPage = () => {
         </div>
       </section>
 
-      {/* COMO FUNCIONA */}
-      <section className="py-24 bg-[#05080f]">
+      {/* COMO GANHAR PONTOS */}
+      <section className="py-24 bg-stone-50">
         <div className="container mx-auto px-4 md:px-6">
           <ScrollAnimationWrapper>
             <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-5xl font-black uppercase tracking-widest text-white mb-4">
-                Como <span className="text-sky-400">Funciona</span>
+              <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-slate-900 mb-4">
+                Como <span className="text-sky-500">Ganhar Pontos</span>
               </h2>
-              <div className="h-1 w-24 bg-gradient-to-r from-transparent via-sky-500 to-transparent mx-auto" />
+              <p className="text-slate-500 text-sm font-medium max-w-xl mx-auto">Compre, indique amigos e avalie seus produtos. Veja como cada recompensa funciona.</p>
             </div>
           </ScrollAnimationWrapper>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            <ScrollAnimationWrapper>
-              <div className="bg-white/5 border border-white/10 rounded-3xl p-8 text-center flex flex-col items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center">
-                  <ShoppingBag className="h-8 w-8 text-sky-400" />
-                </div>
-                <div className="text-5xl font-black text-sky-400">1</div>
-                <h3 className="text-white font-black uppercase tracking-widest text-sm">Compre</h3>
-                <p className="text-slate-400 text-sm leading-relaxed">A cada R$ 1,00 gasto nas suas compras, você ganha <span className="text-white font-bold">1 ponto</span> automaticamente.</p>
-              </div>
-            </ScrollAnimationWrapper>
-
-            <ScrollAnimationWrapper>
-              <div className="bg-white/5 border border-white/10 rounded-3xl p-8 text-center flex flex-col items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center">
-                  <Gem className="h-8 w-8 text-emerald-400" />
-                </div>
-                <div className="text-5xl font-black text-emerald-400">2</div>
-                <h3 className="text-white font-black uppercase tracking-widest text-sm">Acumule</h3>
-                <p className="text-slate-400 text-sm leading-relaxed">Seus pontos ficam disponíveis por <span className="text-white font-bold">180 dias</span>. Quanto mais você compra, mais acumula.</p>
-              </div>
-            </ScrollAnimationWrapper>
-
-            <ScrollAnimationWrapper>
-              <div className="bg-white/5 border border-white/10 rounded-3xl p-8 text-center flex flex-col items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
-                  <Gift className="h-8 w-8 text-amber-400" />
-                </div>
-                <div className="text-5xl font-black text-amber-400">3</div>
-                <h3 className="text-white font-black uppercase tracking-widest text-sm">Resgate</h3>
-                <p className="text-slate-400 text-sm leading-relaxed">Troque seus pontos por <span className="text-white font-bold">cupons de desconto</span> direto no seu painel.</p>
-              </div>
-            </ScrollAnimationWrapper>
+          <div className="grid grid-cols-1 gap-6 max-w-6xl mx-auto lg:grid-cols-3">
+            {waysToEarn.map((way) => (
+              <ScrollAnimationWrapper key={way.title}>
+                <Card className="flex h-full min-w-0 flex-col overflow-hidden rounded-3xl border-stone-200 shadow-sm">
+                  <CardHeader className={cn('gap-3 bg-gradient-to-br p-6 pb-5', way.headerColor)}>
+                    <div className="flex items-center gap-3">
+                      <span className={cn('rounded-xl p-2.5', way.iconColor)}><way.icon className="h-5 w-5" aria-hidden="true" /></span>
+                      <CardTitle className="text-base font-black uppercase tracking-widest text-slate-900">{way.title}</CardTitle>
+                    </div>
+                    <div className={way.color}>
+                      <p className="text-4xl font-black tracking-tight sm:text-5xl">{way.reward}</p>
+                      <p className="mt-1 text-xs font-bold uppercase tracking-widest">{way.unit}</p>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="flex flex-1 flex-col gap-4 p-6 pt-4">
+                    <ol className="space-y-3">
+                      {way.steps.map((step, index) => (
+                        <li key={step} className="flex items-start gap-2.5 text-sm leading-relaxed text-stone-600">
+                          <span className={cn('mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-black', way.iconColor)} aria-hidden="true">{index + 1}</span>
+                          <span>{step}</span>
+                        </li>
+                      ))}
+                    </ol>
+                    <p className="mt-auto rounded-xl bg-stone-100 p-3 text-xs leading-relaxed text-stone-600">{way.note}</p>
+                    <Button asChild className={cn('h-11 w-full rounded-xl text-xs font-black uppercase tracking-widest text-white', way.buttonColor)}>
+                      <Link to={way.href}>{way.action}</Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              </ScrollAnimationWrapper>
+            ))}
           </div>
 
           {/* Aviso de expiração */}
           <ScrollAnimationWrapper>
-            <div className="mt-10 max-w-4xl mx-auto flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl px-6 py-4">
-              <Clock className="h-5 w-5 text-amber-400 shrink-0" />
-              <p className="text-amber-300 text-sm font-medium">
+            <div className="mt-10 max-w-4xl mx-auto flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-6 py-4">
+              <Clock className="h-5 w-5 text-amber-500 shrink-0" />
+              <p className="text-amber-700 text-sm font-medium">
                 <span className="font-black">Atenção:</span> os pontos expiram em 180 dias após serem gerados. Fique de olho no seu saldo.
               </p>
             </div>
@@ -143,23 +195,23 @@ const HowItWorksPage = () => {
         </div>
       </section>
 
-      {/* BÔNUS */}
+      {/* BÔNUS EXTRAS */}
       <section className="py-24 bg-[#0a0f18]">
         <div className="container mx-auto px-4 md:px-6">
           <ScrollAnimationWrapper>
             <div className="text-center mb-16">
               <h2 className="text-3xl md:text-5xl font-black uppercase tracking-widest text-white mb-4">
-                Ganhe <span className="text-sky-400">Bônus</span>
+                Bônus <span className="text-sky-400">Extras</span>
               </h2>
-              <p className="text-slate-400 text-sm uppercase tracking-widest font-medium">Além das compras, você pode acumular pontos extras</p>
+              <p className="text-slate-400 text-sm uppercase tracking-widest font-medium">Além de comprar, indicar e avaliar, você ainda pode ganhar mais</p>
               <div className="h-1 w-24 bg-gradient-to-r from-transparent via-sky-500 to-transparent mx-auto mt-4" />
             </div>
           </ScrollAnimationWrapper>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
-            {bonuses.map((bonus, i) => (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
+            {otherBonuses.map((bonus, i) => (
               <ScrollAnimationWrapper key={i}>
-                <div className="bg-white/5 border border-white/10 hover:border-sky-500/30 rounded-3xl p-7 flex flex-col gap-4 transition-all duration-300 hover:-translate-y-1">
+                <div className="bg-white/5 border border-white/10 hover:border-sky-500/30 rounded-3xl p-7 flex flex-col gap-4 transition-all duration-300 hover:-translate-y-1 h-full">
                   <div className="w-12 h-12 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center shrink-0">
                     <bonus.icon className="h-6 w-6 text-sky-400" />
                   </div>

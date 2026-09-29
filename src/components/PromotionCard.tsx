@@ -50,6 +50,18 @@ const PromotionCard = memo(({ promotion }: PromotionCardProps) => {
 
   const hasPixPrice = promotion.pixPrice && promotion.pixPrice !== promotion.price;
 
+  // Calcula o preço "de" (antes do desconto) a partir do percentual salvo,
+  // para exibir cortado e destacar a economia.
+  const parsedPrice = parseFloat(
+    promotion.price.replace(/[^\d,.-]/g, '').replace('.', '').replace(',', '.')
+  );
+  const hasDiscount = !!promotion.discountPercent && promotion.discountPercent > 0 && !isNaN(parsedPrice);
+  const originalPrice = hasDiscount
+    ? parsedPrice / (1 - (promotion.discountPercent as number) / 100)
+    : null;
+  const formatBRL = (value: number) =>
+    value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
   return (
     <Link to={promotion.url} className="group block h-full">
       <Card className={cn(
@@ -99,6 +111,16 @@ const PromotionCard = memo(({ promotion }: PromotionCardProps) => {
             </h3>
 
             <div className="space-y-0.5">
+              {hasDiscount && originalPrice !== null && (
+                <div className="flex items-center gap-1.5">
+                  <p className="text-[10px] md:text-[11px] xl:text-xs text-slate-400 line-through leading-none">
+                    {formatBRL(originalPrice)}
+                  </p>
+                  <span className="text-[8px] md:text-[9px] font-black text-red-600 bg-red-50 px-1 py-0.5 rounded uppercase tracking-tight leading-none">
+                    -{promotion.discountPercent}%
+                  </span>
+                </div>
+              )}
               <p className="text-[11px] md:text-[13px] xl:text-sm font-black text-slate-900 leading-none">
                 {promotion.price}
               </p>

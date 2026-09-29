@@ -1,9 +1,7 @@
-import { useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Gem, Users, Cake, TrendingUp, Clock, ShoppingBag, Star } from 'lucide-react';
-import { motion, useScroll, useTransform } from 'framer-motion';
 import { useSEO } from '@/hooks/useSEO';
 import ScrollAnimationWrapper from '@/components/ScrollAnimationWrapper';
 import { cn } from '@/lib/utils';
@@ -88,10 +86,6 @@ const otherBonuses = [
 ];
 
 const HowItWorksPage = () => {
-  const parallaxRef = useRef(null);
-  const { scrollYProgress } = useScroll({ target: parallaxRef, offset: ['start end', 'end start'] });
-  const y = useTransform(scrollYProgress, [0, 1], ['-15%', '15%']);
-
   useSEO({
     title: 'Como Funciona | Clube DK | DKCWB',
     description: 'Entenda como funciona o Clube DK da DKCWB. Acumule 1 ponto por R$1 gasto, ganhe bônus e troque por cupons de desconto.',
@@ -268,27 +262,6 @@ const HowItWorksPage = () => {
             </div>
           </ScrollAnimationWrapper>
         </div>
-      </section>
-
-      {/* BANNER FINAL COM PARALLAX */}
-      <section
-        ref={parallaxRef}
-        className="relative w-full h-[400px] md:h-[650px] overflow-hidden bg-black flex items-center justify-center border-t border-white/5"
-      >
-        <motion.div
-          style={{ y }}
-          className="absolute inset-0 w-full h-[140%] -top-[20%]"
-        >
-          <img
-            src="https://jrlozhhvwqfmjtkmvukf.supabase.co/storage/v1/object/public/site_assets/clube_dk_cta_banner.jpg"
-            alt="Clube DK Banner"
-            loading="lazy"
-            decoding="async"
-            className="w-full h-full object-cover object-center grayscale-[0.2] contrast-[1.1]"
-          />
-        </motion.div>
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/40 opacity-60" />
-        <div className="absolute inset-0 bg-sky-500/5 mix-blend-overlay pointer-events-none" />
       </section>
 
     </div>

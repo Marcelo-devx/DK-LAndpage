@@ -81,6 +81,7 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm, isVip = 
   const isMobile = useIsMobile();
 
   const [showVipRiskWarning, setShowVipRiskWarning] = useState(false);
+  const [isCheckingRisk, setIsCheckingRisk] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [profileAddress, setProfileAddress] = useState<ProfileAddress | null>(null);
@@ -271,11 +272,25 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm, isVip = 
       return;
     }
 
-    // Endereço Principal: liberado exclusivamente para clientes VIP.
-    // Antes de concluir, o cliente precisa confirmar que está ciente do risco do envio.
-    if (isVip && selectedId === 'profile') {
-      setShowVipRiskWarning(true);
-      return;
+    // Endereços fora da área de entrega normal (não atendidos por frete local nem transportadora)
+    // só podem ser usados por clientes VIP. Antes de concluir, o cliente precisa confirmar
+    // que está ciente do risco do envio.
+    if (isVip) {
+      setIsCheckingRisk(true);
+      let effectiveType: 'local' | 'correios' | null;
+      if (selectedId === 'profile' && profileAddress) {
+        effectiveType = await checkDeliveryType(profileAddress.neighborhood, profileAddress.city, profileAddress.cep);
+      } else if (selectedId === 'new') {
+        effectiveType = await checkDeliveryType(newNeighborhood, newCity, newCep);
+      } else {
+        const saved = savedAddresses.find(a => a.id === selectedId);
+        effectiveType = saved ? await checkDeliveryType(saved.neighborhood, saved.city, saved.cep) : null;
+      }
+      setIsCheckingRisk(false);
+      if (effectiveType === null) {
+        setShowVipRiskWarning(true);
+        return;
+      }
     }
 
     await executeConfirm();
@@ -762,6 +777,7 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm, isVip = 
           disabled={
             loading ||
             isSaving ||
+            isCheckingRisk ||
             (!hasProfileAddress && selectedId === 'profile') ||
             (selectedId === 'new' && (
               !newStreet.trim() ||
@@ -775,7 +791,7 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm, isVip = 
           }
           className="w-full h-14 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-[0.15em] text-base rounded-2xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
         >
-          {isSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : (
+          {(isSaving || isCheckingRisk) ? <Loader2 className="h-5 w-5 animate-spin" /> : (
             <>
               <MapPin className="h-5 w-5" />
               Confirmar Endereço
@@ -786,7 +802,7 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm, isVip = 
     </div>
   );
 
-  // ── Aviso de risco: exigido para clientes VIP ao confirmar o Endereço Principal ──
+  // ── Aviso de risco: exigido para clientes VIP ao confirmar um endereço fora da área normal de entrega ──
   const VipRiskWarningDialog = (
     <AlertDialog open={showVipRiskWarning} onOpenChange={setShowVipRiskWarning}>
       <AlertDialogContent className="sm:max-w-md bg-white rounded-[2rem] shadow-2xl border-stone-200">
@@ -800,13 +816,13 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm, isVip = 
           <AlertDialogDescription asChild>
             <div className="text-sm text-slate-600 font-medium leading-relaxed space-y-3 text-left mt-1">
               <p>
-                Este endereço é exclusivo para clientes VIP e <span className="font-bold text-slate-800">não possui remetente real</span>, por questão de segurança.
+                Este endereço fica fora da nossa área de entrega normal e só está disponível porque você é cliente VIP. Por segurança, o envio é feito <span className="font-bold text-slate-800">sem remetente real</span>.
               </p>
               <p>
-                Por isso, o envio é feito <span className="font-bold text-slate-800">por sua conta e risco</span>: caso o pedido não seja entregue (extraviado, recusado ou devolvido), ele será considerado perdido e <span className="font-bold text-red-600">não haverá reembolso</span>.
+                Por isso, ele é enviado <span className="font-bold text-slate-800">por sua conta e risco</span>: caso o pedido não seja entregue (extraviado, recusado ou devolvido), ele será considerado perdido e <span className="font-bold text-red-600">não haverá reembolso</span>.
               </p>
               <p>
-                Os pedidos para este endereço saem <span className="font-bold text-slate-800">uma vez por semana, às quartas-feiras</span>.
+                Os pedidos para este tipo de endereço saem <span className="font-bold text-slate-800">uma vez por semana, às quartas-feiras</span>.
               </p>
               <p>
                 Ao confirmar, você declara estar ciente dessas condições e aceita o risco envolvido.

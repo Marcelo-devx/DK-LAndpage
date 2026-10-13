@@ -3,11 +3,21 @@ import { supabase } from '@/integrations/supabase/client';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, MapPin, Search, Plus, Trash2, CheckCircle2, Circle } from 'lucide-react';
+import { Loader2, MapPin, Search, Plus, Trash2, CheckCircle2, Circle, AlertTriangle } from 'lucide-react';
 import { maskCep } from '@/utils/masks';
 import { showError, showSuccess } from '@/utils/toast';
 import { cn } from '@/lib/utils';
@@ -53,6 +63,7 @@ interface DeliveryAddressModalProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: (address: DeliveryAddress) => void;
+  isVip?: boolean;
 }
 
 const MAX_SAVED_ADDRESSES = 5;
@@ -66,8 +77,10 @@ function formatAddressLine(addr: { street: string; number: string; neighborhood:
   return `${addr.street}, ${addr.number} — ${addr.neighborhood}, ${addr.city}/${addr.state}`;
 }
 
-export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: DeliveryAddressModalProps) {
+export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm, isVip = false }: DeliveryAddressModalProps) {
   const isMobile = useIsMobile();
+
+  const [showVipRiskWarning, setShowVipRiskWarning] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [profileAddress, setProfileAddress] = useState<ProfileAddress | null>(null);
@@ -257,6 +270,19 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
       showError('Informe o nome de quem vai receber o pedido.');
       return;
     }
+
+    // Endereço Principal: liberado exclusivamente para clientes VIP.
+    // Antes de concluir, o cliente precisa confirmar que está ciente do risco do envio.
+    if (isVip && selectedId === 'profile') {
+      setShowVipRiskWarning(true);
+      return;
+    }
+
+    await executeConfirm();
+  };
+
+  const executeConfirm = async () => {
+    if (!recipientType) return;
 
     if (selectedId === 'profile') {
       if (!hasProfileAddress || !profileAddress) return;
@@ -760,40 +786,89 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm }: Delive
     </div>
   );
 
+  // ── Aviso de risco: exigido para clientes VIP ao confirmar o Endereço Principal ──
+  const VipRiskWarningDialog = (
+    <AlertDialog open={showVipRiskWarning} onOpenChange={setShowVipRiskWarning}>
+      <AlertDialogContent className="sm:max-w-md bg-white rounded-[2rem] shadow-2xl border-stone-200">
+        <AlertDialogHeader>
+          <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 border border-amber-100">
+            <AlertTriangle className="h-7 w-7 text-amber-500" />
+          </div>
+          <AlertDialogTitle className="text-center font-black text-xl uppercase tracking-tight text-charcoal-gray">
+            Atenção: Endereço de Risco VIP
+          </AlertDialogTitle>
+          <AlertDialogDescription asChild>
+            <div className="text-sm text-slate-600 font-medium leading-relaxed space-y-3 text-left mt-1">
+              <p>
+                Este endereço é exclusivo para clientes VIP e <span className="font-bold text-slate-800">não possui remetente real</span>, por questão de segurança.
+              </p>
+              <p>
+                Por isso, o envio é feito <span className="font-bold text-slate-800">por sua conta e risco</span>: caso o pedido não seja entregue (extraviado, recusado ou devolvido), ele será considerado perdido e <span className="font-bold text-red-600">não haverá reembolso</span>.
+              </p>
+              <p>
+                Os pedidos para este endereço saem <span className="font-bold text-slate-800">uma vez por semana, às quartas-feiras</span>.
+              </p>
+              <p>
+                Ao confirmar, você declara estar ciente dessas condições e aceita o risco envolvido.
+              </p>
+            </div>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="flex flex-col gap-2 sm:flex-col mt-2">
+          <AlertDialogAction
+            onClick={() => { setShowVipRiskWarning(false); executeConfirm(); }}
+            className="w-full h-12 bg-sky-500 hover:bg-sky-400 text-white font-black uppercase tracking-widest rounded-xl shadow-md"
+          >
+            Entendi, confirmar endereço
+          </AlertDialogAction>
+          <AlertDialogCancel className="w-full h-12 font-bold text-slate-500 rounded-xl border-stone-200 mt-0">
+            Cancelar
+          </AlertDialogCancel>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+
   if (isMobile) {
     return (
-      <Sheet open={isOpen} onOpenChange={onOpenChange}>
-        <SheetContent
-          side="bottom"
-          className="h-[92dvh] p-0 rounded-t-3xl flex flex-col bg-white border-t border-stone-200"
-        >
-          {/* Drag handle */}
-          <div className="flex justify-center pt-3 pb-1 shrink-0">
-            <div className="w-10 h-1 rounded-full bg-stone-300" />
-          </div>
-          <SheetHeader className="sr-only">
-            <SheetTitle>Endereço de Entrega</SheetTitle>
-            <SheetDescription>Selecione ou adicione um endereço de entrega</SheetDescription>
-          </SheetHeader>
-          <div className="flex-1 flex flex-col min-h-0">
-            {content}
-          </div>
-        </SheetContent>
-      </Sheet>
+      <>
+        <Sheet open={isOpen} onOpenChange={onOpenChange}>
+          <SheetContent
+            side="bottom"
+            className="h-[92dvh] p-0 rounded-t-3xl flex flex-col bg-white border-t border-stone-200"
+          >
+            {/* Drag handle */}
+            <div className="flex justify-center pt-3 pb-1 shrink-0">
+              <div className="w-10 h-1 rounded-full bg-stone-300" />
+            </div>
+            <SheetHeader className="sr-only">
+              <SheetTitle>Endereço de Entrega</SheetTitle>
+              <SheetDescription>Selecione ou adicione um endereço de entrega</SheetDescription>
+            </SheetHeader>
+            <div className="flex-1 flex flex-col min-h-0">
+              {content}
+            </div>
+          </SheetContent>
+        </Sheet>
+        {VipRiskWarningDialog}
+      </>
     );
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg bg-white rounded-[2rem] shadow-2xl border-stone-200 p-0 max-h-[88vh] flex flex-col">
-        <DialogHeader className="sr-only">
-          <DialogTitle>Endereço de Entrega</DialogTitle>
-          <DialogDescription>Selecione ou adicione um endereço de entrega</DialogDescription>
-        </DialogHeader>
-        <div className="flex-1 flex flex-col min-h-0">
-          {content}
-        </div>
-      </DialogContent>
-    </Dialog>
+    <>
+      <Dialog open={isOpen} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-lg bg-white rounded-[2rem] shadow-2xl border-stone-200 p-0 max-h-[88vh] flex flex-col">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Endereço de Entrega</DialogTitle>
+            <DialogDescription>Selecione ou adicione um endereço de entrega</DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 flex flex-col min-h-0">
+            {content}
+          </div>
+        </DialogContent>
+      </Dialog>
+      {VipRiskWarningDialog}
+    </>
   );
 }

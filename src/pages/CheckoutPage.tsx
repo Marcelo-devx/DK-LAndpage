@@ -1869,6 +1869,7 @@ const CheckoutPage = () => {
       isOpen={isAddressModalOpen}
       onOpenChange={setIsAddressModalOpen}
       onConfirm={handleAddressModalConfirm}
+      isVip={isVip}
     />
   );
 

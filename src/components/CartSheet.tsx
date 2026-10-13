@@ -42,8 +42,9 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
   const [cartStartTime, setCartStartTime] = useState<string | null>(null);
   const [userShippingCost, setUserShippingCost] = useState(0);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  const [isVip, setIsVip] = useState(false);
 
-  // Busca o frete do bairro/cidade do perfil do usuário logado
+  // Busca o frete do bairro/cidade do perfil do usuário logado e o status VIP
   useEffect(() => {
     if (!isOpen) return;
     const fetchUserShipping = async () => {
@@ -51,10 +52,12 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
       if (!session?.user) return;
       const { data: profile } = await supabase
         .from('profiles')
-        .select('neighborhood, city')
+        .select('neighborhood, city, is_vip')
         .eq('id', session.user.id)
         .single();
-      if (!profile?.city) return;
+      if (!profile) return;
+      setIsVip(!!profile.is_vip);
+      if (!profile.city) return;
       const { data } = await supabase.rpc('get_shipping_rate', {
         p_neighborhood: profile.neighborhood || '',
         p_city: profile.city || '',
@@ -412,6 +415,7 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
         isOpen={isAddressModalOpen}
         onOpenChange={setIsAddressModalOpen}
         onConfirm={handleAddressConfirm}
+        isVip={isVip}
       />
     </>
   );

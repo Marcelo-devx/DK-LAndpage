@@ -822,7 +822,7 @@ export function DeliveryAddressModal({ isOpen, onOpenChange, onConfirm, isVip = 
                 Por isso, ele é enviado <span className="font-bold text-slate-800">por sua conta e risco</span>: caso o pedido não seja entregue (extraviado, recusado ou devolvido), ele será considerado perdido e <span className="font-bold text-red-600">não haverá reembolso</span>.
               </p>
               <p>
-                Os pedidos para este tipo de endereço saem <span className="font-bold text-slate-800">uma vez por semana, às quartas-feiras</span>.
+                Os pedidos para este tipo de endereço saem <span className="font-bold text-slate-800">uma vez por semana, às terças-feiras</span>.
               </p>
               <p>
                 Ao confirmar, você declara estar ciente dessas condições e aceita o risco envolvido.

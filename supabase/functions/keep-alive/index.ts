@@ -1,4 +1,4 @@
-// redeploy: 2026-10-24T19:44:15.261Z — atualização solicitada após deploy; disponibilidade verificada separadamente
+// redeploy: 2026-10-30T13:42:10.000Z — atualização solicitada após deploy; disponibilidade verificada separadamente
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 

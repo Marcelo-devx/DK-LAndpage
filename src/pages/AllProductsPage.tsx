@@ -33,7 +33,7 @@ interface SubCategory {
 }
 
 const AllProductsPage = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const isMountedRef = useRef(true);
   const fetchIdRef = useRef(0);
 
@@ -59,6 +59,7 @@ const AllProductsPage = () => {
   const [selectedBrands, setSelectedBrands] = useState<string[]>(
     searchParams.get('brand') ? [searchParams.get('brand')!] : []
   );
+  const [assistantSelection, setAssistantSelection] = useState<string | null>(searchParams.get('product_ids'));
   const [selectedFlavors, setSelectedFlavors] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState('created_at-desc');
 
@@ -108,6 +109,7 @@ const AllProductsPage = () => {
     setSelectedCategories(categoryParam ? [categoryParam] : []);
     setSelectedSubCategories(subCategoryParam ? [subCategoryParam] : []);
     setSelectedBrands(brandParam ? [brandParam] : []);
+    setAssistantSelection(searchParams.get('product_ids'));
   }, [searchParams]);
 
   // Limpa subcategorias selecionadas quando a categoria muda
@@ -211,6 +213,10 @@ const AllProductsPage = () => {
         .select('id, name, price, pix_price, image_url, category, brand, stock_quantity, created_at')
         .eq('is_visible', true);
 
+      const assistantProductIds = assistantSelection === null ? null
+        : assistantSelection.split(',').filter(id => /^\d+$/.test(id)).map(Number).filter(id => Number.isSafeInteger(id) && id > 0);
+      if (assistantProductIds !== null) query = query.in('id', assistantProductIds.length ? assistantProductIds : [-1]);
+
       if (shouldApplySearch) {
         const term = `%${searchQuery}%`;
         query = query.or(`name.ilike.${term},category.ilike.${term},brand.ilike.${term}`);
@@ -262,7 +268,8 @@ const AllProductsPage = () => {
         mergedProducts = Array.from(map.values());
       }
 
-      const products = mergedProducts || [];
+      const products = assistantProductIds === null ? mergedProducts
+        : mergedProducts.filter(product => assistantProductIds.includes(product.id));
 
       if (error) {
         console.error('[AllProductsPage] Error fetching products:', error);
@@ -426,7 +433,7 @@ const AllProductsPage = () => {
       clearTimeout(safetyTimer);
       if (isMountedRef.current && fetchIdRef.current === currentFetchId) setLoading(false);
     }
-  }, [debouncedSearchTerm, selectedCategories, selectedSubCategories, selectedBrands, selectedFlavors, sortBy, normalizeString]);
+  }, [debouncedSearchTerm, selectedCategories, selectedSubCategories, selectedBrands, selectedFlavors, sortBy, normalizeString, assistantSelection]);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
@@ -436,12 +443,13 @@ const AllProductsPage = () => {
     setSelectedSubCategories([]);
     setSelectedBrands([]);
     setSelectedFlavors([]);
-    window.history.pushState({}, '', '/produtos');
+    setAssistantSelection(null);
+    setSearchParams({}, { replace: true });
   };
 
   const totalActiveFilters =
     selectedCategories.length + selectedSubCategories.length +
-    selectedBrands.length + selectedFlavors.length;
+    selectedBrands.length + selectedFlavors.length + (assistantSelection !== null ? 1 : 0);
 
   return (
     <div className="min-h-screen bg-off-white">
@@ -451,6 +459,7 @@ const AllProductsPage = () => {
         {totalActiveFilters > 0 && (
           <div className="mb-6 flex flex-wrap items-center gap-2">
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-700">Filtros ativos:</span>
+            {assistantSelection !== null && <span className="rounded-full border border-sky-200 bg-sky-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-sky-700">Seleção do Assistente DK</span>}
             {selectedCategories.map(c => (
               <span key={c} className="flex items-center gap-1 bg-sky-100 text-sky-700 text-[10px] font-black uppercase tracking-wide px-2.5 py-1 rounded-full border border-sky-200">
                 {c}

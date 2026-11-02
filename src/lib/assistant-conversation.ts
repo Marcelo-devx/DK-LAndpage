@@ -15,12 +15,20 @@ export const referencesPrevious = (text: string) => /\b(esse\w*|essa\w*|desse\w*
 export function navigationRequest(text: string, products: AssistantProduct[], previous: AssistantProduct[]) {
   const normalized = normalize(text);
   const category = /\b((?:sub)?categorias?)\b/.test(normalized);
-  const navigation = /\b(link\w*|pagina\w*|site|visitar|abrir|abra)\b/.test(normalized);
+  const navigation = /\b(link\w*|pagina\w*|site|visitar|abrir|abra)\b|\bonde\b.*\b(ver|encontrar|encontro|comprar)\b/.test(normalized);
   if (!navigation && !category) return null;
-  const global = parseProductQuestion(text, products);
-  const contextual = parseProductQuestion(text, previous);
-  const scope = (referencesPrevious(text) || !global.hasTerms) && contextual.matches.length ? contextual.matches : global.hasTerms ? global.matches : [];
+  const query = normalized.replace(/\b(onde|posso|consigo|encontro|encontrar|ficam|fica|leva|leve|levar|vejo)\b/g, '');
+  const global = parseProductQuestion(query, products);
+  const contextual = parseProductQuestion(query, previous);
+  const scope = !global.hasTerms ? previous
+    : referencesPrevious(text) && contextual.matches.length ? contextual.matches : global.matches;
   return { category, scope };
+}
+
+export function filteredProductsLink(products: AssistantProduct[]): AssistantLink {
+  const params = new URLSearchParams();
+  params.set('product_ids', [...new Set(products.map(product => product.id))].join(','));
+  return { label: 'Ver esses produtos no site', href: `/produtos?${params.toString()}` };
 }
 
 export function categoryLinks(products: AssistantProduct[]): AssistantLink[] {

@@ -12,7 +12,7 @@ import AssistantFlavorResults, { flavorBrand, flavorVolume, type AssistantFlavor
 import AssistantPreferencePrompt, { type AssistantPreference } from './AssistantPreferencePrompt';
 import AssistantProductResults from './AssistantProductResults';
 import { flavorType, liquidType, requestedFlavorType } from '@/lib/assistant-preferences';
-import { categoryLinks, navigationRequest, referencesPrevious, isPreferenceReply, isNewProductRequest, type AssistantLink } from '@/lib/assistant-conversation';
+import { filteredProductsLink, navigationRequest, referencesPrevious, isPreferenceReply, isNewProductRequest, type AssistantLink } from '@/lib/assistant-conversation';
 
 interface Message {
   id: number;
@@ -179,7 +179,7 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
 
   const answer = async (text: string) => {
     const normalized = normalize(text);
-    if (restrictedTopic.test(normalized)) { append('assistant', outOfScope); return; }
+    if (restrictedTopic.test(normalized.replace(/\bpaginas?\b/g, ''))) { append('assistant', outOfScope); return; }
     if (isPending || isError) {
       append('assistant', isPending ? 'Estou carregando o catálogo. Tente novamente em instantes.' : 'Não consegui consultar o catálogo agora. Use o botão de tentar novamente.');
       return;
@@ -204,14 +204,15 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
     if (navigation) {
       refinement.current = null;
       setActivePreference(null);
-      const links = navigation.category ? categoryLinks(navigation.scope) : navigation.scope.slice(0, 3).map(product => ({ label: `Visitar ${product.name}`, href: `/produto/${product.id}` }));
+      const singleProduct = navigation.scope.length === 1 && !navigation.category;
+      const links = singleProduct ? [{ label: `Visitar ${navigation.scope[0].name}`, href: `/produto/${navigation.scope[0].id}` }]
+        : navigation.scope.length ? [filteredProductsLink(navigation.scope)] : [];
       if (!links.length) {
         append('assistant', 'Você quer o link de qual produto ou categoria? Me diga o nome para eu te levar ao lugar certo.');
       } else {
         lastScope.current = navigation.scope;
-        const reply = navigation.category
-          ? links.length === 1 ? 'Claro! Aqui está a categoria desses produtos. Toque abaixo para abrir no site:' : 'Esses produtos aparecem em mais de uma categoria. Qual você quer visitar?'
-          : navigation.scope.length === 1 ? 'Claro! Aqui está o link do produto no site:' : 'Há mais de um produto nessa seleção. Escolha qual quer visitar (mostro até 3 por vez):';
+        const reply = singleProduct ? 'Claro! Aqui está o link do produto no site:'
+          : 'Claro! Este botão abre a loja já filtrada com os produtos que você está procurando:';
         setMessages(previousMessages => [...previousMessages, { id: ++sequence.current, sender: 'assistant', text: reply, links }]);
       }
       return;

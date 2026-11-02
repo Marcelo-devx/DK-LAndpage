@@ -10,6 +10,7 @@ import { normalize, restrictedTopic, outOfScope, safeText, productInformation, p
 import AssistantProductOptions, { assistantOutline, assistantPrimary } from './AssistantProductOptions';
 import AssistantFlavorResults, { flavorBrand, flavorVolume, type AssistantFlavorOption } from './AssistantFlavorResults';
 import AssistantPreferencePrompt, { type AssistantPreference } from './AssistantPreferencePrompt';
+import AssistantProductResults from './AssistantProductResults';
 import { flavorType, liquidType, requestedFlavorType } from '@/lib/assistant-preferences';
 import { categoryLinks, navigationRequest, referencesPrevious, isPreferenceReply, isNewProductRequest, type AssistantLink } from '@/lib/assistant-conversation';
 
@@ -172,8 +173,8 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
   const listProducts = (items: AssistantProduct[], introduction?: string) => {
     if (items.length) lastScope.current = items;
     append('assistant', items.length
-      ? `${introduction || 'Separei estas opções para você. Toque no produto que chamou sua atenção 😊'}${items.length > 8 ? ' Aqui estão as primeiras 8; se quiser, me diga a marca ou uma característica para eu filtrar melhor.' : ''}`
-      : 'Não achei uma opção disponível com essa combinação. Quer tentar outra marca, categoria ou característica?', items.slice(0, 8));
+      ? `${introduction || 'Separei estas opções para você. Toque no produto que chamou sua atenção 😊'}${items.length > 3 ? ' Mostro três por vez. Você pode ver mais opções abaixo ou me dizer a marca ou uma característica para refinar.' : ''}`
+      : 'Não achei uma opção com essa combinação. Quer tentar outra marca, categoria ou característica?', items);
   };
 
   const answer = async (text: string) => {
@@ -382,9 +383,7 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
         {messages.map(message => (
           <div key={message.id} className={`mb-3 max-w-[95%] rounded-2xl p-3 text-sm ${message.sender === 'user' ? 'ml-auto rounded-tr-sm bg-slate-900 text-white' : 'rounded-tl-sm border border-slate-200 bg-white text-slate-800'}`}>
             <p className="whitespace-pre-wrap break-words">{message.text}</p>
-            {message.products?.map(product => (
-              <Button key={product.id} disabled={busy} variant="outline" className={`mt-2 h-auto w-full justify-start whitespace-normal text-left ${assistantOutline}`} onClick={() => chooseProduct(product)}>{product.name}{!productAvailable(product) ? ' · Esgotado' : ''}</Button>
-            ))}
+            {message.products && <AssistantProductResults products={message.products} busy={busy} onChoose={chooseProduct} />}
             {message.preference && <AssistantPreferencePrompt preference={message.preference} disabled={busy || activePreference !== message.preference.id} onChoose={(value, label) => choosePreference(message.preference!.id, value, label)} />}
             {message.flavorOptions && <AssistantFlavorResults options={message.flavorOptions} busy={busy} onDetails={showDetails} onVisit={onVisitProduct} />}
             {message.productChoice && <AssistantProductOptions product={message.productChoice} initialVariantId={message.initialVariantId} busy={busy} onDetails={showDetails} onVisit={onVisitProduct} />}

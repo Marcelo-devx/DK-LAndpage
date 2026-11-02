@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { Bot, Loader2, RotateCcw, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useAuth } from '@/context/AuthContext';
-import { useAssistantProducts, fetchAssistantRanking, type AssistantProduct } from '@/hooks/use-assistant-products';
-import { normalize, restrictedTopic, outOfScope, safeText, productInformation, parseProductQuestion, relatedProducts, type ProductIntent } from '@/lib/product-assistant';
+import { useAssistantProducts, fetchAssistantRanking, type AssistantProduct, type AssistantVariant } from '@/hooks/use-assistant-products';
+import { normalize, restrictedTopic, outOfScope, safeText, productInformation, parseProductQuestion, relatedProducts, matchingVariants, variantLabel, productAvailable, type ProductIntent } from '@/lib/product-assistant';
+import AssistantProductOptions, { assistantOutline, assistantPrimary } from './AssistantProductOptions';
 
 interface Message {
   id: number;
@@ -14,6 +15,7 @@ interface Message {
   text: string;
   products?: AssistantProduct[];
   productChoice?: AssistantProduct;
+  initialVariantId?: string;
 }
 
 function AssistantConversation({ firstName, onVisitProduct }: { firstName?: string; onVisitProduct: () => void }) {
@@ -31,8 +33,10 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
   const lastIntent = useRef<ProductIntent>('search');
   const safeProducts = products.filter(product => safeText(product.name));
   const currentProduct = safeProducts.find(product => location.pathname === `/produto/${product.id}`);
+  const currentVariantId = new URLSearchParams(location.search).get('variant') || undefined;
+  const currentVariant = currentProduct?.variants.find(variant => variant.id === currentVariantId);
   const contextProduct = selectedProduct || currentProduct;
-  const automaticSuggestions = currentProduct ? relatedProducts(currentProduct, safeProducts).slice(0, 3) : [];
+  const automaticSuggestions = currentProduct ? relatedProducts(currentProduct, safeProducts.filter(productAvailable)).slice(0, 3) : [];
 
   useEffect(() => {
     alive.current = true;
@@ -43,8 +47,8 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [messages, busy]);
 
-  const append = (sender: Message['sender'], text: string, items?: AssistantProduct[], productChoice?: AssistantProduct) => {
-    if (alive.current) setMessages(previous => [...previous, { id: ++sequence.current, sender, text, products: items, productChoice }]);
+  const append = (sender: Message['sender'], text: string, items?: AssistantProduct[], productChoice?: AssistantProduct, initialVariantId?: string) => {
+    if (alive.current) setMessages(previous => [...previous, { id: ++sequence.current, sender, text, products: items, productChoice, initialVariantId }]);
   };
 
   const withThinking = async (respond: () => void | Promise<void>) => {
@@ -60,11 +64,16 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
     }
   };
 
-  const offerProduct = (product: AssistantProduct) => {
+  const offerProduct = (product: AssistantProduct, question?: string) => {
     setSelectedProduct(product);
     lastScope.current = [product];
     lastIntent.current = 'details';
-    append('assistant', `Vamos conhecer ${product.name}? 😊 Você prefere saber mais por aqui ou visitar a página dele?`, undefined, product);
+    const requestedVariants = question ? matchingVariants(question, product) : [];
+    const initialVariantId = requestedVariants.length === 1 ? requestedVariants[0].id : !requestedVariants.length && currentProduct?.id === product.id ? currentVariantId : undefined;
+    const flavorText = requestedVariants.length ? `\n\nEncontrei estas opções para o sabor ou característica que você pediu: ${requestedVariants.map(variant => `${variantLabel(variant)} (${variant.stock_quantity > 0 ? 'disponível' : 'esgotado'})`).join('; ')}.` : '';
+    const stockText = !productAvailable(product) ? '\n\nEle está esgotado no momento, mas você pode cadastrar um aviso de reposição abaixo.' : '';
+    const nextStep = product.variants.length ? 'Escolha o sabor ou a opção abaixo para saber mais ou visitar a página certinha.' : 'Você prefere saber mais por aqui ou visitar a página dele?';
+    append('assistant', `Vamos conhecer ${product.name}? 😊 ${nextStep}${flavorText}${stockText}`, undefined, product, initialVariantId);
   };
 
   const chooseProduct = (product: AssistantProduct) => {
@@ -73,14 +82,14 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
     void withThinking(() => offerProduct(product));
   };
 
-  const showDetails = (product: AssistantProduct) => {
+  const showDetails = (product: AssistantProduct, variant?: AssistantVariant) => {
     if (responseLocked.current) return;
-    append('user', `Quero saber mais sobre ${product.name}`);
+    append('user', `Quero saber mais sobre ${product.name}${variant ? ` — ${variantLabel(variant)}` : ''}`);
     void withThinking(() => {
       setSelectedProduct(product);
       lastScope.current = [product];
       lastIntent.current = 'details';
-      append('assistant', `Claro! Aqui está o que temos sobre ele:\n\n${productInformation(product)}`);
+      append('assistant', `Claro! Aqui está o que temos sobre ele:\n\n${productInformation(product, variant)}`, undefined, product, variant?.id);
     });
   };
 
@@ -101,12 +110,16 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
       append('assistant', 'Oi! 😊 Me conta o que você está procurando. Posso ajudar a conhecer os produtos, encontrar os mais vendidos ou mostrar opções parecidas.');
       return;
     }
-    const parsed = parseProductQuestion(text, safeProducts);
+    const contextual = contextProduct ? parseProductQuestion(text, [contextProduct]) : undefined;
+    const flavorQuestion = /\b(sabor\w*|variante\w*|opcoes|opcao)\b/.test(normalized) || !!(contextProduct && matchingVariants(text, contextProduct).length);
+    const useContext = flavorQuestion && contextProduct && (contextual?.matches.length || /\b(neste|nesse|deste|desse|dele)\b/.test(normalized));
+    const parsed = useContext ? contextual! : parseProductQuestion(text, safeProducts);
     const intent = /^e\b/.test(normalized) && lastIntent.current === 'bestsellers' && parsed.intent === 'search' ? 'bestsellers' : parsed.intent;
     let matches = parsed.matches;
     if (!parsed.hasTerms && lastScope.current && intent === 'bestsellers') matches = lastScope.current;
 
     if (intent === 'bestsellers') {
+      matches = matches.filter(productAvailable);
       if (!matches.length) { listProducts([]); return; }
       try {
         const ranking = await fetchAssistantRanking();
@@ -145,7 +158,7 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
     }
 
     if (intent === 'details' && !parsed.hasTerms) {
-      if (contextProduct) append('assistant', productInformation(contextProduct));
+      if (contextProduct) append('assistant', productInformation(contextProduct, contextProduct.id === currentProduct?.id ? currentVariant : undefined), undefined, contextProduct, contextProduct.id === currentProduct?.id ? currentVariantId : undefined);
       else append('assistant', 'De qual produto você quer saber? Digite o nome ou escolha um abaixo.', safeProducts.slice(0, 8));
       return;
     }
@@ -154,9 +167,11 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
     if (matches.length === 1) {
       if (intent === 'details') {
         setSelectedProduct(matches[0]);
-        append('assistant', `Claro! Olha o que temos sobre esse produto:\n\n${productInformation(matches[0])}`);
+        const requested = matchingVariants(text, matches[0]);
+        const variant = requested.length === 1 ? requested[0] : undefined;
+        append('assistant', `Claro! Olha o que temos sobre esse produto:\n\n${productInformation(matches[0], variant)}`, undefined, matches[0], variant?.id);
       } else {
-        offerProduct(matches[0]);
+        offerProduct(matches[0], text);
       }
     } else if (intent === 'recommend') {
       const suggested = !parsed.hasTerms && contextProduct ? relatedProducts(contextProduct, safeProducts) : matches;
@@ -190,23 +205,19 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
           <p className="mt-2 text-xs text-slate-500">Sou um guia automático do catálogo. Para pagamento ou acesso, fale com o suporte.</p>
           {currentProduct && <div className="mt-3 border-t pt-3">
             <p>Vi que você está olhando <strong>{currentProduct.name}</strong>. Quer saber mais sobre ele?</p>
-            <Button disabled={busy} variant="outline" className="mt-2 h-auto whitespace-normal" onClick={() => chooseProduct(currentProduct)}>Conhecer este produto</Button>
+            {currentVariant && <p className="mt-2 text-sm text-slate-600">{currentVariant.flavor_name ? 'Sabor' : 'Opção'} selecionado: <strong>{variantLabel(currentVariant)}</strong> · {currentVariant.stock_quantity > 0 ? 'Disponível' : 'Esgotado'}</p>}
+            <Button disabled={busy} variant="outline" className={`mt-2 h-auto whitespace-normal ${assistantOutline}`} onClick={() => chooseProduct(currentProduct)}>Conhecer este produto</Button>
             {!!automaticSuggestions.length && <p className="mt-2 text-xs text-slate-500">Também encontrei estas opções pela categoria, tipo ou marca:</p>}
-            {automaticSuggestions.map(product => <Button key={product.id} disabled={busy} variant="outline" className="mt-2 h-auto w-full justify-start whitespace-normal text-left" onClick={() => chooseProduct(product)}>{product.name}</Button>)}
+            {automaticSuggestions.map(product => <Button key={product.id} disabled={busy} variant="outline" className={`mt-2 h-auto w-full justify-start whitespace-normal text-left ${assistantOutline}`} onClick={() => chooseProduct(product)}>{product.name}</Button>)}
           </div>}
         </div>
         {messages.map(message => (
           <div key={message.id} className={`mb-3 max-w-[95%] rounded-2xl p-3 text-sm ${message.sender === 'user' ? 'ml-auto rounded-tr-sm bg-slate-900 text-white' : 'rounded-tl-sm border border-slate-200 bg-white text-slate-800'}`}>
             <p className="whitespace-pre-wrap break-words">{message.text}</p>
             {message.products?.map(product => (
-              <Button key={product.id} disabled={busy} variant="outline" className="mt-2 h-auto w-full justify-start whitespace-normal text-left text-slate-800" onClick={() => chooseProduct(product)}>{product.name}</Button>
+              <Button key={product.id} disabled={busy} variant="outline" className={`mt-2 h-auto w-full justify-start whitespace-normal text-left ${assistantOutline}`} onClick={() => chooseProduct(product)}>{product.name}{!productAvailable(product) ? ' · Esgotado' : ''}</Button>
             ))}
-            {message.productChoice && <div className="mt-3 flex flex-wrap gap-2">
-              <Button disabled={busy} size="sm" onClick={() => showDetails(message.productChoice!)}>Quero saber mais</Button>
-              <Button size="sm" variant="outline" asChild>
-                <Link to={`/produto/${message.productChoice.id}`} aria-disabled={busy} onClick={event => { if (busy) { event.preventDefault(); return; } onVisitProduct(); }}>Visitar página do produto</Link>
-              </Button>
-            </div>}
+            {message.productChoice && <AssistantProductOptions product={message.productChoice} initialVariantId={message.initialVariantId} busy={busy} onDetails={showDetails} onVisit={onVisitProduct} />}
           </div>
         ))}
         {busy && <div className="mb-3 flex w-fit items-center gap-2 rounded-2xl rounded-tl-sm border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500" role="status">
@@ -224,10 +235,10 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
           <p className="text-xs text-slate-500">Nenhum produto disponível para consulta no momento.</p>
         ) : null}
         <form className="flex gap-2" onSubmit={event => { event.preventDefault(); send(); }}>
-          <Input aria-label="Mensagem para o Assistente DK" placeholder="Pergunte sobre produtos ou mais vendidos…" value={input} maxLength={300} disabled={busy} onChange={event => setInput(event.target.value)} className="min-w-0 text-base text-slate-900" />
-          <Button type="submit" size="icon" disabled={busy || !input.trim()} aria-label="Enviar mensagem"><Send className="h-4 w-4" /></Button>
+          <Input aria-label="Mensagem para o Assistente DK" placeholder="Pergunte sobre produtos, sabores ou mais vendidos…" value={input} maxLength={300} disabled={busy} onChange={event => setInput(event.target.value)} className="min-w-0 text-base text-slate-900" />
+          <Button type="submit" size="icon" className={assistantPrimary} disabled={busy || !input.trim()} aria-label="Enviar mensagem"><Send className="h-4 w-4" /></Button>
         </form>
-        <Button disabled={busy} variant="ghost" size="sm" className="h-7 text-xs text-slate-500" onClick={() => { setMessages([]); setSelectedProduct(null); setInput(''); lastScope.current = null; lastIntent.current = 'search'; }}><RotateCcw className="mr-2 h-3 w-3" />Recomeçar conversa</Button>
+        <Button disabled={busy} variant="ghost" size="sm" className="h-7 !bg-transparent text-xs !text-slate-500 hover:!bg-sky-50" onClick={() => { setMessages([]); setSelectedProduct(null); setInput(''); lastScope.current = null; lastIntent.current = 'search'; }}><RotateCcw className="mr-2 h-3 w-3" />Recomeçar conversa</Button>
       </div>
     </>
   );

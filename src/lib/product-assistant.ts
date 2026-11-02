@@ -20,7 +20,7 @@ export function productInformation(product: AssistantProduct, variant?: Assistan
     product.category && safeText(product.category) ? `Categoria: ${product.category}` : '',
     product.sub_category && safeText(product.sub_category) ? `Tipo: ${product.sub_category}` : '',
     product.brand && safeText(product.brand) ? `Marca: ${product.brand}` : '',
-    description && safeText(description) ? `Sobre ele: ${description}` : 'Ainda não tenho mais detalhes de uso desse produto no catálogo. Para usar com segurança, confira as orientações do fabricante, combinado?',
+    description && safeText(description) ? `Sobre ele: ${description}` : 'O catálogo não traz mais detalhes de uso. Confira as orientações do fabricante.',
   ].filter(Boolean).join('\n\n');
 }
 

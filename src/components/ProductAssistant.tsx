@@ -80,9 +80,11 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
     lastScope.current = [...new Map(options.map(option => [option.product.id, option.product])).values()];
     lastIntent.current = 'search';
     const available = options.filter(option => option.variant.stock_quantity > 0).length;
-    const summary = options.length === 1 ? 'Achei uma opção com essa preferência!' : `Achei ${options.length} opções com esse filtro. Vou mostrar só ${Math.min(3, options.length)} de cada vez, combinado?`;
-    const stock = available ? 'As disponíveis aparecem primeiro; as esgotadas ficam identificadas.' : 'Essas opções estão esgotadas no momento, mas você pode pedir um aviso quando chegarem.';
-    append('assistant', `${summary} 😊\n\n${stock}`, undefined, undefined, undefined, options);
+    const summary = options.length === 1 ? `Encontrei ${variantLabel(options[0].variant)} em ${options[0].product.name}.` : `Encontrei ${options.length} opções com essa preferência.`;
+    const stock = !available ? options.length === 1 ? 'Está esgotada no momento. Quer pedir um aviso de reposição?' : 'Estão esgotadas no momento. Você pode escolher uma para pedir um aviso de reposição.'
+      : available < options.length ? `${available === 1 ? 'Uma está disponível' : `${available} estão disponíveis`} agora. Qual você quer conhecer?`
+      : options.length === 1 ? 'Está disponível. Quer saber mais sobre ela?' : 'Qual dessas opções você quer conhecer?';
+    append('assistant', `${summary}\n\n${stock}`, undefined, undefined, undefined, options);
   };
 
   const requestPreference = (stage: AssistantPreference['stage'], options: AssistantFlavorOption[]) => {
@@ -95,10 +97,10 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
     setActivePreference(id);
     const type = flavorType(options[0]);
     const text = stage === 'type'
-      ? 'Esse sabor aparece em tipos diferentes de produto. Qual tipo você procura? Escolha abaixo para eu separar as opções, sem misturar juices e descartáveis.'
+      ? `Encontrei esse sabor em mais de um tipo de produto. Você procura ${values.slice(0, -1).join(', ')} ou ${values[values.length - 1]}?`
       : stage === 'volume'
-        ? 'Certo, vamos ficar só nos juices/líquidos. Qual volume em ml você prefere?'
-        : `Vamos escolher uma marca para ${type.toLowerCase()}. Tem alguma de sua preferência?`;
+        ? `Temos opções de ${choices.map(choice => choice.label).join(', ')}. Qual volume você prefere?`
+        : `Para ${type.toLowerCase()}, tem alguma marca de preferência?`;
     setMessages(previous => [...previous, { id, sender: 'assistant', text, preference: { id, stage, choices } }]);
   };
 
@@ -120,12 +122,12 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
     const pending = refinement.current;
     if (!pending) return;
     if (pending.stage === 'type' && value === 'any') {
-      append('assistant', 'Vamos escolher primeiro o tipo de produto, para não misturar juices e descartáveis. Depois você pode pular o volume ou a marca.');
+      append('assistant', 'Preciso saber o tipo para te indicar as opções certas. Você procura um líquido ou outro tipo de produto?');
       return;
     }
     const options = value === 'any' ? pending.options : pending.options.filter(option =>
       (pending.stage === 'type' ? flavorType(option) : pending.stage === 'volume' ? flavorVolume(option) : flavorBrand(option.product)) === value);
-    if (!options.length) { append('assistant', 'Não achei opções com essa preferência. Escolha uma das opções disponíveis acima.'); return; }
+    if (!options.length) { append('assistant', 'Não temos essa opção nessa seleção. Alguma das alternativas acima atende ao que você procura?'); return; }
     if (pending.stage === 'type') requestVolume(options);
     else if (pending.stage === 'volume') requestBrand(options);
     else finishRefinement(options);
@@ -145,10 +147,13 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
     lastIntent.current = 'details';
     const requestedVariants = question ? matchingVariants(question, product) : [];
     const initialVariantId = requestedVariants.length === 1 ? requestedVariants[0].id : !requestedVariants.length && currentProduct?.id === product.id ? currentVariantId : undefined;
-    const flavorText = requestedVariants.length ? `\n\nEncontrei estas opções para o sabor ou característica que você pediu: ${requestedVariants.map(variant => `${variantLabel(variant)} (${variant.stock_quantity > 0 ? 'disponível' : 'esgotado'})`).join('; ')}.` : '';
-    const stockText = !productAvailable(product) ? '\n\nEle está esgotado no momento, mas você pode cadastrar um aviso de reposição abaixo.' : '';
-    const nextStep = product.variants.length ? 'Escolha o sabor ou a opção abaixo para saber mais ou visitar a página certinha.' : 'Você prefere saber mais por aqui ou visitar a página dele?';
-    append('assistant', `Vamos conhecer ${product.name}? 😊 ${nextStep}${flavorText}${stockText}`, undefined, product, initialVariantId);
+    const flavorText = requestedVariants.length ? `\n\n${requestedVariants.map(variant => `${variantLabel(variant)} — ${variant.stock_quantity > 0 ? 'disponível' : 'esgotado'}`).join('\n')}` : '';
+    const stockText = !productAvailable(product) ? 'Está esgotado no momento. Quer pedir um aviso de reposição?'
+      : requestedVariants.length && !requestedVariants.some(variant => variant.stock_quantity > 0) ? 'A opção que você pediu está esgotada. Quer conhecer outra variação ou pedir um aviso?'
+      : requestedVariants.length ? 'Quer mais detalhes sobre essa opção?'
+      : product.variants.length ? 'Temos variações desse produto. Qual sabor ou opção você procura?'
+      : 'Está disponível. Quer saber mais sobre ele?';
+    append('assistant', `Encontrei ${product.name}.\n\n${stockText}${flavorText}`, undefined, product, initialVariantId);
   };
 
   const chooseProduct = (product: AssistantProduct) => {
@@ -166,15 +171,22 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
       setSelectedProduct(product);
       lastScope.current = [product];
       lastIntent.current = 'details';
-      append('assistant', `Claro! Aqui está o que temos sobre ele:\n\n${productInformation(product, variant)}`, undefined, product, variant?.id);
+      append('assistant', productInformation(product, variant), undefined, product, variant?.id);
     });
   };
 
   const listProducts = (items: AssistantProduct[], introduction?: string) => {
     if (items.length) lastScope.current = items;
+    const available = items.filter(productAvailable);
+    const brands = [...new Set(available.map(product => product.brand).filter((brand): brand is string => !!brand && safeText(brand)))];
+    const question = brands.length > 1 && brands.length <= 3
+      ? `Você prefere ${brands.slice(0, -1).join(', ')} ou ${brands[brands.length - 1]}?`
+      : available.length ? 'Você já tem alguma marca ou modelo em mente?' : 'Qual dessas opções você quer conhecer?';
+    const stock = !available.length ? 'Estão esgotadas no momento. Posso ajudar você a escolher uma e pedir um aviso de reposição. '
+      : available.length < items.length ? `${available.length === 1 ? 'Uma está disponível' : `${available.length} estão disponíveis`} agora. ` : '';
     append('assistant', items.length
-      ? `${introduction || 'Separei estas opções para você. Toque no produto que chamou sua atenção 😊'}${items.length > 3 ? ' Mostro três por vez. Você pode ver mais opções abaixo ou me dizer a marca ou uma característica para refinar.' : ''}`
-      : 'Não achei uma opção com essa combinação. Quer tentar outra marca, categoria ou característica?', items);
+      ? introduction || `Encontrei ${items.length} opções. ${stock}${question}`
+      : 'Não encontrei essa combinação no catálogo. Qual é a marca ou o modelo que você procura?', items);
   };
 
   const answer = async (text: string) => {
@@ -190,7 +202,7 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
       setSelectedProduct(null);
       lastScope.current = null;
       lastIntent.current = 'search';
-      append('assistant', 'Claro! Vamos mudar. Me conta qual produto ou sabor você está procurando agora 😊');
+      append('assistant', 'Certo. O que você quer procurar agora?');
       return;
     }
     const previous = refinement.current
@@ -208,11 +220,11 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
       const links = singleProduct ? [{ label: `Visitar ${navigation.scope[0].name}`, href: `/produto/${navigation.scope[0].id}` }]
         : navigation.scope.length ? [filteredProductsLink(navigation.scope)] : [];
       if (!links.length) {
-        append('assistant', 'Você quer o link de qual produto ou categoria? Me diga o nome para eu te levar ao lugar certo.');
+        append('assistant', 'Qual produto você quer ver no site?');
       } else {
         lastScope.current = navigation.scope;
-        const reply = singleProduct ? 'Claro! Aqui está o link do produto no site:'
-          : 'Claro! Este botão abre a loja já filtrada com os produtos que você está procurando:';
+        const reply = singleProduct ? 'Aqui está o produto no site:'
+          : 'Aqui estão as opções que encontramos, já filtradas no site:';
         setMessages(previousMessages => [...previousMessages, { id: ++sequence.current, sender: 'assistant', text: reply, links }]);
       }
       return;
@@ -235,24 +247,37 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
         const types = [...new Set(pending.options.map(flavorType))];
         const matched = types.filter(type => type === requested || normalized.includes(normalize(type)));
         if (matched.length === 1) { applyPreference(matched[0]); return; }
-        append('assistant', 'Você quer juice/líquido, pod descartável ou algum dos outros tipos mostrados acima? Escolha um tipo para continuarmos sem misturar produtos.');
+        append('assistant', `Para esse sabor, encontrei ${types.join(', ')}. Qual tipo você procura?`);
       } else if (pending.stage === 'volume') {
         const volume = normalized.match(/(?:^|\s)(\d+(?:[.,]\d+)?)\s*(?:ml)?\b/)?.[1];
         const value = volume ? String(Number(volume.replace(',', '.'))) : undefined;
         if (value && pending.options.some(option => flavorVolume(option) === value)) { applyPreference(value); return; }
-        append('assistant', 'Qual volume do líquido você prefere? Pode escolher no seletor, digitar os ml ou dizer “qualquer volume”.');
+        append('assistant', 'Tem algum volume em ml de preferência? Se tanto faz, posso seguir sem esse filtro.');
       } else {
         const brands = [...new Set(pending.options.map(option => flavorBrand(option.product)))];
         const typed = normalized.replace(/^(?:quero|prefiro)(?: a)?(?: marca)?\s+/, '').trim();
         const matched = brands.filter(brand => normalized.includes(normalize(brand)) || (typed.length > 1 && normalize(brand).includes(typed)));
         if (matched.length === 1) { applyPreference(matched[0]); return; }
-        append('assistant', 'Me diga qual marca prefere entre as opções do seletor acima. Se não tiver uma em mente, pode escolher “Sem preferência”.');
+        append('assistant', 'Tem alguma marca de preferência? Se não, posso mostrar as opções sem filtrar por marca.');
       }
       return;
     }
     if (/^(oi|ola|bom dia|boa tarde|boa noite)[!.\s]*$/.test(normalized)) {
-      append('assistant', 'Oi! 😊 Me conta o que você está procurando. Posso ajudar a conhecer os produtos, encontrar os mais vendidos ou mostrar opções parecidas.');
+      append('assistant', 'Oi! O que você está procurando hoje? Se já tiver uma marca ou modelo em mente, me conta.');
       return;
+    }
+    if (lastIntent.current === 'search' && lastScope.current?.length && latestPrevious.length) {
+      const preference = normalized.trim().replace(/[!.?]+$/, '').replace(/^(?:quero|prefiro|pode ser)(?: a| o| da)?(?: marca)?\s+/, '').trim();
+      const brandMatches = latestPrevious.filter(product => product.brand && normalize(product.brand).trim() === preference);
+      if (brandMatches.length) {
+        if (brandMatches.length === 1) offerProduct(brandMatches[0]);
+        else listProducts(brandMatches, `Encontrei ${brandMatches.length} opções dessa marca na sua busca. Qual modelo você quer conhecer?`);
+        return;
+      }
+      if (/^(sem preferencia|tanto faz|qualquer(?: marca| um| uma)?|nao tenho preferencia)$/.test(preference)) {
+        listProducts(latestPrevious, 'Podemos seguir com estas opções. Qual delas você quer conhecer?');
+        return;
+      }
     }
     const followsRanking = /^e\s+(da|do|de|a|o)\b/.test(normalized) && lastIntent.current === 'bestsellers';
     if (!referencesPrevious(text) && !followsRanking && isNewProductRequest(text, safeProducts)) {
@@ -298,14 +323,14 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
         lastScope.current = matches;
         lastIntent.current = 'bestsellers';
         if (!ranked.length) {
-          append('assistant', 'Ainda não encontrei vendas nos últimos 90 dias para essas opções. Mas posso ajudar você a conhecê-las! Qual chamou sua atenção?', matches.slice(0, 8));
+          append('assistant', 'Não há vendas registradas nos últimos 90 dias para essa seleção. Estas são as opções disponíveis. Qual você quer conhecer?', matches.slice(0, 8));
         } else {
           const leaders = ranked.filter(product => ranking.get(product.id) === ranking.get(ranked[0].id));
-          const summary = leaders.length === 1 ? `Entre essas opções, quem mais saiu foi ${ranked[0].name}!` : `${leaders.length} opções ficaram empatadas como as mais vendidas!`;
-          append('assistant', `${summary}\n\nOlhei a quantidade vendida nos últimos 90 dias, só entre produtos disponíveis e vendas confirmadas, sem kits promocionais. Quer conhecer algum deles?${ranked.length > 8 ? ' Separei os primeiros 8 abaixo.' : ''}`, ranked.slice(0, 8));
+          const summary = leaders.length === 1 ? `O mais vendido dessa seleção é ${ranked[0].name}.` : `${leaders.length} opções estão empatadas como as mais vendidas dessa seleção.`;
+          append('assistant', `${summary}\n\nRanking por quantidade vendida nos últimos 90 dias, com vendas confirmadas e produtos disponíveis, sem kits promocionais. Quer conhecer os detalhes de algum deles?`, ranked.slice(0, 8));
         }
       } catch {
-        append('assistant', 'Não consegui conferir as vendas agora. Pode tentar de novo em um instante? Prefiro te passar um resultado certinho.');
+        append('assistant', 'Não consegui consultar o ranking agora. Tente novamente em instantes.');
       }
       return;
     }
@@ -316,13 +341,13 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
         const related = relatedProducts(reference, safeProducts);
         lastScope.current = related;
         lastIntent.current = intent;
-        listProducts(related, `Produtos relacionados a ${reference.name}, pela categoria, tipo ou marca. Isso não garante compatibilidade; confira a descrição de cada produto.`);
+        listProducts(related, `Estas opções têm categoria, tipo ou marca em comum com ${reference.name}. Quer conhecer alguma? Para compatibilidade, precisamos conferir a descrição.`);
       } else if (parsed.hasTerms && matches.length > 1) {
-        listProducts(matches, 'Escolha o produto de referência e depois digite “ver parecidos”.');
+        listProducts(matches, 'Qual desses produtos você quer usar como referência para encontrar parecidos?');
       } else if (parsed.hasTerms) {
         listProducts([]);
       } else {
-        append('assistant', 'Escolha um produto ou abra a página dele para eu sugerir opções relacionadas.');
+        append('assistant', 'Qual produto você quer usar como referência? Me diga o nome para eu buscar opções parecidas.');
       }
       return;
     }
@@ -339,17 +364,17 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
         setSelectedProduct(matches[0]);
         const requested = matchingVariants(text, matches[0]);
         const variant = requested.length === 1 ? requested[0] : undefined;
-        append('assistant', `Claro! Olha o que temos sobre esse produto:\n\n${productInformation(matches[0], variant)}`, undefined, matches[0], variant?.id);
+        append('assistant', productInformation(matches[0], variant), undefined, matches[0], variant?.id);
       } else {
         offerProduct(matches[0], text);
       }
     } else if (intent === 'recommend') {
       const suggested = !parsed.hasTerms && contextProduct ? relatedProducts(contextProduct, safeProducts) : matches;
-      listProducts(suggested, 'Separei algumas opções pelas características do catálogo. Dá uma olhada e me conta qual você quer conhecer! Não é um ranking de vendas ou de qualidade.');
+      listProducts(suggested, 'Estas opções combinam com as características que você procura. Tem alguma marca ou modelo de preferência?');
     } else if (matches.length) {
       listProducts(matches);
     } else {
-      append('assistant', 'Não achei essa combinação por aqui. Me conta o nome, a marca, o sabor ou o tipo que você procura e vamos tentar de novo 😊');
+      append('assistant', 'Não encontrei essa combinação no catálogo. Você sabe a marca ou o modelo? Com isso eu consigo buscar melhor.');
     }
   };
 
@@ -370,11 +395,11 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
     <>
       <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 p-4" role="log" aria-label="Conversa com o Assistente DK" aria-live="polite">
         <div className="mb-4 max-w-[95%] rounded-2xl rounded-tl-sm border border-slate-200 bg-white p-3 text-sm text-slate-800">
-          <p className="font-semibold">Oi{firstName ? `, ${firstName}` : ''}! Sou o Assistente DK 👋</p>
-          <p className="mt-2">Que bom ter você por aqui! Me conta o que está procurando. Posso ajudar a conhecer os produtos, descobrir os mais vendidos ou encontrar opções parecidas 😊</p>
-          <p className="mt-2 text-xs text-slate-500">Sou um guia automático do catálogo. Para pagamento ou acesso, fale com o suporte.</p>
+          <p className="font-semibold">Oi{firstName ? `, ${firstName}` : ''}! Sou o Assistente DK.</p>
+          <p className="mt-2">O que você está procurando hoje? Me conta a marca, o modelo ou o sabor e eu te ajudo a escolher.</p>
+          <p className="mt-2 text-xs text-slate-500">Assistente automático de produtos. Pagamento e acesso: fale com o suporte.</p>
           {currentProduct && <div className="mt-3 border-t pt-3">
-            <p>Vi que você está olhando <strong>{currentProduct.name}</strong>. Quer saber mais sobre ele?</p>
+            <p>Você está vendo <strong>{currentProduct.name}</strong>. Quer conhecer os detalhes ou comparar com outras opções?</p>
             {currentVariant && <p className="mt-2 text-sm text-slate-600">{currentVariant.flavor_name ? 'Sabor' : 'Opção'} selecionado: <strong>{variantLabel(currentVariant)}</strong> · {currentVariant.stock_quantity > 0 ? 'Disponível' : 'Esgotado'}</p>}
             <Button disabled={busy} variant="outline" className={`mt-2 h-auto whitespace-normal ${assistantOutline}`} onClick={() => chooseProduct(currentProduct)}>Conhecer este produto</Button>
             {!!automaticSuggestions.length && <p className="mt-2 text-xs text-slate-500">Também encontrei estas opções pela categoria, tipo ou marca:</p>}

@@ -8,6 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useAssistantProducts, fetchAssistantRanking, type AssistantProduct, type AssistantVariant } from '@/hooks/use-assistant-products';
 import { normalize, restrictedTopic, outOfScope, safeText, productInformation, parseProductQuestion, relatedProducts, matchingVariants, variantLabel, productAvailable, type ProductIntent } from '@/lib/product-assistant';
 import AssistantProductOptions, { assistantOutline, assistantPrimary } from './AssistantProductOptions';
+import AssistantFlavorResults, { flavorBrand, type AssistantFlavorOption } from './AssistantFlavorResults';
 
 interface Message {
   id: number;
@@ -16,6 +17,7 @@ interface Message {
   products?: AssistantProduct[];
   productChoice?: AssistantProduct;
   initialVariantId?: string;
+  flavorOptions?: AssistantFlavorOption[];
 }
 
 function AssistantConversation({ firstName, onVisitProduct }: { firstName?: string; onVisitProduct: () => void }) {
@@ -47,8 +49,8 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [messages, busy]);
 
-  const append = (sender: Message['sender'], text: string, items?: AssistantProduct[], productChoice?: AssistantProduct, initialVariantId?: string) => {
-    if (alive.current) setMessages(previous => [...previous, { id: ++sequence.current, sender, text, products: items, productChoice, initialVariantId }]);
+  const append = (sender: Message['sender'], text: string, items?: AssistantProduct[], productChoice?: AssistantProduct, initialVariantId?: string, flavorOptions?: AssistantFlavorOption[]) => {
+    if (alive.current) setMessages(previous => [...previous, { id: ++sequence.current, sender, text, products: items, productChoice, initialVariantId, flavorOptions }]);
   };
 
   const withThinking = async (respond: () => void | Promise<void>) => {
@@ -111,12 +113,29 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
       return;
     }
     const contextual = contextProduct ? parseProductQuestion(text, [contextProduct]) : undefined;
-    const flavorQuestion = /\b(sabor\w*|variante\w*|opcoes|opcao)\b/.test(normalized) || !!(contextProduct && matchingVariants(text, contextProduct).length);
-    const useContext = flavorQuestion && contextProduct && (contextual?.matches.length || /\b(neste|nesse|deste|desse|dele)\b/.test(normalized));
+    const flavorQuestion = /\b(sabor\w*|variante\w*|opcoes|opcao)\b/.test(normalized) || safeProducts.some(product => matchingVariants(text, product).some(variant => !!variant.flavor_name));
+    const useContext = flavorQuestion && contextProduct && /\b(neste|nesse|deste|desse|dele)\b/.test(normalized);
     const parsed = useContext ? contextual! : parseProductQuestion(text, safeProducts);
     const intent = /^e\b/.test(normalized) && lastIntent.current === 'bestsellers' && parsed.intent === 'search' ? 'bestsellers' : parsed.intent;
     let matches = parsed.matches;
     if (!parsed.hasTerms && lastScope.current && intent === 'bestsellers') matches = lastScope.current;
+
+    if (flavorQuestion && parsed.hasTerms && (intent === 'search' || intent === 'recommend')) {
+      const options = matches.flatMap(product => matchingVariants(text, product)
+        .filter(variant => !!variant.flavor_name && safeText(variantLabel(variant)))
+        .map(variant => ({ product, variant })));
+      if (options.length) {
+        lastScope.current = matches;
+        lastIntent.current = intent;
+        const brands = [...new Set(options.map(option => flavorBrand(option.product)))];
+        const available = options.filter(option => option.variant.stock_quantity > 0).length;
+        const choices = options.length === 1 ? 'Encontrei uma opção para você!' : `Encontrei ${options.length} opções de sabor para você!`;
+        const brandText = brands.length > 1 ? `As opções estão agrupadas abaixo por marca: ${brands.join(', ')}.` : `Marca: ${brands[0]}.`;
+        const stockText = available ? `${available} ${available === 1 ? 'opção disponível' : 'opções disponíveis'} em estoque${available < options.length ? '; as esgotadas estão identificadas e você pode pedir um aviso' : ''}.` : 'No momento, essas opções estão esgotadas. Você pode cadastrar um aviso quando chegarem.';
+        append('assistant', `${choices} 😊\n\n${brandText}\n\n${stockText}\n\nEscolha o sabor e toque em “Visitar produto no site” para abrir a variante certa.`, undefined, undefined, undefined, options);
+        return;
+      }
+    }
 
     if (intent === 'bestsellers') {
       matches = matches.filter(productAvailable);
@@ -217,6 +236,7 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
             {message.products?.map(product => (
               <Button key={product.id} disabled={busy} variant="outline" className={`mt-2 h-auto w-full justify-start whitespace-normal text-left ${assistantOutline}`} onClick={() => chooseProduct(product)}>{product.name}{!productAvailable(product) ? ' · Esgotado' : ''}</Button>
             ))}
+            {message.flavorOptions && <AssistantFlavorResults options={message.flavorOptions} busy={busy} onDetails={showDetails} onVisit={onVisitProduct} />}
             {message.productChoice && <AssistantProductOptions product={message.productChoice} initialVariantId={message.initialVariantId} busy={busy} onDetails={showDetails} onVisit={onVisitProduct} />}
           </div>
         ))}

@@ -16,9 +16,10 @@ interface Props {
   busy: boolean;
   onDetails: (product: AssistantProduct, variant?: AssistantVariant) => void;
   onVisit: () => void;
+  compact?: boolean;
 }
 
-export default function AssistantProductOptions({ product, initialVariantId, busy, onDetails, onVisit }: Props) {
+export default function AssistantProductOptions({ product, initialVariantId, busy, onDetails, onVisit, compact = false }: Props) {
   const { user } = useAuth();
   const variants = product.variants.filter(variant => safeText(variant.flavor_name || '') && safeText(variant.color || '') && safeText(variant.size || ''));
   const [selectedId, setSelectedId] = useState(initialVariantId || '');
@@ -88,7 +89,7 @@ export default function AssistantProductOptions({ product, initialVariantId, bus
 
   return (
     <div className="mt-3 space-y-3">
-      {!!variants.length && <div>
+      {!compact && !!variants.length && <div>
         <p className="mb-2 text-xs font-semibold text-slate-600">Escolha o sabor ou a opção:</p>
         <div className="flex max-h-48 flex-wrap gap-2 overflow-y-auto p-1">
           {variants.map(variant => <Button key={variant.id} disabled={busy || saving} size="sm" variant="outline" aria-pressed={selectedId === variant.id} className={`h-auto flex-col items-start gap-1 whitespace-normal text-left ${selectedId === variant.id ? '!border-sky-500 !bg-sky-50 !text-sky-900 ring-1 ring-sky-500' : assistantOutline}`} onClick={() => setSelectedId(variant.id)}>
@@ -97,12 +98,12 @@ export default function AssistantProductOptions({ product, initialVariantId, bus
           </Button>)}
         </div>
       </div>}
-      {selected && <p className="text-sm text-slate-700"><strong>{selected.flavor_name ? 'Sabor' : 'Opção'}:</strong> {variantLabel(selected)}.</p>}
+      {!compact && selected && <p className="text-sm text-slate-700"><strong>{selected.flavor_name ? 'Sabor' : 'Opção'}:</strong> {variantLabel(selected)}.</p>}
       {outOfStock && <p className="text-sm text-slate-600">{selected ? 'Essa opção está esgotada' : 'Esse produto está esgotado'} no momento. Quer que a loja avise quando chegar?</p>}
       <div className="flex flex-wrap gap-2">
-        <Button disabled={busy || saving || needsVariant} size="sm" className={assistantPrimary} onClick={() => onDetails(product, selected)}>Quero saber mais</Button>
-        <Button size="sm" variant="outline" className={assistantOutline} asChild><Link to={href} aria-disabled={busy || saving} onClick={event => { if (busy || saving) { event.preventDefault(); return; } onVisit(); }}><ExternalLink className="mr-1 h-3 w-3" />Visitar página{selected ? ' dessa opção' : ' do produto'}</Link></Button>
-        {outOfStock && <Button disabled={busy || saving || checking || saved} size="sm" className={assistantPrimary} onClick={() => void notify()}>
+        <Button size="sm" className={assistantPrimary} asChild><Link to={href} aria-disabled={busy || saving} onClick={event => { if (busy || saving) { event.preventDefault(); return; } onVisit(); }}><ExternalLink className="mr-1 h-3 w-3" />Visitar produto no site</Link></Button>
+        <Button disabled={busy || saving || needsVariant} size="sm" variant="outline" className={assistantOutline} onClick={() => onDetails(product, selected)}>Quero saber mais</Button>
+        {outOfStock && <Button disabled={busy || saving || checking || saved} size="sm" variant="outline" className={assistantOutline} onClick={() => void notify()}>
           {saving || checking ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : saved ? <Check className="mr-1 h-3 w-3" /> : <Bell className="mr-1 h-3 w-3" />}
           {saved ? 'Aviso cadastrado' : saving ? 'Cadastrando…' : 'Avise-me quando chegar'}
         </Button>}

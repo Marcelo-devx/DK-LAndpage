@@ -10,6 +10,7 @@ import { normalize, restrictedTopic, outOfScope, safeText, productInformation, p
 import AssistantProductOptions, { assistantOutline, assistantPrimary } from './AssistantProductOptions';
 import AssistantFlavorResults, { flavorBrand, flavorVolume, type AssistantFlavorOption } from './AssistantFlavorResults';
 import AssistantPreferencePrompt, { type AssistantPreference } from './AssistantPreferencePrompt';
+import { flavorType, liquidType, requestedFlavorType } from '@/lib/assistant-preferences';
 
 interface Message {
   id: number;
@@ -35,7 +36,7 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
   const alive = useRef(true);
   const lastScope = useRef<AssistantProduct[] | null>(null);
   const lastIntent = useRef<ProductIntent>('search');
-  const refinement = useRef<{ id: number; stage: 'volume' | 'brand'; options: AssistantFlavorOption[] } | null>(null);
+  const refinement = useRef<{ id: number; stage: AssistantPreference['stage']; options: AssistantFlavorOption[] } | null>(null);
   const [activePreference, setActivePreference] = useState<number | null>(null);
   const safeProducts = products.filter(product => safeText(product.name));
   const currentProduct = safeProducts.find(product => location.pathname === `/produto/${product.id}`);
@@ -81,16 +82,20 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
     append('assistant', `${summary} 😊\n\n${stock}`, undefined, undefined, undefined, options);
   };
 
-  const requestPreference = (stage: 'volume' | 'brand', options: AssistantFlavorOption[]) => {
-    const values = [...new Set(options.map(option => stage === 'volume' ? flavorVolume(option) : flavorBrand(option.product)))];
-    values.sort((a, b) => stage === 'volume' ? (a === 'unknown' ? 1 : b === 'unknown' ? -1 : Number(a) - Number(b)) : a.localeCompare(b));
-    const choices = values.map(value => ({ value, label: stage === 'volume' ? value === 'unknown' ? 'Sem volume em ml informado' : `${value} ml` : value }));
+  const requestPreference = (stage: AssistantPreference['stage'], options: AssistantFlavorOption[]) => {
+    const values = [...new Set(options.map(option => stage === 'type' ? flavorType(option) : stage === 'volume' ? flavorVolume(option) : flavorBrand(option.product)))]
+      .filter(value => stage !== 'volume' || value !== 'unknown');
+    values.sort((a, b) => stage === 'volume' ? Number(a) - Number(b) : a.localeCompare(b));
+    const choices = values.map(value => ({ value, label: stage === 'volume' ? `${value} ml` : value }));
     const id = ++sequence.current;
     refinement.current = { id, stage, options };
     setActivePreference(id);
-    const text = stage === 'volume'
-      ? 'Temos várias opções desse sabor! Antes de te mostrar produtos, qual volume em ml você prefere?'
-      : 'Agora vamos escolher a marca. Tem alguma de sua preferência?';
+    const type = flavorType(options[0]);
+    const text = stage === 'type'
+      ? 'Esse sabor aparece em tipos diferentes de produto. Qual tipo você procura? Escolha abaixo para eu separar as opções, sem misturar juices e descartáveis.'
+      : stage === 'volume'
+        ? 'Certo, vamos ficar só nos juices/líquidos. Qual volume em ml você prefere?'
+        : `Vamos escolher uma marca para ${type.toLowerCase()}. Tem alguma de sua preferência?`;
     setMessages(previous => [...previous, { id, sender: 'assistant', text, preference: { id, stage, choices } }]);
   };
 
@@ -100,13 +105,26 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
     else finishRefinement(options);
   };
 
+  const requestVolume = (options: AssistantFlavorOption[]) => {
+    const liquidsOnly = options.every(option => flavorType(option) === liquidType);
+    const volumes = new Set(options.map(flavorVolume).filter(volume => volume !== 'unknown'));
+    if (liquidsOnly && volumes.size > 1 && options.length > 3) requestPreference('volume', options);
+    else if (options.length > 3) requestBrand(options);
+    else finishRefinement(options);
+  };
+
   const applyPreference = (value: string) => {
     const pending = refinement.current;
     if (!pending) return;
+    if (pending.stage === 'type' && value === 'any') {
+      append('assistant', 'Vamos escolher primeiro o tipo de produto, para não misturar juices e descartáveis. Depois você pode pular o volume ou a marca.');
+      return;
+    }
     const options = value === 'any' ? pending.options : pending.options.filter(option =>
-      (pending.stage === 'volume' ? flavorVolume(option) : flavorBrand(option.product)) === value);
+      (pending.stage === 'type' ? flavorType(option) : pending.stage === 'volume' ? flavorVolume(option) : flavorBrand(option.product)) === value);
     if (!options.length) { append('assistant', 'Não achei opções com essa preferência. Escolha uma das opções disponíveis acima.'); return; }
-    if (pending.stage === 'volume') requestBrand(options);
+    if (pending.stage === 'type') requestVolume(options);
+    else if (pending.stage === 'volume') requestBrand(options);
     else finishRefinement(options);
   };
 
@@ -168,11 +186,17 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
         applyPreference('any');
         return;
       }
-      if (pending.stage === 'volume') {
+      if (pending.stage === 'type') {
+        const requested = requestedFlavorType(text);
+        const types = [...new Set(pending.options.map(flavorType))];
+        const matched = types.filter(type => type === requested || normalized.includes(normalize(type)));
+        if (matched.length === 1) { applyPreference(matched[0]); return; }
+        append('assistant', 'Você quer juice/líquido, pod descartável ou algum dos outros tipos mostrados acima? Escolha um tipo para continuarmos sem misturar produtos.');
+      } else if (pending.stage === 'volume') {
         const volume = normalized.match(/(?:^|\s)(\d+(?:[.,]\d+)?)\s*(?:ml)?\b/)?.[1];
-        const value = /sem (?:volume|ml)|nao informado/.test(normalized) ? 'unknown' : volume ? String(Number(volume.replace(',', '.'))) : undefined;
+        const value = volume ? String(Number(volume.replace(',', '.'))) : undefined;
         if (value && pending.options.some(option => flavorVolume(option) === value)) { applyPreference(value); return; }
-        append('assistant', 'Qual volume você prefere? Pode escolher no seletor acima, digitar os ml ou dizer “sem preferência”. Para mudar o sabor, use “Recomeçar conversa”.');
+        append('assistant', 'Qual volume do líquido você prefere? Pode escolher no seletor, digitar os ml ou dizer “qualquer volume”.');
       } else {
         const brands = [...new Set(pending.options.map(option => flavorBrand(option.product)))];
         const typed = normalized.replace(/^(?:quero|prefiro)(?: a)?(?: marca)?\s+/, '').trim();
@@ -199,10 +223,16 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
         .filter(variant => !!variant.flavor_name && safeText(variantLabel(variant)))
         .map(variant => ({ product, variant })));
       if (options.length) {
-        const volumes = new Set(options.map(flavorVolume));
-        if (options.length <= 3) finishRefinement(options);
-        else if (volumes.size > 1 && !/\d+(?:[.,]\d+)?\s*ml\b/.test(normalized)) requestPreference('volume', options);
-        else requestBrand(options);
+        const requestedType = requestedFlavorType(text);
+        const scoped = requestedType ? options.filter(option => flavorType(option) === requestedType) : options;
+        if (!scoped.length) {
+          append('assistant', 'Não achei esse sabor no tipo de produto que você pediu. Quer tentar outro sabor ou outro tipo?');
+          return;
+        }
+        const types = new Set(scoped.map(flavorType));
+        if (types.size > 1) requestPreference('type', scoped);
+        else if (/\d+(?:[.,]\d+)?\s*ml\b/.test(normalized) && scoped.length > 3) requestBrand(scoped);
+        else requestVolume(scoped);
         return;
       }
     }

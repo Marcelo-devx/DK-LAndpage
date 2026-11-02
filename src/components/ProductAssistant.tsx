@@ -8,7 +8,8 @@ import { useAuth } from '@/context/AuthContext';
 import { useAssistantProducts, fetchAssistantRanking, type AssistantProduct, type AssistantVariant } from '@/hooks/use-assistant-products';
 import { normalize, restrictedTopic, outOfScope, safeText, productInformation, parseProductQuestion, relatedProducts, matchingVariants, variantLabel, productAvailable, type ProductIntent } from '@/lib/product-assistant';
 import AssistantProductOptions, { assistantOutline, assistantPrimary } from './AssistantProductOptions';
-import AssistantFlavorResults, { flavorBrand, type AssistantFlavorOption } from './AssistantFlavorResults';
+import AssistantFlavorResults, { flavorBrand, flavorVolume, type AssistantFlavorOption } from './AssistantFlavorResults';
+import AssistantPreferencePrompt, { type AssistantPreference } from './AssistantPreferencePrompt';
 
 interface Message {
   id: number;
@@ -18,6 +19,7 @@ interface Message {
   productChoice?: AssistantProduct;
   initialVariantId?: string;
   flavorOptions?: AssistantFlavorOption[];
+  preference?: AssistantPreference;
 }
 
 function AssistantConversation({ firstName, onVisitProduct }: { firstName?: string; onVisitProduct: () => void }) {
@@ -33,6 +35,8 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
   const alive = useRef(true);
   const lastScope = useRef<AssistantProduct[] | null>(null);
   const lastIntent = useRef<ProductIntent>('search');
+  const refinement = useRef<{ id: number; stage: 'volume' | 'brand'; options: AssistantFlavorOption[] } | null>(null);
+  const [activePreference, setActivePreference] = useState<number | null>(null);
   const safeProducts = products.filter(product => safeText(product.name));
   const currentProduct = safeProducts.find(product => location.pathname === `/produto/${product.id}`);
   const currentVariantId = new URLSearchParams(location.search).get('variant') || undefined;
@@ -66,7 +70,55 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
     }
   };
 
+  const finishRefinement = (options: AssistantFlavorOption[]) => {
+    refinement.current = null;
+    setActivePreference(null);
+    lastScope.current = [...new Map(options.map(option => [option.product.id, option.product])).values()];
+    lastIntent.current = 'search';
+    const available = options.filter(option => option.variant.stock_quantity > 0).length;
+    const summary = options.length === 1 ? 'Achei uma opção com essa preferência!' : `Achei ${options.length} opções com esse filtro. Vou mostrar só ${Math.min(3, options.length)} de cada vez, combinado?`;
+    const stock = available ? 'As disponíveis aparecem primeiro; as esgotadas ficam identificadas.' : 'Essas opções estão esgotadas no momento, mas você pode pedir um aviso quando chegarem.';
+    append('assistant', `${summary} 😊\n\n${stock}`, undefined, undefined, undefined, options);
+  };
+
+  const requestPreference = (stage: 'volume' | 'brand', options: AssistantFlavorOption[]) => {
+    const values = [...new Set(options.map(option => stage === 'volume' ? flavorVolume(option) : flavorBrand(option.product)))];
+    values.sort((a, b) => stage === 'volume' ? (a === 'unknown' ? 1 : b === 'unknown' ? -1 : Number(a) - Number(b)) : a.localeCompare(b));
+    const choices = values.map(value => ({ value, label: stage === 'volume' ? value === 'unknown' ? 'Sem volume em ml informado' : `${value} ml` : value }));
+    const id = ++sequence.current;
+    refinement.current = { id, stage, options };
+    setActivePreference(id);
+    const text = stage === 'volume'
+      ? 'Temos várias opções desse sabor! Antes de te mostrar produtos, qual volume em ml você prefere?'
+      : 'Agora vamos escolher a marca. Tem alguma de sua preferência?';
+    setMessages(previous => [...previous, { id, sender: 'assistant', text, preference: { id, stage, choices } }]);
+  };
+
+  const requestBrand = (options: AssistantFlavorOption[]) => {
+    const brands = new Set(options.map(option => flavorBrand(option.product)));
+    if (brands.size > 1) requestPreference('brand', options);
+    else finishRefinement(options);
+  };
+
+  const applyPreference = (value: string) => {
+    const pending = refinement.current;
+    if (!pending) return;
+    const options = value === 'any' ? pending.options : pending.options.filter(option =>
+      (pending.stage === 'volume' ? flavorVolume(option) : flavorBrand(option.product)) === value);
+    if (!options.length) { append('assistant', 'Não achei opções com essa preferência. Escolha uma das opções disponíveis acima.'); return; }
+    if (pending.stage === 'volume') requestBrand(options);
+    else finishRefinement(options);
+  };
+
+  const choosePreference = (id: number, value: string, label: string) => {
+    if (responseLocked.current || refinement.current?.id !== id) return;
+    append('user', label);
+    void withThinking(() => applyPreference(value));
+  };
+
   const offerProduct = (product: AssistantProduct, question?: string) => {
+    refinement.current = null;
+    setActivePreference(null);
     setSelectedProduct(product);
     lastScope.current = [product];
     lastIntent.current = 'details';
@@ -88,6 +140,8 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
     if (responseLocked.current) return;
     append('user', `Quero saber mais sobre ${product.name}${variant ? ` — ${variantLabel(variant)}` : ''}`);
     void withThinking(() => {
+      refinement.current = null;
+      setActivePreference(null);
       setSelectedProduct(product);
       lastScope.current = [product];
       lastIntent.current = 'details';
@@ -108,6 +162,26 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
       append('assistant', isPending ? 'Estou carregando o catálogo. Tente novamente em instantes.' : 'Não consegui consultar o catálogo agora. Use o botão de tentar novamente.');
       return;
     }
+    if (refinement.current) {
+      const pending = refinement.current;
+      if (/sem preferencia|tanto faz|qualquer|nao tenho preferencia/.test(normalized)) {
+        applyPreference('any');
+        return;
+      }
+      if (pending.stage === 'volume') {
+        const volume = normalized.match(/(?:^|\s)(\d+(?:[.,]\d+)?)\s*(?:ml)?\b/)?.[1];
+        const value = /sem (?:volume|ml)|nao informado/.test(normalized) ? 'unknown' : volume ? String(Number(volume.replace(',', '.'))) : undefined;
+        if (value && pending.options.some(option => flavorVolume(option) === value)) { applyPreference(value); return; }
+        append('assistant', 'Qual volume você prefere? Pode escolher no seletor acima, digitar os ml ou dizer “sem preferência”. Para mudar o sabor, use “Recomeçar conversa”.');
+      } else {
+        const brands = [...new Set(pending.options.map(option => flavorBrand(option.product)))];
+        const typed = normalized.replace(/^(?:quero|prefiro)(?: a)?(?: marca)?\s+/, '').trim();
+        const matched = brands.filter(brand => normalized.includes(normalize(brand)) || (typed.length > 1 && normalize(brand).includes(typed)));
+        if (matched.length === 1) { applyPreference(matched[0]); return; }
+        append('assistant', 'Me diga qual marca prefere entre as opções do seletor acima. Se não tiver uma em mente, pode escolher “Sem preferência”.');
+      }
+      return;
+    }
     if (/^(oi|ola|bom dia|boa tarde|boa noite)[!.\s]*$/.test(normalized)) {
       append('assistant', 'Oi! 😊 Me conta o que você está procurando. Posso ajudar a conhecer os produtos, encontrar os mais vendidos ou mostrar opções parecidas.');
       return;
@@ -125,14 +199,10 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
         .filter(variant => !!variant.flavor_name && safeText(variantLabel(variant)))
         .map(variant => ({ product, variant })));
       if (options.length) {
-        lastScope.current = matches;
-        lastIntent.current = intent;
-        const brands = [...new Set(options.map(option => flavorBrand(option.product)))];
-        const available = options.filter(option => option.variant.stock_quantity > 0).length;
-        const choices = options.length === 1 ? 'Encontrei uma opção para você!' : `Encontrei ${options.length} opções de sabor para você!`;
-        const brandText = brands.length > 1 ? `As opções estão agrupadas abaixo por marca: ${brands.join(', ')}.` : `Marca: ${brands[0]}.`;
-        const stockText = available ? `${available} ${available === 1 ? 'opção disponível' : 'opções disponíveis'} em estoque${available < options.length ? '; as esgotadas estão identificadas e você pode pedir um aviso' : ''}.` : 'No momento, essas opções estão esgotadas. Você pode cadastrar um aviso quando chegarem.';
-        append('assistant', `${choices} 😊\n\n${brandText}\n\n${stockText}\n\nEscolha o sabor e toque em “Visitar produto no site” para abrir a variante certa.`, undefined, undefined, undefined, options);
+        const volumes = new Set(options.map(flavorVolume));
+        if (options.length <= 3) finishRefinement(options);
+        else if (volumes.size > 1 && !/\d+(?:[.,]\d+)?\s*ml\b/.test(normalized)) requestPreference('volume', options);
+        else requestBrand(options);
         return;
       }
     }
@@ -236,6 +306,7 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
             {message.products?.map(product => (
               <Button key={product.id} disabled={busy} variant="outline" className={`mt-2 h-auto w-full justify-start whitespace-normal text-left ${assistantOutline}`} onClick={() => chooseProduct(product)}>{product.name}{!productAvailable(product) ? ' · Esgotado' : ''}</Button>
             ))}
+            {message.preference && <AssistantPreferencePrompt preference={message.preference} disabled={busy || activePreference !== message.preference.id} onChoose={(value, label) => choosePreference(message.preference!.id, value, label)} />}
             {message.flavorOptions && <AssistantFlavorResults options={message.flavorOptions} busy={busy} onDetails={showDetails} onVisit={onVisitProduct} />}
             {message.productChoice && <AssistantProductOptions product={message.productChoice} initialVariantId={message.initialVariantId} busy={busy} onDetails={showDetails} onVisit={onVisitProduct} />}
           </div>
@@ -258,7 +329,7 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
           <Input aria-label="Mensagem para o Assistente DK" placeholder="Pergunte sobre produtos, sabores ou mais vendidos…" value={input} maxLength={300} disabled={busy} onChange={event => setInput(event.target.value)} className="min-w-0 text-base text-slate-900" />
           <Button type="submit" size="icon" className={assistantPrimary} disabled={busy || !input.trim()} aria-label="Enviar mensagem"><Send className="h-4 w-4" /></Button>
         </form>
-        <Button disabled={busy} variant="ghost" size="sm" className="h-7 !bg-transparent text-xs !text-slate-500 hover:!bg-sky-50" onClick={() => { setMessages([]); setSelectedProduct(null); setInput(''); lastScope.current = null; lastIntent.current = 'search'; }}><RotateCcw className="mr-2 h-3 w-3" />Recomeçar conversa</Button>
+        <Button disabled={busy} variant="ghost" size="sm" className="h-7 !bg-transparent text-xs !text-slate-500 hover:!bg-sky-50" onClick={() => { setMessages([]); setSelectedProduct(null); setInput(''); lastScope.current = null; lastIntent.current = 'search'; refinement.current = null; setActivePreference(null); }}><RotateCcw className="mr-2 h-3 w-3" />Recomeçar conversa</Button>
       </div>
     </>
   );

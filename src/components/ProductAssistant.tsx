@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { Bot, Loader2, RotateCcw, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,7 +31,6 @@ function AssistantConversation({ firstName }: { firstName?: string }) {
   const currentProduct = safeProducts.find(product => location.pathname === `/produto/${product.id}`);
   const contextProduct = selectedProduct || currentProduct;
   const automaticSuggestions = currentProduct ? relatedProducts(currentProduct, safeProducts).slice(0, 3) : [];
-  const categories = [...new Set(safeProducts.map(product => product.category).filter((category): category is string => !!category && safeText(category)))];
 
   useEffect(() => {
     alive.current = true;
@@ -59,14 +58,6 @@ function AssistantConversation({ firstName }: { firstName?: string }) {
     append('assistant', items.length
       ? `${introduction || `Encontrei ${items.length} produto(s). Escolha um para conhecer.`}${items.length > 8 ? ' Exibo os primeiros 8; refine por nome, marca ou característica.' : ''}`
       : 'Não encontrei produtos disponíveis para essa busca. Tente outra marca, categoria ou característica.', items.slice(0, 8));
-  };
-
-  const showProducts = (label: string, items: AssistantProduct[]) => {
-    if (busy) return;
-    append('user', label);
-    lastScope.current = items;
-    lastIntent.current = 'search';
-    listProducts(items);
   };
 
   const ask = async (text: string) => {
@@ -119,7 +110,7 @@ function AssistantConversation({ firstName }: { firstName?: string }) {
         lastIntent.current = intent;
         listProducts(related, `Produtos relacionados a ${reference.name}, pela categoria, tipo ou marca. Isso não garante compatibilidade; confira a descrição de cada produto.`);
       } else if (parsed.hasTerms && matches.length > 1) {
-        listProducts(matches, 'Escolha o produto de referência e depois toque em “Ver parecidos”.');
+        listProducts(matches, 'Escolha o produto de referência e depois digite “ver parecidos”.');
       } else if (parsed.hasTerms) {
         listProducts([]);
       } else {
@@ -184,19 +175,9 @@ function AssistantConversation({ firstName }: { firstName?: string }) {
           <p className="flex items-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Carregando os produtos…</p>
         ) : isError ? (
           <div className="text-sm text-red-700">Não foi possível carregar os produtos. <Button variant="link" onClick={() => refetch()}>Tentar novamente</Button></div>
-        ) : (
-          <div className="max-h-28 overflow-y-auto">
-            <div className="flex flex-wrap gap-2">
-              <Button disabled={busy} size="sm" variant="outline" onClick={() => showProducts('Ver produtos', safeProducts)}>Ver produtos</Button>
-              <Button disabled={busy} size="sm" variant="outline" onClick={() => void ask('Mais vendidos')}>Mais vendidos</Button>
-              {currentProduct && <Button disabled={busy} size="sm" variant="outline" onClick={() => chooseProduct(currentProduct)}>Produto desta página</Button>}
-              {contextProduct && <Button disabled={busy} size="sm" variant="outline" onClick={() => void ask('Ver parecidos')}>Ver parecidos</Button>}
-              {categories.map(category => <Button disabled={busy} key={category} size="sm" variant="outline" onClick={() => showProducts(`Categoria: ${category}`, safeProducts.filter(product => product.category === category))}>{category}</Button>)}
-              {selectedProduct && <Button size="sm" variant="outline" asChild><Link to={`/produto/${selectedProduct.id}`}>Ver página do produto</Link></Button>}
-            </div>
-            {!safeProducts.length && <p className="mt-2 text-xs text-slate-500">Nenhum produto disponível para consulta no momento.</p>}
-          </div>
-        )}
+        ) : !safeProducts.length ? (
+          <p className="text-xs text-slate-500">Nenhum produto disponível para consulta no momento.</p>
+        ) : null}
         <form className="flex gap-2" onSubmit={event => { event.preventDefault(); send(); }}>
           <Input aria-label="Mensagem para o Assistente DK" placeholder="Pergunte sobre produtos ou mais vendidos…" value={input} maxLength={300} disabled={busy} onChange={event => setInput(event.target.value)} className="min-w-0 text-base text-slate-900" />
           <Button type="submit" size="icon" disabled={busy || !input.trim()} aria-label="Enviar mensagem"><Send className="h-4 w-4" /></Button>

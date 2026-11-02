@@ -30,22 +30,24 @@ export interface AssistantProduct {
   image_url: string | null;
   stock_quantity: number;
   variants: AssistantVariant[];
+  sub_categories: string[];
 }
 
-type RawAssistantProduct = Omit<AssistantProduct, 'variants'> & {
+type RawAssistantProduct = Omit<AssistantProduct, 'variants' | 'sub_categories'> & {
   variants: Array<Omit<AssistantVariant, 'flavor_name'> & { is_active: boolean; flavor: { name: string } | null }>;
+  sub_categories: Array<{ sub_category: { name: string; is_visible: boolean } | null }>;
 };
 
 export function useAssistantProducts() {
   return useQuery({
-    queryKey: ['assistant-dk-products-with-variants'],
+    queryKey: ['assistant-dk-products-with-variants-and-categories'],
     staleTime: 30_000,
     queryFn: async (): Promise<AssistantProduct[]> => {
       const products: AssistantProduct[] = [];
       for (let offset = 0; ; offset += 500) {
         const { data, error } = await supabase
           .from('products')
-          .select('id, name, category, sub_category, brand, description, image_url, stock_quantity, variants:product_variants(id, is_active, stock_quantity, volume_ml, color, size, ohms, flavor:flavors(name))')
+          .select('id, name, category, sub_category, brand, description, image_url, stock_quantity, variants:product_variants(id, is_active, stock_quantity, volume_ml, color, size, ohms, flavor:flavors(name)), sub_categories:product_sub_categories(sub_category:sub_categories(name, is_visible))')
           .eq('is_visible', true)
           .order('id')
           .range(offset, offset + 499)
@@ -61,7 +63,8 @@ export function useAssistantProducts() {
             ohms: variant.ohms,
             flavor_name: variant.flavor?.name ?? null,
           }));
-          products.push({ ...product, variants });
+          const sub_categories = (product.sub_categories ?? []).flatMap(row => row.sub_category?.is_visible ? [row.sub_category.name] : []);
+          products.push({ ...product, variants, sub_categories });
         }
         if (!data || data.length < 500) break;
       }

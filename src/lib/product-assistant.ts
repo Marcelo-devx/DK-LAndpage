@@ -26,9 +26,9 @@ export function productInformation(product: AssistantProduct, variant?: Assistan
 
 const ignoredWords = new Set('qual quais o a os as um uma uns umas de da das do dos e ou em na no nas nos com para por que eu me voce voces quero queria gostaria pode poderia consegue mostrar mostre mostra encontrar encontre procurando procuro buscando busco busca buscar conhecer saber ver veja tem tenho ter ha existe existem produto produtos item itens marca marcas categoria categorias tipo tipos sobre favor porfavor ai ae esse essa esses essas este esta estes estas disso dele dela mais muito melhor melhores bom boa bons boas vendido vendidos vendida vendidas vende vendem vender vendas sai saem saida sai sai popular populares procurado procurados campeao campeoes sucesso recomendacao recomendacoes recomenda recomendar recomende indica indicar indique sugestao sugestoes sugere sugerir parecido parecidos parecida parecidas semelhante semelhantes similar similares relacionado relacionados alternativa alternativas outro outros outra outras tambem uso usar utiliza utilizar funciona funcionar como detalhes detalhe informacoes informacao descricao descrever explique explicar ajuda ajudar todos tudo catalogo disponivel disponiveis loja aqui entao pra pro'.split(' '));
 const aliases: Record<string, string> = { pods: 'pod', juice: 'juices', liquido: 'juices', liquidos: 'juices', atomizador: 'atomizadores', refis: 'refil', descartavel: 'descartaveis', recarregavel: 'recarregaveis', bala: 'balas', melancia: 'watermelon', morango: 'strawberry', uva: 'grape', cereja: 'cherry', menta: 'mint', hortela: 'mint', abacaxi: 'pineapple', pessego: 'peach', maca: 'apple', gelado: 'ice' };
-const canonical = (term: string) => aliases[term] || term;
+const canonical = (term: string) => term === 'coils' ? 'coil' : aliases[term] || term;
 const words = (text: string) => normalize(text).replace(/(\d+)\s+ml\b/g, '$1ml').split(/[^a-z0-9]+/).filter(Boolean).map(canonical);
-const queryTerms = (text: string) => words(text).filter(term => !ignoredWords.has(term) && !['sabor', 'sabores', 'variante', 'variantes', 'opcao', 'opcoes', 'estoque', 'esgotado', 'esgotados', 'nesse', 'neste', 'deste', 'desse'].includes(term));
+const queryTerms = (text: string) => words(text).filter(term => !ignoredWords.has(term) && !['sabor', 'sabores', 'variante', 'variantes', 'opcao', 'opcoes', 'estoque', 'esgotado', 'esgotados', 'nesse', 'neste', 'deste', 'desse', 'desses', 'dessas', 'destes', 'destas', 'dessa', 'desta', 'deles', 'delas', 'mande', 'manda', 'mandar', 'envie', 'envia', 'enviar', 'link', 'links', 'pagina', 'paginas', 'site', 'abrir', 'abra', 'visitar', 'ir', 'subcategoria', 'subcategorias', 'agora', 'vez', 'trocar', 'troque', 'mudar', 'mudando', 'assunto'].includes(term));
 
 export function matchingVariants(text: string, product: AssistantProduct): AssistantVariant[] {
   const terms = queryTerms(text);
@@ -75,7 +75,7 @@ export function parseProductQuestion(text: string, products: AssistantProduct[])
     || ` ${words(product.name).join(' ')} `.includes(` ${words(mentionedBrands[0]).join(' ')} `)) : products;
   const indexed = candidates.map(product => {
     const description = plainDescription(product);
-    return { product, tokens: words([product.name, product.brand, product.category, product.sub_category, safeText(description) ? description : '', ...product.variants.map(variantLabel)].filter(Boolean).join(' ')) };
+    return { product, tokens: words([product.name, product.brand, product.category, product.sub_category, ...product.sub_categories, safeText(description) ? description : '', ...product.variants.map(variantLabel)].filter(Boolean).join(' ')) };
   });
   const exactMatches = indexed.filter(({ tokens }) => terms.every(term => tokens.some(token => token === term || (term.length >= 3 && token.startsWith(term)))));
   const matches = !terms.length ? candidates : (exactMatches.length ? exactMatches : indexed.filter(({ tokens }) => terms.every(term => tokens.some(token => nearWord(term, token))))).map(({ product }) => product);

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Bot, Loader2, RotateCcw, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,7 @@ import AssistantProductOptions, { assistantOutline, assistantPrimary } from './A
 import AssistantFlavorResults, { flavorBrand, flavorVolume, type AssistantFlavorOption } from './AssistantFlavorResults';
 import AssistantPreferencePrompt, { type AssistantPreference } from './AssistantPreferencePrompt';
 import { flavorType, liquidType, requestedFlavorType } from '@/lib/assistant-preferences';
+import { categoryLinks, navigationRequest, referencesPrevious, isPreferenceReply, isNewProductRequest, type AssistantLink } from '@/lib/assistant-conversation';
 
 interface Message {
   id: number;
@@ -21,6 +22,7 @@ interface Message {
   initialVariantId?: string;
   flavorOptions?: AssistantFlavorOption[];
   preference?: AssistantPreference;
+  links?: AssistantLink[];
 }
 
 function AssistantConversation({ firstName, onVisitProduct }: { firstName?: string; onVisitProduct: () => void }) {
@@ -42,7 +44,7 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
   const currentProduct = safeProducts.find(product => location.pathname === `/produto/${product.id}`);
   const currentVariantId = new URLSearchParams(location.search).get('variant') || undefined;
   const currentVariant = currentProduct?.variants.find(variant => variant.id === currentVariantId);
-  const contextProduct = selectedProduct || currentProduct;
+  const contextProduct = safeProducts.find(product => product.id === selectedProduct?.id) || currentProduct;
   const automaticSuggestions = currentProduct ? relatedProducts(currentProduct, safeProducts.filter(productAvailable)).slice(0, 3) : [];
 
   useEffect(() => {
@@ -168,6 +170,7 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
   };
 
   const listProducts = (items: AssistantProduct[], introduction?: string) => {
+    if (items.length) lastScope.current = items;
     append('assistant', items.length
       ? `${introduction || 'Separei estas opções para você. Toque no produto que chamou sua atenção 😊'}${items.length > 8 ? ' Aqui estão as primeiras 8; se quiser, me diga a marca ou uma característica para eu filtrar melhor.' : ''}`
       : 'Não achei uma opção disponível com essa combinação. Quer tentar outra marca, categoria ou característica?', items.slice(0, 8));
@@ -179,6 +182,45 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
     if (isPending || isError) {
       append('assistant', isPending ? 'Estou carregando o catálogo. Tente novamente em instantes.' : 'Não consegui consultar o catálogo agora. Use o botão de tentar novamente.');
       return;
+    }
+    if (/^(cancelar|cancela|deixa pra la|mudar de assunto|outra busca)[!.\s]*$/.test(normalized)) {
+      refinement.current = null;
+      setActivePreference(null);
+      setSelectedProduct(null);
+      lastScope.current = null;
+      lastIntent.current = 'search';
+      append('assistant', 'Claro! Vamos mudar. Me conta qual produto ou sabor você está procurando agora 😊');
+      return;
+    }
+    const previous = refinement.current
+      ? [...new Map(refinement.current.options.map(option => [option.product.id, option.product])).values()]
+      : lastScope.current?.length ? lastScope.current : contextProduct ? [contextProduct] : [];
+    const latestPrevious = previous.flatMap(product => {
+      const latest = safeProducts.find(candidate => candidate.id === product.id);
+      return latest ? [latest] : [];
+    });
+    const navigation = navigationRequest(text, safeProducts, latestPrevious);
+    if (navigation) {
+      refinement.current = null;
+      setActivePreference(null);
+      const links = navigation.category ? categoryLinks(navigation.scope) : navigation.scope.slice(0, 3).map(product => ({ label: `Visitar ${product.name}`, href: `/produto/${product.id}` }));
+      if (!links.length) {
+        append('assistant', 'Você quer o link de qual produto ou categoria? Me diga o nome para eu te levar ao lugar certo.');
+      } else {
+        lastScope.current = navigation.scope;
+        const reply = navigation.category
+          ? links.length === 1 ? 'Claro! Aqui está a categoria desses produtos. Toque abaixo para abrir no site:' : 'Esses produtos aparecem em mais de uma categoria. Qual você quer visitar?'
+          : navigation.scope.length === 1 ? 'Claro! Aqui está o link do produto no site:' : 'Há mais de um produto nessa seleção. Escolha qual quer visitar (mostro até 3 por vez):';
+        setMessages(previousMessages => [...previousMessages, { id: ++sequence.current, sender: 'assistant', text: reply, links }]);
+      }
+      return;
+    }
+    if (refinement.current && !isPreferenceReply(text, refinement.current.stage, refinement.current.options) && isNewProductRequest(text, safeProducts)) {
+      refinement.current = null;
+      setActivePreference(null);
+      setSelectedProduct(null);
+      lastScope.current = null;
+      lastIntent.current = 'search';
     }
     if (refinement.current) {
       const pending = refinement.current;
@@ -210,11 +252,18 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
       append('assistant', 'Oi! 😊 Me conta o que você está procurando. Posso ajudar a conhecer os produtos, encontrar os mais vendidos ou mostrar opções parecidas.');
       return;
     }
-    const contextual = contextProduct ? parseProductQuestion(text, [contextProduct]) : undefined;
+    const followsRanking = /^e\s+(da|do|de|a|o)\b/.test(normalized) && lastIntent.current === 'bestsellers';
+    if (!referencesPrevious(text) && !followsRanking && isNewProductRequest(text, safeProducts)) {
+      setSelectedProduct(null);
+      lastScope.current = null;
+      lastIntent.current = 'search';
+    }
+    const contextual = parseProductQuestion(text, latestPrevious);
     const flavorQuestion = /\b(sabor\w*|variante\w*|opcoes|opcao)\b/.test(normalized) || safeProducts.some(product => matchingVariants(text, product).some(variant => !!variant.flavor_name));
-    const useContext = flavorQuestion && contextProduct && /\b(neste|nesse|deste|desse|dele)\b/.test(normalized);
-    const parsed = useContext ? contextual! : parseProductQuestion(text, safeProducts);
-    const intent = /^e\b/.test(normalized) && lastIntent.current === 'bestsellers' && parsed.intent === 'search' ? 'bestsellers' : parsed.intent;
+    const useContext = referencesPrevious(text) && contextual.matches.length > 0;
+    const referencedProduct = useContext && contextual.matches.length === 1 ? contextual.matches[0] : contextProduct;
+    const parsed = useContext ? contextual : parseProductQuestion(text, safeProducts);
+    const intent = followsRanking && parsed.intent === 'search' ? 'bestsellers' : parsed.intent;
     let matches = parsed.matches;
     if (!parsed.hasTerms && lastScope.current && intent === 'bestsellers') matches = lastScope.current;
 
@@ -277,7 +326,7 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
     }
 
     if (intent === 'details' && !parsed.hasTerms) {
-      if (contextProduct) append('assistant', productInformation(contextProduct, contextProduct.id === currentProduct?.id ? currentVariant : undefined), undefined, contextProduct, contextProduct.id === currentProduct?.id ? currentVariantId : undefined);
+      if (referencedProduct) append('assistant', productInformation(referencedProduct, referencedProduct.id === currentProduct?.id ? currentVariant : undefined), undefined, referencedProduct, referencedProduct.id === currentProduct?.id ? currentVariantId : undefined);
       else append('assistant', 'De qual produto você quer saber? Digite o nome ou escolha um abaixo.', safeProducts.slice(0, 8));
       return;
     }
@@ -339,6 +388,11 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
             {message.preference && <AssistantPreferencePrompt preference={message.preference} disabled={busy || activePreference !== message.preference.id} onChoose={(value, label) => choosePreference(message.preference!.id, value, label)} />}
             {message.flavorOptions && <AssistantFlavorResults options={message.flavorOptions} busy={busy} onDetails={showDetails} onVisit={onVisitProduct} />}
             {message.productChoice && <AssistantProductOptions product={message.productChoice} initialVariantId={message.initialVariantId} busy={busy} onDetails={showDetails} onVisit={onVisitProduct} />}
+            {message.links && <div className="mt-3 flex flex-col items-start gap-2">
+              {message.links.map(link => <Button key={link.href} size="sm" className={`h-auto whitespace-normal text-left ${assistantPrimary}`} asChild>
+                <Link to={link.href} aria-disabled={busy} onClick={event => { if (busy) { event.preventDefault(); return; } onVisitProduct(); }}>{link.label}</Link>
+              </Button>)}
+            </div>}
           </div>
         ))}
         {busy && <div className="mb-3 flex w-fit items-center gap-2 rounded-2xl rounded-tl-sm border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500" role="status">

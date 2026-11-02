@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import type { AssistantProduct, AssistantVariant } from '@/hooks/use-assistant-products';
 import { safeText, variantLabel } from '@/lib/product-assistant';
+import { formatAssistantPrice } from '@/lib/assistant-budget';
 
 export const assistantOutline = '!border-slate-200 !bg-white !text-slate-800 shadow-sm hover:!border-sky-300 hover:!bg-sky-50 hover:!text-sky-900';
 export const assistantPrimary = '!bg-sky-600 !text-white hover:!bg-sky-700';
@@ -17,9 +18,10 @@ interface Props {
   onDetails: (product: AssistantProduct, variant?: AssistantVariant) => void;
   onVisit: () => void;
   compact?: boolean;
+  showPrices?: boolean;
 }
 
-export default function AssistantProductOptions({ product, initialVariantId, busy, onDetails, onVisit, compact = false }: Props) {
+export default function AssistantProductOptions({ product, initialVariantId, busy, onDetails, onVisit, compact = false, showPrices = false }: Props) {
   const { user } = useAuth();
   const variants = product.variants.filter(variant => safeText(variant.flavor_name || '') && safeText(variant.color || '') && safeText(variant.size || ''));
   const [selectedId, setSelectedId] = useState(initialVariantId || '');
@@ -31,6 +33,7 @@ export default function AssistantProductOptions({ product, initialVariantId, bus
   const [feedback, setFeedback] = useState('');
   const outOfStock = !returned && (selected ? selected.stock_quantity <= 0 : !product.variants.length && product.stock_quantity <= 0);
   const needsVariant = product.variants.length > 0 && !selected;
+  const price = selected ? selected.price : !product.variants.length ? product.price : null;
   const href = `/produto/${product.id}${selected ? `?variant=${encodeURIComponent(selected.id)}` : ''}`;
 
   useEffect(() => {
@@ -99,6 +102,7 @@ export default function AssistantProductOptions({ product, initialVariantId, bus
         </div>
       </div>}
       {!compact && selected && <p className="text-sm text-slate-700"><strong>{selected.flavor_name ? 'Sabor' : 'Opção'}:</strong> {variantLabel(selected)}.</p>}
+      {showPrices && price !== null && Number.isFinite(price) && <p className="text-sm font-semibold text-slate-800">Preço do catálogo: {formatAssistantPrice(price)}</p>}
       {outOfStock && <p className="text-sm text-slate-600">{selected ? 'Essa opção está esgotada' : 'Esse produto está esgotado'} no momento. Quer que a loja avise quando chegar?</p>}
       <div className="flex flex-wrap gap-2">
         <Button size="sm" className={assistantPrimary} asChild><Link to={href} aria-disabled={busy || saving} onClick={event => { if (busy || saving) { event.preventDefault(); return; } onVisit(); }}><ExternalLink className="mr-1 h-3 w-3" />Visitar produto no site</Link></Button>

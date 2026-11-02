@@ -20,9 +20,10 @@ interface Props {
   busy: boolean;
   onDetails: (product: AssistantProduct, variant?: AssistantVariant) => void;
   onVisit: () => void;
+  showPrices?: boolean;
 }
 
-export default function AssistantFlavorResults({ options, busy, onDetails, onVisit }: Props) {
+export default function AssistantFlavorResults({ options, busy, onDetails, onVisit, showPrices = false }: Props) {
   const [visibleCount, setVisibleCount] = useState(3);
   const ordered = [...options].sort((a, b) => Number(b.variant.stock_quantity > 0) - Number(a.variant.stock_quantity > 0) || flavorBrand(a.product).localeCompare(flavorBrand(b.product)) || a.product.name.localeCompare(b.product.name) || variantLabel(a.variant).localeCompare(variantLabel(b.variant)));
   const visible = ordered.slice(0, visibleCount);
@@ -39,9 +40,9 @@ export default function AssistantFlavorResults({ options, busy, onDetails, onVis
         <div className="space-y-2">
           {items.map(({ product, variant }) => <div key={variant.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
             <p className="text-sm font-medium text-slate-800">{product.name}</p>
-            <p className="mt-1 text-sm text-slate-700"><strong>Sabor:</strong> {variantLabel(variant)}</p>
+            <p className="mt-1 text-sm text-slate-700"><strong>{variant.flavor_name ? 'Sabor' : 'Opção'}:</strong> {variantLabel(variant)}</p>
             <p className={`mt-1 text-xs font-medium ${variant.stock_quantity > 0 ? 'text-emerald-700' : 'text-slate-500'}`}>{variant.stock_quantity > 0 ? 'Disponível em estoque' : 'Esgotado · Você pode pedir um aviso'}</p>
-            <AssistantProductOptions compact product={product} initialVariantId={variant.id} busy={busy} onDetails={onDetails} onVisit={onVisit} />
+            <AssistantProductOptions compact product={product} initialVariantId={variant.id} busy={busy} onDetails={onDetails} onVisit={onVisit} showPrices={showPrices} />
           </div>)}
         </div>
       </section>)}

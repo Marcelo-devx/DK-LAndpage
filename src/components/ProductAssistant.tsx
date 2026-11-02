@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useAuth } from '@/context/AuthContext';
 import { useAssistantProducts, fetchAssistantRanking, type AssistantProduct, type AssistantVariant } from '@/hooks/use-assistant-products';
-import { normalize, restrictedTopic, outOfScope, safeText, productInformation, parseProductQuestion, relatedProducts, matchingVariants, variantLabel, productAvailable, type ProductIntent } from '@/lib/product-assistant';
+import { normalize, restrictedTopic, outOfScope, safeText, productInformation, parseProductQuestion, budgetProductMatches, relatedProducts, matchingVariants, variantLabel, productAvailable, type ProductIntent } from '@/lib/product-assistant';
+import { parsePurchaseBudget, formatAssistantPrice } from '@/lib/assistant-budget';
 import AssistantProductOptions, { assistantOutline, assistantPrimary } from './AssistantProductOptions';
 import AssistantFlavorResults, { flavorBrand, flavorVolume, type AssistantFlavorOption } from './AssistantFlavorResults';
 import AssistantPreferencePrompt, { type AssistantPreference } from './AssistantPreferencePrompt';
@@ -24,6 +25,7 @@ interface Message {
   flavorOptions?: AssistantFlavorOption[];
   preference?: AssistantPreference;
   links?: AssistantLink[];
+  showPrices?: boolean;
 }
 
 function AssistantConversation({ firstName, onVisitProduct }: { firstName?: string; onVisitProduct: () => void }) {
@@ -39,6 +41,8 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
   const alive = useRef(true);
   const lastScope = useRef<AssistantProduct[] | null>(null);
   const lastIntent = useRef<ProductIntent>('search');
+  const lastBudget = useRef<number | null>(null);
+  const lastBudgetQuery = useRef<string | null>(null);
   const refinement = useRef<{ id: number; stage: AssistantPreference['stage']; options: AssistantFlavorOption[] } | null>(null);
   const [activePreference, setActivePreference] = useState<number | null>(null);
   const safeProducts = products.filter(product => safeText(product.name));
@@ -58,7 +62,8 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
   }, [messages, busy]);
 
   const append = (sender: Message['sender'], text: string, items?: AssistantProduct[], productChoice?: AssistantProduct, initialVariantId?: string, flavorOptions?: AssistantFlavorOption[]) => {
-    if (alive.current) setMessages(previous => [...previous, { id: ++sequence.current, sender, text, products: items, productChoice, initialVariantId, flavorOptions }]);
+    const showPrices = sender === 'assistant' && lastBudget.current !== null;
+    if (alive.current) setMessages(previous => [...previous, { id: ++sequence.current, sender, text, products: items, productChoice, initialVariantId, flavorOptions, showPrices }]);
   };
 
   const withThinking = async (respond: () => void | Promise<void>) => {
@@ -191,7 +196,10 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
 
   const answer = async (text: string) => {
     const normalized = normalize(text);
-    if (restrictedTopic.test(normalized.replace(/\bpaginas?\b/g, ''))) { append('assistant', outOfScope); return; }
+    const requestedBudget = parsePurchaseBudget(lastBudget.current !== null && /^\s*\d+(?:[.,]\d{1,2})?\s*$/.test(text) ? `até ${text}` : text);
+    const purchase = requestedBudget.maxPrice === null && lastBudget.current !== null && lastBudgetQuery.current === null && isNewProductRequest(text, safeProducts)
+      ? { ...requestedBudget, maxPrice: lastBudget.current } : requestedBudget;
+    if (restrictedTopic.test(purchase.query.replace(/\bpaginas?\b/g, ''))) { append('assistant', outOfScope); return; }
     if (isPending || isError) {
       append('assistant', isPending ? 'Estou carregando o catálogo. Tente novamente em instantes.' : 'Não consegui consultar o catálogo agora. Use o botão de tentar novamente.');
       return;
@@ -202,22 +210,67 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
       setSelectedProduct(null);
       lastScope.current = null;
       lastIntent.current = 'search';
+      lastBudget.current = null;
+      lastBudgetQuery.current = null;
       append('assistant', 'Certo. O que você quer procurar agora?');
       return;
     }
     const previous = refinement.current
       ? [...new Map(refinement.current.options.map(option => [option.product.id, option.product])).values()]
-      : lastScope.current?.length ? lastScope.current : contextProduct ? [contextProduct] : [];
+      : lastScope.current !== null ? lastScope.current : contextProduct ? [contextProduct] : [];
     const latestPrevious = previous.flatMap(product => {
       const latest = safeProducts.find(candidate => candidate.id === product.id);
-      return latest ? [latest] : [];
+      if (!latest) return [];
+      return [{ ...latest, variants: lastBudget.current === null ? latest.variants : latest.variants.filter(variant => product.variants.some(previousVariant => previousVariant.id === variant.id)) }];
     });
+    if (purchase.maxPrice !== null) {
+      refinement.current = null;
+      setActivePreference(null);
+      setSelectedProduct(null);
+      lastBudget.current = purchase.maxPrice;
+      lastIntent.current = 'search';
+      const hasTerms = parseProductQuestion(purchase.query, safeProducts).hasTerms;
+      const query = hasTerms ? purchase.query : lastBudgetQuery.current || '';
+      if (!query && !latestPrevious.length) {
+        lastScope.current = null;
+        append('assistant', `Qual produto ou sabor você procura até ${formatAssistantPrice(purchase.maxPrice)}?`);
+        return;
+      }
+      if (hasTerms) lastBudgetQuery.current = purchase.query;
+      const matches = budgetProductMatches(query, query ? safeProducts : latestPrevious, purchase.maxPrice);
+      lastScope.current = matches;
+      if (!matches.length) {
+        append('assistant', `Não encontrei uma opção disponível para esse pedido até ${formatAssistantPrice(purchase.maxPrice)}. Quer tentar outro sabor ou ajustar o orçamento?`);
+        return;
+      }
+      const budgetNavigation = navigationRequest(purchase.query, matches, matches);
+      if (budgetNavigation) {
+        const product = matches.length === 1 ? matches[0] : null;
+        const variant = product?.variants.length === 1 ? product.variants[0] : undefined;
+        const link = product && !budgetNavigation.category ? { label: `Visitar ${product.name}`, href: `/produto/${product.id}${variant ? `?variant=${encodeURIComponent(variant.id)}` : ''}` } : filteredProductsLink(matches);
+        setMessages(previousMessages => [...previousMessages, { id: ++sequence.current, sender: 'assistant', text: `Estas opções estão disponíveis até ${formatAssistantPrice(purchase.maxPrice)}:`, links: [link] }]);
+        return;
+      }
+      const flavorOptions = matches.flatMap(product => product.variants.map(variant => ({ product, variant })));
+      const plainProducts = matches.filter(product => !product.variants.length);
+      const count = flavorOptions.length + plainProducts.length;
+      setMessages(previousMessages => [...previousMessages, {
+        id: ++sequence.current,
+        sender: 'assistant',
+        text: `Encontrei ${count === 1 ? 'uma opção disponível' : `${count} opções disponíveis`} até ${formatAssistantPrice(purchase.maxPrice)}. ${count === 1 ? 'Quer conhecer os detalhes?' : 'Qual você quer conhecer?'}`,
+        flavorOptions: flavorOptions.length ? flavorOptions : undefined,
+        products: plainProducts.length ? plainProducts : undefined,
+        showPrices: true,
+      }]);
+      return;
+    }
     const navigation = navigationRequest(text, safeProducts, latestPrevious);
     if (navigation) {
       refinement.current = null;
       setActivePreference(null);
       const singleProduct = navigation.scope.length === 1 && !navigation.category;
-      const links = singleProduct ? [{ label: `Visitar ${navigation.scope[0].name}`, href: `/produto/${navigation.scope[0].id}` }]
+      const variant = singleProduct && lastBudget.current !== null && navigation.scope[0].variants.length === 1 ? navigation.scope[0].variants[0] : undefined;
+      const links = singleProduct ? [{ label: `Visitar ${navigation.scope[0].name}`, href: `/produto/${navigation.scope[0].id}${variant ? `?variant=${encodeURIComponent(variant.id)}` : ''}` }]
         : navigation.scope.length ? [filteredProductsLink(navigation.scope)] : [];
       if (!links.length) {
         append('assistant', 'Qual produto você quer ver no site?');
@@ -235,6 +288,8 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
       setSelectedProduct(null);
       lastScope.current = null;
       lastIntent.current = 'search';
+      lastBudget.current = null;
+      lastBudgetQuery.current = null;
     }
     if (refinement.current) {
       const pending = refinement.current;
@@ -284,6 +339,8 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
       setSelectedProduct(null);
       lastScope.current = null;
       lastIntent.current = 'search';
+      lastBudget.current = null;
+      lastBudgetQuery.current = null;
     }
     const contextual = parseProductQuestion(text, latestPrevious);
     const flavorQuestion = /\b(sabor\w*|variante\w*|opcoes|opcao)\b/.test(normalized) || safeProducts.some(product => matchingVariants(text, product).some(variant => !!variant.flavor_name));
@@ -409,10 +466,10 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
         {messages.map(message => (
           <div key={message.id} className={`mb-3 max-w-[95%] rounded-2xl p-3 text-sm ${message.sender === 'user' ? 'ml-auto rounded-tr-sm bg-slate-900 text-white' : 'rounded-tl-sm border border-slate-200 bg-white text-slate-800'}`}>
             <p className="whitespace-pre-wrap break-words">{message.text}</p>
-            {message.products && <AssistantProductResults products={message.products} busy={busy} onChoose={chooseProduct} />}
+            {message.products && <AssistantProductResults products={message.products} busy={busy} onChoose={chooseProduct} showPrices={message.showPrices} />}
             {message.preference && <AssistantPreferencePrompt preference={message.preference} disabled={busy || activePreference !== message.preference.id} onChoose={(value, label) => choosePreference(message.preference!.id, value, label)} />}
-            {message.flavorOptions && <AssistantFlavorResults options={message.flavorOptions} busy={busy} onDetails={showDetails} onVisit={onVisitProduct} />}
-            {message.productChoice && <AssistantProductOptions product={message.productChoice} initialVariantId={message.initialVariantId} busy={busy} onDetails={showDetails} onVisit={onVisitProduct} />}
+            {message.flavorOptions && <AssistantFlavorResults options={message.flavorOptions} busy={busy} onDetails={showDetails} onVisit={onVisitProduct} showPrices={message.showPrices} />}
+            {message.productChoice && <AssistantProductOptions product={message.productChoice} initialVariantId={message.initialVariantId} busy={busy} onDetails={showDetails} onVisit={onVisitProduct} showPrices={message.showPrices} />}
             {message.links && <div className="mt-3 flex flex-col items-start gap-2">
               {message.links.map(link => <Button key={link.href} size="sm" className={`h-auto whitespace-normal text-left ${assistantPrimary}`} asChild>
                 <Link to={link.href} aria-disabled={busy} onClick={event => { if (busy) { event.preventDefault(); return; } onVisitProduct(); }}>{link.label}</Link>
@@ -435,10 +492,10 @@ function AssistantConversation({ firstName, onVisitProduct }: { firstName?: stri
           <p className="text-xs text-slate-500">Nenhum produto disponível para consulta no momento.</p>
         ) : null}
         <form className="flex gap-2" onSubmit={event => { event.preventDefault(); send(); }}>
-          <Input aria-label="Mensagem para o Assistente DK" placeholder="Pergunte sobre produtos, sabores ou mais vendidos…" value={input} maxLength={300} disabled={busy} onChange={event => setInput(event.target.value)} className="min-w-0 text-base text-slate-900" />
+          <Input aria-label="Mensagem para o Assistente DK" placeholder="Ex.: vape de uva até 100 reais…" value={input} maxLength={300} disabled={busy} onChange={event => setInput(event.target.value)} className="min-w-0 text-base text-slate-900" />
           <Button type="submit" size="icon" className={assistantPrimary} disabled={busy || !input.trim()} aria-label="Enviar mensagem"><Send className="h-4 w-4" /></Button>
         </form>
-        <Button disabled={busy} variant="ghost" size="sm" className="h-7 !bg-transparent text-xs !text-slate-500 hover:!bg-sky-50" onClick={() => { setMessages([]); setSelectedProduct(null); setInput(''); lastScope.current = null; lastIntent.current = 'search'; refinement.current = null; setActivePreference(null); }}><RotateCcw className="mr-2 h-3 w-3" />Recomeçar conversa</Button>
+        <Button disabled={busy} variant="ghost" size="sm" className="h-7 !bg-transparent text-xs !text-slate-500 hover:!bg-sky-50" onClick={() => { setMessages([]); setSelectedProduct(null); setInput(''); lastScope.current = null; lastIntent.current = 'search'; lastBudget.current = null; lastBudgetQuery.current = null; refinement.current = null; setActivePreference(null); }}><RotateCcw className="mr-2 h-3 w-3" />Recomeçar conversa</Button>
       </div>
     </>
   );

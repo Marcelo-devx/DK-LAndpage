@@ -13,6 +13,7 @@ export async function fetchAssistantRanking(): Promise<Map<number, number>> {
 export interface AssistantVariant {
   id: string;
   flavor_name: string | null;
+  price: number | null;
   stock_quantity: number;
   volume_ml: number | null;
   color: string | null;
@@ -23,6 +24,7 @@ export interface AssistantVariant {
 export interface AssistantProduct {
   id: number;
   name: string;
+  price: number | null;
   category: string | null;
   sub_category: string | null;
   brand: string | null;
@@ -40,14 +42,14 @@ type RawAssistantProduct = Omit<AssistantProduct, 'variants' | 'sub_categories'>
 
 export function useAssistantProducts() {
   return useQuery({
-    queryKey: ['assistant-dk-products-with-variants-and-categories'],
+    queryKey: ['assistant-dk-products-with-prices-variants-and-categories'],
     staleTime: 30_000,
     queryFn: async (): Promise<AssistantProduct[]> => {
       const products: AssistantProduct[] = [];
       for (let offset = 0; ; offset += 500) {
         const { data, error } = await supabase
           .from('products')
-          .select('id, name, category, sub_category, brand, description, image_url, stock_quantity, variants:product_variants(id, is_active, stock_quantity, volume_ml, color, size, ohms, flavor:flavors(name)), sub_categories:product_sub_categories(sub_category:sub_categories(name, is_visible))')
+          .select('id, name, price, category, sub_category, brand, description, image_url, stock_quantity, variants:product_variants(id, price, is_active, stock_quantity, volume_ml, color, size, ohms, flavor:flavors(name)), sub_categories:product_sub_categories(sub_category:sub_categories(name, is_visible))')
           .eq('is_visible', true)
           .order('id')
           .range(offset, offset + 499)
@@ -56,6 +58,7 @@ export function useAssistantProducts() {
         for (const product of data ?? []) {
           const variants = (product.variants ?? []).filter(variant => variant.is_active).map(variant => ({
             id: variant.id,
+            price: variant.price === null ? null : Number(variant.price),
             stock_quantity: variant.stock_quantity,
             volume_ml: variant.volume_ml,
             color: variant.color,
@@ -64,7 +67,7 @@ export function useAssistantProducts() {
             flavor_name: variant.flavor?.name ?? null,
           }));
           const sub_categories = (product.sub_categories ?? []).flatMap(row => row.sub_category?.is_visible ? [row.sub_category.name] : []);
-          products.push({ ...product, variants, sub_categories });
+          products.push({ ...product, price: product.price === null ? null : Number(product.price), variants, sub_categories });
         }
         if (!data || data.length < 500) break;
       }

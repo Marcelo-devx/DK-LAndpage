@@ -1,4 +1,5 @@
 import type { AssistantProduct, AssistantVariant } from '@/hooks/use-assistant-products';
+import { parsePurchaseBudget, withinBudget } from './assistant-budget';
 
 export const normalize = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 export const restrictedTopic = /\b(pag\w*|preco\w*|valor\w*|pix|boleto\w*|cartao\w*|credito\w*|debito\w*|parcel\w*|cobr\w*|assinatura\w*|reembolso\w*|estorno\w*|cupom\w*|cupons|desconto\w*|frete\w*|checkout|acess\w*|login\w*|senha\w*|conta\w*|permiss\w*|liber\w*|bloque\w*|autentic\w*|entrar|pedido\w*|entrega\w*)\b/;
@@ -26,9 +27,9 @@ export function productInformation(product: AssistantProduct, variant?: Assistan
 
 const ignoredWords = new Set('qual quais o a os as um uma uns umas de da das do dos e ou em na no nas nos com para por que eu me voce voces quero queria gostaria pode poderia consegue mostrar mostre mostra encontrar encontre procurando procuro buscando busco busca buscar conhecer saber ver veja tem tenho ter ha existe existem produto produtos item itens marca marcas categoria categorias tipo tipos sobre favor porfavor ai ae esse essa esses essas este esta estes estas disso dele dela mais muito melhor melhores bom boa bons boas vendido vendidos vendida vendidas vende vendem vender vendas sai saem saida sai sai popular populares procurado procurados campeao campeoes sucesso recomendacao recomendacoes recomenda recomendar recomende indica indicar indique sugestao sugestoes sugere sugerir parecido parecidos parecida parecidas semelhante semelhantes similar similares relacionado relacionados alternativa alternativas outro outros outra outras tambem uso usar utiliza utilizar funciona funcionar como detalhes detalhe informacoes informacao descricao descrever explique explicar ajuda ajudar todos tudo catalogo disponivel disponiveis loja aqui entao pra pro comprar compro comprando adquirir pegar levar preciso precisava necessito estou to tava queria'.split(' '));
 const aliases: Record<string, string> = { pods: 'pod', juice: 'juices', liquido: 'juices', liquidos: 'juices', atomizador: 'atomizadores', refis: 'refil', descartavel: 'descartaveis', recarregavel: 'recarregaveis', bala: 'balas', melancia: 'watermelon', morango: 'strawberry', uva: 'grape', cereja: 'cherry', menta: 'mint', hortela: 'mint', abacaxi: 'pineapple', pessego: 'peach', maca: 'apple', gelado: 'ice' };
-const canonical = (term: string) => term === 'coils' ? 'coil' : aliases[term] || term;
+const canonical = (term: string) => term === 'coils' ? 'coil' : /^(vape|vapes)$/.test(term) ? 'pod' : aliases[term] || term;
 const words = (text: string) => normalize(text).replace(/(\d+)\s+ml\b/g, '$1ml').split(/[^a-z0-9]+/).filter(Boolean).map(canonical);
-const queryTerms = (text: string) => words(text).filter(term => !ignoredWords.has(term) && !['sabor', 'sabores', 'variante', 'variantes', 'opcao', 'opcoes', 'estoque', 'esgotado', 'esgotados', 'nesse', 'neste', 'deste', 'desse', 'desses', 'dessas', 'destes', 'destas', 'dessa', 'desta', 'deles', 'delas', 'mande', 'manda', 'mandar', 'envie', 'envia', 'enviar', 'link', 'links', 'pagina', 'paginas', 'site', 'abrir', 'abra', 'visitar', 'ir', 'subcategoria', 'subcategorias', 'agora', 'vez', 'trocar', 'troque', 'mudar', 'mudando', 'assunto'].includes(term));
+const queryTerms = (text: string) => words(parsePurchaseBudget(text).query).filter(term => !ignoredWords.has(term) && !['sabor', 'sabores', 'variante', 'variantes', 'opcao', 'opcoes', 'estoque', 'esgotado', 'esgotados', 'nesse', 'neste', 'deste', 'desse', 'desses', 'dessas', 'destes', 'destas', 'dessa', 'desta', 'deles', 'delas', 'mande', 'manda', 'mandar', 'envie', 'envia', 'enviar', 'link', 'links', 'pagina', 'paginas', 'site', 'abrir', 'abra', 'visitar', 'ir', 'subcategoria', 'subcategorias', 'agora', 'vez', 'trocar', 'troque', 'mudar', 'mudando', 'assunto'].includes(term));
 
 export function matchingVariants(text: string, product: AssistantProduct): AssistantVariant[] {
   const terms = queryTerms(text);
@@ -68,11 +69,13 @@ export function parseProductQuestion(text: string, products: AssistantProduct[])
         : /\b(recomend\w*|indic\w*|sugest\w*|melhor\w*|sugere)\b/.test(normalized) ? 'recommend' : 'search';
   const terms = queryTerms(text);
   const questionWords = ` ${words(text).join(' ')} `;
-  const mentionedBrands = [...new Set(products.map(product => product.brand).filter((brand): brand is string => !!brand))]
+  const deviceRequest = /\bvapes?\b/.test(normalized) && !/\b(juice\w*|liquido\w*|refi[ls]\w*)\b/.test(normalized);
+  const scope = deviceRequest ? products.filter(product => /pod|vape/.test(normalize(product.category || '')) && !/\b(refil|refis|sem bateria)\b/.test(normalize(product.name))) : products;
+  const mentionedBrands = [...new Set(scope.map(product => product.brand).filter((brand): brand is string => !!brand))]
     .filter(brand => questionWords.includes(` ${words(brand).join(' ')} `));
-  const candidates = mentionedBrands.length === 1 ? products.filter(product =>
+  const candidates = mentionedBrands.length === 1 ? scope.filter(product =>
     normalize(product.brand || '') === normalize(mentionedBrands[0])
-    || ` ${words(product.name).join(' ')} `.includes(` ${words(mentionedBrands[0]).join(' ')} `)) : products;
+    || ` ${words(product.name).join(' ')} `.includes(` ${words(mentionedBrands[0]).join(' ')} `)) : scope;
   const indexed = candidates.map(product => {
     const description = plainDescription(product);
     return { product, tokens: words([product.name, product.brand, product.category, product.sub_category, ...product.sub_categories, safeText(description) ? description : '', ...product.variants.map(variantLabel)].filter(Boolean).join(' ')) };
@@ -80,6 +83,18 @@ export function parseProductQuestion(text: string, products: AssistantProduct[])
   const exactMatches = indexed.filter(({ tokens }) => terms.every(term => tokens.some(token => token === term || (term.length >= 3 && token.startsWith(term)))));
   const matches = !terms.length ? candidates : (exactMatches.length ? exactMatches : indexed.filter(({ tokens }) => terms.every(term => tokens.some(token => nearWord(term, token))))).map(({ product }) => product);
   return { intent, matches, hasTerms: terms.length > 0 };
+}
+
+export function budgetProductMatches(text: string, products: AssistantProduct[], maxPrice: number): AssistantProduct[] {
+  const terms = queryTerms(text);
+  return parseProductQuestion(text, products).matches.flatMap(product => {
+    if (!product.variants.length) return product.stock_quantity > 0 && withinBudget(product.price, maxPrice) ? [product] : [];
+    const requested = matchingVariants(text, product);
+    const variantTerms = terms.filter(term => product.variants.some(variant => words(variantLabel(variant)).includes(term)));
+    if (variantTerms.length && !requested.length) return [];
+    const variants = (requested.length ? requested : product.variants).filter(variant => variant.stock_quantity > 0 && withinBudget(variant.price, maxPrice));
+    return variants.length ? [{ ...product, variants }] : [];
+  });
 }
 
 export function relatedProducts(product: AssistantProduct, products: AssistantProduct[]): AssistantProduct[] {

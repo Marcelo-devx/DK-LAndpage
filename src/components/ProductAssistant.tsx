@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Bot, Loader2, RotateCcw, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,15 +13,17 @@ interface Message {
   sender: 'user' | 'assistant';
   text: string;
   products?: AssistantProduct[];
+  productChoice?: AssistantProduct;
 }
 
-function AssistantConversation({ firstName }: { firstName?: string }) {
+function AssistantConversation({ firstName, onVisitProduct }: { firstName?: string; onVisitProduct: () => void }) {
   const { data: products = [], isPending, isError, refetch } = useAssistantProducts();
   const location = useLocation();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<AssistantProduct | null>(null);
   const [busy, setBusy] = useState(false);
+  const responseLocked = useRef(false);
   const endRef = useRef<HTMLDivElement>(null);
   const sequence = useRef(0);
   const alive = useRef(true);
@@ -41,28 +43,54 @@ function AssistantConversation({ firstName }: { firstName?: string }) {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [messages, busy]);
 
-  const append = (sender: Message['sender'], text: string, items?: AssistantProduct[]) => {
-    if (alive.current) setMessages(previous => [...previous, { id: ++sequence.current, sender, text, products: items }]);
+  const append = (sender: Message['sender'], text: string, items?: AssistantProduct[], productChoice?: AssistantProduct) => {
+    if (alive.current) setMessages(previous => [...previous, { id: ++sequence.current, sender, text, products: items, productChoice }]);
   };
 
-  const chooseProduct = (product: AssistantProduct) => {
-    if (busy) return;
+  const withThinking = async (respond: () => void | Promise<void>) => {
+    if (responseLocked.current) return;
+    responseLocked.current = true;
+    setBusy(true);
+    try {
+      await new Promise<void>(resolve => window.setTimeout(resolve, 650));
+      if (alive.current) await respond();
+    } finally {
+      responseLocked.current = false;
+      if (alive.current) setBusy(false);
+    }
+  };
+
+  const offerProduct = (product: AssistantProduct) => {
     setSelectedProduct(product);
     lastScope.current = [product];
     lastIntent.current = 'details';
-    append('user', `Quero conhecer ${product.name}`);
-    append('assistant', productInformation(product));
+    append('assistant', `Vamos conhecer ${product.name}? 😊 Você prefere saber mais por aqui ou visitar a página dele?`, undefined, product);
+  };
+
+  const chooseProduct = (product: AssistantProduct) => {
+    if (responseLocked.current) return;
+    append('user', product.name);
+    void withThinking(() => offerProduct(product));
+  };
+
+  const showDetails = (product: AssistantProduct) => {
+    if (responseLocked.current) return;
+    append('user', `Quero saber mais sobre ${product.name}`);
+    void withThinking(() => {
+      setSelectedProduct(product);
+      lastScope.current = [product];
+      lastIntent.current = 'details';
+      append('assistant', `Claro! Aqui está o que temos sobre ele:\n\n${productInformation(product)}`);
+    });
   };
 
   const listProducts = (items: AssistantProduct[], introduction?: string) => {
     append('assistant', items.length
-      ? `${introduction || `Encontrei ${items.length} produto(s). Escolha um para conhecer.`}${items.length > 8 ? ' Exibo os primeiros 8; refine por nome, marca ou característica.' : ''}`
-      : 'Não encontrei produtos disponíveis para essa busca. Tente outra marca, categoria ou característica.', items.slice(0, 8));
+      ? `${introduction || 'Separei estas opções para você. Toque no produto que chamou sua atenção 😊'}${items.length > 8 ? ' Aqui estão as primeiras 8; se quiser, me diga a marca ou uma característica para eu filtrar melhor.' : ''}`
+      : 'Não achei uma opção disponível com essa combinação. Quer tentar outra marca, categoria ou característica?', items.slice(0, 8));
   };
 
-  const ask = async (text: string) => {
-    if (busy || !text.trim()) return;
-    append('user', text);
+  const answer = async (text: string) => {
     const normalized = normalize(text);
     if (restrictedTopic.test(normalized)) { append('assistant', outOfScope); return; }
     if (isPending || isError) {
@@ -70,7 +98,7 @@ function AssistantConversation({ firstName }: { firstName?: string }) {
       return;
     }
     if (/^(oi|ola|bom dia|boa tarde|boa noite)[!.\s]*$/.test(normalized)) {
-      append('assistant', 'Olá! Pode perguntar “qual produto da Fini mais sai?”, buscar uma característica ou pedir sugestões parecidas com um produto.');
+      append('assistant', 'Oi! 😊 Me conta o que você está procurando. Posso ajudar a conhecer os produtos, encontrar os mais vendidos ou mostrar opções parecidas.');
       return;
     }
     const parsed = parseProductQuestion(text, safeProducts);
@@ -80,7 +108,6 @@ function AssistantConversation({ firstName }: { firstName?: string }) {
 
     if (intent === 'bestsellers') {
       if (!matches.length) { listProducts([]); return; }
-      setBusy(true);
       try {
         const ranking = await fetchAssistantRanking();
         if (!alive.current) return;
@@ -88,16 +115,14 @@ function AssistantConversation({ firstName }: { firstName?: string }) {
         lastScope.current = matches;
         lastIntent.current = 'bestsellers';
         if (!ranked.length) {
-          append('assistant', 'Não há vendas registradas nos últimos 90 dias para os produtos disponíveis dessa seleção. Não vou inventar um campeão de vendas. Você pode conhecer os produtos abaixo.', matches.slice(0, 8));
+          append('assistant', 'Ainda não encontrei vendas nos últimos 90 dias para essas opções. Mas posso ajudar você a conhecê-las! Qual chamou sua atenção?', matches.slice(0, 8));
         } else {
           const leaders = ranked.filter(product => ranking.get(product.id) === ranking.get(ranked[0].id));
-          const summary = leaders.length === 1 ? `O mais vendido dessa seleção é ${ranked[0].name}.` : `Há ${leaders.length} produtos empatados na liderança dessa seleção.`;
-          append('assistant', `${summary}\n\nOrdem por quantidade vendida nos últimos 90 dias, considerando somente produtos disponíveis e vendas confirmadas. Kits promocionais não entram neste ranking. Escolha um produto para conhecer.${ranked.length > 8 ? ' Mostro os primeiros 8.' : ''}`, ranked.slice(0, 8));
+          const summary = leaders.length === 1 ? `Entre essas opções, quem mais saiu foi ${ranked[0].name}!` : `${leaders.length} opções ficaram empatadas como as mais vendidas!`;
+          append('assistant', `${summary}\n\nOlhei a quantidade vendida nos últimos 90 dias, só entre produtos disponíveis e vendas confirmadas, sem kits promocionais. Quer conhecer algum deles?${ranked.length > 8 ? ' Separei os primeiros 8 abaixo.' : ''}`, ranked.slice(0, 8));
         }
       } catch {
-        append('assistant', 'Não consegui consultar o ranking real de vendas agora. Tente novamente. Não vou substituir vendas por uma recomendação inventada.');
-      } finally {
-        if (alive.current) setBusy(false);
+        append('assistant', 'Não consegui conferir as vendas agora. Pode tentar de novo em um instante? Prefiro te passar um resultado certinho.');
       }
       return;
     }
@@ -127,35 +152,46 @@ function AssistantConversation({ firstName }: { firstName?: string }) {
     lastScope.current = matches;
     lastIntent.current = intent;
     if (matches.length === 1) {
-      setSelectedProduct(matches[0]);
-      append('assistant', productInformation(matches[0]));
+      if (intent === 'details') {
+        setSelectedProduct(matches[0]);
+        append('assistant', `Claro! Olha o que temos sobre esse produto:\n\n${productInformation(matches[0])}`);
+      } else {
+        offerProduct(matches[0]);
+      }
     } else if (intent === 'recommend') {
       const suggested = !parsed.hasTerms && contextProduct ? relatedProducts(contextProduct, safeProducts) : matches;
-      listProducts(suggested, 'Estas opções correspondem ao catálogo ou ao produto que você está vendo. São sugestões por características, não uma avaliação de qualidade nem um ranking de vendas.');
+      listProducts(suggested, 'Separei algumas opções pelas características do catálogo. Dá uma olhada e me conta qual você quer conhecer! Não é um ranking de vendas ou de qualidade.');
     } else if (matches.length) {
       listProducts(matches);
     } else {
-      append('assistant', 'Não encontrei essa combinação no catálogo. Tente um nome, marca, sabor ou tipo. Posso reconhecer perguntas sobre mais vendidos e produtos parecidos, mas não qualquer pergunta livre.');
+      append('assistant', 'Não achei essa combinação por aqui. Me conta o nome, a marca, o sabor ou o tipo que você procura e vamos tentar de novo 😊');
     }
+  };
+
+  const ask = (text: string) => {
+    if (responseLocked.current || !text.trim()) return;
+    append('user', text);
+    void withThinking(() => answer(text));
   };
 
   const send = () => {
     const text = input.trim();
-    if (!text || busy) return;
+    if (!text || responseLocked.current) return;
     setInput('');
-    void ask(text);
+    ask(text);
   };
 
   return (
     <>
       <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 p-4" role="log" aria-label="Conversa com o Assistente DK" aria-live="polite">
         <div className="mb-4 max-w-[95%] rounded-2xl rounded-tl-sm border border-slate-200 bg-white p-3 text-sm text-slate-800">
-          <p className="font-semibold">Olá{firstName ? `, ${firstName}` : ''}! Sou o Assistente DK 👋</p>
-          <p className="mt-2">Posso encontrar produtos, consultar os mais vendidos e sugerir opções relacionadas. Experimente: “qual produto da Fini mais sai?” ou “me mostra produtos da Fini”.</p>
-          <p className="mt-2 text-xs text-slate-500">Sem IA externa. Não respondo sobre pagamento ou acesso.</p>
+          <p className="font-semibold">Oi{firstName ? `, ${firstName}` : ''}! Sou o Assistente DK 👋</p>
+          <p className="mt-2">Que bom ter você por aqui! Me conta o que está procurando. Posso ajudar a conhecer os produtos, descobrir os mais vendidos ou encontrar opções parecidas 😊</p>
+          <p className="mt-2 text-xs text-slate-500">Sou um guia automático do catálogo. Para pagamento ou acesso, fale com o suporte.</p>
           {currentProduct && <div className="mt-3 border-t pt-3">
-            <p>Você está vendo <strong>{currentProduct.name}</strong>.</p>
-            {!!automaticSuggestions.length && <p className="mt-2 text-xs text-slate-500">Opções relacionadas por categoria, tipo ou marca:</p>}
+            <p>Vi que você está olhando <strong>{currentProduct.name}</strong>. Quer saber mais sobre ele?</p>
+            <Button disabled={busy} variant="outline" className="mt-2 h-auto whitespace-normal" onClick={() => chooseProduct(currentProduct)}>Conhecer este produto</Button>
+            {!!automaticSuggestions.length && <p className="mt-2 text-xs text-slate-500">Também encontrei estas opções pela categoria, tipo ou marca:</p>}
             {automaticSuggestions.map(product => <Button key={product.id} disabled={busy} variant="outline" className="mt-2 h-auto w-full justify-start whitespace-normal text-left" onClick={() => chooseProduct(product)}>{product.name}</Button>)}
           </div>}
         </div>
@@ -165,9 +201,18 @@ function AssistantConversation({ firstName }: { firstName?: string }) {
             {message.products?.map(product => (
               <Button key={product.id} disabled={busy} variant="outline" className="mt-2 h-auto w-full justify-start whitespace-normal text-left text-slate-800" onClick={() => chooseProduct(product)}>{product.name}</Button>
             ))}
+            {message.productChoice && <div className="mt-3 flex flex-wrap gap-2">
+              <Button disabled={busy} size="sm" onClick={() => showDetails(message.productChoice!)}>Quero saber mais</Button>
+              <Button size="sm" variant="outline" asChild>
+                <Link to={`/produto/${message.productChoice.id}`} aria-disabled={busy} onClick={event => { if (busy) { event.preventDefault(); return; } onVisitProduct(); }}>Visitar página do produto</Link>
+              </Button>
+            </div>}
           </div>
         ))}
-        {busy && <p className="mb-3 flex items-center gap-2 text-sm text-slate-600"><Loader2 className="h-4 w-4 animate-spin" />Consultando vendas reais…</p>}
+        {busy && <div className="mb-3 flex w-fit items-center gap-2 rounded-2xl rounded-tl-sm border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500" role="status">
+          <span className="flex gap-1" aria-hidden="true"><span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" /><span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:150ms]" /><span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:300ms]" /></span>
+          Pensando…
+        </div>}
         <div ref={endRef} />
       </div>
       <div className="shrink-0 space-y-3 border-t bg-white p-4">
@@ -201,9 +246,9 @@ export default function ProductAssistant() {
       <DialogContent className="z-[1000000] flex h-[min(680px,85dvh)] w-[calc(100%_-_2rem)] max-w-md flex-col gap-0 overflow-hidden border-slate-200 bg-white p-0 text-slate-900">
         <DialogHeader className="shrink-0 border-b p-4 pr-12 text-left">
           <DialogTitle className="flex items-center gap-2"><Bot className="h-5 w-5" />Assistente DK</DialogTitle>
-          <DialogDescription>Seu guia de produtos · Respostas baseadas no catálogo</DialogDescription>
+          <DialogDescription>Seu guia de produtos · Vamos encontrar o que você procura</DialogDescription>
         </DialogHeader>
-        {open && <AssistantConversation key={user.id} firstName={profile?.id === user.id ? profile.first_name : undefined} />}
+        {open && <AssistantConversation key={user.id} firstName={profile?.id === user.id ? profile.first_name : undefined} onVisitProduct={() => setOpen(false)} />}
       </DialogContent>
     </Dialog>
   );

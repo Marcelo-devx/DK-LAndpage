@@ -2,7 +2,7 @@ import type { AssistantProduct } from '@/hooks/use-assistant-products';
 
 export const normalize = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 export const restrictedTopic = /\b(pag\w*|preco\w*|valor\w*|pix|boleto\w*|cartao\w*|credito\w*|debito\w*|parcel\w*|cobr\w*|assinatura\w*|reembolso\w*|estorno\w*|cupom\w*|cupons|desconto\w*|frete\w*|checkout|acess\w*|login\w*|senha\w*|conta\w*|permiss\w*|liber\w*|bloque\w*|autentic\w*|entrar|pedido\w*|entrega\w*)\b/;
-export const outOfScope = 'Ajudo somente com os produtos e suas informações cadastradas. Não trato de pagamento, pedidos ou acesso à conta. Para esses assuntos, procure o suporte da loja.';
+export const outOfScope = 'Essa parte fica com o suporte da loja, tá? Por aqui eu ajudo você a conhecer os produtos. Não consigo tratar de pagamento, pedidos ou acesso à conta.';
 const currency = /(?:R\$|US\$|\$|€|£)/i;
 export const safeText = (text: string) => !restrictedTopic.test(normalize(text)) && !currency.test(text);
 export const plainDescription = (product: AssistantProduct) => product.description?.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() || '';
@@ -14,7 +14,7 @@ export function productInformation(product: AssistantProduct): string {
     product.category && safeText(product.category) ? `Categoria: ${product.category}` : '',
     product.sub_category && safeText(product.sub_category) ? `Tipo: ${product.sub_category}` : '',
     product.brand && safeText(product.brand) ? `Marca: ${product.brand}` : '',
-    description && safeText(description) ? `Descrição cadastrada: ${description}` : 'Não há uma descrição adequada disponível para explicar o uso deste produto. Consulte as informações do fabricante; não vou inventar instruções.',
+    description && safeText(description) ? `Sobre ele: ${description}` : 'Ainda não tenho mais detalhes de uso desse produto no catálogo. Para usar com segurança, confira as orientações do fabricante, combinado?',
   ].filter(Boolean).join('\n\n');
 }
 

@@ -156,6 +156,10 @@ const AllProductsPage = () => {
       const normalizeCategory = (s?: string) => (typeof s === 'string' ? s.trim().toLowerCase() : '');
       const searchQuery = debouncedSearchTerm.trim();
       const shouldApplySearch = searchQuery.length >= 2;
+      const dosageMatch = searchQuery.match(/^(\d+)\s*mg$/i);
+      const dosagePattern = dosageMatch
+        ? new RegExp(`(^|[^\\d.,])${dosageMatch[1]}\\s*mg\\b`, 'i')
+        : null;
 
       const { data: categoriesData } = await supabase.from('categories').select('name, show_age_restriction');
       const categoriesMap: Record<string, boolean> = {};
@@ -194,7 +198,7 @@ const AllProductsPage = () => {
           .select('id, name')
           .eq('is_visible', true);
         const subIds = (matchedSubs || [])
-          .filter((s: any) => selectedSubCategoryNames.some(name => normalizeString(s.name).includes(name) || name.includes(normalizeString(s.name))))
+          .filter((s: any) => selectedSubCategoryNames.includes(normalizeString(s.name)))
           .map((s: any) => s.id);
         if (subIds.length > 0) {
           const { data: pscRows } = await supabase
@@ -218,7 +222,7 @@ const AllProductsPage = () => {
       if (assistantProductIds !== null) query = query.in('id', assistantProductIds.length ? assistantProductIds : [-1]);
 
       if (shouldApplySearch) {
-        const term = `%${searchQuery}%`;
+        const term = dosagePattern ? '%mg%' : `%${searchQuery}%`;
         query = query.or(`name.ilike.${term},category.ilike.${term},brand.ilike.${term}`);
       }
 
@@ -266,6 +270,12 @@ const AllProductsPage = () => {
         (mergedProducts || []).forEach((p: any) => map.set(p.id, p));
         (flavorProducts || []).forEach((p: any) => map.set(p.id, p));
         mergedProducts = Array.from(map.values());
+      }
+
+      if (dosagePattern) {
+        mergedProducts = mergedProducts.filter(product =>
+          [product.name, product.category, product.brand].some(value => dosagePattern.test(value || ''))
+        );
       }
 
       const products = assistantProductIds === null ? mergedProducts

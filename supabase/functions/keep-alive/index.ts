@@ -1,10 +1,10 @@
-// redeploy: 2026-10-30T13:42:10.000Z — atualização solicitada após deploy; disponibilidade verificada separadamente
+// redeploy: 2026-11-10T18:56:49.960Z — republicação solicitada; disponibilidade verificada separadamente
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 
 declare const Deno: any;
 
-const REDEPLOY_TIMESTAMP = '2026-10-24T19:44:15.261Z';
+const REDEPLOY_TIMESTAMP = '2026-11-10T18:56:49.960Z';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',

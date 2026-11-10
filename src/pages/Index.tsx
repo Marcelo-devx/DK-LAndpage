@@ -350,6 +350,12 @@ const Index = () => {
                     )
                   }
                 </CarouselContent>
+                {!loadingProducts && displayedProducts.length > 0 && (
+                  <div className="hidden md:block">
+                    <CarouselPrevious className="bg-slate-900 border-white/10 text-white hover:bg-sky-500" />
+                    <CarouselNext className="bg-slate-900 border-white/10 text-white hover:bg-sky-500" />
+                  </div>
+                )}
               </Carousel>
             </div>
           </section>

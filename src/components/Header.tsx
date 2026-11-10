@@ -115,7 +115,7 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
       const [catsRes, subsRes, productsRes] = await Promise.all([
         supabase.from('categories').select('id, name').eq('is_visible', true).order('name'),
         supabase.from('sub_categories').select('id, name, category_id').eq('is_visible', true).order('name'),
-        supabase.from('products').select('id, category, sub_category, stock_quantity').neq('category', null).neq('category', '').eq('is_visible', true),
+        supabase.from('products').select('id, category').neq('category', null).neq('category', '').eq('is_visible', true),
       ]);
 
       const cats: Category[] = catsRes.data ?? [];
@@ -128,7 +128,6 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
       cats.forEach((c) => { if (c.name) catNameToId.set(normalizeKey(c.name), c.id); });
 
       const catProductIds: Record<number, number[]> = {};
-      const productStockMap: Record<number, number> = {};
 
       productRows.forEach((p: any) => {
         if (!p.category) return;
@@ -136,27 +135,15 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
         if (!catId) return;
         if (!catProductIds[catId]) catProductIds[catId] = [];
         catProductIds[catId].push(p.id);
-        productStockMap[p.id] = p.stock_quantity ?? 0;
       });
 
       const allProductIds = Object.values(catProductIds).flat();
 
       if (allProductIds.length > 0) {
-        const [variantStockRes, productSubCatsRes] = await Promise.all([
-          supabase.from('product_variants').select('product_id, stock_quantity').in('product_id', allProductIds).eq('is_active', true),
-          supabase.from('product_sub_categories').select('product_id, sub_category_id').in('product_id', allProductIds),
-        ]);
-
-        const variantSumByProduct: Record<number, number> = {};
-        (variantStockRes.data ?? []).forEach((v: any) => {
-          if (typeof v.product_id !== 'number') return;
-          variantSumByProduct[v.product_id] = (variantSumByProduct[v.product_id] || 0) + (v.stock_quantity || 0);
-        });
-
-        const productAvailable: Record<number, boolean> = {};
-        allProductIds.forEach(pid => {
-          productAvailable[pid] = (productStockMap[pid] > 0) || (variantSumByProduct[pid] > 0);
-        });
+        const productSubCatsRes = await supabase
+          .from('product_sub_categories')
+          .select('product_id, sub_category_id')
+          .in('product_id', allProductIds);
 
         const subIdToName = new Map<number, string>();
         const subIdToCatId = new Map<number, number>();
@@ -167,9 +154,7 @@ const Header = memo(({ onCartClick }: HeaderProps) => {
 
         const catSubsMap: Record<number, Set<string>> = {};
         (productSubCatsRes.data ?? []).forEach((psc: any) => {
-          const pid = psc.product_id;
           const subId = psc.sub_category_id;
-          if (!productAvailable[pid]) return;
           const subName = subIdToName.get(subId);
           const catId = subIdToCatId.get(subId);
           if (!subName || !catId) return;

@@ -9,7 +9,6 @@ import DeliveryTimerBar from "./DeliveryTimerBar";
 import NetworkErrorBanner from "./NetworkErrorBanner";
 import WhatsAppButton from "./WhatsAppButton";
 import NeighborhoodBlockedModal from "./NeighborhoodBlockedModal";
-import ProductAssistant from "./ProductAssistant";
 
 // Lazy load de componentes não-críticos — tira framer-motion do bundle inicial
 const SocialProofPopup = lazy(() => import("./SocialProofPopup"));
@@ -89,7 +88,6 @@ const MainLayout = () => {
       <NetworkErrorBanner />
       {/* Botão flutuante do WhatsApp */}
       <WhatsAppButton />
-      <ProductAssistant />
       {/* Modal global de bairro não atendido */}
       <NeighborhoodBlockedModal
         isOpen={isNeighborhoodModalOpen}

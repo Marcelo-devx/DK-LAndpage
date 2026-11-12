@@ -1,4 +1,4 @@
-// redeploy: 2026-11-10T18:56:49.960Z — republicação solicitada; disponibilidade verificada separadamente
+// redeploy: 2026-11-12T17:19:47.251Z — republicação solicitada; disponibilidade verificada separadamente
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 // @ts-ignore

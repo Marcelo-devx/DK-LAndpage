@@ -12,6 +12,7 @@ import OrderTimer from './OrderTimer';
 import ProductImage from '@/components/ProductImage';
 import FreeShippingBanner from '@/components/FreeShippingBanner';
 import { DeliveryAddressModal, type DeliveryAddress } from '@/components/DeliveryAddressModal';
+import DoublePointsCartBanner from '@/components/DoublePointsCartBanner';
 
 interface DisplayItem {
   id: number;
@@ -274,11 +275,12 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
             </SheetDescription>
           </SheetHeader>
           <Separator className="my-4 bg-stone-200" />
+          <DoublePointsCartBanner isOpen={isOpen} />
           
           {items.length > 0 && cartStartTime && (
             <div className="mb-6">
-              <OrderTimer 
-                createdAt={cartStartTime} 
+              <OrderTimer
+                createdAt={cartStartTime}
                 className="bg-sky-50 border-sky-100"
               />
               <p className="text-[10px] text-slate-700 font-bold uppercase tracking-widest mt-2 px-2">

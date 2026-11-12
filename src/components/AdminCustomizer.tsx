@@ -48,6 +48,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTheme } from '@/context/ThemeContext';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { cn } from '@/lib/utils';
+import AdminTabsNavigation from '@/components/AdminTabsNavigation';
 
 // Mapeamento explícito para evitar erros de regex
 const settingKeysMap: Record<string, string> = {
@@ -549,10 +550,10 @@ const AdminCustomizer = () => {
           </SheetHeader>
         </div>
 
-        <div className="flex-1 overflow-hidden flex flex-col">
-          <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1 flex flex-col h-full">
+        <div className="min-h-0 min-w-0 flex-1 overflow-hidden flex flex-col">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="min-h-0 min-w-0 flex-1 flex flex-col h-full">
             
-            <div className="px-6 py-4 bg-slate-50/50 border-b border-slate-100 overflow-x-auto scrollbar-hide">
+            <AdminTabsNavigation activeTab={activeTab}>
               <TabsList className="bg-transparent p-0 gap-2 h-auto flex w-max">
                 <TabsTrigger value="global" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-slate-900 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><Globe className="h-3.5 w-3.5" /> Global</TabsTrigger>
                 <TabsTrigger value="integrations" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-purple-600 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><Network className="h-3.5 w-3.5" /> Webhooks</TabsTrigger>
@@ -571,9 +572,9 @@ const AdminCustomizer = () => {
                   <TabsTrigger value="frete" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all data-[state=active]:bg-green-600 data-[state=active]:text-white hover:bg-white bg-white border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider"><Truck className="h-3.5 w-3.5" /> Frete</TabsTrigger>
                 )}
               </TabsList>
-            </div>
+            </AdminTabsNavigation>
 
-            <div className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-slate-50/30">
+            <div className="min-h-0 flex-1 overflow-y-auto p-6 custom-scrollbar bg-slate-50/30">
               
               {/* --- NOVA ABA CATEGORIAS --- */}
               <TabsContent value="categories" className="space-y-6 mt-0 animate-in fade-in slide-in-from-bottom-4 duration-500">

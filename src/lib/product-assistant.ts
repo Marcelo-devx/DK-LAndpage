@@ -1,5 +1,6 @@
 import type { AssistantProduct, AssistantVariant } from '@/hooks/use-assistant-products';
 import { parsePurchaseBudget, withinBudget } from './assistant-budget';
+import { formatVariantResistance } from './variant-resistance';
 
 export const normalize = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 export const restrictedTopic = /\b(pag\w*|preco\w*|valor\w*|pix|boleto\w*|cartao\w*|credito\w*|debito\w*|parcel\w*|cobr\w*|assinatura\w*|reembolso\w*|estorno\w*|cupom\w*|cupons|desconto\w*|frete\w*|checkout|acess\w*|login\w*|senha\w*|conta\w*|permiss\w*|liber\w*|bloque\w*|autentic\w*|entrar|pedido\w*|entrega\w*)\b/;
@@ -8,7 +9,7 @@ const currency = /(?:R\$|US\$|\$|€|£)/i;
 export const safeText = (text: string) => !restrictedTopic.test(normalize(text)) && !currency.test(text);
 export const plainDescription = (product: AssistantProduct) => product.description?.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() || '';
 
-export const variantLabel = (variant: AssistantVariant) => [variant.flavor_name, variant.color, variant.size, variant.ohms, variant.volume_ml ? `${variant.volume_ml}ml` : null].filter((value): value is string => !!value && safeText(value)).join(' · ') || 'Variação';
+export const variantLabel = (variant: AssistantVariant) => [variant.flavor_name, variant.color, variant.size, variant.ohms ? formatVariantResistance(variant.ohms) : null, variant.volume_ml ? `${variant.volume_ml}ml` : null].filter((value): value is string => !!value && safeText(value)).join(' · ') || 'Variação';
 export const productAvailable = (product: AssistantProduct) => product.variants.length ? product.variants.some(variant => variant.stock_quantity > 0) : product.stock_quantity > 0;
 
 export function productInformation(product: AssistantProduct, variant?: AssistantVariant): string {

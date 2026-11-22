@@ -12,6 +12,7 @@ import { useSEO } from '@/hooks/useSEO';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import DOMPurify from 'dompurify';
+import { formatVariantResistance } from '@/lib/variant-resistance';
 
 const PixIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
@@ -59,12 +60,14 @@ interface RelatedPromotion {
 }
 
 const getVariantLabel = (item: PromotionItem): string | null => {
-  if (item.variant_flavor) return item.variant_flavor;
-  if (item.variant_color) return item.variant_color;
-  if (item.variant_size) return item.variant_size;
-  if (item.variant_ohms) return `${item.variant_ohms.replace(/[^\d.,]/g, '')}Ω`;
-  if (item.variant_volume_ml) return `${item.variant_volume_ml}ml`;
-  return null;
+  const parts = [
+    item.variant_flavor,
+    item.variant_color,
+    item.variant_size?.trim(),
+    item.variant_ohms ? formatVariantResistance(item.variant_ohms) : null,
+    item.variant_volume_ml ? `${item.variant_volume_ml}ml` : null,
+  ].filter(Boolean);
+  return parts.length ? parts.join(' · ') : null;
 };
 
 const getVariantIcon = (item: PromotionItem) => {

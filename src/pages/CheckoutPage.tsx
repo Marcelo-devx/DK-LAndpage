@@ -20,6 +20,7 @@ import { maskCep, maskPhone, maskCpfCnpj } from '@/utils/masks';
 import CouponsModal from '@/components/CouponsModal';
 import { cn } from '@/lib/utils';
 import { logger } from '@/lib/logger';
+import { formatVariantResistance } from '@/lib/variant-resistance';
 import { differenceInDays, endOfWeek, isSameWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import ProductImage from '@/components/ProductImage';
@@ -318,7 +319,7 @@ const CheckoutPage = () => {
             if (fName) parts.push(fName);
             if (variant.color) parts.push(variant.color);
             if (variant.size) parts.push(variant.size);
-            if (variant.ohms) parts.push(variant.ohms);
+            if (variant.ohms) parts.push(formatVariantResistance(variant.ohms));
 
             const built = parts.join(' · ').trim();
             if (built) {

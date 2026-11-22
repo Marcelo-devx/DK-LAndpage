@@ -12,6 +12,7 @@ import ReviewModal from '@/components/ReviewModal';
 import { showLoading, dismissToast, showError } from '@/utils/toast';
 import { cn } from '@/lib/utils';
 import OrderTimer from '@/components/OrderTimer';
+import { formatVariantResistance } from '@/lib/variant-resistance';
 
 interface OrderItem {
   item_id: number;
@@ -176,7 +177,7 @@ const OrdersPage = () => {
           if (v.flavor_id && flavorMap[v.flavor_id]) parts.push(flavorMap[v.flavor_id]);
           if (v.color) parts.push(v.color);
           if (v.size) parts.push(v.size);
-          if (v.ohms) parts.push(v.ohms);
+          if (v.ohms) parts.push(formatVariantResistance(v.ohms));
           if (parts.length > 0) variantMap[v.id] = parts.join(' | ');
         });
       }

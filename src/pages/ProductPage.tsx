@@ -14,6 +14,7 @@ import DOMPurify from 'dompurify';
 import ProductCard from '@/components/ProductCard';
 import ProductReviews from '@/components/ProductReviews';
 import { useSEO } from '@/hooks/useSEO';
+import { formatVariantResistance } from '@/lib/variant-resistance';
 
 /**
  * Corrige URLs digitadas com o protocolo duplicado por engano,
@@ -522,8 +523,7 @@ const ProductPage = () => {
     if (v.flavor_name) return v.flavor_name;
     if (v.color) return v.color;
     if (v.ohms) {
-      const resistance = `${v.ohms.trim().replace(/\s*(?:Ω|ohms?)$/i, '')}Ω`;
-      return [v.size?.trim(), resistance].filter(Boolean).join(' ');
+      return [v.size?.trim(), formatVariantResistance(v.ohms)].filter(Boolean).join(' ');
     }
     if (v.size) return v.size;
     if (v.volume_ml) return `${v.volume_ml}ml`;
@@ -531,10 +531,12 @@ const ProductPage = () => {
   };
 
   const getVariantTypeInfo = (v: Variant) => {
+    if (v.flavor_name && v.ohms) return { icon: Zap, label: 'Resistência' };
+    if (v.flavor_name && product?.category?.trim() === 'Acessórios') return { icon: FileText, label: 'Opção' };
     if (v.flavor_name) return { icon: Droplets, label: 'Sabor' };
     if (v.color) return { icon: Palette, label: 'Cor' };
     if (v.ohms) return { icon: Zap, label: 'Resistência' };
-    if (v.size) return { icon: FileText, label: 'Tamanho' };
+    if (v.size) return { icon: FileText, label: 'Opção' };
     if (v.volume_ml) return { icon: FileText, label: 'Volume' };
     return null;
   };
@@ -542,7 +544,8 @@ const ProductPage = () => {
   const getVariantSubLabel = (v: Variant) => {
     const parts = [];
     if (v.volume_ml && v.flavor_name) parts.push(`${v.volume_ml}ml`);
-    if (v.flavor_name && (v.ohms || v.color)) parts.push(v.ohms || v.color);
+    if (v.flavor_name && v.ohms) parts.push(formatVariantResistance(v.ohms));
+    else if (v.flavor_name && v.color) parts.push(v.color);
     return parts.join(' - ');
   };
 

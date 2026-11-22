@@ -13,6 +13,7 @@ import ProductImage from '@/components/ProductImage';
 import FreeShippingBanner from '@/components/FreeShippingBanner';
 import { DeliveryAddressModal, type DeliveryAddress } from '@/components/DeliveryAddressModal';
 import DoublePointsCartBanner from '@/components/DoublePointsCartBanner';
+import { formatVariantResistance } from '@/lib/variant-resistance';
 
 interface DisplayItem {
   id: number;
@@ -130,7 +131,7 @@ export const CartSheet = ({ isOpen, onOpenChange }: CartSheetProps) => {
               if (fName) parts.push(fName);
               if (variant.color) parts.push(variant.color);
               if (variant.size) parts.push(variant.size);
-              if (variant.ohms) parts.push(variant.ohms);
+              if (variant.ohms) parts.push(formatVariantResistance(variant.ohms));
 
               // Join parts with separator; fallback to a generic but explicit label if nothing meaningful found
               const built = parts.join(' · ').trim();

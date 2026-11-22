@@ -521,11 +521,11 @@ const ProductPage = () => {
   const getVariantLabel = (v: Variant) => {
     if (v.flavor_name) return v.flavor_name;
     if (v.color) return v.color;
-    if (v.size) return v.size;
     if (v.ohms) {
-      const cleanOhm = v.ohms.replace(/[^\d.,]/g, '');
-      return `${cleanOhm}Ω`;
+      const resistance = `${v.ohms.trim().replace(/\s*(?:Ω|ohms?)$/i, '')}Ω`;
+      return [v.size?.trim(), resistance].filter(Boolean).join(' ');
     }
+    if (v.size) return v.size;
     if (v.volume_ml) return `${v.volume_ml}ml`;
     return 'Padrão';
   };
@@ -533,8 +533,8 @@ const ProductPage = () => {
   const getVariantTypeInfo = (v: Variant) => {
     if (v.flavor_name) return { icon: Droplets, label: 'Sabor' };
     if (v.color) return { icon: Palette, label: 'Cor' };
-    if (v.size) return { icon: FileText, label: 'Tamanho' };
     if (v.ohms) return { icon: Zap, label: 'Resistência' };
+    if (v.size) return { icon: FileText, label: 'Tamanho' };
     if (v.volume_ml) return { icon: FileText, label: 'Volume' };
     return null;
   };

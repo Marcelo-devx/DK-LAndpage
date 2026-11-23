@@ -1,4 +1,4 @@
-// redeploy: 2026-11-22T22:33:21.510Z — republicação solicitada; disponibilidade verificada separadamente
+// redeploy: 2026-11-23T18:44:13.355Z — republicação solicitada; disponibilidade verificada separadamente
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
